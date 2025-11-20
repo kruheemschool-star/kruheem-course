@@ -10,13 +10,30 @@ export default function AdminPage() {
   const router = useRouter();
   const [courses, setCourses] = useState<any[]>([]);
   const [form, setForm] = useState({ title: "", desc: "", image: "", videoId: "" });
+  const [isLoading, setIsLoading] = useState(true);
 
-  // ระบบป้องกัน: ถ้าไม่ได้ Login ให้เด้งกลับหน้าแรก (เปิดใช้งานได้เมื่อต้องการ)
-  // useEffect(() => {
-  //   if (!user) router.push("/");
-  // }, [user, router]);
+  // 🔒 ระบบป้องกัน: อนุญาตเฉพาะ "ครูฮีม" เท่านั้น
+  useEffect(() => {
+    // รอให้เช็ค Login เสร็จก่อน
+    const checkUser = setTimeout(() => {
+      if (!user) {
+        // 1. ถ้าไม่ได้ Login -> เตะไปหน้าแรก
+        alert("กรุณาล็อกอินก่อนครับ!");
+        router.push("/");
+      } else if (user.email !== "kruheemreview@gmail.com") { 
+        // 2. ถ้า Login แล้ว "แต่อีเมลไม่ตรง" -> เตะไปหน้าแรก
+        alert("⛔️ คุณไม่มีสิทธิ์เข้าถึงหน้านี้ (สำหรับแอดมินเท่านั้น)");
+        router.push("/");
+      } else {
+        // 3. ถ้าอีเมลตรง -> อนุญาตให้เข้า
+        setIsLoading(false);
+      }
+    }, 1000);
 
-  // ฟังก์ชัน 1: ดึงข้อมูลคอร์สทั้งหมดมาแสดง (ทำงานตลอดเวลา Real-time)
+    return () => clearTimeout(checkUser);
+  }, [user, router]);
+
+  // ดึงข้อมูลคอร์ส (เหมือนเดิม)
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -25,52 +42,51 @@ export default function AdminPage() {
     return () => unsubscribe();
   }, []);
 
-  // ฟังก์ชัน 2: บันทึกคอร์สใหม่
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     if (!form.title || !form.desc) return alert("กรุณากรอกชื่อและรายละเอียด");
     
     try {
-      // ส่งข้อมูลไปเก็บใน Firebase Database
       await addDoc(collection(db, "courses"), {
         ...form,
-        price: 0, // ใส่ราคาไว้ก่อน (เผื่ออนาคต)
+        price: 0,
         createdAt: new Date()
       });
-      setForm({ title: "", desc: "", image: "", videoId: "" }); // ล้างฟอร์ม
+      setForm({ title: "", desc: "", image: "", videoId: "" });
       alert("✅ เพิ่มคอร์สสำเร็จ!");
     } catch (error: any) {
-      console.error(error);
       alert("เกิดข้อผิดพลาด: " + error.message);
     }
   };
 
-  // ฟังก์ชัน 3: ลบคอร์ส
   const handleDelete = async (id: string) => {
     if (confirm("ต้องการลบคอร์สนี้ใช่ไหม?")) {
       await deleteDoc(doc(db, "courses", id));
     }
   };
 
+  // ถ้ากำลังตรวจสอบสิทธิ์ ให้ขึ้นหน้าโหลดรอก่อน
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center text-xl">กำลังตรวจสอบสิทธิ์ความเป็นครู...</div>;
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8 text-slate-800 flex items-center gap-2">
-          🛠️ ระบบหลังบ้าน (Admin)
+          🛠️ ระบบหลังบ้าน (เฉพาะครูฮีม)
         </h1>
         
-        {/* ส่วนฟอร์มเพิ่มข้อมูล */}
+        {/* ฟอร์มเพิ่มข้อมูล */}
         <div className="bg-white p-6 rounded-xl shadow-sm mb-10 border border-gray-200">
             <h2 className="text-xl font-bold mb-4 text-blue-600">เพิ่มคอร์สใหม่</h2>
             <form onSubmit={handleSubmit} className="grid gap-4">
                 <input 
-                  type="text" placeholder="ชื่อคอร์ส (เช่น ตะลุยโจทย์คณิต ม.1)" 
+                  type="text" placeholder="ชื่อคอร์ส" 
                   className="border p-3 rounded-lg focus:outline-blue-500"
                   value={form.title} 
                   onChange={e => setForm({...form, title: e.target.value})}
                 />
                 <textarea 
-                  placeholder="รายละเอียดคอร์สแบบย่อ" 
+                  placeholder="รายละเอียดคอร์ส" 
                   className="border p-3 rounded-lg focus:outline-blue-500 h-24"
                   value={form.desc} 
                   onChange={e => setForm({...form, desc: e.target.value})}
@@ -95,15 +111,12 @@ export default function AdminPage() {
             </form>
         </div>
 
-        {/* ส่วนแสดงรายการคอร์สที่มีอยู่ */}
+        {/* รายการคอร์ส */}
         <h2 className="text-xl font-bold mb-4 text-gray-700">คอร์สทั้งหมด ({courses.length})</h2>
         <div className="grid gap-4">
-            {courses.length === 0 && <p className="text-gray-400 text-center py-10">ยังไม่มีข้อมูลคอร์ส</p>}
-            
             {courses.map((course) => (
-                <div key={course.id} className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition">
+                <div key={course.id} className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-100">
                     <div className="flex gap-4 items-center">
-                        {/* รูปตัวอย่าง */}
                         <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                           {course.image ? <img src={course.image} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center">🖼️</div>}
                         </div>
