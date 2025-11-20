@@ -1,35 +1,47 @@
-// ไฟล์: app/page.js
+// ไฟล์: app/page.tsx
 "use client";
 import { useState, useEffect } from "react";
-import { db, auth } from "../lib/firebase"; // เรียกกุญแจ
-import { collection, getDocs } from "firebase/firestore"; // เรียกคำสั่งดึงข้อมูล
-import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth"; // เรียกระบบล็อกอิน
+import { db, auth } from "../lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from "firebase/auth";
+
+// กำหนดประเภทข้อมูล (เพื่อไม่ให้ TypeScript โวยวาย)
+interface Course {
+  id: string;
+  title: string;
+  desc: string;
+  image: string;
+  videoId?: string;
+}
 
 export default function Home() {
-  const [user, setUser] = useState(null);
-  const [courses, setCourses] = useState([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 1. เช็คสถานะล็อกอิน + ดึงข้อมูลคอร์ส
   useEffect(() => {
-    // ตัวฟังเสียง: ใครล็อกอินอยู่ไหม?
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
 
-    // ดึงข้อมูลคอร์สจาก Database
     const fetchCourses = async () => {
-      const querySnapshot = await getDocs(collection(db, "courses"));
-      const courseList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCourses(courseList);
+      try {
+        const querySnapshot = await getDocs(collection(db, "courses"));
+        const courseList = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Course[];
+        setCourses(courseList);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+      }
     };
 
     fetchCourses();
     return () => unsubscribe();
   }, []);
 
-  // ฟังก์ชันล็อกอิน
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
@@ -39,7 +51,6 @@ export default function Home() {
     }
   };
 
-  // ฟังก์ชันล็อกเอาท์
   const handleLogout = async () => {
     await signOut(auth);
   };
@@ -48,53 +59,66 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* ส่วนหัว (Navbar) */}
-      <nav className="bg-white shadow-sm p-4 flex justify-between items-center">
+      {/* Navbar */}
+      <nav className="bg-white shadow-sm p-4 flex justify-between items-center sticky top-0 z-50">
         <h1 className="text-xl font-bold text-blue-600">📚 คอร์สเรียนครูฮีม</h1>
         <div>
           {user ? (
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">สวัสดี, {user.displayName}</span>
-              <button onClick={handleLogout} className="text-red-500 text-sm border border-red-200 px-3 py-1 rounded hover:bg-red-50">
+              <span className="text-sm text-gray-600 hidden md:inline">สวัสดี, {user.displayName}</span>
+              <button 
+                onClick={handleLogout} 
+                className="text-red-500 text-sm border border-red-200 px-3 py-1 rounded hover:bg-red-50"
+              >
                 ออกจากระบบ
               </button>
             </div>
           ) : (
-            <button onClick={handleLogin} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
-              เข้าสู่ระบบด้วย Google
+            <button 
+              onClick={handleLogin} 
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
+            >
+              เข้าสู่ระบบ
             </button>
           )}
         </div>
       </nav>
 
-      {/* เนื้อหาหลัก */}
-      <div className="max-w-5xl mx-auto p-10">
-        <h2 className="text-2xl font-bold mb-6 text-slate-800">คอร์สเรียนทั้งหมด</h2>
+      {/* Content */}
+      <div className="max-w-5xl mx-auto p-6 md:p-10">
+        <div className="mb-8 text-center md:text-left">
+            <h2 className="text-3xl font-bold text-slate-800">คอร์สเรียนทั้งหมด</h2>
+            <p className="text-gray-500">เลือกเรียนวิชาที่สนใจได้เลยครับ</p>
+        </div>
 
-        {/* ตารางแสดงคอร์ส (Grid) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {courses.map((course) => (
-            <div key={course.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition border border-gray-100">
-              {/* รูปปก */}
-              <div className="h-40 bg-slate-200 relative">
+            <div key={course.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition border border-gray-100 flex flex-col h-full">
+              <div className="h-48 bg-slate-200 relative w-full">
                 {course.image && course.image !== "-" ? (
-                   <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
+                   /* eslint-disable-next-line @next/next/no-img-element */
+                   <img 
+                    src={course.image} 
+                    alt={course.title} 
+                    className="w-full h-full object-cover" 
+                   />
                 ) : (
-                   <div className="w-full h-full flex items-center justify-center text-slate-400">ไม่มีรูปปก</div>
+                   <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100">
+                     ไม่มีรูปปก
+                   </div>
                 )}
               </div>
               
-              {/* ข้อมูลคอร์ส */}
-              <div className="p-5">
-                <h3 className="font-bold text-lg mb-2 text-slate-900">{course.title}</h3>
-                <p className="text-sm text-slate-500 mb-4 line-clamp-2">{course.desc}</p>
+              <div className="p-5 flex flex-col flex-grow">
+                <h3 className="font-bold text-lg mb-2 text-slate-900 line-clamp-1">{course.title}</h3>
+                <p className="text-sm text-slate-500 mb-4 line-clamp-2 flex-grow">{course.desc}</p>
                 
                 {user ? (
-                  <button className="w-full bg-green-600 text-white py-2 rounded font-medium hover:bg-green-700 transition">
+                  <button className="w-full bg-green-600 text-white py-2 rounded font-medium hover:bg-green-700 transition mt-auto">
                     เข้าเรียนทันที
                   </button>
                 ) : (
-                  <button onClick={handleLogin} className="w-full bg-slate-800 text-white py-2 rounded font-medium hover:bg-slate-900 transition">
+                  <button onClick={handleLogin} className="w-full bg-slate-800 text-white py-2 rounded font-medium hover:bg-slate-900 transition mt-auto">
                     ล็อกอินเพื่อเข้าเรียน
                   </button>
                 )}
@@ -104,8 +128,9 @@ export default function Home() {
         </div>
 
         {courses.length === 0 && (
-          <div className="text-center py-20 text-gray-400">
-            ยังไม่มีคอร์สเรียน (ต้องไปเพิ่มในหน้า Admin ก่อน)
+          <div className="text-center py-20 bg-white rounded-lg border border-dashed">
+            <p className="text-gray-400 text-lg">ยังไม่มีคอร์สเรียนในระบบ</p>
+            <p className="text-gray-300 text-sm">(ไปเพิ่มข้อมูลที่หน้า /admin ก่อนนะครับ)</p>
           </div>
         )}
       </div>
