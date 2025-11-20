@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { db, auth } from "../../lib/firebase";
 import { collection, addDoc, getDocs, deleteDoc, doc } from "firebase/firestore";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import Link from "next/link"; // ✅ เพิ่มการเชื่อมโยงหน้า
 
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -13,12 +14,12 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // ระบบตรวจบัตรผ่าน (ห้ามคนไม่ได้ล็อกอินเข้า)
+  // ระบบตรวจบัตรผ่าน
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (!currentUser) {
         alert("⛔️ กรุณาล็อกอินก่อนเข้าใช้งานครับ");
-        router.push("/"); // ดีดกลับหน้าแรก
+        router.push("/"); 
         return;
       }
       setUser(currentUser);
@@ -27,6 +28,14 @@ export default function AdminPage() {
     });
     return () => unsubscribe();
   }, [router]);
+
+  // ฟังก์ชันออกจากระบบ (เพิ่มใหม่)
+  const handleLogout = async () => {
+    if(confirm("ต้องการออกจากระบบใช่ไหม?")) {
+        await signOut(auth);
+        router.push("/"); // ดีดกลับหน้าแรกทันที
+    }
+  };
 
   // ดึงข้อมูลคอร์ส
   const fetchCourses = async () => {
@@ -68,9 +77,28 @@ export default function AdminPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-4xl mx-auto min-h-screen bg-gray-50">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">🛠️ จัดการคอร์สเรียน</h1>
-        <span className="text-sm text-gray-500">{user?.email}</span>
+      
+      {/* ✅ ส่วนหัวที่ปรับปรุงใหม่: มีปุ่มกลับหน้าแรก และ Logout */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-white p-4 rounded-xl shadow-sm border">
+        <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-800">🛠️ จัดการคอร์สเรียน</h1>
+            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{user?.email}</span>
+        </div>
+        
+        <div className="flex gap-3">
+            {/* ปุ่มกลับหน้าแรก */}
+            <Link href="/" className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100 transition flex items-center gap-2">
+                ← หน้าแรก
+            </Link>
+            
+            {/* ปุ่ม Logout */}
+            <button 
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50 transition flex items-center gap-2"
+            >
+                ออกจากระบบ
+            </button>
+        </div>
       </div>
 
       {/* ฟอร์มเพิ่มคอร์ส */}
@@ -105,8 +133,11 @@ export default function AdminPage() {
       <div className="grid gap-4">
         {courses.map((c) => (
           <div key={c.id} className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm border">
-            <h3 className="font-bold">{c.title}</h3>
-            <button onClick={() => handleDelete(c.id)} className="text-red-500 border border-red-200 px-3 py-1 rounded hover:bg-red-50">
+            <div className="flex items-center gap-4">
+                 {c.image && <img src={c.image} className="w-12 h-12 rounded object-cover bg-gray-100" />}
+                 <h3 className="font-bold text-slate-800">{c.title}</h3>
+            </div>
+            <button onClick={() => handleDelete(c.id)} className="text-red-500 border border-red-200 px-3 py-1 rounded hover:bg-red-50 text-sm">
               ลบ
             </button>
           </div>
