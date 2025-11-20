@@ -1,110 +1,113 @@
+// ไฟล์: app/page.js
 "use client";
 import { useState, useEffect } from "react";
-import { useUserAuth } from "../context/AuthContext";
-import { db } from "../lib/firebase";
-import { collection, onSnapshot } from "firebase/firestore";
-import Link from "next/link"; // ✅ ต้องมีบรรทัดนี้ (ตัวเปลี่ยนหน้า)
+import { db, auth } from "../lib/firebase"; // เรียกกุญแจ
+import { collection, getDocs } from "firebase/firestore"; // เรียกคำสั่งดึงข้อมูล
+import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth"; // เรียกระบบล็อกอิน
 
 export default function Home() {
-  const { user, googleSignIn, logOut } = useUserAuth();
-  const [courses, setCourses] = useState<any[]>([]);
+  const [user, setUser] = useState(null);
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // ดึงข้อมูลคอร์สจาก Database
+  // 1. เช็คสถานะล็อกอิน + ดึงข้อมูลคอร์ส
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
-      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCourses(list);
+    // ตัวฟังเสียง: ใครล็อกอินอยู่ไหม?
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
     });
+
+    // ดึงข้อมูลคอร์สจาก Database
+    const fetchCourses = async () => {
+      const querySnapshot = await getDocs(collection(db, "courses"));
+      const courseList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCourses(courseList);
+    };
+
+    fetchCourses();
     return () => unsubscribe();
   }, []);
 
+  // ฟังก์ชันล็อกอิน
+  const handleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login Error:", error);
+    }
+  };
+
+  // ฟังก์ชันล็อกเอาท์
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
+
+  if (loading) return <div className="p-10 text-center">กำลังโหลด...</div>;
+
   return (
     <main className="min-h-screen bg-gray-50">
-      
       {/* ส่วนหัว (Navbar) */}
-      <header className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            🎓 KruHeem Math
-          </h1>
-          
-          {!user ? (
-             <button onClick={googleSignIn} className="bg-slate-900 text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-slate-700 transition shadow-lg">
-               Login เข้าสู่ระบบ
-             </button>
-          ) : (
+      <nav className="bg-white shadow-sm p-4 flex justify-between items-center">
+        <h1 className="text-xl font-bold text-blue-600">📚 คอร์สเรียนครูฮีม</h1>
+        <div>
+          {user ? (
             <div className="flex items-center gap-4">
-               <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-slate-800">{user.displayName}</p>
-                  <p className="text-xs text-gray-500">{user.email}</p>
-               </div>
-               {user.photoURL && <img src={user.photoURL} alt="" className="w-10 h-10 rounded-full border border-gray-200" />}
-               <button onClick={logOut} className="text-red-500 border border-red-100 px-3 py-1 rounded hover:bg-red-50 text-sm">
-                 ออก
-               </button>
+              <span className="text-sm text-gray-600">สวัสดี, {user.displayName}</span>
+              <button onClick={handleLogout} className="text-red-500 text-sm border border-red-200 px-3 py-1 rounded hover:bg-red-50">
+                ออกจากระบบ
+              </button>
             </div>
+          ) : (
+            <button onClick={handleLogin} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
+              เข้าสู่ระบบด้วย Google
+            </button>
           )}
         </div>
-      </header>
+      </nav>
 
       {/* เนื้อหาหลัก */}
-      <div className="max-w-5xl mx-auto p-6">
-        
-        {/* Banner ข้อความต้อนรับ */}
-        <div className="text-center py-10 mb-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4">คอร์สเรียนคณิตศาสตร์ออนไลน์</h2>
-          <p className="text-gray-500 text-lg">เรียนสนุก เข้าใจง่าย สไตล์ครูฮีม</p>
+      <div className="max-w-5xl mx-auto p-10">
+        <h2 className="text-2xl font-bold mb-6 text-slate-800">คอร์สเรียนทั้งหมด</h2>
+
+        {/* ตารางแสดงคอร์ส (Grid) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {courses.map((course) => (
+            <div key={course.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition border border-gray-100">
+              {/* รูปปก */}
+              <div className="h-40 bg-slate-200 relative">
+                {course.image && course.image !== "-" ? (
+                   <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
+                ) : (
+                   <div className="w-full h-full flex items-center justify-center text-slate-400">ไม่มีรูปปก</div>
+                )}
+              </div>
+              
+              {/* ข้อมูลคอร์ส */}
+              <div className="p-5">
+                <h3 className="font-bold text-lg mb-2 text-slate-900">{course.title}</h3>
+                <p className="text-sm text-slate-500 mb-4 line-clamp-2">{course.desc}</p>
+                
+                {user ? (
+                  <button className="w-full bg-green-600 text-white py-2 rounded font-medium hover:bg-green-700 transition">
+                    เข้าเรียนทันที
+                  </button>
+                ) : (
+                  <button onClick={handleLogin} className="w-full bg-slate-800 text-white py-2 rounded font-medium hover:bg-slate-900 transition">
+                    ล็อกอินเพื่อเข้าเรียน
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* ตรวจสอบการ Login */}
-        {!user ? (
-          // 🔒 ถ้ายังไม่ Login ให้โชว์ปุ่มล็อค
-          <div className="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
-             <div className="text-5xl mb-4">🔒</div>
-             <h3 className="text-xl font-bold text-gray-800 mb-2">เนื้อหานี้สำหรับสมาชิก</h3>
-             <p className="text-gray-500 mb-6">กรุณาเข้าสู่ระบบเพื่อเลือกเรียนคอร์สต่างๆ</p>
-             <button onClick={googleSignIn} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-blue-200 shadow-lg">
-               เข้าสู่ระบบด้วย Google
-             </button>
+        {courses.length === 0 && (
+          <div className="text-center py-20 text-gray-400">
+            ยังไม่มีคอร์สเรียน (ต้องไปเพิ่มในหน้า Admin ก่อน)
           </div>
-        ) : (
-          // ✅ ถ้า Login แล้ว ให้โชว์รายการคอร์ส
-          <>
-            {courses.length === 0 ? (
-              <div className="text-center py-20 text-gray-400">
-                ยังไม่มีคอร์สเรียน (รอครูฮีมมาเพิ่มอยู่นะ...)
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {courses.map((course) => (
-                  <div key={course.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition duration-300 border border-gray-100 overflow-hidden flex flex-col group">
-                     {/* รูปปกคอร์ส */}
-                     <div className="h-48 bg-slate-100 relative overflow-hidden">
-                        {course.image ? (
-                          <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">📚</div>
-                        )}
-                     </div>
-                     
-                     {/* ข้อมูลคอร์ส */}
-                     <div className="p-6 flex-1 flex flex-col">
-                        <h3 className="text-xl font-bold text-slate-800 mb-2 line-clamp-2">{course.title}</h3>
-                        <p className="text-gray-500 mb-4 line-clamp-3 text-sm flex-1">{course.desc}</p>
-                        
-                        {/* ✅ จุดที่แก้ไข: ใช้ Link เพื่อให้กดไปหน้าวิดีโอได้จริง */}
-                        <Link href={`/course/${course.id}`} className="w-full bg-slate-900 text-white py-3 rounded-xl hover:bg-blue-600 transition font-bold mt-auto flex items-center justify-center gap-2">
-                           ▶ เริ่มเรียน
-                        </Link>
-
-                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
         )}
-
       </div>
     </main>
   );
