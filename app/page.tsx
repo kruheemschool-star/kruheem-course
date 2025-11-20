@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { db, auth } from "../lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from "firebase/auth";
+import Link from "next/link"; // ✅ เพิ่มบรรทัดนี้: เพื่อให้สร้างลิ้งค์ได้
 
-// กำหนดประเภทข้อมูล (เพื่อไม่ให้ TypeScript โวยวาย)
 interface Course {
   id: string;
   title: string;
@@ -114,9 +114,12 @@ export default function Home() {
                 <p className="text-sm text-slate-500 mb-4 line-clamp-2 flex-grow">{course.desc}</p>
                 
                 {user ? (
-                  <button className="w-full bg-green-600 text-white py-2 rounded font-medium hover:bg-green-700 transition mt-auto">
-                    เข้าเรียนทันที
-                  </button>
+                  // ✅ จุดที่แก้ไข: ครอบปุ่มด้วย Link เพื่อให้กดแล้วไปหน้านั่งเรียน
+                  <Link href={`/course/${course.id}`} className="w-full mt-auto">
+                    <button className="w-full bg-green-600 text-white py-2 rounded font-medium hover:bg-green-700 transition">
+                      เข้าเรียนทันที
+                    </button>
+                  </Link>
                 ) : (
                   <button onClick={handleLogin} className="w-full bg-slate-800 text-white py-2 rounded font-medium hover:bg-slate-900 transition mt-auto">
                     ล็อกอินเพื่อเข้าเรียน
@@ -126,13 +129,6 @@ export default function Home() {
             </div>
           ))}
         </div>
-
-        {courses.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-lg border border-dashed">
-            <p className="text-gray-400 text-lg">ยังไม่มีคอร์สเรียนในระบบ</p>
-            <p className="text-gray-300 text-sm">(ไปเพิ่มข้อมูลที่หน้า /admin ก่อนนะครับ)</p>
-          </div>
-        )}
       </div>
     </main>
   );
