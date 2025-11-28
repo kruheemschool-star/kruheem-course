@@ -11,6 +11,9 @@ import {
   Rocket,
   Search,
   Quote,
+  Heart,
+  Flame,
+  Trophy,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -20,6 +23,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [bannerImages, setBannerImages] = useState<string[]>(["/images/course-promo-banner.png"]);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [badgeText, setBadgeText] = useState("คอร์สยอดนิยม");
+  const [badgeIcon, setBadgeIcon] = useState("Star");
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -45,6 +50,8 @@ export default function HomePage() {
           } else if (data.mainBannerUrl) {
             setBannerImages([data.mainBannerUrl]);
           }
+          if (data.badgeText) setBadgeText(data.badgeText);
+          if (data.badgeIcon) setBadgeIcon(data.badgeIcon);
         }
       } catch (error) {
         console.error("Error fetching banner:", error);
@@ -78,7 +85,7 @@ export default function HomePage() {
     groupedCourses[category].sort((a, b) => a.title.localeCompare(b.title, 'th'));
   });
 
-  const categoryOrder = ["สอบเข้า ม.1", "ประถม (ป.4-6)", "ม.ต้น (ม.1-3)", "ม.ปลาย (ม.4-6)", "คอร์สเรียนทั่วไป"];
+  const categoryOrder = ["คอร์สสอบเข้า", "สอบเข้า ม.1", "ประถม (ป.4-6)", "ม.ต้น (ม.1-3)", "ม.ปลาย (ม.4-6)", "คอร์สเรียนทั่วไป"];
   const sortedCategories = Object.keys(groupedCourses).sort((a, b) => {
     const indexA = categoryOrder.indexOf(a);
     const indexB = categoryOrder.indexOf(b);
@@ -182,8 +189,12 @@ export default function HomePage() {
                 {/* Optional: Overlay Text/Badge */}
                 <div className="absolute bottom-6 left-8 z-20 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-lg transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
                   <span className="text-amber-600 font-bold flex items-center gap-2">
-                    <Star size={20} fill="currentColor" />
-                    คอร์สยอดนิยม
+                    {badgeIcon === "Star" && <Star size={20} fill="currentColor" />}
+                    {badgeIcon === "Heart" && <Heart size={20} fill="currentColor" />}
+                    {badgeIcon === "Flame" && <Flame size={20} fill="currentColor" />}
+                    {badgeIcon === "Trophy" && <Trophy size={20} fill="currentColor" />}
+                    {badgeIcon === "Sparkles" && <Sparkles size={20} fill="currentColor" />}
+                    {badgeText}
                   </span>
                 </div>
               </div>

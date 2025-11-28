@@ -4,12 +4,15 @@ import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Link from "next/link";
-import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2, Trash2, Star, Heart, Flame, Trophy, Sparkles } from "lucide-react";
 
 export default function AdminBanners() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [bannerImages, setBannerImages] = useState<{ id: string, url: string }[]>([]);
+    const [badgeText, setBadgeText] = useState("คอร์สยอดนิยม");
+    const [badgeIcon, setBadgeIcon] = useState("Star");
+    const [isSavingBadge, setIsSavingBadge] = useState(false);
 
     useEffect(() => {
         fetchBanners();
@@ -27,6 +30,8 @@ export default function AdminBanners() {
                     // Migration for legacy single image
                     setBannerImages([{ id: 'legacy', url: data.mainBannerUrl }]);
                 }
+                if (data.badgeText) setBadgeText(data.badgeText);
+                if (data.badgeIcon) setBadgeIcon(data.badgeIcon);
             }
         } catch (error) {
             console.error("Error fetching banners:", error);
@@ -74,6 +79,27 @@ export default function AdminBanners() {
             alert("เกิดข้อผิดพลาดในการลบรูปภาพ");
         }
     };
+
+    const handleSaveBadge = async () => {
+        try {
+            setIsSavingBadge(true);
+            await setDoc(doc(db, "system", "banners"), { badgeText, badgeIcon }, { merge: true });
+            alert("บันทึกข้อมูลป้ายกำกับเรียบร้อยแล้ว ✅");
+        } catch (error) {
+            console.error("Error saving badge:", error);
+            alert("บันทึกข้อมูลไม่สำเร็จ ❌");
+        } finally {
+            setIsSavingBadge(false);
+        }
+    };
+
+    const icons = [
+        { name: "Star", icon: <Star size={20} fill="currentColor" /> },
+        { name: "Heart", icon: <Heart size={20} fill="currentColor" /> },
+        { name: "Flame", icon: <Flame size={20} fill="currentColor" /> },
+        { name: "Trophy", icon: <Trophy size={20} fill="currentColor" /> },
+        { name: "Sparkles", icon: <Sparkles size={20} fill="currentColor" /> },
+    ];
 
     if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
 
@@ -158,6 +184,58 @@ export default function AdminBanners() {
                                     disabled={uploading}
                                 />
                             </label>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Badge Customization Card */}
+                <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100 mt-8">
+                    <div className="flex items-center gap-4 mb-6 border-b border-stone-100 pb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600">
+                            <Star size={24} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-stone-800">ป้ายกำกับ (Badge)</h2>
+                            <p className="text-stone-400 text-sm">ข้อความและไอคอนที่จะแสดงบนรูปภาพ</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-bold text-stone-700 mb-2">ข้อความบนป้าย</label>
+                            <input
+                                type="text"
+                                value={badgeText}
+                                onChange={(e) => setBadgeText(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
+                                placeholder="เช่น คอร์สยอดนิยม, โปรโมชั่นพิเศษ"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-stone-700 mb-2">เลือกไอคอน</label>
+                            <div className="flex gap-3 flex-wrap">
+                                {icons.map((item) => (
+                                    <button
+                                        key={item.name}
+                                        onClick={() => setBadgeIcon(item.name)}
+                                        className={`p-3 rounded-xl border-2 transition flex items-center justify-center w-14 h-14 ${badgeIcon === item.name ? 'border-indigo-500 bg-indigo-50 text-indigo-600' : 'border-stone-100 bg-white text-stone-400 hover:border-indigo-200'}`}
+                                    >
+                                        {item.icon}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-stone-100 flex justify-end">
+                            <button
+                                onClick={handleSaveBadge}
+                                disabled={isSavingBadge}
+                                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 disabled:opacity-50"
+                            >
+                                {isSavingBadge ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+                                <span>บันทึกการเปลี่ยนแปลง</span>
+                            </button>
                         </div>
                     </div>
                 </div>
