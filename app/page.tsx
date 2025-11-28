@@ -18,7 +18,8 @@ import Footer from "@/components/Footer";
 export default function HomePage() {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [bannerUrl, setBannerUrl] = useState("/images/course-promo-banner.png");
+  const [bannerImages, setBannerImages] = useState<string[]>(["/images/course-promo-banner.png"]);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -37,8 +38,13 @@ export default function HomePage() {
       try {
         const docRef = doc(db, "system", "banners");
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists() && docSnap.data().mainBannerUrl) {
-          setBannerUrl(docSnap.data().mainBannerUrl);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.bannerImages && Array.isArray(data.bannerImages) && data.bannerImages.length > 0) {
+            setBannerImages(data.bannerImages.map((img: any) => img.url));
+          } else if (data.mainBannerUrl) {
+            setBannerImages([data.mainBannerUrl]);
+          }
         }
       } catch (error) {
         console.error("Error fetching banner:", error);
@@ -48,6 +54,15 @@ export default function HomePage() {
     fetchCourses();
     fetchBanner();
   }, []);
+
+  // Auto-play slideshow
+  useEffect(() => {
+    if (bannerImages.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % bannerImages.length);
+    }, 5000); // Change every 5 seconds
+    return () => clearInterval(interval);
+  }, [bannerImages]);
 
   const groupedCourses = courses.reduce((acc: Record<string, any[]>, course: any) => {
     const category = course.category || "คอร์สเรียนทั่วไป";
@@ -132,20 +147,40 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Promotional Image Section */}
+            {/* Promotional Image Section (Slideshow) */}
             <div className="mt-16 w-full animate-fade-in" style={{ animationDelay: '0.5s' }}>
-              <div className="relative aspect-[21/9] w-full rounded-[2.5rem] overflow-hidden shadow-2xl group cursor-pointer hover:shadow-orange-200/50 transition-all duration-500">
-                {/* Recommended Image Size: 1200x500px or 21:9 aspect ratio */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={bannerUrl}
-                  alt="Promotional Banner"
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
+              <div className="relative aspect-[21/9] w-full rounded-[2.5rem] overflow-hidden shadow-2xl group cursor-pointer hover:shadow-orange-200/50 transition-all duration-500 bg-stone-100">
+
+                {bannerImages.map((url, index) => (
+                  <div
+                    key={index}
+                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={`Promotional Banner ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
+                  </div>
+                ))}
+
+                {/* Navigation Dots */}
+                {bannerImages.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex gap-2">
+                    {bannerImages.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentSlide(index)}
+                        className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentSlide ? 'w-8 bg-white' : 'bg-white/50 hover:bg-white/80'}`}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {/* Optional: Overlay Text/Badge */}
-                <div className="absolute bottom-6 left-8 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-lg transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                <div className="absolute bottom-6 left-8 z-20 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-lg transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
                   <span className="text-amber-600 font-bold flex items-center gap-2">
                     <Star size={20} fill="currentColor" />
                     คอร์สยอดนิยม

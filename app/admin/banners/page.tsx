@@ -4,13 +4,12 @@ import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Link from "next/link";
-import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2, Trash2 } from "lucide-react";
 
 export default function AdminBanners() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
-    const [mainBannerUrl, setMainBannerUrl] = useState("");
-    const [previewUrl, setPreviewUrl] = useState("");
+    const [bannerImages, setBannerImages] = useState<{ id: string, url: string }[]>([]);
 
     useEffect(() => {
         fetchBanners();
@@ -22,9 +21,11 @@ export default function AdminBanners() {
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.mainBannerUrl) {
-                    setMainBannerUrl(data.mainBannerUrl);
-                    setPreviewUrl(data.mainBannerUrl);
+                if (data.bannerImages && Array.isArray(data.bannerImages)) {
+                    setBannerImages(data.bannerImages);
+                } else if (data.mainBannerUrl) {
+                    // Migration for legacy single image
+                    setBannerImages([{ id: 'legacy', url: data.mainBannerUrl }]);
                 }
             }
         } catch (error) {
@@ -38,19 +39,19 @@ export default function AdminBanners() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Preview immediately
-        const objectUrl = URL.createObjectURL(file);
-        setPreviewUrl(objectUrl);
-
         try {
             setUploading(true);
-            const storageRef = ref(storage, `banners/main_banner_${Date.now()}`);
+            const imageId = `banner_${Date.now()}`;
+            const storageRef = ref(storage, `banners/${imageId}`);
             await uploadBytes(storageRef, file);
             const url = await getDownloadURL(storageRef);
 
+            const newImage = { id: imageId, url };
+            const updatedImages = [...bannerImages, newImage];
+
             // Update state and Firestore
-            setMainBannerUrl(url);
-            await setDoc(doc(db, "system", "banners"), { mainBannerUrl: url }, { merge: true });
+            setBannerImages(updatedImages);
+            await setDoc(doc(db, "system", "banners"), { bannerImages: updatedImages }, { merge: true });
 
             alert("อัปโหลดรูปภาพเรียบร้อยแล้ว ✅");
         } catch (error) {
@@ -58,6 +59,19 @@ export default function AdminBanners() {
             alert("เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ ❌");
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleDeleteImage = async (imageId: string) => {
+        if (!confirm("ต้องการลบรูปภาพนี้ใช่ไหม?")) return;
+
+        try {
+            const updatedImages = bannerImages.filter(img => img.id !== imageId);
+            setBannerImages(updatedImages);
+            await setDoc(doc(db, "system", "banners"), { bannerImages: updatedImages }, { merge: true });
+        } catch (error) {
+            console.error("Error deleting image:", error);
+            alert("เกิดข้อผิดพลาดในการลบรูปภาพ");
         }
     };
 
@@ -85,35 +99,43 @@ export default function AdminBanners() {
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-stone-800">โฆษณาหลัก (Main Banner)</h2>
-                            <p className="text-stone-400 text-sm">รูปภาพที่จะแสดงในหน้าแรก ถัดจากปุ่มเริ่มเรียน</p>
+                            <p className="text-stone-400 text-sm">รูปภาพที่จะแสดงในหน้าแรก (สามารถอัปโหลดได้หลายรูปเพื่อทำสไลด์)</p>
                         </div>
                     </div>
 
                     <div className="space-y-6">
-                        {/* Image Preview */}
-                        <div className="w-full aspect-[21/9] bg-stone-50 rounded-3xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center overflow-hidden relative group">
-                            {previewUrl ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="text-center p-6">
-                                    <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
-                                        <ImageIcon size={32} />
+                        {/* Image Grid */}
+                        {bannerImages.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-6">
+                                {bannerImages.map((img, index) => (
+                                    <div key={img.id || index} className="relative group rounded-3xl overflow-hidden border-2 border-stone-100 shadow-sm">
+                                        <div className="aspect-[21/9]">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={img.url} alt={`Banner ${index + 1}`} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                                            <button
+                                                onClick={() => handleDeleteImage(img.id)}
+                                                className="p-3 bg-white text-rose-500 rounded-full hover:bg-rose-50 hover:scale-110 transition shadow-lg"
+                                                title="ลบรูปภาพ"
+                                            >
+                                                <Trash2 size={20} />
+                                            </button>
+                                        </div>
+                                        <div className="absolute top-4 left-4 bg-black/50 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm">
+                                            รูปที่ {index + 1}
+                                        </div>
                                     </div>
-                                    <p className="text-stone-400 font-medium">ยังไม่มีรูปภาพ</p>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="w-full aspect-[21/9] bg-stone-50 rounded-3xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center">
+                                <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4 text-stone-300">
+                                    <ImageIcon size={32} />
                                 </div>
-                            )}
-
-                            {/* Overlay Loading */}
-                            {uploading && (
-                                <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
-                                    <div className="flex flex-col items-center gap-2">
-                                        <Loader2 size={32} className="animate-spin text-amber-500" />
-                                        <span className="text-amber-600 font-bold text-sm">กำลังอัปโหลด...</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                <p className="text-stone-400 font-medium">ยังไม่มีรูปภาพ</p>
+                            </div>
+                        )}
 
                         {/* Upload Controls */}
                         <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-stone-50 p-6 rounded-3xl">
@@ -126,8 +148,8 @@ export default function AdminBanners() {
                                 flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition cursor-pointer
                                 ${uploading ? 'bg-stone-300 cursor-not-allowed' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:scale-105 hover:shadow-orange-200'}
                             `}>
-                                <Upload size={20} />
-                                <span>{uploading ? 'กำลังอัปโหลด...' : 'เลือกรูปภาพ'}</span>
+                                {uploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
+                                <span>{uploading ? 'กำลังอัปโหลด...' : 'เพิ่มรูปภาพ'}</span>
                                 <input
                                     type="file"
                                     accept="image/*"
