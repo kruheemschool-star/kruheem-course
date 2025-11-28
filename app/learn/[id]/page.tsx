@@ -52,6 +52,9 @@ export default function CoursePlayer() {
     // ✅ State สำหรับเก็บสถานะการลงทะเบียน (Approved หรือไม่)
     const [isEnrolled, setIsEnrolled] = useState(false);
 
+    // ✅ State สำหรับ Mobile Menu
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
     // 1. Check Enrollment
     useEffect(() => {
         if (!authLoading && user && courseId) {
@@ -241,11 +244,24 @@ export default function CoursePlayer() {
     if (!course) return <div className="min-h-screen bg-white flex items-center justify-center">ไม่พบคอร์สเรียนนี้</div>;
 
     return (
-        <div className="h-screen bg-[#F3F4F6] font-sans flex overflow-hidden">
+        <div className="h-[100dvh] bg-[#F3F4F6] font-sans flex overflow-hidden relative">
 
-            {/* Sidebar */}
-            <aside className="w-80 bg-white border-r border-gray-200 flex flex-col h-full flex-shrink-0 hidden md:flex shadow-sm z-20 relative">
-                <div className="p-5 border-b border-gray-100 bg-white z-10 flex flex-col items-center">
+            {/* Mobile Menu Overlay */}
+            {isMobileMenuOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                ></div>
+            )}
+
+            {/* Sidebar (Responsive) */}
+            <aside className={`
+                w-80 bg-white border-r border-gray-200 flex flex-col h-full flex-shrink-0 
+                fixed inset-y-0 left-0 z-50 md:relative md:z-20 
+                transition-transform duration-300 ease-in-out shadow-xl md:shadow-sm
+                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+            `}>
+                <div className="p-5 border-b border-gray-100 bg-white z-10 flex flex-col items-center flex-shrink-0">
 
                     {/* ปุ่มการ์ดย้อนกลับ */}
                     <Link href="/my-courses" className="w-full flex items-center justify-center gap-2 bg-white border-2 border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 px-4 py-3 rounded-2xl font-bold transition-all mb-6 shadow-sm group transform hover:-translate-y-0.5">
@@ -286,7 +302,7 @@ export default function CoursePlayer() {
                     )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 overflow-y-auto custom-scrollbar pb-20 md:pb-0">
                     {groupedLessons.map((group: any) => {
                         const isOpen = openSections.includes(group.header.id);
                         return (
@@ -310,7 +326,12 @@ export default function CoursePlayer() {
                                                 return (
                                                     <button
                                                         key={lesson.id}
-                                                        onClick={() => isUnlocked && changeLesson(lesson)}
+                                                        onClick={() => {
+                                                            if (isUnlocked) {
+                                                                changeLesson(lesson);
+                                                                setIsMobileMenuOpen(false); // Close menu on selection
+                                                            }
+                                                        }}
                                                         disabled={!isUnlocked}
                                                         className={`w-full flex items-center gap-3 py-3 px-6 text-left border-l-4 transition hover:bg-gray-100
                                                     ${isActive ? 'border-green-500 bg-white shadow-sm' : 'border-transparent'}
@@ -344,18 +365,28 @@ export default function CoursePlayer() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col relative bg-white">
-                <header className="h-20 bg-white/90 backdrop-blur-md border-b border-gray-100 flex justify-between items-center px-6 md:px-10 sticky top-0 z-30 shadow-sm">
-                    <div className="flex items-center gap-4 overflow-hidden">
+            <main className="flex-1 flex flex-col relative bg-white min-w-0">
+                <header className="h-16 md:h-20 bg-white/90 backdrop-blur-md border-b border-gray-100 flex justify-between items-center px-4 md:px-10 sticky top-0 z-30 shadow-sm">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        {/* Hamburger Menu Button */}
+                        <button
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                            </svg>
+                        </button>
+
                         <div className="min-w-0">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Current Lesson</p>
-                            <h1 className="text-lg md:text-2xl font-extrabold text-gray-800 truncate">{activeLesson?.title || "Loading..."}</h1>
+                            <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Current Lesson</p>
+                            <h1 className="text-base md:text-2xl font-extrabold text-gray-800 truncate">{activeLesson?.title || "Loading..."}</h1>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
 
                         {user && canWatchCurrent && !isHeaderMode && (
-                            <button onClick={handleNextLesson} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 px-5 py-2.5 rounded-full font-bold transition-all shadow-sm hover:shadow-md group">
+                            <button onClick={handleNextLesson} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 px-3 md:px-5 py-2 md:py-2.5 rounded-full font-bold transition-all shadow-sm hover:shadow-md group text-sm md:text-base">
                                 {completedLessons.includes(activeLesson?.id || "") ? <><span className="hidden md:inline">Completed</span> <CheckIcon /></> : <><span className="hidden md:inline">Complete & Continue</span> <span className="group-hover:translate-x-1 transition">→</span></>}
                             </button>
                         )}
