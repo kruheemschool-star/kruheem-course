@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import {
   BookOpen,
@@ -18,6 +18,7 @@ import Footer from "@/components/Footer";
 export default function HomePage() {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bannerUrl, setBannerUrl] = useState("/images/course-promo-banner.png");
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -31,7 +32,21 @@ export default function HomePage() {
         setLoading(false);
       }
     };
+
+    const fetchBanner = async () => {
+      try {
+        const docRef = doc(db, "system", "banners");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && docSnap.data().mainBannerUrl) {
+          setBannerUrl(docSnap.data().mainBannerUrl);
+        }
+      } catch (error) {
+        console.error("Error fetching banner:", error);
+      }
+    };
+
     fetchCourses();
+    fetchBanner();
   }, []);
 
   const groupedCourses = courses.reduce((acc: Record<string, any[]>, course: any) => {
@@ -115,6 +130,28 @@ export default function HomePage() {
                 <BookOpen className="group-hover:scale-110 transition-transform text-amber-600" />
                 เข้าสู่บทเรียน
               </Link>
+            </div>
+
+            {/* Promotional Image Section */}
+            <div className="mt-16 w-full animate-fade-in" style={{ animationDelay: '0.5s' }}>
+              <div className="relative aspect-[21/9] w-full rounded-[2.5rem] overflow-hidden shadow-2xl group cursor-pointer hover:shadow-orange-200/50 transition-all duration-500">
+                {/* Recommended Image Size: 1200x500px or 21:9 aspect ratio */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={bannerUrl}
+                  alt="Promotional Banner"
+                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
+
+                {/* Optional: Overlay Text/Badge */}
+                <div className="absolute bottom-6 left-8 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-lg transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
+                  <span className="text-amber-600 font-bold flex items-center gap-2">
+                    <Star size={20} fill="currentColor" />
+                    คอร์สยอดนิยม
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </header>

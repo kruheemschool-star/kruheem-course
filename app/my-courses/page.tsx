@@ -1,9 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, orderBy, limit, collectionGroup } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, collectionGroup, addDoc, serverTimestamp, onSnapshot, updateDoc, doc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, MessageSquare, Paperclip, CheckCircle, Trash2, Clock, User, Send, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
@@ -35,6 +37,20 @@ export default function MyCoursesPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+
+    // --- Support Form State ---
+    const [supportTickets, setSupportTickets] = useState<any[]>([]);
+    const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+    const [messages, setMessages] = useState<any[]>([]);
+    const [replyText, setReplyText] = useState("");
+    const [replyFile, setReplyFile] = useState<File | null>(null);
+    const [isSendingReply, setIsSendingReply] = useState(false);
+
+    const [supportSubject, setSupportSubject] = useState("");
+    const [supportMessage, setSupportMessage] = useState("");
+    const [supportFile, setSupportFile] = useState<File | null>(null);
+    const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+    const [supportViewMode, setSupportViewMode] = useState<'list' | 'form'>('list');
 
     // ✅ Load settings from LocalStorage
     useEffect(() => {
@@ -81,6 +97,46 @@ export default function MyCoursesPage() {
             alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
         } finally {
             setIsSavingProfile(false);
+        }
+    };
+
+    const handleSubmitSupport = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!supportSubject.trim() || !supportMessage.trim()) {
+            alert("กรุณากรอกหัวข้อและรายละเอียด");
+            return;
+        }
+
+        setIsSubmittingSupport(true);
+        try {
+            let attachmentUrl = "";
+            if (supportFile) {
+                const storageRef = ref(storage, `support/${user?.uid}/${Date.now()}_${supportFile.name}`);
+                await uploadBytes(storageRef, supportFile);
+                attachmentUrl = await getDownloadURL(storageRef);
+            }
+
+            await addDoc(collection(db, "support_tickets"), {
+                userId: user?.uid,
+                userName: userProfile?.displayName || user?.displayName || "Unknown",
+                userEmail: user?.email,
+                subject: supportSubject,
+                message: supportMessage,
+                attachmentUrl,
+                status: "pending",
+                createdAt: serverTimestamp()
+            });
+
+            alert("ส่งเรื่องแจ้งปัญหาเรียบร้อยแล้ว เจ้าหน้าที่จะรีบตรวจสอบครับ");
+            setSupportSubject("");
+            setSupportMessage("");
+            setSupportFile(null);
+            fetchUserTickets(); // Refresh list
+        } catch (error) {
+            console.error("Error submitting ticket:", error);
+            alert("เกิดข้อผิดพลาดในการส่งเรื่อง");
+        } finally {
+            setIsSubmittingSupport(false);
         }
     };
 
@@ -154,45 +210,129 @@ export default function MyCoursesPage() {
                 }
             };
             fetchCourses();
+            fetchUserTickets();
         }
     }, [user, authLoading, router]);
 
+    const fetchUserTickets = async () => {
+        if (!user) return;
+        try {
+            const q = query(collection(db, "support_tickets"), where("userId", "==", user.uid));
+            const snapshot = await getDocs(q);
+            const tickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+            // Client-side sort to avoid index requirement
+            tickets.sort((a, b) => {
+                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                return dateB.getTime() - dateA.getTime();
+            });
+            setSupportTickets(tickets);
+            if (tickets.length === 0) {
+                setSupportViewMode('form');
+            } else {
+                setSupportViewMode('list');
+            }
+        } catch (error) {
+            console.error("Error fetching tickets:", error);
+        }
+    };
+
+    // Real-time listener for messages when a ticket is selected
+    useEffect(() => {
+        if (!selectedTicket) return;
+
+        // 1. Listen to Messages
+        const qMessages = query(collection(db, "support_tickets", selectedTicket.id, "messages"), orderBy("createdAt", "asc"));
+        const unsubscribeMessages = onSnapshot(qMessages, (snapshot) => {
+            const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setMessages(msgs);
+        });
+
+        // 2. Listen to Ticket Status (for Read Receipts)
+        const unsubscribeTicket = onSnapshot(doc(db, "support_tickets", selectedTicket.id), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                // Update selectedTicket with latest data (especially lastAdminReadAt)
+                setSelectedTicket((prev: any) => ({ ...prev, ...data }));
+            }
+        });
+
+        // 3. Mark as read by user (Initial open)
+        updateDoc(doc(db, "support_tickets", selectedTicket.id), {
+            lastUserReadAt: serverTimestamp()
+        });
+
+        return () => {
+            unsubscribeMessages();
+            unsubscribeTicket();
+        };
+    }, [selectedTicket?.id]);
+
+    const handleSendReply = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if ((!replyText.trim() && !replyFile) || !selectedTicket) return;
+
+        setIsSendingReply(true);
+        try {
+            let attachmentUrl = "";
+            if (replyFile) {
+                const storageRef = ref(storage, `support/user/${Date.now()}_${replyFile.name}`);
+                await uploadBytes(storageRef, replyFile);
+                attachmentUrl = await getDownloadURL(storageRef);
+            }
+
+            await addDoc(collection(db, "support_tickets", selectedTicket.id, "messages"), {
+                text: replyText,
+                attachmentUrl,
+                sender: "user",
+                createdAt: serverTimestamp()
+            });
+            setReplyText("");
+            setReplyFile(null);
+        } catch (error) {
+            console.error("Error sending reply:", error);
+            alert("ส่งข้อความไม่สำเร็จ");
+        } finally {
+            setIsSendingReply(false);
+        }
+    };
+
     // ✅ Fetch Notifications
     useEffect(() => {
-        if (enrolledCourses.length > 0) {
-            const fetchNotifications = async () => {
-                try {
-                    // Fetch recent notifications
-                    const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(20));
-                    const snapshot = await getDocs(q);
-                    const allNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        if (!user) return;
 
-                    // Filter relevant notifications
-                    const courseIds = enrolledCourses.map(c => c.id);
-                    const relevant = allNotifs.filter(n => {
-                        // 1. ประกาศทั่วไป (All)
-                        if (n.target === 'all') return true;
+        const fetchNotifications = async () => {
+            try {
+                // Fetch recent notifications
+                const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(20));
+                const snapshot = await getDocs(q);
+                const allNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
 
-                        // 2. ประกาศเฉพาะคอร์ส (Specific Courses) - แบบใหม่
-                        if (n.target === 'specific_courses' && n.targetCourseIds) {
-                            return n.targetCourseIds.some((id: string) => courseIds.includes(id));
-                        }
+                // Filter relevant notifications
+                const courseIds = enrolledCourses.map(c => c.id);
+                const relevant = allNotifs.filter(n => {
+                    // 1. ประกาศทั่วไป (All)
+                    if (n.target === 'all') return true;
 
-                        // 3. ประกาศบทเรียนใหม่ (Legacy / Single Course)
-                        if (n.target === 'enrolled_students' && n.courseId) {
-                            return courseIds.includes(n.courseId);
-                        }
+                    // 2. ประกาศเฉพาะคอร์ส (Specific Courses) - แบบใหม่
+                    if (n.target === 'specific_courses' && n.targetCourseIds) {
+                        return n.targetCourseIds.some((id: string) => courseIds.includes(id));
+                    }
 
-                        return false;
-                    });
-                    setNotifications(relevant);
-                } catch (error) {
-                    console.error("Error fetching notifications:", error);
-                }
-            };
-            fetchNotifications();
-        }
-    }, [enrolledCourses]);
+                    // 3. ประกาศบทเรียนใหม่ (Legacy / Single Course)
+                    if (n.target === 'enrolled_students' && n.courseId) {
+                        return courseIds.includes(n.courseId);
+                    }
+
+                    return false;
+                });
+                setNotifications(relevant);
+            } catch (error) {
+                console.error("Error fetching notifications:", error);
+            }
+        };
+        fetchNotifications();
+    }, [user?.uid, enrolledCourses]);
 
     // ✅ Smart Search Logic
     useEffect(() => {
@@ -245,194 +385,237 @@ export default function MyCoursesPage() {
             <div className="relative z-10 flex flex-col min-h-screen">
                 <Navbar />
 
-                <div className="max-w-5xl mx-auto px-8 md:px-12 pb-24 pt-40 flex-grow w-full">
+                <div className="max-w-7xl mx-auto px-6 md:px-12 pb-24 pt-40 flex-grow w-full">
 
-                    {/* ✅ Student Profile Card */}
-                    <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-sm mb-12 relative overflow-hidden group border border-slate-100">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
-                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                            <div className="relative">
-                                <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 p-1.5 shadow-lg transform group-hover:scale-105 transition-transform duration-500">
-                                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden text-7xl md:text-8xl">
-                                        {userProfile?.avatar ? (
-                                            userProfile.avatar.startsWith("http") ? (
-                                                /* eslint-disable-next-line @next/next/no-img-element */
-                                                <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                    {/* ✅ 4 Cards Grid Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+
+                        {/* Card 1: Student Profile */}
+                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden group h-full flex flex-col justify-center">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-slate-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
+                            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
+                                <div className="relative flex-shrink-0">
+                                    <div className="w-28 h-28 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 p-1 shadow-lg transform group-hover:scale-105 transition-transform duration-500">
+                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden text-6xl">
+                                            {userProfile?.avatar ? (
+                                                userProfile.avatar.startsWith("http") ? (
+                                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                                    <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="leading-none select-none">{userProfile.avatar}</span>
+                                                )
                                             ) : (
-                                                <span className="leading-none select-none">{userProfile.avatar}</span>
-                                            )
-                                        ) : (
-                                            <span className="leading-none select-none">{user?.displayName ? user.displayName[0] : "👦"}</span>
-                                        )}
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleOpenProfileModal}
-                                    className="absolute bottom-0 right-0 group/edit"
-                                    title="แก้ไขข้อมูลส่วนตัว"
-                                >
-                                    <div className="relative">
-                                        <div className="w-12 h-12 bg-white rounded-full shadow-lg border-4 border-indigo-50 flex items-center justify-center transform group-hover/edit:scale-110 group-hover/edit:rotate-12 transition-all duration-300 z-10">
-                                            {/* Colorful Pencil Icon */}
-                                            <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M14.0002 5.00004L19.0002 10M14.0002 5.00004L5.50024 13.5C5.10024 13.9 4.80024 14.4 4.60024 14.9L3.00024 19.5C2.90024 19.8 3.00024 20.1 3.30024 20.3C3.50024 20.5 3.80024 20.5 4.00024 20.5L8.60024 19.4C9.10024 19.3 9.60024 19 10.0002 18.6L18.5002 10M14.0002 5.00004L16.3002 2.70004C17.6002 1.40004 19.7002 1.40004 21.0002 2.70004C22.3002 4.00004 22.3002 6.10004 21.0002 7.40004L18.5002 10M18.5002 10L19.0002 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                <path d="M14 5L19 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                <path d="M3 21L4.5 16.5L7.5 19.5L3 21Z" fill="#F59E0B" />
-                                            </svg>
+                                                <span className="leading-none select-none">{user?.displayName ? user.displayName[0] : "👦"}</span>
+                                            )}
                                         </div>
-                                        {/* Tooltip Label */}
-                                        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-max opacity-0 group-hover/edit:opacity-100 transition-opacity duration-300 pointer-events-none">
-                                            <div className="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-xl relative">
-                                                เปลี่ยนรูปโปรไฟล์
-                                                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+                                    </div>
+                                    <button
+                                        onClick={handleOpenProfileModal}
+                                        className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md border border-slate-100 hover:bg-slate-50 transition"
+                                        title="แก้ไขข้อมูลส่วนตัว"
+                                    >
+                                        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M14.0002 5.00004L19.0002 10M14.0002 5.00004L5.50024 13.5C5.10024 13.9 4.80024 14.4 4.60024 14.9L3.00024 19.5C2.90024 19.8 3.00024 20.1 3.30024 20.3C3.50024 20.5 3.80024 20.5 4.00024 20.5L8.60024 19.4C9.10024 19.3 9.60024 19 10.0002 18.6L18.5002 10M14.0002 5.00004L16.3002 2.70004C17.6002 1.40004 19.7002 1.40004 21.0002 2.70004C22.3002 4.00004 22.3002 6.10004 21.0002 7.40004L18.5002 10M18.5002 10L19.0002 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div className="text-center sm:text-left">
+                                    <div className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold mb-2">
+                                        🎓 นักเรียนของ KruHeem
+                                    </div>
+                                    <h1 className="text-2xl font-black text-slate-800 mb-1">
+                                        {userProfile?.displayName || user?.displayName || "นักเรียน"}
+                                    </h1>
+                                    <p className="text-slate-500 text-sm">
+                                        พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Card 2: Search */}
+                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-full">
+                            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <span className="bg-blue-100 text-blue-600 p-2 rounded-xl"><SearchIcon /></span>
+                                ค้นหาบทเรียน
+                            </h2>
+                            <div className="relative flex-1">
+                                <div className="relative h-full">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                        <SearchIcon />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="พิมพ์คำค้นหา..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full h-full min-h-[56px] pl-12 pr-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all text-slate-700 font-medium placeholder:text-slate-400"
+                                    />
+                                </div>
+
+                                {/* Search Results Dropdown */}
+                                {searchQuery && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[300px] overflow-y-auto custom-scrollbar z-50">
+                                        {searchResults.length > 0 ? (
+                                            <div className="divide-y divide-slate-50">
+                                                {searchResults.map((result, index) => (
+                                                    <Link
+                                                        key={index}
+                                                        href={result.isEnrolled ? (result.type === 'lesson' ? `/learn/${result.course.id}` : `/learn/${result.course.id}`) : `/course/${result.course.id}`}
+                                                        className="block p-3 hover:bg-indigo-50 transition"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${result.isEnrolled ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                                {result.type === 'lesson' ? (result.data.type === 'video' ? <PlayIcon /> : '📄') : '📘'}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="font-bold text-slate-800 text-sm truncate">{result.type === 'lesson' ? result.data.title : result.course.title}</p>
+                                                                <p className="text-xs text-slate-400 truncate">{result.course?.title}</p>
+                                                            </div>
+                                                        </div>
+                                                    </Link>
+                                                ))}
                                             </div>
-                                        </div>
-                                    </div>
-                                </button>
-                            </div>
-                            <div className="text-center md:text-left flex-1">
-                                <div className="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-sm font-bold mb-3 flex items-center gap-2 w-fit mx-auto md:mx-0">
-                                    <span>🎓</span> นักเรียนของ KruHeem
-                                </div>
-                                <h1 className="text-3xl md:text-4xl font-black text-slate-800 mb-2">
-                                    สวัสดี, {userProfile?.displayName || user?.displayName || "นักเรียน"}! 👋
-                                </h1>
-                                <p className="text-slate-500 text-lg flex items-center gap-2 justify-center md:justify-start">
-                                    พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ✅ Notifications Section */}
-                    {notifications.length > 0 && (
-                        <div className="mb-10 relative z-20">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2">
-                                    <span className="text-amber-500 bg-amber-100 p-2 rounded-full"><BellIcon /></span>
-                                    อัปเดตล่าสุด
-                                </h2>
-                            </div>
-                            <div className="space-y-3">
-                                {notifications
-                                    .filter(n => !dismissedIds.includes(n.id))
-                                    .slice(0, 3)
-                                    .map(notif => (
-                                        <div key={notif.id} className="relative group">
-                                            <Link href={notif.courseId ? `/learn/${notif.courseId}` : '#'} className={`block ${!notif.courseId ? 'cursor-default' : ''}`}>
-                                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex items-start gap-4 group-hover:shadow-md group-hover:border-indigo-200 transition relative overflow-hidden pr-12">
-                                                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-indigo-50 to-transparent rounded-bl-full -mr-4 -mt-4 opacity-50 group-hover:opacity-100 transition"></div>
-
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition ${notif.type === 'general' ? 'bg-orange-100 text-orange-500 group-hover:bg-orange-500 group-hover:text-white' : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-500 group-hover:text-white'}`}>
-                                                        {notif.type === 'general' ? <span className="text-lg">📢</span> :
-                                                            notif.lessonType === 'video' ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M4.5 4.5a3 3 0 00-3 3v9a3 3 0 003 3h8.25a3 3 0 003-3v-9a3 3 0 00-3-3H4.5zM19.94 18.75l-2.69-2.69V7.94l2.69-2.69c.944-.945 2.56-.276 2.56 1.06v11.38c0 1.336-1.616 2.005-2.56 1.06z" /></svg>
-                                                                : notif.lessonType === 'quiz' ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4.804 21.644A6.707 6.707 0 006 21.75a6.721 6.721 0 003.583-1.029c.774.182 1.584.279 2.417.279 5.322 0 9.75-3.97 9.75-9 0-5.03-4.428-9-9.75-9s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.192.232.226.277.428.254.543a3.73 3.73 0 01-.814 1.686.75.75 0 00.44 1.223zM8.25 9.75a3.75 3.75 0 117.5 0 .75.75 0 01-1.5 0 2.25 2.25 0 10-2.25 2.25v1.5a.75.75 0 01-1.5 0v-1.5a3.75 3.75 0 013.75-3.75zM9.75 17.25a.75.75 0 101.5 0 .75.75 0 00-1.5 0z" clipRule="evenodd" /></svg>
-                                                                    : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V4.875C21.75 3.84 20.91 3 19.875 3H4.125zM12 9.75a.75.75 0 000 1.5h1.5a.75.75 0 000-1.5H12zm-.75-2.25a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5H12a.75.75 0 01-.75-.75zM6 12.75a.75.75 0 000 1.5h12a.75.75 0 000-1.5H6zm0 4.5a.75.75 0 000 1.5h12a.75.75 0 000-1.5H6z" clipRule="evenodd" /></svg>}
-                                                    </div>
-
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex justify-between items-start">
-                                                            <p className="font-medium text-slate-800 text-sm pr-2 group-hover:text-indigo-600 transition">
-                                                                {notif.type === 'general' ? notif.message : notif.lessonTitle}
-                                                            </p>
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${notif.type === 'general' ? 'bg-orange-50 text-orange-500' : 'bg-indigo-50 text-indigo-500'}`}>
-                                                                {notif.type === 'general' ? 'ประกาศ' : 'ใหม่!'}
-                                                            </span>
-                                                        </div>
-                                                        {notif.courseTitle && <p className="text-xs text-slate-500 mt-1 truncate">ในคอร์ส: {notif.courseTitle}</p>}
-                                                        <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                                                            🕒 {notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'เมื่อเร็วๆ นี้'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </Link>
-                                            <button
-                                                onClick={(e) => handleDismiss(e, notif.id)}
-                                                className="absolute top-2 right-2 p-1.5 rounded-full bg-white/80 hover:bg-rose-50 text-slate-300 hover:text-rose-500 border border-transparent hover:border-rose-100 transition shadow-sm opacity-0 group-hover:opacity-100 z-10"
-                                                title="ซ่อนประกาศนี้"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                                                    <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ✅ Smart Search Bar */}
-                    <div className="relative mb-12 z-30">
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                <SearchIcon />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="ค้นหาบทเรียน, คอร์สเรียน, หรือเนื้อหาที่สนใจ..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white border border-slate-200 shadow-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 transition-all text-slate-700 font-medium placeholder:text-slate-400"
-                            />
-                        </div>
-
-                        {/* Search Results Dropdown */}
-                        {searchQuery && (
-                            <div className="absolute top-full left-0 right-0 mt-4 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center sticky top-0 z-10">
-                                    <span className="text-sm font-bold text-slate-500">ผลการค้นหา ({searchResults.length})</span>
-                                    <button onClick={() => setSearchQuery("")} className="text-xs text-slate-400 hover:text-slate-600">ล้างคำค้นหา</button>
-                                </div>
-
-                                {searchResults.length > 0 ? (
-                                    <div className="divide-y divide-slate-50">
-                                        {searchResults.map((result, index) => (
-                                            <Link
-                                                key={index}
-                                                href={result.isEnrolled ? (result.type === 'lesson' ? `/learn/${result.course.id}` : `/learn/${result.course.id}`) : `/course/${result.course.id}`}
-                                                className="block p-4 hover:bg-indigo-50 transition group"
-                                            >
-                                                <div className="flex items-start gap-4">
-                                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${result.isEnrolled ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                                                        {result.type === 'lesson' ? (
-                                                            result.data.type === 'video' ? <PlayIcon /> : <span className="text-xl">📄</span>
-                                                        ) : (
-                                                            <span className="text-xl">📘</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${result.type === 'lesson' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                                                                {result.type === 'lesson' ? 'บทเรียน' : 'คอร์สเรียน'}
-                                                            </span>
-                                                            {!result.isEnrolled && (
-                                                                <span className="flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold">
-                                                                    <LockIcon /> ยังไม่ได้ลงทะเบียน
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <h4 className="font-bold text-slate-800 truncate group-hover:text-indigo-700 transition">
-                                                            {result.type === 'lesson' ? result.data.title : result.course.title}
-                                                        </h4>
-                                                        <p className="text-xs text-slate-500 truncate mt-0.5">
-                                                            ในคอร์ส: {result.course?.title || "Unknown Course"}
-                                                        </p>
-                                                    </div>
-                                                    <div className="self-center opacity-0 group-hover:opacity-100 transition-opacity text-indigo-400">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M16.28 11.47a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 01-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 011.06-1.06l7.5 7.5z" clipRule="evenodd" /></svg>
-                                                    </div>
-                                                </div>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="p-12 text-center text-slate-400">
-                                        <div className="text-4xl mb-3">🔍</div>
-                                        <p>ไม่พบข้อมูลที่ตรงกับคำค้นหา</p>
+                                        ) : (
+                                            <div className="p-4 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
+                                        )}
                                     </div>
                                 )}
                             </div>
-                        )}
+                        </div>
+
+                        {/* Card 3: Notifications */}
+                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full flex flex-col">
+                            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <span className="bg-amber-100 text-amber-600 p-2 rounded-xl"><BellIcon /></span>
+                                ข่าวสารจากครูฮีม
+                            </h2>
+                            <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[300px] pr-2 space-y-3">
+                                {notifications.length > 0 ? (
+                                    notifications
+                                        .filter(n => !dismissedIds.includes(n.id))
+                                        .map(notif => (
+                                            <div key={notif.id} className="relative group bg-slate-50 p-3 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white hover:shadow-sm transition">
+                                                <div className="flex gap-3">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notif.type === 'general' ? 'bg-orange-100 text-orange-500' : 'bg-indigo-100 text-indigo-500'}`}>
+                                                        {notif.type === 'general' ? '📢' : '✨'}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-bold text-slate-700 leading-tight mb-1">{notif.type === 'general' ? notif.message : notif.lessonTitle}</p>
+                                                        <p className="text-xs text-slate-400">{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString('th-TH') : 'เมื่อเร็วๆ นี้'}</p>
+                                                    </div>
+                                                    <button onClick={(e) => handleDismiss(e, notif.id)} className="text-slate-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition">✕</button>
+                                                </div>
+                                            </div>
+                                        ))
+                                ) : (
+                                    <div className="text-center py-8 text-slate-400">
+                                        <p>ยังไม่มีประกาศใหม่</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Card 4: Support / Q&A */}
+                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full flex flex-col relative overflow-hidden">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                    <span className="bg-cyan-100 text-cyan-600 p-2 rounded-xl">💬</span>
+                                    พูดคุย / แจ้งปัญหา
+                                </h2>
+                                {supportViewMode === 'list' && supportTickets.length > 0 && (
+                                    <button
+                                        onClick={() => setSupportViewMode('form')}
+                                        className="text-xs font-bold text-cyan-600 bg-cyan-50 px-3 py-1.5 rounded-lg hover:bg-cyan-100 transition"
+                                    >
+                                        + เรื่องใหม่
+                                    </button>
+                                )}
+                            </div>
+
+                            {supportViewMode === 'list' ? (
+                                <div className="flex-1 flex flex-col">
+                                    {supportTickets.length > 0 ? (
+                                        <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[200px] space-y-3 pr-2 -mr-2">
+                                            {supportTickets.map(ticket => (
+                                                <div
+                                                    key={ticket.id}
+                                                    onClick={() => setSelectedTicket(ticket)}
+                                                    className="bg-white border border-slate-100 p-4 rounded-2xl hover:border-cyan-200 hover:shadow-md transition cursor-pointer group relative overflow-hidden"
+                                                >
+                                                    <div className="absolute top-0 left-0 w-1 h-full bg-slate-200 group-hover:bg-cyan-400 transition"></div>
+                                                    <div className="flex justify-between items-start mb-1 pl-2">
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ticket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                                                            {ticket.status === 'resolved' ? '✅ แก้ไขแล้ว' : '⏳ รอตรวจสอบ'}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                                            <Clock size={10} />
+                                                            {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString('th-TH') : '...'}
+                                                        </span>
+                                                    </div>
+                                                    <p className="font-bold text-slate-700 text-sm truncate pl-2 group-hover:text-cyan-700 transition">{ticket.subject}</p>
+                                                    <p className="text-xs text-slate-500 truncate pl-2">{ticket.message}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 space-y-3">
+                                            <MessageSquare size={40} className="text-slate-200" />
+                                            <p className="text-sm">ยังไม่มีรายการแจ้งปัญหา</p>
+                                            <button
+                                                onClick={() => setSupportViewMode('form')}
+                                                className="px-4 py-2 bg-cyan-50 text-cyan-600 rounded-xl font-bold text-sm hover:bg-cyan-100 transition"
+                                            >
+                                                แจ้งปัญหาเรื่องแรก
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <form onSubmit={handleSubmitSupport} className="flex-1 flex flex-col gap-3 animate-in fade-in slide-in-from-right-4 duration-200">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSupportViewMode('list')}
+                                            className="p-1 hover:bg-slate-100 rounded-lg transition text-slate-400"
+                                        >
+                                            <ArrowLeft size={18} />
+                                        </button>
+                                        <span className="text-sm font-bold text-slate-600">แจ้งปัญหาใหม่</span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="หัวข้อเรื่อง..."
+                                        className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm font-bold text-slate-700"
+                                        value={supportSubject}
+                                        onChange={e => setSupportSubject(e.target.value)}
+                                        required
+                                    />
+                                    <textarea
+                                        placeholder="รายละเอียด หรือคำถาม..."
+                                        className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm text-slate-700 resize-none flex-1 min-h-[80px]"
+                                        value={supportMessage}
+                                        onChange={e => setSupportMessage(e.target.value)}
+                                        required
+                                    ></textarea>
+                                    <div className="flex items-center gap-2">
+                                        <label className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 text-slate-500 text-xs cursor-pointer hover:bg-slate-100 transition truncate border border-transparent hover:border-slate-200">
+                                            <Paperclip size={14} />
+                                            <span className="truncate">{supportFile ? supportFile.name : "แนบไฟล์ (ถ้ามี)"}</span>
+                                            <input type="file" className="hidden" onChange={e => setSupportFile(e.target.files?.[0] || null)} />
+                                        </label>
+                                        <button
+                                            type="submit"
+                                            disabled={isSubmittingSupport}
+                                            className="px-6 py-2 rounded-xl bg-cyan-500 text-white font-bold text-sm hover:bg-cyan-600 transition shadow-md shadow-cyan-200 disabled:opacity-50"
+                                        >
+                                            {isSubmittingSupport ? '...' : 'ส่งเรื่อง'}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
+
                     </div>
 
                     <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-3">
@@ -578,6 +761,102 @@ export default function MyCoursesPage() {
                                 {isSavingProfile ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* ✅ Chat Modal (User Side) */}
+            {selectedTicket && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedTicket(null)}></div>
+                    <div className="bg-white rounded-[2rem] w-full max-w-lg h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative z-10">
+                        {/* Modal Header */}
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <div>
+                                <h3 className="font-bold text-slate-800 truncate max-w-[200px]">{selectedTicket.subject}</h3>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${selectedTicket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>
+                                    {selectedTicket.status === 'resolved' ? 'แก้ไขแล้ว' : 'รอตรวจสอบ'}
+                                </span>
+                            </div>
+                            <button onClick={() => setSelectedTicket(null)} className="p-2 hover:bg-slate-200 rounded-full transition">
+                                <X size={20} className="text-slate-500" />
+                            </button>
+                        </div>
+
+                        {/* Chat Area */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 custom-scrollbar">
+                            {/* Original Ticket Message */}
+                            <div className="flex justify-end">
+                                <div className="bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[85%] shadow-sm">
+                                    <p className="text-sm">{selectedTicket.message}</p>
+                                    {selectedTicket.attachmentUrl && (
+                                        <a href={selectedTicket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-200 bg-indigo-700/50 px-2 py-1 rounded-lg hover:bg-indigo-700 transition">
+                                            <Paperclip size={12} /> ไฟล์แนบ
+                                        </a>
+                                    )}
+                                    <span className="text-[10px] text-indigo-200 block mt-1 text-right">
+                                        {selectedTicket.createdAt?.toDate ? selectedTicket.createdAt.toDate().toLocaleString('th-TH') : 'เริ่มต้น'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Conversation */}
+                            {messages.map((msg) => (
+                                <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`p-3 rounded-2xl max-w-[85%] shadow-sm ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-100 text-slate-700 rounded-tl-none'}`}>
+                                        <p className="text-sm">{msg.text}</p>
+                                        {msg.attachmentUrl && (
+                                            <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className={`mt-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg ${msg.sender === 'user' ? 'bg-indigo-700/50 text-indigo-100 hover:bg-indigo-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
+                                                <Paperclip size={12} /> ไฟล์แนบ
+                                            </a>
+                                        )}
+                                        <div className={`flex items-center gap-1 mt-1 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                            <span className={`text-[10px] ${msg.sender === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                                {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleString('th-TH') : 'เมื่อสักครู่'}
+                                            </span>
+                                            {msg.sender === 'user' && (
+                                                <span className="text-[10px] ml-1 font-bold">
+                                                    {selectedTicket.lastAdminReadAt?.toDate && msg.createdAt?.toDate && selectedTicket.lastAdminReadAt.toDate() > msg.createdAt.toDate() ? (
+                                                        <span className="text-green-300">อ่านแล้ว</span>
+                                                    ) : (
+                                                        <span className="text-indigo-300">ยังไม่อ่าน</span>
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Input Area */}
+                        <form onSubmit={handleSendReply} className="p-4 bg-white border-t border-slate-100 flex gap-2 items-end">
+                            <label className="p-3 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer transition">
+                                <Paperclip size={20} />
+                                <input type="file" className="hidden" onChange={(e) => setReplyFile(e.target.files?.[0] || null)} />
+                            </label>
+                            <div className="flex-1 flex flex-col gap-2">
+                                {replyFile && (
+                                    <div className="flex items-center justify-between bg-indigo-50 px-3 py-1 rounded-lg text-xs text-indigo-600">
+                                        <span className="truncate max-w-[200px]">{replyFile.name}</span>
+                                        <button type="button" onClick={() => setReplyFile(null)} className="hover:text-indigo-800"><X size={14} /></button>
+                                    </div>
+                                )}
+                                <input
+                                    type="text"
+                                    value={replyText}
+                                    onChange={(e) => setReplyText(e.target.value)}
+                                    placeholder="พิมพ์ข้อความ..."
+                                    className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={isSendingReply || (!replyText.trim() && !replyFile)}
+                                className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-indigo-200"
+                            >
+                                <Send size={20} />
+                            </button>
+                        </form>
                     </div>
                 </div>
             )}

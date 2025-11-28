@@ -14,6 +14,7 @@ export default function AdminDashboard() {
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [pendingCount, setPendingCount] = useState(0);
+    const [ticketsCount, setTicketsCount] = useState(0);
 
     useEffect(() => {
         fetchData();
@@ -29,6 +30,10 @@ export default function AdminDashboard() {
             const qPending = query(collection(db, "enrollments"), where("status", "==", "pending"));
             const snapPending = await getDocs(qPending);
             setPendingCount(snapPending.size);
+
+            const qTickets = query(collection(db, "support_tickets"), where("status", "==", "pending"));
+            const snapTickets = await getDocs(qTickets);
+            setTicketsCount(snapTickets.size);
 
         } catch (error) {
             console.error("Error fetching data:", error);
@@ -219,16 +224,31 @@ export default function AdminDashboard() {
                             <p className="text-sm text-orange-800/60 mt-1 relative z-10">แจ้งเตือนนักเรียนทุกคน</p>
                         </Link>
 
+                        {/* 6. จัดการโฆษณา (Pink Gradient) */}
+                        <Link href="/admin/banners" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-pink-100 to-rose-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">🖼️</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-pink-900/80 group-hover:text-pink-900 relative z-10">จัดการโฆษณา</h3>
+                            <p className="text-sm text-pink-800/60 mt-1 relative z-10">เปลี่ยนรูปภาพหน้าเว็บ</p>
+                        </Link>
+
                         {/* 6. ถาม-ตอบ (Cyan Gradient) */}
-                        <div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                        {/* 7. ถาม-ตอบ / แจ้งปัญหา (Cyan Gradient) */}
+                        <Link href="/admin/support" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
                             <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
                             <div className="flex justify-between items-start mb-4 relative z-10">
                                 <span className="text-4xl drop-shadow-sm">💬</span>
-                                <span className="bg-white/60 text-blue-600 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">เร็วๆ นี้</span>
+                                {ticketsCount > 0 && (
+                                    <span className="bg-white/80 text-blue-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-bounce">
+                                        {ticketsCount} ใหม่
+                                    </span>
+                                )}
                             </div>
-                            <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">ถาม-ตอบ Q&A</h3>
-                            <p className="text-sm text-blue-800/60 mt-1 relative z-10">ตอบคำถามจากบทเรียน</p>
-                        </div>
+                            <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">ถาม-ตอบ / แจ้งปัญหา</h3>
+                            <p className="text-sm text-blue-800/60 mt-1 relative z-10">ตอบคำถามจากนักเรียน</p>
+                        </Link>
 
 
 
