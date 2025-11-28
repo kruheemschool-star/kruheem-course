@@ -258,12 +258,12 @@ export default function CoursePlayer() {
             <aside className={`
                 w-80 bg-white border-r border-gray-200 flex-shrink-0 h-full
                 fixed inset-y-0 left-0 z-50 
-                overflow-y-auto md:overflow-hidden
-                md:relative md:z-20 md:flex md:flex-col
+                overflow-y-auto lg:overflow-hidden
+                md:relative md:z-20 lg:flex lg:flex-col
                 transition-transform duration-300 ease-in-out shadow-xl md:shadow-sm
                 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
             `}>
-                <div className="p-5 border-b border-gray-100 bg-white z-10 flex flex-col items-center md:flex-shrink-0">
+                <div className="p-5 border-b border-gray-100 bg-white z-10 flex flex-col items-center lg:flex-shrink-0">
 
                     {/* ปุ่มการ์ดย้อนกลับ */}
                     <Link href="/my-courses" className="w-full flex items-center justify-center gap-2 bg-white border-2 border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 px-4 py-3 rounded-2xl font-bold transition-all mb-6 shadow-sm group transform hover:-translate-y-0.5">
@@ -304,7 +304,7 @@ export default function CoursePlayer() {
                     )}
                 </div>
 
-                <div className="md:flex-1 md:overflow-y-auto custom-scrollbar pb-20 md:pb-0">
+                <div className="lg:flex-1 lg:overflow-y-auto custom-scrollbar pb-20 lg:pb-0">
                     {groupedLessons.map((group: any) => {
                         const isOpen = openSections.includes(group.header.id);
                         return (
