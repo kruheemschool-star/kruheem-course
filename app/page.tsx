@@ -48,7 +48,7 @@ export default function HomePage() {
     groupedCourses[category].sort((a, b) => a.title.localeCompare(b.title, 'th'));
   });
 
-  const categoryOrder = ["ประถม (ป.4-6)", "สอบเข้า ม.1", "ม.ต้น (ม.1-3)", "ม.ปลาย (ม.4-6)", "คอร์สเรียนทั่วไป"];
+  const categoryOrder = ["สอบเข้า ม.1", "ประถม (ป.4-6)", "ม.ต้น (ม.1-3)", "ม.ปลาย (ม.4-6)", "คอร์สเรียนทั่วไป"];
   const sortedCategories = Object.keys(groupedCourses).sort((a, b) => {
     const indexA = categoryOrder.indexOf(a);
     const indexB = categoryOrder.indexOf(b);
@@ -258,8 +258,8 @@ export default function HomePage() {
         {/* Courses Grid */}
         <main id="courses" className="max-w-[1400px] mx-auto px-6 pb-32 w-full">
           {loading ? (
-            <div className="grid md:grid-cols-3 gap-8">
-              {[1, 2, 3].map(i => <div key={i} className="h-[500px] bg-white/40 rounded-[3rem] animate-pulse border border-white/60"></div>)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {[1, 2, 3, 4].map(i => <div key={i} className="h-[500px] bg-white/40 rounded-[3rem] animate-pulse border border-white/60"></div>)}
             </div>
           ) : (
             <div className="space-y-32">
@@ -272,7 +272,7 @@ export default function HomePage() {
                     <h2 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight drop-shadow-sm">{category}</h2>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                     {groupedCourses[category].map((course: any) => (
                       <Link
                         href={`/course/${course.id}`}
