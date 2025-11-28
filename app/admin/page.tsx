@@ -1,359 +1,381 @@
-// ไฟล์: app/admin/page.tsx
 "use client";
-import { useState, useEffect } from "react";
-import { db, auth, storage } from "../../lib/firebase";
-import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import Link from "next/link";
+import { useUserAuth } from "@/context/AuthContext";
 
-export default function AdminPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [courses, setCourses] = useState<any[]>([]);
-  
-  // Form State
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const [videoId, setVideoId] = useState("");
-  // เก็บ URL รูปปัจจุบัน (เผื่อกรณีแก้ไขแล้วไม่เปลี่ยนรูป)
-  const [currentImageUrl, setCurrentImageUrl] = useState(""); 
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState("");
-  
-  // ✨ State สำหรับโหมดแก้ไข
-  const [editId, setEditId] = useState<string | null>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<{msg: string, type: 'success'|'error'} | null>(null);
-  const router = useRouter();
+export default function AdminDashboard() {
+    const { user, logOut } = useUserAuth();
+    const [loading, setLoading] = useState(true);
 
-  const showToast = (msg: string, type: 'success'|'error' = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+    // State ข้อมูล
+    const [enrollments, setEnrollments] = useState<any[]>([]);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [pendingCount, setPendingCount] = useState(0);
 
-  const extractVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : url;
-  };
+    useEffect(() => {
+        fetchData();
+    }, []);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (!currentUser) {
-        router.push("/"); 
-        return;
-      }
-      setUser(currentUser);
-      fetchCourses();
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [router]);
+    const fetchData = async () => {
+        try {
+            const qApproved = query(collection(db, "enrollments"), where("status", "==", "approved"));
+            const snapApproved = await getDocs(qApproved);
+            const approvedData = snapApproved.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setEnrollments(approvedData);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
-  };
+            const qPending = query(collection(db, "enrollments"), where("status", "==", "pending"));
+            const snapPending = await getDocs(qPending);
+            setPendingCount(snapPending.size);
 
-  const handleLogout = async () => {
-    if(confirm("ต้องการออกจากระบบใช่ไหม?")) {
-        await signOut(auth);
-        router.push("/");
-    }
-  };
-
-  const fetchCourses = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, "courses"));
-      // เรียงลำดับตามวันที่สร้าง (ใหม่สุดอยู่บน)
-      const courseList = querySnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a:any, b:any) => b.createdAt?.seconds - a.createdAt?.seconds);
-        
-      setCourses(courseList);
-    } catch (error) {
-      console.error("Error:", error);
-    }
-  };
-
-  // ✨ ฟังก์ชันกดปุ่ม "แก้ไข" (ดึงข้อมูลขึ้นฟอร์ม)
-  const handleEditClick = (course: any) => {
-    setEditId(course.id); // จำไว้ว่ากำลังแก้ ID ไหน
-    setTitle(course.title);
-    setDesc(course.desc);
-    setVideoId(course.videoId);
-    setCurrentImageUrl(course.image); // จำ URL รูปเดิม
-    setImagePreview(course.image); // โชว์รูปเดิม
-    setImageFile(null); // เคลียร์ไฟล์ใหม่ (เพราะยังไม่ได้เลือกเปลี่ยน)
-    
-    // เลื่อนหน้าจอขึ้นไปหาฟอร์ม
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // ✨ ฟังก์ชันยกเลิกการแก้ไข
-  const handleCancelEdit = () => {
-    setEditId(null);
-    setTitle("");
-    setDesc("");
-    setVideoId("");
-    setCurrentImageUrl("");
-    setImagePreview("");
-    setImageFile(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title) return showToast("กรุณาใส่ชื่อคอร์สก่อนนะครับ", "error");
-    
-    // ถ้าเป็นการเพิ่มใหม่ ต้องบังคับใส่รูป แต่ถ้าแก้ไข ไม่ต้องบังคับ (เพราะใช้รูปเดิมได้)
-    if (!editId && !imageFile) return showToast("กรุณาเลือกรูปปกด้วยนะครับ", "error");
-    
-    setSubmitting(true);
-    
-    try {
-        let downloadURL = currentImageUrl; // เริ่มต้นด้วยรูปเดิม
-
-        // 1. ถ้ามีการเลือกรูปใหม่ -> อัปโหลดขึ้นโกดัง
-        if (imageFile) {
-            const storageRef = ref(storage, `course-images/${Date.now()}-${imageFile.name}`);
-            const snapshot = await uploadBytes(storageRef, imageFile);
-            downloadURL = await getDownloadURL(snapshot.ref);
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        } finally {
+            setLoading(false);
         }
+    };
 
-        // 2. แปลงลิงก์ YouTube
-        const cleanVideoId = extractVideoId(videoId);
+    const handleLogout = async () => {
+        if (confirm("ต้องการออกจากระบบใช่ไหม?")) {
+            await logOut();
+        }
+    };
 
-        const courseData = {
-          title,
-          desc,
-          image: downloadURL,
-          videoId: cleanVideoId,
-          updatedAt: new Date()
-        };
+    const handleExport = async () => {
+        if (!confirm("ต้องการดาวน์โหลดข้อมูลการลงทะเบียนทั้งหมดเป็นไฟล์ Excel ใช่ไหม?")) return;
 
-        // 3. ตรวจสอบว่าเป็น "เพิ่มใหม่" หรือ "แก้ไข"
-        if (editId) {
-            // 🟡 โหมดแก้ไข (Update)
-            await updateDoc(doc(db, "courses", editId), courseData);
-            showToast("✏️ แก้ไขข้อมูลเรียบร้อยแล้วครับ!");
-        } else {
-            // 🟢 โหมดเพิ่มใหม่ (Create)
-            await addDoc(collection(db, "courses"), {
-                ...courseData,
-                price: 0,
-                createdAt: new Date()
+        try {
+            const q = query(collection(db, "enrollments"), orderBy("createdAt", "desc"));
+            const snap = await getDocs(q);
+
+            // CSV Header
+            let csvContent = "Date,Student Name,Email,Phone,Course,Price,Status,Slip URL\n";
+
+            snap.forEach(doc => {
+                const data = doc.data();
+                const date = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('th-TH') : "";
+                const name = `"${data.userName || data.userEmail || 'Unknown'}"`; // Escape commas
+                const email = data.userEmail || "-";
+                const phone = data.tel || "-";
+                const course = `"${data.courseTitle || 'Unknown'}"`;
+                const price = data.price || 0;
+                const status = data.status || "pending";
+                const slip = data.slipUrl || "-";
+
+                csvContent += `${date},${name},${email},${phone},${course},${price},${status},${slip}\n`;
             });
-            showToast("✅ เพิ่มคอร์สใหม่เรียบร้อย!");
+
+            // BOM for Excel to read UTF-8 correctly
+            const bom = "\uFEFF";
+            const blob = new Blob([bom + csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", `enrollments_export_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error("Export Error:", error);
+            alert("เกิดข้อผิดพลาดในการส่งออกข้อมูล");
         }
-        
-        // 4. รีเซ็ตฟอร์มทั้งหมด
-        handleCancelEdit();
-        fetchCourses();
+    };
 
-    } catch (error: any) {
-        console.error(error);
-        showToast("เกิดข้อผิดพลาด: " + error.message, "error");
-    } finally {
-        setSubmitting(false);
-    }
-  };
+    // 📊 Logic คำนวณสถิติ
+    const stats = useMemo(() => {
+        const filteredByYear = enrollments.filter(item => {
+            if (!item.approvedAt && !item.createdAt) return false;
+            const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
+            return date.getFullYear() === selectedYear;
+        });
 
-  const handleDelete = async (id: string) => {
-    if (confirm("ต้องการลบคอร์สนี้ใช่ไหม?")) {
-      await deleteDoc(doc(db, "courses", id));
-      showToast("ลบคอร์สออกแล้วครับ");
-      fetchCourses();
-    }
-  };
+        const totalRevenue = filteredByYear.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+        const totalStudents = filteredByYear.length;
 
-  if (loading) return <div className="p-10 text-center text-stone-500">กำลังโหลดข้อมูล...</div>;
+        const monthlyData = Array(12).fill(0).map((_, i) => ({
+            month: new Date(0, i).toLocaleString('th-TH', { month: 'short' }),
+            revenue: 0,
+            students: 0
+        }));
 
-  return (
-    <div className="min-h-screen bg-[#F7F6F3] p-6 md:p-10 font-sans text-stone-800 relative">
-      
-      {/* Toast Notification */}
-      {toast && (
-        <div className={`fixed bottom-5 right-5 px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-bounce transition-all duration-500 z-50 ${toast.type === 'success' ? 'bg-white border-l-4 border-green-500 text-stone-700' : 'bg-red-50 border-l-4 border-red-500 text-red-700'}`}>
-            <span className="text-xl">{toast.type === 'success' ? '🎉' : '⚠️'}</span>
-            <p className="font-medium">{toast.msg}</p>
-        </div>
-      )}
+        filteredByYear.forEach(item => {
+            const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
+            const monthIndex = date.getMonth();
+            monthlyData[monthIndex].revenue += (Number(item.price) || 0);
+            monthlyData[monthIndex].students += 1;
+        });
 
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-          <div className="flex items-center gap-3">
-              <div className="p-2 bg-white rounded-lg shadow-sm border border-stone-200">
-                <span className="text-2xl">🛠️</span>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-stone-700">จัดการคอร์สเรียน</h1>
-                <p className="text-xs text-stone-500">{user?.email}</p>
-              </div>
-          </div>
-          <div className="flex gap-3">
-              <Link href="/" className="px-4 py-2 text-sm text-stone-600 bg-white border border-stone-200 rounded-lg hover:bg-stone-50 shadow-sm transition">
-                  ← หน้าแรก
-              </Link>
-              <button onClick={handleLogout} className="px-4 py-2 text-sm text-red-500 bg-white border border-red-100 rounded-lg hover:bg-red-50 shadow-sm transition">
-                  ออกจากระบบ
-              </button>
-          </div>
-        </div>
+        const courseMap: Record<string, { title: string, revenue: number, students: number }> = {};
 
-        {/* Form Card */}
-        <div className={`bg-white p-8 rounded-2xl shadow-sm border mb-10 transition-all duration-300 ${editId ? 'border-yellow-400 ring-2 ring-yellow-100' : 'border-stone-200'}`}>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-stone-700 flex items-center gap-2">
-                <span className={`w-2 h-6 rounded-full ${editId ? 'bg-yellow-400' : 'bg-blue-400'}`}></span>
-                {editId ? 'แก้ไขข้อมูลคอร์ส' : 'เพิ่มคอร์สใหม่'}
-            </h2>
-            {editId && (
-                <button onClick={handleCancelEdit} className="text-sm text-stone-400 hover:text-stone-600 underline">
-                    ยกเลิกการแก้ไข
-                </button>
-            )}
-          </div>
-          
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-1">
-                <label className="text-sm font-medium text-stone-600">ชื่อวิชา</label>
-                <input 
-                   type="text" placeholder="เช่น คณิตศาสตร์ ม.1 เรื่องสมการ" 
-                   className="w-full p-3 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 focus:border-blue-300 outline-none transition placeholder-stone-400 text-stone-800 font-medium"
-                   value={title} onChange={(e) => setTitle(e.target.value)} 
-                />
-            </div>
+        filteredByYear.forEach(item => {
+            const title = item.courseTitle || "ไม่ระบุชื่อคอร์ส";
+            if (!courseMap[title]) {
+                courseMap[title] = { title, revenue: 0, students: 0 };
+            }
+            courseMap[title].revenue += (Number(item.price) || 0);
+            courseMap[title].students += 1;
+        });
 
-            <div className="space-y-1">
-                <label className="text-sm font-medium text-stone-600">คำอธิบายสั้นๆ</label>
-                <textarea 
-                   placeholder="รายละเอียดคอร์สที่นักเรียนจะเห็น..." 
-                   className="w-full p-3 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 focus:border-blue-300 outline-none transition placeholder-stone-400 text-stone-800 min-h-[100px]"
-                   value={desc} onChange={(e) => setDesc(e.target.value)}
-                />
-            </div>
+        const courseData = Object.values(courseMap).sort((a, b) => b.revenue - a.revenue);
+        const maxMonthlyRevenue = Math.max(...monthlyData.map(m => m.revenue), 1);
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1">
-                  <label className="text-sm font-medium text-stone-600 flex justify-between">
-                    รูปปก (1280x720 px)
-                    {editId && <span className="text-xs text-yellow-600 bg-yellow-50 px-2">ไม่ต้องเลือกใหม่ถ้าใช้รูปเดิม</span>}
-                  </label>
-                  
-                  <div className="relative">
-                    <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden" 
-                        id="file-upload"
-                    />
-                    <label 
-                        htmlFor="file-upload"
-                        className="w-full p-3 bg-[#F7F6F3] border-2 border-dashed border-stone-300 rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-stone-100 transition text-stone-500 hover:text-stone-700"
-                    >
-                        {imagePreview ? '🔄 เปลี่ยนรูปภาพ' : '📁 คลิกเพื่อเลือกรูปภาพ'}
-                    </label>
-                  </div>
+        return { totalRevenue, totalStudents, monthlyData, courseData, maxMonthlyRevenue };
+    }, [enrollments, selectedYear]);
 
-                  {imagePreview && (
-                    <div className="mt-2 rounded-lg overflow-hidden border border-stone-200 h-32 w-full bg-stone-100 relative group">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+
+    if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-amber-50 font-sans text-stone-700">
+
+            {/* Header */}
+            <header className="sticky top-0 z-20 bg-white/60 backdrop-blur-md border-b border-white/20 px-6 py-4">
+                <div className="max-w-7xl mx-auto flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="text-2xl">🛠️</div>
+                        <div>
+                            <h1 className="text-xl font-bold text-stone-800">Admin Dashboard</h1>
+                            <p className="text-xs text-stone-500">สวัสดี, {user?.email}</p>
+                        </div>
                     </div>
-                  )}
-              </div>
-
-              <div className="space-y-1">
-                  <label className="text-sm font-medium text-stone-600">YouTube Link</label>
-                  <input 
-                     type="text" placeholder="วางลิงก์ YouTube เต็มๆ ได้เลย..." 
-                     className="w-full p-3 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 focus:border-blue-300 outline-none transition placeholder-stone-400 text-stone-800 font-medium"
-                     value={videoId} onChange={(e) => setVideoId(e.target.value)}
-                  />
-              </div>
-            </div>
-
-            <button 
-                type="submit" 
-                disabled={submitting}
-                className={`w-full py-3 rounded-xl font-semibold shadow-lg transition transform flex items-center justify-center gap-2 mt-2 
-                ${submitting ? 'bg-stone-400 cursor-not-allowed' : 
-                  editId ? 'bg-yellow-500 hover:bg-yellow-600 text-white' : 'bg-stone-800 hover:bg-stone-900 text-white'}`}
-            >
-              {submitting ? (
-                  <>⏳ กำลังบันทึก...</>
-              ) : (
-                  editId ? <>✏️ บันทึกการแก้ไข</> : <>+ บันทึกคอร์สเรียน</>
-              )}
-            </button>
-            
-            {/* ปุ่มยกเลิก (แสดงเฉพาะตอนแก้ไข) */}
-            {editId && (
-                <button 
-                    type="button"
-                    onClick={handleCancelEdit}
-                    className="w-full py-3 text-stone-500 hover:bg-stone-100 rounded-xl font-medium transition"
-                >
-                    ยกเลิก
-                </button>
-            )}
-          </form>
-        </div>
-
-        {/* List Card */}
-        <div className="space-y-4">
-            <h2 className="text-lg font-bold text-stone-700 pl-1">คอร์สทั้งหมด ({courses.length})</h2>
-            {courses.map((c) => (
-            <div key={c.id} className={`flex items-center justify-between bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition ${editId === c.id ? 'border-yellow-400 ring-1 ring-yellow-200' : 'border-stone-200'}`}>
-                <div className="flex items-center gap-4 overflow-hidden">
-                    <div className="w-16 h-16 rounded-lg bg-stone-100 flex-shrink-0 overflow-hidden border border-stone-100">
-                        {c.image ? (
-                             <img src={c.image} className="w-full h-full object-cover" />
-                        ) : (
-                             <div className="w-full h-full flex items-center justify-center text-2xl">📚</div>
-                        )}
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-stone-800 truncate">{c.title}</h3>
-                        <p className="text-xs text-stone-400 font-mono truncate max-w-[200px]">Video: {c.videoId || "-"}</p>
-                    </div>
-                </div>
-                <div className="flex gap-2 ml-4">
-                    {/* ✅ ปุ่มจัดการบทเรียนที่ครูต้องการ */}
-                    <Link href={`/admin/course/${c.id}`}>
-                        <button className="px-3 py-2 text-xs font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition border border-purple-100 flex items-center gap-1 whitespace-nowrap">
-                            📺 จัดการบทเรียน
+                    <div className="flex gap-3">
+                        <Link href="/" className="px-4 py-2 text-sm font-bold text-stone-600 bg-white/50 rounded-full hover:bg-white transition shadow-sm">
+                            🏡 หน้าบ้าน
+                        </Link>
+                        <button onClick={handleLogout} className="px-4 py-2 text-sm font-bold text-rose-500 bg-rose-100/50 rounded-full hover:bg-rose-200 transition shadow-sm">
+                            🚪 ออกจากระบบ
                         </button>
-                    </Link>
-                    
-                    {/* ปุ่มแก้ไข */}
-                    <button 
-                        onClick={() => handleEditClick(c)} 
-                        className="px-3 py-2 text-xs font-medium text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition border border-yellow-100 whitespace-nowrap"
-                    >
-                        แก้ไข
-                    </button>
-                    
-                    {/* ปุ่มลบ */}
-                    <button 
-                        onClick={() => handleDelete(c.id)} 
-                        className="px-3 py-2 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100 transition border border-red-100 whitespace-nowrap"
-                    >
-                        ลบ
-                    </button>
+                    </div>
                 </div>
-            </div>
-            ))}
+            </header>
+
+            <main className="max-w-7xl mx-auto p-6 md:p-10 space-y-12">
+
+                {/* 2. Main Menu Cards (8 Cards Layout) */}
+                <div>
+                    <div className="mb-6">
+                        <h2 className="text-3xl font-bold text-stone-800 mb-1">ภาพรวมวันนี้</h2>
+                        <p className="text-stone-500 font-light">ระบบจัดการโรงเรียนออนไลน์ครบวงจร</p>
+                    </div>
+
+                    {/* Grid 4 Columns สำหรับจอใหญ่ */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+                        {/* 1. ตรวจสอบชำระเงิน (Peach Gradient) */}
+                        <Link href="/admin/enrollments" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-orange-100 to-rose-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">💰</span>
+                                {pendingCount > 0 && (
+                                    <span className="bg-white/80 text-rose-500 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-bounce">
+                                        {pendingCount} รอตรวจ
+                                    </span>
+                                )}
+                            </div>
+                            <h3 className="font-bold text-xl text-rose-900/80 group-hover:text-rose-900 relative z-10">ตรวจสอบชำระเงิน</h3>
+                            <p className="text-sm text-rose-800/60 mt-1 relative z-10">อนุมัติสลิปโอนเงิน</p>
+                        </Link>
+
+                        {/* 2. ทะเบียนนักเรียน (Sky Gradient) */}
+                        <Link href="/admin/students" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-sky-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">👨‍🎓</span>
+                                <span className="bg-white/60 text-blue-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm">{enrollments.length} คน</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">ทะเบียนนักเรียน</h3>
+                            <p className="text-sm text-blue-800/60 mt-1 relative z-10">ดูรายชื่อและประวัติ</p>
+                        </Link>
+
+                        {/* 3. จัดการคอร์ส (Mint Gradient) */}
+                        <Link href="/admin/courses" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-emerald-100 to-teal-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">📚</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-teal-900/80 group-hover:text-teal-900 relative z-10">จัดการคอร์สเรียน</h3>
+                            <p className="text-sm text-teal-800/60 mt-1 relative z-10">เพิ่ม/ลบ บทเรียน</p>
+                        </Link>
+
+                        {/* 4. สรุปสถิติ (Purple Gradient) */}
+                        <a href="#report-section" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-purple-100 to-fuchsia-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">📊</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-fuchsia-900/80 group-hover:text-fuchsia-900 relative z-10">สรุปผลประกอบการ</h3>
+                            <p className="text-sm text-fuchsia-800/60 mt-1 relative z-10">วิเคราะห์ยอดขาย</p>
+                        </a>
+
+                        {/* 5. ประกาศข่าวสาร (Amber Gradient) */}
+                        <Link href="/admin/notifications" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-amber-100 to-orange-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">📢</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-orange-900/80 group-hover:text-orange-900 relative z-10">ประกาศข่าวสาร</h3>
+                            <p className="text-sm text-orange-800/60 mt-1 relative z-10">แจ้งเตือนนักเรียนทุกคน</p>
+                        </Link>
+
+                        {/* 6. ถาม-ตอบ (Cyan Gradient) */}
+                        <div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">💬</span>
+                                <span className="bg-white/60 text-blue-600 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">เร็วๆ นี้</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">ถาม-ตอบ Q&A</h3>
+                            <p className="text-sm text-blue-800/60 mt-1 relative z-10">ตอบคำถามจากบทเรียน</p>
+                        </div>
+
+
+
+                        {/* 8. Export Excel (Green Gradient) - Replaced Coupons */}
+                        <div onClick={handleExport} className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-emerald-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">📊</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-green-900/80 group-hover:text-green-900 relative z-10">Export Excel</h3>
+                            <p className="text-sm text-green-800/60 mt-1 relative z-10">ดาวน์โหลดรายงาน</p>
+                        </div>
+
+                        {/* 9. สำรองข้อมูล (Gray/Slate Gradient) */}
+                        <Link href="/admin/backup" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-slate-100 to-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">💾</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-slate-900/80 group-hover:text-slate-900 relative z-10">สำรองข้อมูล</h3>
+                            <p className="text-sm text-slate-800/60 mt-1 relative z-10">ดาวน์โหลดข้อมูลเก็บไว้</p>
+                        </Link>
+
+                    </div>
+                </div>
+
+                {/* 3. Analytics Section */}
+                <div id="report-section" className="pt-8">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-3">
+                                📈 รายงานสถิติ
+                                <span className="text-xs bg-white/80 text-stone-500 px-3 py-1 rounded-full shadow-sm">Approved Data</span>
+                            </h2>
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-white/70 p-2 pr-4 rounded-2xl shadow-sm backdrop-blur-sm">
+                            <div className="bg-amber-100 p-2 rounded-xl">📅</div>
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-lg"
+                            >
+                                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                                    <option key={year} value={year}>ปี {year + 543}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Stats Summary Boxes */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="rounded-3xl p-8 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-xl shadow-fuchsia-200/50 transform hover:scale-105 transition duration-500">
+                            <p className="text-fuchsia-100 font-medium mb-2 text-sm uppercase tracking-wider">💰 รายได้รวม (ปี {selectedYear + 543})</p>
+                            <h3 className="text-5xl font-black tracking-tight">฿{stats.totalRevenue.toLocaleString()}</h3>
+                        </div>
+                        <div className="rounded-3xl p-8 bg-white shadow-sm hover:shadow-md transition border-none relative overflow-hidden group">
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-sky-50 rounded-bl-full -mr-8 -mt-8 transition group-hover:scale-110"></div>
+                            <p className="text-stone-400 font-bold text-sm mb-2 uppercase tracking-wide relative z-10">👨‍🎓 นักเรียนใหม่</p>
+                            <h3 className="text-4xl font-bold text-stone-800 relative z-10">{stats.totalStudents.toLocaleString()} <span className="text-xl text-stone-400 font-normal">คน</span></h3>
+                        </div>
+                        <div className="rounded-3xl p-8 bg-white shadow-sm hover:shadow-md transition border-none relative overflow-hidden group">
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 transition group-hover:scale-110"></div>
+                            <p className="text-stone-400 font-bold text-sm mb-2 uppercase tracking-wide relative z-10">📚 คอร์สที่ขายออก</p>
+                            <h3 className="text-4xl font-bold text-stone-800 relative z-10">{stats.courseData.length} <span className="text-xl text-stone-400 font-normal">วิชา</span></h3>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                        {/* Pictogram Chart Section */}
+                        <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm h-full">
+                            <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
+                                <span className="text-indigo-500">📅</span> สรุปรายได้และจำนวนนักเรียนรายเดือน
+                            </h3>
+
+                            <div className="space-y-6">
+                                {stats.monthlyData.map((m, index) => (
+                                    <div key={index} className="group flex items-start gap-4 border-b border-stone-50 pb-4 last:border-none last:pb-0">
+                                        <div className="font-bold text-stone-400 w-10 text-sm pt-1">{m.month}</div>
+
+                                        {/* Pictogram Area */}
+                                        <div className="flex-1 flex flex-wrap gap-1 items-center min-h-[28px]">
+                                            {m.students > 0 ? (
+                                                Array.from({ length: m.students }).map((_, i) => (
+                                                    <span
+                                                        key={i}
+                                                        className="text-xl animate-in zoom-in duration-500 hover:scale-125 transition cursor-default"
+                                                        style={{ animationDelay: `${i * 100}ms` }}
+                                                        title={`นักเรียนคนที่ ${i + 1}`}
+                                                    >
+                                                        🧒
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-stone-200 text-xs font-light italic self-center">ไม่มีนักเรียน</span>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-col items-end min-w-[80px]">
+                                            <span className={`font-bold text-sm transition ${m.revenue > 0 ? 'text-indigo-600' : 'text-stone-300'}`}>
+                                                {m.revenue > 0 ? `฿${m.revenue.toLocaleString()}` : '-'}
+                                            </span>
+                                            {m.students > 0 && <span className="text-[10px] text-stone-400">{m.students} คน</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Ranking Section */}
+                        <div className="bg-white rounded-3xl p-8 shadow-sm h-fit">
+                            <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
+                                <span className="text-amber-500">🏆</span> อันดับคอร์สขายดี
+                            </h3>
+
+                            <div className="space-y-4">
+                                {stats.courseData.map((c, index) => (
+                                    <div key={index} className="flex items-center justify-between p-4 rounded-2xl bg-stone-50/50 hover:bg-amber-50/50 transition group cursor-default">
+                                        <div className="flex items-center gap-4 overflow-hidden">
+                                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black text-white shadow-sm transform group-hover:scale-110 transition
+                                          ${index === 0 ? 'bg-amber-400' : index === 1 ? 'bg-stone-400' : index === 2 ? 'bg-orange-400' : 'bg-indigo-200'}`}>
+                                                {index + 1}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-stone-700 text-sm truncate group-hover:text-amber-700 transition">{c.title}</p>
+                                                <p className="text-xs font-medium text-stone-400">{c.students} คนลงทะเบียน</p>
+                                            </div>
+                                        </div>
+                                        <div className="font-bold text-stone-600 text-sm whitespace-nowrap group-hover:text-amber-600">
+                                            ฿{c.revenue.toLocaleString()}
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {stats.courseData.length === 0 && (
+                                    <div className="text-center py-10 text-stone-300 italic">
+                                        ยังไม่มีข้อมูลคอร์ส
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </main>
         </div>
-      </div>
-    </div>
-  );
+    );
 }

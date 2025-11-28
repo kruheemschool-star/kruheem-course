@@ -1,216 +1,718 @@
-// ไฟล์: app/admin/course/[id]/page.tsx
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { db, auth } from "../../../../lib/firebase"; 
-import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, getDoc, query, orderBy } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { db, storage } from "@/lib/firebase";
+import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, getDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
+
+// --- Icons (Updated for Clarity) ---
+const HeaderIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 013.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 013.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 01-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875zM12.75 12a.75.75 0 00-1.5 0V15H8.25a.75.75 0 000 1.5H11.25v3a.75.75 0 001.5 0V16.5h3a.75.75 0 000-1.5H12.75V12z" clipRule="evenodd" /><path d="M14.25 5.25a5.23 5.23 0 00-1.279-3.434 9.768 9.768 0 016.963 6.963A5.23 5.23 0 0016.5 7.5h-1.875a.375.375 0 01-.375-.375V5.25z" /></svg>;
+const VideoIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M4.5 4.5a3 3 0 00-3 3v9a3 3 0 003 3h8.25a3 3 0 003-3v-9a3 3 0 00-3-3H4.5zM19.94 18.75l-2.69-2.69V7.94l2.69-2.69c.944-.945 2.56-.276 2.56 1.06v11.38c0 1.336-1.616 2.005-2.56 1.06z" /></svg>;
+const TextIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M3 4.5A2.25 2.25 0 015.25 2.25h13.5A2.25 2.25 0 0121 4.5v15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 19.5V4.5zM5.25 3.75a.75.75 0 00-.75.75v15c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75V4.5a.75.75 0 00-.75-.75H5.25zM6 7.5a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H6.75A.75.75 0 016 7.5zm.75 3.75a.75.75 0 000 1.5h10.5a.75.75 0 000-1.5H6.75zM6 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5H6.75A.75.75 0 016 15z" clipRule="evenodd" /></svg>;
+
+// ✅ New Minimal Quiz Icon (ชัดเจนขึ้น)
+const QuizIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4.804 21.644A6.707 6.707 0 006 21.75a6.721 6.721 0 003.583-1.029c.774.182 1.584.279 2.417.279 5.322 0 9.75-3.97 9.75-9 0-5.03-4.428-9-9.75-9s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.192.232.226.277.428.254.543a3.73 3.73 0 01-.814 1.686.75.75 0 00.44 1.223zM8.25 9.75a3.75 3.75 0 117.5 0 .75.75 0 01-1.5 0 2.25 2.25 0 10-2.25 2.25v1.5a.75.75 0 01-1.5 0v-1.5a3.75 3.75 0 013.75-3.75zM9.75 17.25a.75.75 0 101.5 0 .75.75 0 00-1.5 0z" clipRule="evenodd" /></svg>;
+
+// ✅ New Exercise Icon (แบบฝึกหัด)
+const ExerciseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" /><path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" /></svg>;
+
+// ✅ New HTML Icon (HTML Code)
+const HtmlIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M14.447 3.027a.75.75 0 01.527.92l-4.5 16.5a.75.75 0 01-1.448-.394l4.5-16.5a.75.75 0 01.921-.526zM16.72 6.22a.75.75 0 011.06 0l5.25 5.25a.75.75 0 010 1.06l-5.25 5.25a.75.75 0 11-1.06-1.06L21.44 12l-4.72-4.72a.75.75 0 010-1.06zm-9.44 0a.75.75 0 010 1.06L2.56 12l4.72 4.72a.75.75 0 01-1.06 1.06L.97 12.53a.75.75 0 010-1.06l5.25-5.25a.75.75 0 011.06 0z" clipRule="evenodd" /></svg>;
+
+// 👁️ Visibility Icons
+const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z" /><path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12 3.75s9.189 3.226 10.677 7.697a.75.75 0 010 .506C21.189 16.424 16.972 19.65 12 19.65s-9.189-3.226-10.677-7.697a.75.75 0 010-.506zM12 17.25a5.25 5.25 0 100-10.5 5.25 5.25 0 000 10.5z" clipRule="evenodd" /></svg>;
+const EyeSlashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M3.53 2.47a.75.75 0 00-1.06 1.06l18 18a.75.75 0 101.06-1.06l-18-18zM22.676 12.553a11.249 11.249 0 01-2.631 4.31l-3.099-3.099a5.25 5.25 0 00-6.71-6.71L7.759 4.577a11.217 11.217 0 014.242-.827c4.97 0 9.185 3.223 10.675 7.69.103.308.103.65 0 .958zM13.531 13.531a1.5 1.5 0 00-2.122-2.122l2.122 2.122z" /><path d="M5.755 8.123L3.329 5.697a11.218 11.218 0 00-2.006 5.75c0 .308 0 .65.103.958 1.49 4.467 5.705 7.69 10.675 7.69 1.766 0 3.45-.406 4.96-1.142L14.52 16.417a5.25 5.25 0 01-8.765-8.294z" /></svg>;
+
+// ⬆️⬇️ Arrow Icons
+const ArrowUpIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06l-6.22-6.22V21a.75.75 0 01-1.5 0V4.81l-6.22 6.22a.75.75 0 11-1.06-1.06l7.5-7.5z" clipRule="evenodd" /></svg>;
+const ArrowDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v16.19l6.22-6.22a.75.75 0 111.06 1.06l-7.5 7.5a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 111.06-1.06l6.22 6.22V3a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>;
+
+// ✨ Component แสดงกลุ่มบทเรียน
+const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, handleMoveLesson }: { group: any, handleEdit: any, handleDelete: any, handleToggleVisibility: any, handleMoveLesson: any }) => {
+    const [isOpen, setIsOpen] = useState(true);
+
+    return (
+        <div className={`rounded-[1.5rem] border-2 shadow-sm overflow-hidden mb-4 transition-colors ${!group.header ? 'bg-amber-50 border-amber-200 border-dashed' : 'bg-white border-indigo-50'}`}>
+            <div onClick={() => setIsOpen(!isOpen)} className={`p-4 flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition ${!group.header ? 'bg-amber-100/50' : (!isOpen ? 'bg-white' : 'bg-indigo-50/30')}`}>
+                <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${group.header ? 'bg-orange-500 text-white' : 'bg-amber-300 text-amber-700'}`}>
+                        {group.header ? <HeaderIcon /> : <span className="text-2xl">📂</span>}
+                    </div>
+                    <div>
+                        <h3 className={`font-bold text-lg ${!group.header ? 'text-amber-700' : 'text-indigo-900'}`}>
+                            {group.header ? group.header.title : "Uncategorized (รอจัดหมวด)"}
+                        </h3>
+                        <p className="text-xs text-slate-400 font-medium">{group.items.length} บทเรียนย่อย</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    {group.header && (
+                        <div className="flex gap-1 mr-2" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => handleEdit(group.header)} className="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition">✏️</button>
+                            <button onClick={() => handleDelete(group.header.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">🗑</button>
+                        </div>
+                    )}
+                    <button className={`transform transition-transform duration-300 text-indigo-300 ${isOpen ? 'rotate-180' : ''}`}>▼</button>
+                </div>
+            </div>
+            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[50000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="bg-slate-50/50 p-2 space-y-2">
+                    {group.items.map((lesson: any, index: number) => (
+                        <div key={lesson.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-md transition group ml-4 md:ml-10">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                                {/* ✅ Color logic สำหรับ Exercise (สีเขียว) */}
+                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-sm 
+                            ${lesson.type === 'quiz' ? 'bg-purple-100 text-purple-600'
+                                        : lesson.type === 'text' ? 'bg-pink-100 text-pink-600'
+                                            : lesson.type === 'exercise' ? 'bg-emerald-100 text-emerald-600'
+                                                : lesson.type === 'html' ? 'bg-cyan-100 text-cyan-600'
+                                                    : 'bg-blue-100 text-blue-600'}`}>
+                                    {lesson.type === 'quiz' ? <QuizIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : <VideoIcon />}
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="font-semibold text-slate-700 truncate text-sm md:text-base">{lesson.title}</p>
+                                    <div className="flex gap-2">
+                                        {lesson.type === 'exercise' && <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-100">PDF</span>}
+                                        {lesson.isFree && <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded border border-teal-100">FREE</span>}
+                                        {lesson.image && <span className="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded border border-orange-100">IMG</span>}
+                                        {!lesson.headerId && <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100">รอจัดหมวด</span>}
+                                        {lesson.isHidden && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1"><EyeSlashIcon /> ซ่อนอยู่</span>}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <div className="flex flex-col gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        onClick={() => handleMoveLesson(lesson, 'up', group.items)}
+                                        disabled={index === 0}
+                                        className={`p-1 rounded hover:bg-slate-100 ${index === 0 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-indigo-500'}`}
+                                    >
+                                        <ArrowUpIcon />
+                                    </button>
+                                    <button
+                                        onClick={() => handleMoveLesson(lesson, 'down', group.items)}
+                                        disabled={index === group.items.length - 1}
+                                        className={`p-1 rounded hover:bg-slate-100 ${index === group.items.length - 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-indigo-500'}`}
+                                    >
+                                        <ArrowDownIcon />
+                                    </button>
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => handleToggleVisibility(lesson)} className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${lesson.isHidden ? 'bg-gray-100 text-gray-400 hover:bg-gray-200' : 'bg-indigo-50 text-indigo-400 hover:bg-indigo-100'}`} title={lesson.isHidden ? "แสดงเนื้อหา" : "ซ่อนเนื้อหา"}>
+                                        {lesson.isHidden ? <EyeSlashIcon /> : <EyeIcon />}
+                                    </button>
+                                    <button onClick={() => handleEdit(lesson)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-50 text-amber-500 hover:bg-amber-100">✏️</button>
+                                    <button onClick={() => handleDelete(lesson.id)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100">🗑</button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {group.items.length === 0 && <p className="text-center text-slate-300 text-sm py-4 italic">ยังไม่มีเนื้อหาในบทนี้</p>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function ManageLessonsPage() {
-  const { id } = useParams();
-  const courseId = typeof id === 'string' ? id : "";
-  
-  const [courseTitle, setCourseTitle] = useState("กำลังโหลด...");
-  const [lessons, setLessons] = useState<any[]>([]);
-  
-  // Form State
-  const [lessonTitle, setLessonTitle] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
-  // ✨ เพิ่ม state สำหรับเนื้อหา
-  const [lessonContent, setLessonContent] = useState(""); 
-  
-  const [editId, setEditId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<{msg: string, type: 'success'|'error'} | null>(null);
-  const router = useRouter();
+    const { id } = useParams();
+    const courseId = typeof id === 'string' ? id : "";
+    const [courseTitle, setCourseTitle] = useState("กำลังโหลด...");
+    const [lessons, setLessons] = useState<any[]>([]);
 
-  const showToast = (msg: string, type: 'success'|'error' = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+    // ✅ เพิ่ม Type 'exercise' และ 'html'
+    const [addType, setAddType] = useState<'header' | 'video' | 'text' | 'quiz' | 'exercise' | 'html'>('header');
 
-  const extractVideoId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : url;
-  };
+    // Form State
+    const [lessonTitle, setLessonTitle] = useState("");
+    const [videoUrl, setVideoUrl] = useState("");
+    const [lessonContent, setLessonContent] = useState("");
+    const [isFree, setIsFree] = useState(false);
+    const [selectedHeaderId, setSelectedHeaderId] = useState("");
 
-  const fetchCourseInfo = useCallback(async () => {
-    if (!courseId) return;
-    try {
-        const courseDoc = await getDoc(doc(db, "courses", courseId));
-        if (courseDoc.exists()) setCourseTitle(courseDoc.data().title);
+    // ✅ PDF Link State
+    const [pdfUrl, setPdfUrl] = useState("");
 
-        const q = query(collection(db, "courses", courseId, "lessons"), orderBy("createdAt", "asc"));
-        const querySnapshot = await getDocs(q);
-        const lessonList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setLessons(lessonList);
-    } catch (error) {
-        console.error("Error:", error);
-    }
-  }, [courseId]);
+    // ✅ HTML Code State
+    const [htmlCode, setHtmlCode] = useState("");
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (!currentUser) {
-        router.push("/"); 
-        return;
-      }
-      fetchCourseInfo();
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [router, fetchCourseInfo]);
+    // Image Upload State
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState("");
+    const [currentImageUrl, setCurrentImageUrl] = useState("");
 
-  const handleEditClick = (lesson: any) => {
-    setEditId(lesson.id);
-    setLessonTitle(lesson.title);
-    setVideoUrl(`https://youtu.be/${lesson.videoId}`);
-    setLessonContent(lesson.content || ""); // ดึงเนื้อหาเดิมมาโชว์
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+    const [quizOptions, setQuizOptions] = useState<string[]>(["", "", "", ""]);
+    const [correctAnswer, setCorrectAnswer] = useState(0);
 
-  const handleCancelEdit = () => {
-    setEditId(null);
-    setLessonTitle("");
-    setVideoUrl("");
-    setLessonContent("");
-  };
+    const [editId, setEditId] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
+    const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+    const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!lessonTitle || !videoUrl) return showToast("กรุณากรอกข้อมูลให้ครบ", "error");
+    const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
-    setSubmitting(true);
-    try {
-        const cleanVideoId = extractVideoId(videoUrl);
-        const dataToSave = {
-            title: lessonTitle,
-            videoId: cleanVideoId,
-            content: lessonContent, // ✅ บันทึกเนื้อหาลง Database
-        };
-        
-        if (editId) {
-            await updateDoc(doc(db, "courses", courseId, "lessons", editId), dataToSave);
-            showToast("✏️ แก้ไขบทเรียนแล้ว!");
-        } else {
-            await addDoc(collection(db, "courses", courseId, "lessons"), {
-                ...dataToSave,
-                createdAt: new Date()
+    const extractVideoId = (url: string) => {
+        if (!url) return "";
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : url;
+    };
+
+    const fetchCourseInfo = useCallback(async () => {
+        if (!courseId) return;
+        try {
+            const courseDoc = await getDoc(doc(db, "courses", courseId));
+            if (courseDoc.exists()) setCourseTitle(courseDoc.data().title);
+            // Fetch lessons ordered by 'order' first, then 'createdAt'
+            // Note: Firestore requires an index for multiple orderBy fields if they are different.
+            // For simplicity and robustness without manual index creation, we'll fetch all and sort in JS.
+            const q = query(collection(db, "courses", courseId, "lessons"));
+            const querySnapshot = await getDocs(q);
+            const fetchedLessons = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Sort in memory
+            fetchedLessons.sort((a: any, b: any) => {
+                // Headers first? No, headers are separate in the grouping logic.
+                // Just sort by order if available, else createdAt
+                const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
+                const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
+
+                if (orderA !== orderB) return orderA - orderB;
+
+                // Fallback to createdAt
+                const timeA = a.createdAt?.seconds || 0;
+                const timeB = b.createdAt?.seconds || 0;
+                return timeA - timeB;
             });
-            showToast("✅ เพิ่มตอนใหม่สำเร็จ!");
-        }
 
-        handleCancelEdit();
+            setLessons(fetchedLessons);
+        } catch (error) { console.error("Error:", error); }
+        finally { setLoading(false); }
+    }, [courseId]);
+
+    useEffect(() => {
         fetchCourseInfo();
-    } catch (error: any) {
-        showToast("Error: " + error.message, "error");
-    } finally {
-        setSubmitting(false);
-    }
-  };
+    }, [fetchCourseInfo]);
 
-  const handleDelete = async (lessonId: string) => {
-    if (confirm("ต้องการลบบทเรียนนี้ใช่ไหม?")) {
-      await deleteDoc(doc(db, "courses", courseId, "lessons", lessonId));
-      showToast("ลบเรียบร้อย");
-      fetchCourseInfo();
-    }
-  };
+    const availableHeaders = lessons.filter(l => l.type === 'header');
+    const groupedLessons = (() => {
+        const groups: any[] = availableHeaders.map(header => ({ header: header, items: [] }));
+        const uncategorizedItems: any[] = [];
+        lessons.forEach(lesson => {
+            if (lesson.type === 'header') return;
+            if (lesson.headerId) {
+                const groupIndex = groups.findIndex(g => g.header.id === lesson.headerId);
+                if (groupIndex !== -1) groups[groupIndex].items.push(lesson);
+                else uncategorizedItems.push(lesson);
+            } else uncategorizedItems.push(lesson);
+        });
+        if (uncategorizedItems.length > 0) groups.push({ header: null, items: uncategorizedItems });
+        return groups;
+    })();
 
-  if (loading) return <div className="p-10 text-center text-stone-500">กำลังโหลด...</div>;
+    const handleMoveLesson = async (lesson: any, direction: 'up' | 'down', groupItems: any[]) => {
+        const currentIndex = groupItems.findIndex(l => l.id === lesson.id);
+        if (currentIndex === -1) return;
 
-  return (
-    <div className="min-h-screen bg-[#F7F6F3] p-6 md:p-10 font-sans text-stone-800 relative">
-      {toast && (
-        <div className={`fixed bottom-5 right-5 px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-bounce transition-all duration-500 z-50 ${toast.type === 'success' ? 'bg-white border-l-4 border-green-500 text-stone-700' : 'bg-red-50 border-l-4 border-red-500 text-red-700'}`}>
-            <span className="text-xl">{toast.type === 'success' ? '🎉' : '⚠️'}</span>
-            <p className="font-medium">{toast.msg}</p>
-        </div>
-      )}
+        const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (targetIndex < 0 || targetIndex >= groupItems.length) return;
 
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-            <Link href="/admin" className="inline-flex items-center gap-2 text-stone-500 hover:text-stone-800 mb-4 transition">
-                ← กลับไปหน้าจัดการคอร์สหลัก
-            </Link>
-            <div className="flex items-center gap-3">
-                <div className="p-3 bg-white rounded-xl shadow-sm border border-stone-200">
-                    <span className="text-2xl">📺</span>
+        // Create a new array with swapped items
+        const newItems = [...groupItems];
+        [newItems[currentIndex], newItems[targetIndex]] = [newItems[targetIndex], newItems[currentIndex]];
+
+        // Update local state immediately for UI responsiveness
+        // We need to update the 'lessons' state to reflect the swap within the specific group
+        // This is a bit complex because 'lessons' is a flat list.
+        // Easier approach: update Firestore and refetch.
+        // Better approach: Optimistic update.
+
+        try {
+            const batch = writeBatch(db);
+
+            // Re-assign orders for the whole group to ensure consistency
+            // We use the current timestamp or a base index to ensure they stay ordered relative to others?
+            // Actually, we just need to update the 'order' field of the two swapped items, 
+            // OR better: update 'order' for ALL items in this group to be 0, 1, 2, 3...
+
+            newItems.forEach((item, index) => {
+                const ref = doc(db, "courses", courseId, "lessons", item.id);
+                batch.update(ref, { order: index });
+            });
+
+            await batch.commit();
+            showToast("สลับตำแหน่งเรียบร้อย");
+            fetchCourseInfo();
+        } catch (error: any) {
+            showToast("Error moving lesson: " + error.message, "error");
+        }
+    };
+
+    const handleToggleVisibility = async (lesson: any) => {
+        try {
+            const newStatus = !lesson.isHidden;
+            await updateDoc(doc(db, "courses", courseId, "lessons", lesson.id), {
+                isHidden: newStatus
+            });
+            showToast(newStatus ? "👁️‍🗨️ ซ่อนเนื้อหาแล้ว" : "👁️ แสดงเนื้อหาแล้ว");
+            fetchCourseInfo();
+        } catch (error: any) {
+            showToast("Error: " + error.message, "error");
+        }
+    };
+
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
+    };
+
+    const handleQuizOptionChange = (index: number, value: string) => {
+        const newOptions = [...quizOptions];
+        newOptions[index] = value;
+        setQuizOptions(newOptions);
+    };
+
+    const handleEditClick = (lesson: any) => {
+        setEditId(lesson.id);
+        setAddType(lesson.type || 'video');
+        setLessonTitle(lesson.title);
+        setSelectedHeaderId(lesson.headerId || "");
+
+        // Reset Common Fields
+        setVideoUrl("");
+        setLessonContent("");
+        setIsFree(false);
+        setPdfUrl("");
+        setCurrentImageUrl("");
+        setImagePreview("");
+        setImageFile(null);
+        setQuizOptions(["", "", "", ""]);
+        setCorrectAnswer(0);
+
+        if (lesson.type === 'video') {
+            setVideoUrl(lesson.videoId ? `https://youtu.be/${lesson.videoId}` : "");
+            setLessonContent(lesson.content || "");
+            setIsFree(lesson.isFree || false);
+        } else if (lesson.type === 'text') {
+            setLessonContent(lesson.content || "");
+            setIsFree(lesson.isFree || false);
+            setCurrentImageUrl(lesson.image || "");
+            setImagePreview(lesson.image || "");
+        } else if (lesson.type === 'exercise') {
+            // ✅ Load Exercise Data
+            setPdfUrl(lesson.docUrl || "");
+            setLessonContent(lesson.content || "");
+        } else if (lesson.type === 'quiz') {
+            setQuizOptions(lesson.options || ["", "", "", ""]);
+            setCorrectAnswer(lesson.correctAnswer || 0);
+        } else if (lesson.type === 'html') {
+            setHtmlCode(lesson.htmlCode || "");
+            setLessonContent(lesson.content || "");
+        } else {
+            setCurrentImageUrl(lesson.image || "");
+            setImagePreview(lesson.image || "");
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleCancelEdit = () => {
+        setEditId(null); setLessonTitle(""); setVideoUrl(""); setLessonContent(""); setIsFree(false); setSelectedHeaderId(""); setPdfUrl("");
+        setAddType('header'); setImageFile(null); setImagePreview(""); setCurrentImageUrl(""); setQuizOptions(["", "", "", ""]); setCorrectAnswer(0); setHtmlCode("");
+    };
+
+
+
+    // ... (existing code)
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!lessonTitle) return showToast("กรุณาใส่ชื่อ/หัวข้อ", "error");
+        if (addType !== 'header' && !selectedHeaderId) return showToast("⚠️ กรุณาเลือก 'บทเรียนหลัก'", "error");
+        if (addType === 'quiz' && quizOptions.some(opt => opt.trim() === "")) return showToast("กรุณาใส่ตัวเลือกให้ครบ", "error");
+
+        setSubmitting(true);
+        try {
+            let dataToSave: any = { title: lessonTitle, type: addType };
+            if (addType !== 'header') dataToSave.headerId = selectedHeaderId;
+
+            let downloadURL = currentImageUrl;
+            if (imageFile) {
+                const storageRef = ref(storage, `lesson-images/${Date.now()}-${imageFile.name}`);
+                const snapshot = await uploadBytes(storageRef, imageFile);
+                downloadURL = await getDownloadURL(snapshot.ref);
+            }
+            if (addType === 'header' || addType === 'text') {
+                dataToSave.image = downloadURL;
+            }
+
+            if (addType === 'video') {
+                dataToSave.videoId = extractVideoId(videoUrl);
+                dataToSave.content = lessonContent;
+                dataToSave.isFree = isFree;
+            } else if (addType === 'text') {
+                dataToSave.content = lessonContent;
+                dataToSave.isFree = isFree;
+            } else if (addType === 'exercise') {
+                // ✅ Save Exercise Data
+                dataToSave.docUrl = pdfUrl;
+                dataToSave.content = lessonContent;
+            } else if (addType === 'quiz') {
+                dataToSave.options = quizOptions;
+                dataToSave.correctAnswer = correctAnswer;
+            } else if (addType === 'html') {
+                dataToSave.htmlCode = htmlCode;
+                dataToSave.content = lessonContent;
+            }
+
+            if (editId) {
+                await updateDoc(doc(db, "courses", courseId, "lessons", editId), dataToSave);
+                showToast("✏️ แก้ไขข้อมูลแล้ว!");
+            } else {
+                // Assign order: max order + 1
+                const maxOrder = lessons.reduce((max, l) => Math.max(max, l.order || 0), 0);
+                dataToSave.order = maxOrder + 1;
+
+                await addDoc(collection(db, "courses", courseId, "lessons"), { ...dataToSave, createdAt: new Date() });
+
+
+
+                showToast("✅ เพิ่มข้อมูลสำเร็จ!");
+            }
+            handleCancelEdit();
+            fetchCourseInfo();
+        } catch (error: any) { showToast("Error: " + error.message, "error"); } finally { setSubmitting(false); }
+    };
+
+    const handleDelete = async (lessonId: string) => {
+        if (confirm("ต้องการลบรายการนี้ใช่ไหม?")) {
+            await deleteDoc(doc(db, "courses", courseId, "lessons", lessonId));
+            showToast("ลบเรียบร้อย");
+            fetchCourseInfo();
+        }
+    };
+
+    const [bulkImportText, setBulkImportText] = useState("");
+    const [bulkChapterTitle, setBulkChapterTitle] = useState("");
+
+    const handleBulkImport = async () => {
+        if (!bulkChapterTitle.trim()) return showToast("กรุณาระบุชื่อบทเรียนใหม่ (Chapter Name)", "error");
+        if (!bulkImportText.trim()) return showToast("กรุณาระบุรายชื่อตอน", "error");
+
+        const lines = bulkImportText.trim().split('\n').filter(line => line.trim() !== "");
+        if (!confirm(`⚠️ คุณต้องการสร้างบทเรียน "${bulkChapterTitle}" พร้อมเนื้อหา ${lines.length} รายการ ใช่หรือไม่?`)) return;
+
+        setSubmitting(true);
+        try {
+            // 1. Create New Header (Chapter)
+            let currentOrder = lessons.length > 0 ? Math.max(...lessons.map(l => l.order || 0)) + 1 : 1;
+
+            const headerRef = await addDoc(collection(db, "courses", courseId, "lessons"), {
+                title: bulkChapterTitle.trim(),
+                type: "header",
+                createdAt: new Date(),
+                order: currentOrder
+            });
+            const newHeaderId = headerRef.id;
+            currentOrder++;
+
+            // 2. Process Text
+            const batch = writeBatch(db);
+
+            lines.forEach((line, index) => {
+                // Split Title | URL
+                const parts = line.split('|');
+                const title = parts[0].trim();
+                const url = parts[1] ? parts[1].trim() : "";
+                const videoId = extractVideoId(url);
+
+                const docRef = doc(collection(db, "courses", courseId, "lessons"));
+                batch.set(docRef, {
+                    title: title,
+                    type: "video",
+                    headerId: newHeaderId,
+                    videoId: videoId,
+                    content: "",
+                    isFree: false,
+                    createdAt: new Date(),
+                    order: currentOrder + index
+                });
+            });
+
+            await batch.commit();
+            showToast(`✅ สร้างบทเรียน "${bulkChapterTitle}" และนำเข้า ${lines.length} ตอนสำเร็จ!`);
+            setBulkImportText("");
+            setBulkChapterTitle("");
+            fetchCourseInfo();
+
+        } catch (error: any) {
+            showToast("Error importing: " + error.message, "error");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDeleteAllLessons = async () => {
+        if (!confirm("⚠️ คุณแน่ใจหรือไม่ที่จะลบ 'บทเรียนทั้งหมด' ในคอร์สนี้?\n\n(รวมถึงวิดีโอ, แบบฝึกหัด, และข้อสอบทั้งหมด)\n\nการกระทำนี้ไม่สามารถกู้คืนได้!")) return;
+        if (!confirm("ยืนยันครั้งสุดท้าย: ลบข้อมูลทั้งหมดจริงหรือไม่?")) return;
+
+        setSubmitting(true);
+        try {
+            const q = query(collection(db, "courses", courseId, "lessons"));
+            const snapshot = await getDocs(q);
+
+            if (snapshot.empty) {
+                showToast("ไม่มีข้อมูลให้ลบ");
+                setSubmitting(false);
+                return;
+            }
+
+            // Delete in batches of 500
+            const chunks = [];
+            let currentChunk = writeBatch(db);
+            let count = 0;
+
+            snapshot.docs.forEach((doc) => {
+                currentChunk.delete(doc.ref);
+                count++;
+                if (count >= 400) { // Safe limit
+                    chunks.push(currentChunk);
+                    currentChunk = writeBatch(db);
+                    count = 0;
+                }
+            });
+            if (count > 0) chunks.push(currentChunk);
+
+            for (const chunk of chunks) {
+                await chunk.commit();
+            }
+
+            showToast("🗑 ลบข้อมูลทั้งหมดเรียบร้อยแล้ว");
+            fetchCourseInfo();
+        } catch (error: any) {
+            showToast("Error deleting: " + error.message, "error");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+
+        <div className="min-h-screen bg-[#EEF2FF] p-6 md:p-10 font-sans text-slate-700 relative">
+            {toast && (
+                <div className={`fixed bottom-5 right-5 px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 animate-bounce z-50 border-l-8 ${toast.type === 'success' ? 'bg-white text-teal-700 border-teal-400' : 'bg-white text-rose-600 border-rose-400'}`}>
+                    <span className="text-2xl">{toast.type === 'success' ? '🎉' : '🚨'}</span><p className="font-bold text-lg">{toast.msg}</p>
                 </div>
-                <div>
-                    <h1 className="text-xl font-bold text-stone-700">จัดการบทเรียน</h1>
-                    <h2 className="text-2xl font-bold text-blue-600">{courseTitle}</h2>
-                </div>
-            </div>
-        </div>
+            )}
 
-        <div className={`bg-white p-6 rounded-2xl shadow-sm border mb-8 transition-all ${editId ? 'border-yellow-400 ring-2 ring-yellow-100' : 'border-stone-200'}`}>
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-stone-700 flex items-center gap-2">
-                    <span className={`w-2 h-6 rounded-full ${editId ? 'bg-yellow-400' : 'bg-green-400'}`}></span>
-                    {editId ? 'แก้ไขข้อมูลตอน' : `เพิ่มตอนใหม่ (EP.${lessons.length + 1})`}
-                </h3>
-                {editId && <button onClick={handleCancelEdit} className="text-xs text-stone-400 underline">ยกเลิก</button>}
-            </div>
-            
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <input 
-                    type="text" 
-                    placeholder="ชื่อตอน (เช่น EP.1 การบวกเลข)"
-                    className="w-full p-3 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-green-200 outline-none transition"
-                    value={lessonTitle}
-                    onChange={(e) => setLessonTitle(e.target.value)}
-                />
-                <input 
-                    type="text" 
-                    placeholder="วางลิงก์ YouTube ที่นี่..."
-                    className="w-full p-3 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-green-200 outline-none transition font-mono text-sm"
-                    value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
-                />
-                
-                {/* ✨ ช่องกรอกเนื้อหาเพิ่มเติม */}
-                <textarea 
-                    placeholder="เนื้อหาประกอบบทเรียน (เช่น สรุปสูตร, โจทย์การบ้าน, คำอธิบายเพิ่มเติม)..."
-                    className="w-full p-3 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-green-200 outline-none transition min-h-[120px]"
-                    value={lessonContent}
-                    onChange={(e) => setLessonContent(e.target.value)}
-                />
-
-                <button 
-                    type="submit"
-                    disabled={submitting}
-                    className={`px-6 py-3 rounded-xl font-bold text-white shadow-md transition ${submitting ? 'bg-stone-400' : editId ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-stone-800 hover:bg-stone-900'}`}
-                >
-                    {submitting ? '...' : editId ? 'บันทึกแก้ไข' : '+ เพิ่ม'}
-                </button>
-            </form>
-        </div>
-
-        <div className="space-y-3">
-            <h3 className="font-bold text-stone-500 pl-1">รายการบทเรียน ({lessons.length})</h3>
-            {lessons.map((lesson, index) => (
-                <div key={lesson.id} className={`flex items-center justify-between bg-white p-4 rounded-xl border hover:shadow-md transition group ${editId === lesson.id ? 'border-yellow-400 bg-yellow-50' : 'border-stone-200'}`}>
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 font-bold">
-                            {index + 1}
-                        </div>
-                        <div>
-                            <h4 className="font-bold text-stone-800">{lesson.title}</h4>
-                            <p className="text-xs text-stone-400 truncate w-64">{lesson.content ? "📝 มีเนื้อหาประกอบ" : "ไม่มีเนื้อหา"}</p>
-                        </div>
+            <div className="max-w-3xl mx-auto">
+                <div className="mb-8">
+                    <Link href="/admin/courses" className="inline-flex items-center gap-2 text-indigo-500 hover:text-indigo-700 mb-4 transition font-bold bg-white px-4 py-2 rounded-full shadow-sm">← กลับไปหน้ารวมคอร์ส</Link>
+                    <div className="flex items-center gap-4 mt-2">
+                        <div className="w-14 h-14 bg-indigo-500 rounded-2xl shadow-lg shadow-indigo-200 flex items-center justify-center text-white"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg></div>
+                        <div><h1 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">จัดการบทเรียน</h1><h2 className="text-3xl font-extrabold text-indigo-900">{courseTitle}</h2></div>
                     </div>
-                    <div className="flex gap-2">
-                        <button onClick={() => handleEditClick(lesson)} className="px-3 py-1 text-xs font-medium text-yellow-600 bg-yellow-50 rounded-lg hover:bg-yellow-100 border border-yellow-100">แก้ไข</button>
-                        <button onClick={() => handleDelete(lesson.id)} className="px-3 py-1 text-xs font-medium text-red-500 bg-red-50 rounded-lg hover:bg-red-100 border border-red-100">ลบ</button>
-                    </div>
                 </div>
-            ))}
-        </div>
-      </div>
-    </div>
-  );
+
+                {loading ? <div className="p-10 text-center text-indigo-400">กำลังโหลด...</div> : (
+                    <>
+                        <div className={`bg-white p-8 rounded-[2.5rem] shadow-xl shadow-indigo-100 border border-indigo-50 mb-10 transition-all duration-300 ${editId ? 'ring-4 ring-amber-200' : ''}`}>
+
+                            {/* ✅ เพิ่มปุ่มเมนู 5 ปุ่ม (รวม Exercise) */}
+                            <div className="grid grid-cols-5 gap-2 p-2 bg-slate-100 rounded-3xl mb-8 overflow-x-auto">
+                                <button type="button" onClick={() => setAddType('header')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'header' ? 'bg-orange-400 text-white shadow-lg shadow-orange-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><HeaderIcon /> <span className="hidden sm:inline">ชื่อบท</span></button>
+                                <button type="button" onClick={() => setAddType('video')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'video' ? 'bg-blue-500 text-white shadow-lg shadow-blue-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><VideoIcon /> <span className="hidden sm:inline">วิดีโอ</span></button>
+                                <button type="button" onClick={() => setAddType('text')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'text' ? 'bg-pink-500 text-white shadow-lg shadow-pink-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><TextIcon /> <span className="hidden sm:inline">บทความ</span></button>
+                                <button type="button" onClick={() => setAddType('quiz')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'quiz' ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><QuizIcon /> <span className="hidden sm:inline">คำถาม</span></button>
+                                {/* ✅ ปุ่ม Exercise ใหม่ */}
+                                <button type="button" onClick={() => setAddType('exercise')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'exercise' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><ExerciseIcon /> <span className="hidden sm:inline">แบบฝึกหัด</span></button>
+                                {/* ✅ ปุ่ม HTML ใหม่ */}
+
+                            </div>
+
+                            <div className="flex justify-between items-center mb-6 px-2">
+                                <h3 className={`font-bold text-xl flex items-center gap-3 ${addType === 'video' ? 'text-blue-600' : addType === 'quiz' ? 'text-purple-600' : addType === 'text' ? 'text-pink-600' : addType === 'exercise' ? 'text-emerald-600' : addType === 'html' ? 'text-cyan-600' : 'text-orange-600'}`}>
+                                    <div className={`w-3 h-3 rounded-full ${addType === 'video' ? 'bg-blue-500' : addType === 'quiz' ? 'bg-purple-500' : addType === 'text' ? 'bg-pink-500' : addType === 'exercise' ? 'bg-emerald-500' : addType === 'html' ? 'bg-cyan-500' : 'bg-orange-500'}`}></div>
+                                    {editId ? '✏️ แก้ไขข้อมูล' : (addType === 'video' ? 'เพิ่มวิดีโอใหม่' : addType === 'quiz' ? 'สร้างคำถาม (Quiz)' : addType === 'text' ? 'เพิ่มบทความ/ชีท' : addType === 'exercise' ? 'เพิ่มแบบฝึกหัด (PDF Link)' : addType === 'html' ? 'เพิ่ม HTML Container' : 'เพิ่มหัวข้อบทเรียน')}
+                                </h3>
+                                <div className="flex gap-2">
+                                    {editId && <button onClick={handleCancelEdit} className="text-sm font-bold text-rose-400 hover:text-rose-600 underline transition bg-rose-50 px-3 py-1 rounded-lg">ยกเลิก</button>}
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                                {addType !== 'header' && (
+                                    <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 animate-in fade-in slide-in-from-top-2">
+                                        <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 ml-1">📂 เลือกบทเรียนหลัก</label>
+                                        <select value={selectedHeaderId} onChange={(e) => setSelectedHeaderId(e.target.value)} className="w-full p-3 rounded-xl border-2 border-indigo-200 bg-white font-bold text-indigo-900 outline-none focus:border-indigo-500 transition">
+                                            <option value="">-- กรุณาเลือกบทเรียน --</option>
+                                            {availableHeaders.length > 0 ? availableHeaders.map((h) => <option key={h.id} value={h.id}>📂 {h.title}</option>) : <option disabled>⚠️ ยังไม่มีชื่อบทเรียน</option>}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <input type="text" placeholder={addType === 'quiz' ? "ตั้งคำถาม..." : addType === 'exercise' ? "ชื่อแบบฝึกหัดทบทวน..." : addType === 'html' ? "ชื่อหัวข้อ (เช่น แบบฝึกหัด, สรุปเนื้อหา)..." : "ชื่อ/หัวข้อ..."} className="w-full p-5 border-2 rounded-2xl outline-none transition font-bold text-lg shadow-sm" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} />
+
+                                {addType === 'video' && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                                        <input type="text" placeholder="🔗 วางลิงก์ YouTube..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none transition font-mono text-sm" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} />
+                                        <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
+                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
+                                            <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้ดูฟรี (Free Preview) 🎁</label>
+                                        </div>
+                                        <textarea placeholder="📝 คำอธิบายวิดีโอ..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none min-h-[120px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                    </div>
+                                )}
+
+                                {addType === 'text' && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                                        <div className="bg-pink-50 p-4 rounded-2xl border-2 border-pink-100 border-dashed">
+                                            <label className="text-xs font-bold text-pink-400 uppercase tracking-wider mb-2 block">🖼️ รูปภาพปกบทความ (Cover Image)</label>
+                                            <div className="relative group">
+                                                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="article-image-upload" />
+                                                <label htmlFor="article-image-upload" className="w-full h-32 bg-white border-2 border-dashed border-pink-300 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-pink-100 hover:border-pink-400 transition text-pink-400 font-bold shadow-sm">
+                                                    <span className="text-2xl bg-pink-100 p-2 rounded-full">📷</span>
+                                                    <span>คลิกเพิ่มรูปภาพ</span>
+                                                    <span className="text-xs text-pink-300 font-normal mt-1">ขนาดแนะนำ 1920 x 1080 px (16:9)</span>
+                                                </label>
+                                            </div>
+                                            {imagePreview && <div className="mt-4 rounded-xl overflow-hidden h-40 w-full bg-slate-200 border-2 border-white shadow-md"><img src={imagePreview} alt="Preview" className="h-full w-full object-cover" /></div>}
+                                        </div>
+                                        <textarea placeholder="เขียนเนื้อหาบทเรียน..." className="w-full p-6 bg-pink-50 border-2 border-pink-100 rounded-2xl outline-none min-h-[200px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                        <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
+                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
+                                            <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้อ่านฟรี (Free Read) 📖</label>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ✅ New Exercise Form (PDF Link) */}
+                                {addType === 'exercise' && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                                        <div className="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-100">
+                                            <label className="block text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">🔗 ลิงก์ไฟล์แบบฝึกหัด (Google Drive / PDF)</label>
+                                            <input
+                                                type="text"
+                                                placeholder="วางลิงก์ Google Drive หรือ PDF ที่นี่..."
+                                                className="w-full p-4 bg-white border-2 border-emerald-200 rounded-xl outline-none focus:border-emerald-500 transition text-emerald-800 font-medium placeholder:text-emerald-300/70"
+                                                value={pdfUrl}
+                                                onChange={(e) => setPdfUrl(e.target.value)}
+                                            />
+                                            <p className="text-xs text-emerald-500 mt-2">* แนะนำให้แชร์ลิงก์เป็น "ทุกคนที่มีลิงก์" (Anyone with the link) เพื่อให้นักเรียนเข้าถึงได้</p>
+                                        </div>
+                                        <textarea placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..." className="w-full p-4 bg-emerald-50 border-2 border-emerald-100 rounded-2xl outline-none min-h-[100px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                    </div>
+                                )}
+
+                                {addType === 'quiz' && (
+                                    <div className="space-y-3 bg-purple-50 p-6 rounded-[2rem] border-2 border-purple-100 animate-in fade-in">
+                                        <p className="text-sm font-bold text-purple-500 uppercase tracking-wider mb-2">กำหนดตัวเลือก & เฉลย</p>
+                                        {quizOptions.map((opt, index) => (
+                                            <div key={index} className={`flex items-center gap-3 p-3 rounded-2xl border-2 ${correctAnswer === index ? 'bg-white border-green-400 shadow-md' : 'bg-white/50 border-transparent'}`}>
+                                                <div className="cursor-pointer" onClick={() => setCorrectAnswer(index)}><div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${correctAnswer === index ? 'border-green-500 bg-green-500 text-white' : 'border-slate-300'}`}>✓</div></div>
+                                                <input type="text" placeholder={`ตัวเลือกที่ ${index + 1}`} className="flex-1 p-2 bg-transparent outline-none" value={opt} onChange={(e) => handleQuizOptionChange(index, e.target.value)} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+
+
+                                {addType === 'header' && (
+                                    <div className="space-y-4 p-6 bg-orange-50 border-2 border-orange-100 rounded-[2rem] animate-in fade-in">
+                                        <div className="relative group">
+                                            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="header-upload" />
+                                            <label htmlFor="header-upload" className="w-full h-40 bg-white border-2 border-dashed border-orange-300 rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition text-orange-400 font-bold shadow-sm">
+                                                <span className="text-4xl bg-orange-100 p-3 rounded-full">📁</span>
+                                                <span>คลิกเพื่ออัปโหลดรูปภาพ</span>
+                                                <span className="text-xs text-orange-300 font-normal mt-1">ขนาดแนะนำ 1920 x 1080 px (16:9)</span>
+                                            </label>
+                                        </div>
+                                        {imagePreview && <div className="mt-4 rounded-2xl overflow-hidden h-56 w-full bg-slate-200"><img src={imagePreview} alt="Preview" className="h-full w-full object-contain" /></div>}
+                                    </div>
+                                )}
+
+
+
+                                <button type="submit" disabled={submitting} className={`w-full py-4 rounded-2xl font-black text-white shadow-lg hover:shadow-xl transition text-lg tracking-wide mt-2 ${submitting ? 'bg-slate-400 cursor-not-allowed' : addType === 'exercise' ? 'bg-emerald-500 hover:bg-emerald-600' : addType === 'html' ? 'bg-cyan-500 hover:bg-cyan-600' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
+                                    {submitting ? '⏳ กำลังบันทึก...' : editId ? '💾 บันทึกการแก้ไข' : '+ เพิ่มลงในบทเรียน'}
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* ✅ Bulk Import Section */}
+                        <div className="bg-white rounded-[2.5rem] shadow-xl shadow-indigo-100 border border-indigo-50 mb-10 overflow-hidden">
+                            <button
+                                onClick={() => setIsBulkImportOpen(!isBulkImportOpen)}
+                                className="w-full p-8 flex items-center justify-between bg-white hover:bg-slate-50 transition"
+                            >
+                                <h3 className="font-bold text-xl text-indigo-900 flex items-center gap-2">
+                                    📝 นำเข้าบทเรียนทีละหลายตอน (Bulk Import)
+                                </h3>
+                                <span className={`transform transition-transform duration-300 ${isBulkImportOpen ? 'rotate-180' : ''}`}>▼</span>
+                            </button>
+
+                            <div className={`transition-all duration-500 ease-in-out ${isBulkImportOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                                <div className="p-8 pt-0">
+                                    <div className="bg-indigo-50/50 p-6 rounded-2xl border-2 border-indigo-100 border-dashed space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 ml-1">📂 ชื่อบทเรียนใหม่ (New Chapter)</label>
+                                            <input
+                                                type="text"
+                                                placeholder="ตัวอย่าง: บทที่ 1 จำนวนนับ"
+                                                className="w-full p-4 bg-white border-2 border-indigo-200 rounded-xl outline-none focus:border-indigo-500 transition font-bold text-indigo-900"
+                                                value={bulkChapterTitle}
+                                                onChange={(e) => setBulkChapterTitle(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 ml-1">📝 รายชื่อตอน (Title | URL)</label>
+                                            <textarea
+                                                placeholder={`รูปแบบ: ชื่อตอน | ลิงก์ YouTube (1 บรรทัด = 1 ตอน)\n\nตัวอย่าง:\nตอนที่ 1 การบวก | https://youtu.be/abc1\nตอนที่ 2 การลบ | https://youtu.be/abc2\n...`}
+                                                className="w-full p-4 bg-white border-2 border-indigo-200 rounded-xl outline-none focus:border-indigo-500 transition min-h-[200px] font-medium text-slate-700 font-mono text-sm"
+                                                value={bulkImportText}
+                                                onChange={(e) => setBulkImportText(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between mt-4">
+                                            <button
+                                                onClick={handleDeleteAllLessons}
+                                                disabled={submitting || lessons.length === 0}
+                                                className="px-6 py-3 rounded-xl font-bold text-rose-500 border-2 border-rose-100 hover:bg-rose-50 transition flex items-center gap-2"
+                                            >
+                                                🗑 ล้างข้อมูลทั้งหมด
+                                            </button>
+                                            <button
+                                                onClick={handleBulkImport}
+                                                disabled={submitting || !bulkImportText.trim()}
+                                                className={`px-6 py-3 rounded-xl font-bold text-white shadow-lg transition flex items-center gap-2 ${submitting || !bulkImportText.trim() ? 'bg-slate-300 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:scale-105 active:scale-95'}`}
+                                            >
+                                                {submitting ? '⏳ กำลังทำงาน...' : '🚀 เริ่มนำเข้าข้อมูล'}
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-3 text-center">
+                                            * ระบบจะสร้างบทเรียนใหม่ต่อจากลำดับล่าสุดให้อัตโนมัติ
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            {groupedLessons.map((group, index) => (
+                                <LessonGroup key={index} group={group} handleEdit={handleEditClick} handleDelete={handleDelete} handleToggleVisibility={handleToggleVisibility} handleMoveLesson={handleMoveLesson} />
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+        </div >
+
+    );
 }
