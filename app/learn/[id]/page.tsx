@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, onSnapshot, where } from "firebase/firestore";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
 
@@ -34,6 +34,8 @@ const HtmlIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 2
 
 export default function CoursePlayer() {
     const { id } = useParams();
+    const searchParams = useSearchParams();
+    const lessonIdParam = searchParams.get('lessonId');
     const courseId = typeof id === 'string' ? id : "";
     const { user, isAdmin, loading: authLoading } = useUserAuth();
 
@@ -120,12 +122,23 @@ export default function CoursePlayer() {
     }, [lessons, isAdmin]);
 
     // ✅ Set initial active lesson based on VISIBLE lessons
+    // ✅ Set initial active lesson based on VISIBLE lessons OR Query Param
     useEffect(() => {
-        if (!activeLesson && visibleLessons.length > 0) {
+        if (visibleLessons.length === 0) return;
+
+        if (lessonIdParam) {
+            const target = visibleLessons.find(l => l.id === lessonIdParam);
+            if (target && target.id !== activeLesson?.id) {
+                setActiveLesson(target);
+                if (target.headerId) {
+                    setOpenSections(prev => prev.includes(target.headerId!) ? prev : [...prev, target.headerId!]);
+                }
+            }
+        } else if (!activeLesson) {
             const firstLearnable = visibleLessons.find(l => l.type !== 'header');
             if (firstLearnable) setActiveLesson(firstLearnable);
         }
-    }, [visibleLessons, activeLesson]);
+    }, [visibleLessons, lessonIdParam]);
 
     useEffect(() => {
         if (user && courseId) {

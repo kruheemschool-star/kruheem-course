@@ -461,7 +461,7 @@ export default function MyCoursesPage() {
                                                 {searchResults.map((result, index) => (
                                                     <Link
                                                         key={index}
-                                                        href={result.isEnrolled ? (result.type === 'lesson' ? `/learn/${result.course.id}` : `/learn/${result.course.id}`) : `/course/${result.course.id}`}
+                                                        href={result.isEnrolled ? (result.type === 'lesson' ? `/learn/${result.course.id}?lessonId=${result.data.id}` : `/learn/${result.course.id}`) : `/course/${result.course.id}`}
                                                         className="block p-3 hover:bg-indigo-50 transition"
                                                     >
                                                         <div className="flex items-center gap-3">
