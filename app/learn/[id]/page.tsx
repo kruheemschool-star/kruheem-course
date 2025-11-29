@@ -10,7 +10,7 @@ import { useUserAuth } from "@/context/AuthContext";
 interface Lesson {
     id: string;
     title: string;
-    type: 'video' | 'header' | 'quiz' | 'text' | 'exercise' | 'html';
+    type: 'video' | 'header' | 'quiz' | 'text' | 'exercise' | 'html' | 'flashcard';
     videoId?: string;
     content?: string;
     htmlCode?: string;
@@ -22,6 +22,7 @@ interface Lesson {
     headerId?: string;
     isHidden?: boolean;
     order?: number;
+    flashcardData?: { front: string, back: string }[];
 }
 
 // --- Icons ---
@@ -31,6 +32,102 @@ const TextIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewB
 const CheckIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>;
 const ExerciseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" /><path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" /></svg>;
 const HtmlIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M14.447 3.027a.75.75 0 01.527.92l-4.5 16.5a.75.75 0 01-1.448-.394l4.5-16.5a.75.75 0 01.921-.526zM16.72 6.22a.75.75 0 011.06 0l5.25 5.25a.75.75 0 010 1.06l-5.25 5.25a.75.75 0 11-1.06-1.06L21.44 12l-4.72-4.72a.75.75 0 010-1.06zm-9.44 0a.75.75 0 010 1.06L2.56 12l4.72 4.72a.75.75 0 01-1.06 1.06L.97 12.53a.75.75 0 010-1.06l5.25-5.25a.75.75 0 011.06 0z" clipRule="evenodd" /></svg>;
+const FlashcardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M19.5 22.5a3 3 0 003-3v-9a3 3 0 00-3-3h-9a3 3 0 00-3 3v9a3 3 0 003 3h9z" /><path d="M4.5 19.5a3 3 0 003-3v-9a3 3 0 00-3-3h-9a3 3 0 00-3 3v9a3 3 0 003 3h9z" transform="rotate(180 12 12) translate(12 12)" opacity="0.5" /></svg>;
+
+const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [isFlipped, setIsFlipped] = useState(false);
+
+    const handleNext = () => {
+        if (currentIndex < cards.length - 1) {
+            setIsFlipped(false);
+            setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
+        }
+    };
+
+    const handlePrev = () => {
+        if (currentIndex > 0) {
+            setIsFlipped(false);
+            setTimeout(() => setCurrentIndex(prev => prev - 1), 150);
+        }
+    };
+
+    const handleFlip = () => {
+        setIsFlipped(!isFlipped);
+    };
+
+    return (
+        <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
+            {/* Progress Bar */}
+            <div className="w-full flex justify-between text-slate-500 font-bold mb-4 px-2">
+                <span>Card {currentIndex + 1} / {cards.length}</span>
+                <span>{Math.round(((currentIndex + 1) / cards.length) * 100)}%</span>
+            </div>
+            <div className="w-full h-2 bg-slate-200 rounded-full mb-8 overflow-hidden">
+                <div
+                    className="h-full bg-yellow-400 transition-all duration-300"
+                    style={{ width: `${((currentIndex + 1) / cards.length) * 100}%` }}
+                ></div>
+            </div>
+
+            {/* Card Container */}
+            <div
+                className="perspective-1000 w-full aspect-[3/2] cursor-pointer group"
+                onClick={handleFlip}
+            >
+                <div className={`relative w-full h-full duration-500 transform-style-3d transition-transform ${isFlipped ? 'rotate-y-180' : ''}`}>
+
+                    {/* Front Side */}
+                    <div className="absolute w-full h-full backface-hidden bg-white rounded-[2rem] shadow-xl border-2 border-slate-100 flex flex-col items-center justify-center p-10 text-center hover:shadow-2xl hover:border-yellow-200 transition-all">
+                        <span className="absolute top-6 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
+                        <h3 className="text-2xl md:text-4xl font-bold text-slate-800 leading-relaxed">
+                            {cards[currentIndex].front}
+                        </h3>
+                        <p className="absolute bottom-6 text-slate-400 text-sm animate-pulse">Click to flip ↻</p>
+                    </div>
+
+                    {/* Back Side */}
+                    <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[2rem] shadow-xl border-2 border-yellow-200 flex flex-col items-center justify-center p-10 text-center">
+                        <span className="absolute top-6 left-6 text-xs font-bold text-yellow-600 uppercase tracking-widest">Answer</span>
+                        <h3 className="text-2xl md:text-4xl font-bold text-yellow-800 leading-relaxed">
+                            {cards[currentIndex].back}
+                        </h3>
+                    </div>
+                </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex items-center gap-6 mt-10">
+                <button
+                    onClick={handlePrev}
+                    disabled={currentIndex === 0}
+                    className="p-4 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition text-slate-600"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                </button>
+
+                <div className="text-slate-400 font-medium text-sm">
+                    Use arrows to navigate
+                </div>
+
+                <button
+                    onClick={handleNext}
+                    disabled={currentIndex === cards.length - 1}
+                    className="p-4 rounded-full bg-white border border-slate-200 shadow-sm hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition text-slate-600"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                </button>
+            </div>
+
+            <style jsx>{`
+                .perspective-1000 { perspective: 1000px; }
+                .transform-style-3d { transform-style: preserve-3d; }
+                .backface-hidden { backface-visibility: hidden; }
+                .rotate-y-180 { transform: rotateY(180deg); }
+            `}</style>
+        </div>
+    );
+};
 
 export default function CoursePlayer() {
     const { id } = useParams();
@@ -362,8 +459,8 @@ export default function CoursePlayer() {
                                                                 {lesson.isHidden && <span className="text-[10px] text-gray-400 ml-2 font-normal">(Hidden)</span>}
                                                             </p>
                                                             <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
-                                                                {lesson.type === 'quiz' ? <QuestionIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : <PlayIcon />}
-                                                                <span>{lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'exercise' ? 'Exercise' : lesson.type === 'html' ? 'HTML' : 'Reading'}</span>
+                                                                {lesson.type === 'quiz' ? <QuestionIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : lesson.type === 'flashcard' ? <FlashcardIcon /> : <PlayIcon />}
+                                                                <span>{lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'exercise' ? 'Exercise' : lesson.type === 'html' ? 'HTML' : lesson.type === 'flashcard' ? 'Flashcard' : 'Reading'}</span>
                                                             </div>
                                                         </div>
                                                         {!isUnlocked && <span className="ml-auto text-xs">🔒</span>}
@@ -508,6 +605,18 @@ export default function CoursePlayer() {
                                     <h2 className="text-3xl font-black text-slate-800 mb-6 border-b border-slate-100 pb-4">{activeLesson.title}</h2>
                                     {activeLesson.content && <div className="prose prose-lg max-w-none text-slate-600 mb-8 leading-loose whitespace-pre-wrap font-medium">{activeLesson.content}</div>}
                                     <div className="w-full overflow-hidden rounded-xl border border-slate-100 bg-slate-50" dangerouslySetInnerHTML={{ __html: activeLesson.htmlCode || "" }} />
+                                </div>
+                            </div>
+                        ) : activeLesson?.type === 'flashcard' ? (
+                            <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
+                                <div className="w-full max-w-4xl">
+                                    <h2 className="text-3xl font-black text-slate-800 mb-8 text-center">{activeLesson.title}</h2>
+
+                                    {activeLesson.flashcardData && activeLesson.flashcardData.length > 0 ? (
+                                        <FlashcardPlayer cards={activeLesson.flashcardData} />
+                                    ) : (
+                                        <div className="text-center text-slate-400">ไม่พบข้อมูล Flashcard</div>
+                                    )}
                                 </div>
                             </div>
                         ) : (

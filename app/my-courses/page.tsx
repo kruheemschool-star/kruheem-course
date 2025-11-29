@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs, orderBy, limit, collectionGroup, addDoc, serverTimestamp, onSnapshot, updateDoc, doc } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, collectionGroup, addDoc, serverTimestamp, onSnapshot, updateDoc, doc, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import Link from "next/link";
@@ -234,6 +234,22 @@ export default function MyCoursesPage() {
             }
         } catch (error) {
             console.error("Error fetching tickets:", error);
+        }
+    };
+
+    const handleDeleteTicket = async (e: React.MouseEvent, ticketId: string) => {
+        e.stopPropagation();
+        if (!confirm("คุณต้องการลบรายการแจ้งปัญหานี้ใช่หรือไม่?")) return;
+
+        try {
+            await deleteDoc(doc(db, "support_tickets", ticketId));
+            // Note: Sub-collections (messages) are not automatically deleted in client SDK, 
+            // but for UI purposes, removing the parent is enough. 
+            // Ideally, use a Cloud Function for recursive delete.
+            setSupportTickets(prev => prev.filter(t => t.id !== ticketId));
+        } catch (error) {
+            console.error("Error deleting ticket:", error);
+            alert("เกิดข้อผิดพลาดในการลบรายการ");
         }
     };
 
@@ -548,10 +564,19 @@ export default function MyCoursesPage() {
                                                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ticket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
                                                             {ticket.status === 'resolved' ? '✅ แก้ไขแล้ว' : '⏳ รอตรวจสอบ'}
                                                         </span>
-                                                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                            <Clock size={10} />
-                                                            {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString('th-TH') : '...'}
-                                                        </span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                                                <Clock size={10} />
+                                                                {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString('th-TH') : '...'}
+                                                            </span>
+                                                            <button
+                                                                onClick={(e) => handleDeleteTicket(e, ticket.id)}
+                                                                className="text-slate-300 hover:text-rose-500 transition p-1 rounded-full hover:bg-rose-50"
+                                                                title="ลบรายการ"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                     <p className="font-bold text-slate-700 text-sm truncate pl-2 group-hover:text-cyan-700 transition">{ticket.subject}</p>
                                                     <p className="text-xs text-slate-500 truncate pl-2">{ticket.message}</p>
