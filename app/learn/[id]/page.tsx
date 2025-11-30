@@ -5,6 +5,7 @@ import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, onSnapshot, w
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
+import Certificate from "@/app/components/Certificate";
 
 // Interface
 interface Lesson {
@@ -153,6 +154,7 @@ export default function CoursePlayer() {
 
     // ✅ State สำหรับ Mobile Menu
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [showCertificate, setShowCertificate] = useState(false);
 
     // 1. Check Enrollment
     useEffect(() => {
@@ -365,6 +367,14 @@ export default function CoursePlayer() {
 
     return (
         <div className="h-[100dvh] bg-[#F3F4F6] font-sans flex overflow-hidden relative">
+            {/* ✅ Certificate Modal */}
+            {showCertificate && user && course && (
+                <Certificate
+                    studentName={user.displayName || "Student"}
+                    courseTitle={course.title}
+                    onClose={() => setShowCertificate(false)}
+                />
+            )}
 
             {/* Mobile Menu Overlay */}
             {isMobileMenuOpen && (
@@ -506,6 +516,24 @@ export default function CoursePlayer() {
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
+                        {/* ✅ Certificate Button (Always Show) */}
+                        <button
+                            onClick={() => {
+                                if (progressPercent === 100) {
+                                    setShowCertificate(true);
+                                } else {
+                                    alert(`🔒 ยังไม่ปลดล็อกไอเทม!\n\nน้องๆ ต้องเรียนให้ครบ 100% ก่อนนะครับ ถึงจะรับใบประกาศนียบัตรสุดเท่ได้!\n(ตอนนี้ทำภารกิจไปแล้ว ${progressPercent}%)`);
+                                }
+                            }}
+                            className={`hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full font-bold shadow-lg transition
+                            ${progressPercent === 100
+                                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-orange-200 hover:scale-105 animate-pulse'
+                                    : 'bg-white border-2 border-slate-200 text-slate-400 hover:border-yellow-400 hover:text-yellow-500 hover:bg-yellow-50'
+                                }`}
+                        >
+                            <span className="text-xl">{progressPercent === 100 ? '🏆' : '🔒'}</span>
+                            <span>รับใบประกาศนียบัตร</span>
+                        </button>
 
                         {user && canWatchCurrent && !isHeaderMode && (
                             <button onClick={handleNextLesson} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 px-3 md:px-5 py-2 md:py-2.5 rounded-full font-bold transition-all shadow-sm hover:shadow-md group text-sm md:text-base">

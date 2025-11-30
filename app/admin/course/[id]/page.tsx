@@ -127,6 +127,13 @@ export default function ManageLessonsPage() {
     const [lessons, setLessons] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'lessons' | 'students'>('lessons');
     const [students, setStudents] = useState<any[]>([]);
+    const [expandedStudentIds, setExpandedStudentIds] = useState<string[]>([]);
+
+    const toggleStudentExpand = (id: string) => {
+        setExpandedStudentIds(prev =>
+            prev.includes(id) ? prev.filter(pid => pid !== id) : [...prev, id]
+        );
+    };
 
     const fetchStudents = useCallback(async () => {
         if (!courseId) return;
@@ -137,12 +144,49 @@ export default function ManageLessonsPage() {
                 where("status", "==", "approved")
             );
             const snapshot = await getDocs(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setStudents(data);
+
+            // Calculate total learnable lessons (exclude headers)
+            const learnableLessons = lessons.filter(l => l.type !== 'header');
+            const totalLessons = learnableLessons.length;
+
+            const studentsWithProgress = await Promise.all(snapshot.docs.map(async (docSnapshot) => {
+                const studentData = docSnapshot.data();
+                const studentId = studentData.userId;
+
+                let completedLessons: string[] = [];
+                let progressPercent = 0;
+
+                if (studentId) {
+                    try {
+                        const progressRef = doc(db, "users", studentId, "progress", courseId);
+                        const progressSnap = await getDoc(progressRef);
+                        if (progressSnap.exists()) {
+                            completedLessons = progressSnap.data().completed || [];
+                        }
+                    } catch (err) {
+                        console.error("Error fetching progress for user", studentId, err);
+                    }
+                }
+
+                // Calculate percentage based on VALID lessons only
+                if (totalLessons > 0) {
+                    const validCompleted = completedLessons.filter(id => learnableLessons.some(l => l.id === id));
+                    progressPercent = Math.round((validCompleted.length / totalLessons) * 100);
+                }
+
+                return {
+                    id: docSnapshot.id,
+                    ...studentData,
+                    completedLessons,
+                    progressPercent
+                };
+            }));
+
+            setStudents(studentsWithProgress);
         } catch (error) {
             console.error("Error fetching students:", error);
         }
-    }, [courseId]);
+    }, [courseId, lessons]);
 
     useEffect(() => {
         if (activeTab === 'students') {
@@ -949,38 +993,88 @@ export default function ManageLessonsPage() {
                                         else status = 'good';
                                     }
 
+                                    const isExpanded = expandedStudentIds.includes(student.id);
+
                                     return (
-                                        <div key={student.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-md transition">
-                                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-lg
+                                        <div key={student.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition">
+                                            <div className="p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                                                <div className="flex items-center gap-4 w-full md:w-auto">
+                                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-lg shrink-0
                                                 ${status === 'critical' ? 'bg-rose-500 shadow-rose-200' :
-                                                        status === 'warning' ? 'bg-amber-400 shadow-amber-200' :
-                                                            status === 'good' ? 'bg-emerald-500 shadow-emerald-200' : 'bg-slate-300'}`}>
-                                                    {student.studentName ? student.studentName.charAt(0).toUpperCase() : '?'}
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-bold text-lg text-slate-800">{student.studentName || "ไม่ระบุชื่อ"}</h3>
-                                                    <div className="flex flex-col text-sm text-slate-500 gap-1">
-                                                        <span>📞 {student.studentTel || "-"}</span>
-                                                        <span>🆔 {student.studentLine || "-"}</span>
+                                                            status === 'warning' ? 'bg-amber-400 shadow-amber-200' :
+                                                                status === 'good' ? 'bg-emerald-500 shadow-emerald-200' : 'bg-slate-300'}`}>
+                                                        {student.studentName ? student.studentName.charAt(0).toUpperCase() : '?'}
                                                     </div>
+                                                    <div className="min-w-0">
+                                                        <h3 className="font-bold text-lg text-slate-800 truncate">{student.studentName || "ไม่ระบุชื่อ"}</h3>
+                                                        <div className="flex flex-col text-sm text-slate-500 gap-1">
+                                                            <span>📞 {student.studentTel || "-"}</span>
+                                                            <span>🆔 {student.studentLine || "-"}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-col md:flex-row items-center gap-6 w-full md:w-auto">
+                                                    {/* Progress Section */}
+                                                    <div className="flex flex-col items-end w-full md:w-48">
+                                                        <div className="flex justify-between w-full text-xs font-bold mb-1">
+                                                            <span className="text-slate-400">ความคืบหน้า</span>
+                                                            <span className="text-indigo-600">{student.progressPercent || 0}%</span>
+                                                        </div>
+                                                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full"
+                                                                style={{ width: `${student.progressPercent || 0}%` }}
+                                                            ></div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Attendance Section */}
+                                                    <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl w-full md:w-auto justify-between md:justify-start">
+                                                        <div className="text-right">
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">เข้าเรียนล่าสุด</p>
+                                                            <p className={`font-bold text-sm ${status === 'critical' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : status === 'good' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                                {lastAccessDate ? `${diffDays} วันที่แล้ว` : "ยังไม่เคย"}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-2xl">
+                                                            {status === 'critical' ? '🚨' : status === 'warning' ? '⚡' : status === 'good' ? '🔥' : '💤'}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Expand Button */}
+                                                    <button
+                                                        onClick={() => toggleStudentExpand(student.id)}
+                                                        className={`p-2 rounded-xl border-2 transition ${isExpanded ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-100 text-slate-400 hover:border-indigo-200 hover:text-indigo-500'}`}
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-4 w-full md:w-auto bg-slate-50 p-4 rounded-2xl">
-                                                <div className="text-right">
-                                                    <p className="text-xs font-bold text-slate-400 uppercase">เข้าเรียนล่าสุด</p>
-                                                    <p className={`font-bold text-lg ${status === 'critical' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : status === 'good' ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                                        {lastAccessDate ? `${diffDays} วันที่แล้ว` : "ยังไม่เคยเข้าเรียน"}
-                                                    </p>
-                                                    <p className="text-xs text-slate-400">
-                                                        {lastAccessDate ? lastAccessDate.toLocaleString('th-TH') : '-'}
-                                                    </p>
+                                            {/* Expanded Details */}
+                                            {isExpanded && (
+                                                <div className="border-t border-slate-100 bg-slate-50/50 p-6 animate-in slide-in-from-top-2">
+                                                    <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                                                        <span>📚</span> รายละเอียดการเรียน
+                                                    </h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                        {lessons.filter(l => l.type !== 'header').map((lesson) => {
+                                                            const isCompleted = (student.completedLessons || []).includes(lesson.id);
+                                                            return (
+                                                                <div key={lesson.id} className={`flex items-center gap-3 p-3 rounded-xl border ${isCompleted ? 'bg-white border-emerald-100 shadow-sm' : 'bg-slate-50 border-transparent opacity-60'}`}>
+                                                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isCompleted ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                                                                        {isCompleted ? '✓' : ''}
+                                                                    </div>
+                                                                    <span className={`text-sm truncate ${isCompleted ? 'text-slate-700 font-medium' : 'text-slate-400'}`}>{lesson.title}</span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
-                                                <div className="text-3xl">
-                                                    {status === 'critical' ? '🚨' : status === 'warning' ? '⚡' : status === 'good' ? '🔥' : '💤'}
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
                                     );
                                 })
