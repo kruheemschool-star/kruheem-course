@@ -499,7 +499,7 @@ export default function CoursePlayer() {
 
                         {user && canWatchCurrent && !isHeaderMode && (
                             <button onClick={handleNextLesson} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 px-3 md:px-5 py-2 md:py-2.5 rounded-full font-bold transition-all shadow-sm hover:shadow-md group text-sm md:text-base">
-                                {completedLessons.includes(activeLesson?.id || "") ? <><span className="hidden md:inline">Completed</span> <CheckIcon /></> : <><span className="hidden md:inline">Complete & Continue</span> <span className="group-hover:translate-x-1 transition">→</span></>}
+                                {completedLessons.includes(activeLesson?.id || "") ? <><span className="hidden md:inline">เรียนจบแล้ว</span> <CheckIcon /></> : <><span className="hidden md:inline">บันทึกความคืบหน้าและไปตอนต่อไป</span> <span className="group-hover:translate-x-1 transition">→</span></>}
                             </button>
                         )}
                     </div>

@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, MessageSquare, Paperclip, CheckCircle, Trash2, Clock, User, Send, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import PollWidget from "@/components/PollWidget";
+
 import { useUserAuth } from "@/context/AuthContext";
 
 // --- Icons ---
@@ -725,7 +727,9 @@ export default function MyCoursesPage() {
                         </div>
                     )}
                 </div>
+
                 <Footer />
+                <PollWidget />
             </div>
 
             {/* ✅ Profile Edit Modal */}
