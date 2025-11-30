@@ -177,7 +177,7 @@ export default function HomePage() {
               >
                 <span className="relative z-10 flex items-center gap-3">
                   <Rocket className="group-hover:-translate-y-1 group-hover:translate-x-1 transition-transform" />
-                  เริ่มต้นเรียนทันที
+                  คอร์สเรียนทั้งหมด
                 </span>
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
               </button>
