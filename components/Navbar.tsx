@@ -41,11 +41,7 @@ export default function Navbar() {
     };
 
     const handlePaymentClick = () => {
-        if (user) {
-            router.push("/payment");
-        } else {
-            handleLogin();
-        }
+        router.push("/payment");
     };
 
     return (
