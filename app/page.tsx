@@ -19,6 +19,30 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
+const BannerImage = ({ url, isActive, index }: { url: string, isActive: boolean, index: number }) => {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div
+      className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+    >
+      {!loaded && (
+        <div className="absolute inset-0 bg-stone-200 animate-pulse flex items-center justify-center z-20">
+          <Loader2 className="w-10 h-10 text-stone-400 animate-spin" />
+        </div>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={`Promotional Banner ${index + 1}`}
+        className={`w-full h-full object-cover transition-opacity duration-700 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
+    </div>
+  );
+};
+
 export default function HomePage() {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,18 +200,12 @@ export default function HomePage() {
                 ) : (
                   <>
                     {bannerImages.map((url, index) => (
-                      <div
+                      <BannerImage
                         key={index}
-                        className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt={`Promotional Banner ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
-                      </div>
+                        url={url}
+                        index={index}
+                        isActive={index === currentSlide}
+                      />
                     ))}
 
                     {/* Navigation Dots */}
