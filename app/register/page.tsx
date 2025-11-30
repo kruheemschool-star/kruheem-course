@@ -1,13 +1,16 @@
 "use client";
 import { useState } from "react";
 import { useUserAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, AlertCircle, ArrowRight } from "lucide-react";
 
 export default function RegisterPage() {
     const { emailSignUp, googleSignIn } = useUserAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const returnUrl = searchParams.get('returnUrl') || '/';
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -31,7 +34,7 @@ export default function RegisterPage() {
         setLoading(true);
         try {
             await emailSignUp(email, password);
-            router.push("/"); // Redirect to home
+            router.push(returnUrl); // Redirect to returnUrl or home
         } catch (err: any) {
             console.error(err);
             if (err.code === "auth/email-already-in-use") {
@@ -51,7 +54,7 @@ export default function RegisterPage() {
     const handleGoogleSignIn = async () => {
         try {
             await googleSignIn();
-            router.push("/");
+            router.push(returnUrl);
         } catch (err: any) {
             setError("Google Sign In Failed: " + err.message);
         }

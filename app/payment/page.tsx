@@ -34,12 +34,33 @@ export default function PaymentPage() {
     "ม.ปลาย (ม.4-6)": 4
   };
 
+  // ✅ Restore Pending Order if exists
   useEffect(() => {
-    if (!authLoading && !user) {
-      alert("กรุณาเข้าสู่ระบบก่อนแจ้งโอนเงิน");
-      router.push("/");
+    const pendingOrderStr = localStorage.getItem("pendingOrder");
+    if (pendingOrderStr) {
+      try {
+        const pendingOrder = JSON.parse(pendingOrderStr);
+        setFullName(pendingOrder.fullName || "");
+        setPhoneNumber(pendingOrder.phoneNumber || "");
+        setLineId(pendingOrder.lineId || "");
+        setSelectedCourses(pendingOrder.selectedCourses || []);
+
+        if (pendingOrder.slipBase64) {
+          setSlipPreview(pendingOrder.slipBase64);
+          // Convert Base64 back to File
+          fetch(pendingOrder.slipBase64)
+            .then(res => res.blob())
+            .then(blob => {
+              const file = new File([blob], "restored_slip.png", { type: "image/png" });
+              setSlipFile(file);
+            });
+        }
+      } catch (e) {
+        console.error("Error restoring order:", e);
+        localStorage.removeItem("pendingOrder");
+      }
     }
-  }, [user, authLoading, router]);
+  }, []);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -83,12 +104,31 @@ export default function PaymentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
 
     if (selectedCourses.length === 0) return alert("⚠️ กรุณาเลือกคอร์สเรียนอย่างน้อย 1 คอร์ส");
     if (!fullName.trim()) return alert("⚠️ กรุณากรอกชื่อ-นามสกุล");
     if (!phoneNumber.trim()) return alert("⚠️ กรุณากรอกเบอร์โทรศัพท์");
     if (!slipFile) return alert("⚠️ กรุณาแนบสลิปโอนเงิน");
+
+    // ✅ Handle Guest: Save to LocalStorage & Redirect
+    if (!user) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        const pendingOrder = {
+          fullName,
+          phoneNumber,
+          lineId,
+          selectedCourses,
+          slipBase64: base64String
+        };
+        localStorage.setItem("pendingOrder", JSON.stringify(pendingOrder));
+        alert("🔒 กรุณาเข้าสู่ระบบหรือสมัครสมาชิกเพื่อยืนยันการสั่งซื้อ\n(ระบบได้บันทึกข้อมูลของท่านไว้แล้ว)");
+        router.push("/login?returnUrl=/payment");
+      };
+      reader.readAsDataURL(slipFile);
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -114,6 +154,10 @@ export default function PaymentPage() {
       });
 
       await Promise.all(promises);
+
+      // Clear pending order if success
+      localStorage.removeItem("pendingOrder");
+
       alert("✅ แจ้งโอนเงินเรียบร้อย! ข้อมูลถูกส่งไปยัง Admin แล้วครับ");
       router.push("/my-courses");
 
@@ -129,7 +173,7 @@ export default function PaymentPage() {
     .filter(c => (c.category || "อื่นๆ") === selectedCategory)
     .sort((a, b) => a.title.localeCompare(b.title, 'th'));
 
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center text-slate-500">กำลังตรวจสอบสิทธิ์...</div>;
+  // if (authLoading) return <div className="min-h-screen flex items-center justify-center text-slate-500">กำลังตรวจสอบสิทธิ์...</div>;
 
   return (
     <div className="min-h-screen bg-[#F0F7F4] font-sans flex flex-col">
