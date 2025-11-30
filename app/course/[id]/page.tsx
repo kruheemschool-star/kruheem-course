@@ -64,6 +64,8 @@ export default function CourseSalesPage() {
         fetchData();
     }, [courseId]);
 
+    const [attendanceStatus, setAttendanceStatus] = useState<'none' | 'good' | 'warning' | 'critical'>('none');
+
     useEffect(() => {
         if (user && courseId) {
             const enrollRef = doc(db, "enrollments", `${user.uid}_${courseId}`);
@@ -79,8 +81,24 @@ export default function CourseSalesPage() {
                     if (data.slipUrl && !slipPreview) {
                         setSlipPreview(data.slipUrl);
                     }
+
+                    // ✅ Check Attendance
+                    if (data.lastAccessedAt && data.status === 'approved') {
+                        const lastAccess = data.lastAccessedAt.toDate();
+                        const now = new Date();
+                        const diffTime = Math.abs(now.getTime() - lastAccess.getTime());
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                        if (diffDays > 7) setAttendanceStatus('critical');
+                        else if (diffDays > 3) setAttendanceStatus('warning');
+                        else setAttendanceStatus('good');
+                    } else {
+                        setAttendanceStatus('none');
+                    }
+
                 } else {
                     setEnrollmentStatus('none');
+                    setAttendanceStatus('none');
                 }
             });
             return () => unsubscribe();
@@ -143,16 +161,58 @@ export default function CourseSalesPage() {
                         {/* Buttons & Price */}
                         <div className="flex flex-col items-center md:items-start gap-6 pt-2">
                             {enrollmentStatus === 'approved' ? (
-                                <Link href={`/learn/${courseId}`}>
-                                    <button className="group relative px-10 py-4 rounded-2xl font-bold text-lg text-white overflow-hidden transition-all hover:-translate-y-1 shadow-xl shadow-green-200">
-                                        <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
-                                        <div className="absolute inset-0 bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-20 transition-opacity"></div>
-                                        <div className="relative flex items-center gap-3">
-                                            <span>เข้าสู่ห้องเรียน</span>
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                                        </div>
-                                    </button>
-                                </Link>
+                                <div className="w-full">
+                                    {/* Attendance Banner */}
+                                    {(() => {
+                                        // Helper to render banner based on status
+                                        // We use the state 'attendanceStatus' calculated in useEffect
+                                        if (attendanceStatus === 'critical') {
+                                            return (
+                                                <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-start gap-4 animate-in slide-in-from-left-4 fade-in duration-500">
+                                                    <div className="p-3 bg-white rounded-full text-2xl shadow-sm">🚨</div>
+                                                    <div>
+                                                        <h3 className="font-bold text-rose-700 text-lg">หายไปนานเลยนะ!</h3>
+                                                        <p className="text-rose-600 text-sm mt-1">ไม่ได้เข้าเรียนมาเกิน 7 วันแล้ว เดี๋ยวลืมเนื้อหานะครับ กลับมาลุยต่อเถอะ!</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        if (attendanceStatus === 'warning') {
+                                            return (
+                                                <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-100 flex items-start gap-4 animate-in slide-in-from-left-4 fade-in duration-500">
+                                                    <div className="p-3 bg-white rounded-full text-2xl shadow-sm">⚡</div>
+                                                    <div>
+                                                        <h3 className="font-bold text-amber-700 text-lg">อย่าลืมแวะมาทบทวนนะ</h3>
+                                                        <p className="text-amber-600 text-sm mt-1">ไม่ได้เข้าเรียนมาเกิน 3 วันแล้ว แวะมาดูคลิปสั้นๆ สักหน่อยก็ยังดีครับ</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        if (attendanceStatus === 'good') {
+                                            return (
+                                                <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-start gap-4 animate-in slide-in-from-left-4 fade-in duration-500">
+                                                    <div className="p-3 bg-white rounded-full text-2xl shadow-sm">🔥</div>
+                                                    <div>
+                                                        <h3 className="font-bold text-emerald-700 text-lg">สุดยอดมาก! ขยันสุดๆ</h3>
+                                                        <p className="text-emerald-600 text-sm mt-1">เข้าเรียนสม่ำเสมอแบบนี้ เกรด 4 วิชาคณิตศาสตร์รออยู่แน่นอนครับ!</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+
+                                    <Link href={`/learn/${courseId}`}>
+                                        <button className="w-full md:w-auto group relative px-10 py-4 rounded-2xl font-bold text-lg text-white overflow-hidden transition-all hover:-translate-y-1 shadow-xl shadow-green-200">
+                                            <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
+                                            <div className="absolute inset-0 bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                                            <div className="relative flex items-center justify-center gap-3">
+                                                <span>เข้าสู่ห้องเรียน</span>
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                                            </div>
+                                        </button>
+                                    </Link>
+                                </div>
                             ) : enrollmentStatus === 'pending' ? (
                                 <button
                                     onClick={() => router.push("/payment")}

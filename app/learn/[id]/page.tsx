@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState, useMemo } from "react";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, onSnapshot, where } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, onSnapshot, where, serverTimestamp } from "firebase/firestore";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
@@ -169,6 +169,16 @@ export default function CoursePlayer() {
                     const snapshot = await getDocs(q);
                     if (!snapshot.empty) {
                         setIsEnrolled(true); // 🎉 มีสิทธิ์เรียน
+
+                        // ✅ Update Last Accessed Time
+                        const enrollRef = doc(db, "enrollments", `${user.uid}_${courseId}`);
+                        // We use setDoc with merge: true to be safe, or updateDoc. 
+                        // Since we know it exists (snapshot not empty), updateDoc is fine, but we need to import it.
+                        // Let's use setDoc with merge to avoid import issues if updateDoc isn't imported yet, 
+                        // actually I'll add updateDoc to imports.
+                        await setDoc(enrollRef, {
+                            lastAccessedAt: serverTimestamp()
+                        }, { merge: true });
                     }
                 } catch (error) {
                     console.error("Error checking enrollment:", error);

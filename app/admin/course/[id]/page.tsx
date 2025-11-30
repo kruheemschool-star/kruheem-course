@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
-import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, getDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, getDoc, query, orderBy, writeBatch, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -125,6 +125,30 @@ export default function ManageLessonsPage() {
     const courseId = typeof id === 'string' ? id : "";
     const [courseTitle, setCourseTitle] = useState("กำลังโหลด...");
     const [lessons, setLessons] = useState<any[]>([]);
+    const [activeTab, setActiveTab] = useState<'lessons' | 'students'>('lessons');
+    const [students, setStudents] = useState<any[]>([]);
+
+    const fetchStudents = useCallback(async () => {
+        if (!courseId) return;
+        try {
+            const q = query(
+                collection(db, "enrollments"),
+                where("courseId", "==", courseId),
+                where("status", "==", "approved")
+            );
+            const snapshot = await getDocs(q);
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setStudents(data);
+        } catch (error) {
+            console.error("Error fetching students:", error);
+        }
+    }, [courseId]);
+
+    useEffect(() => {
+        if (activeTab === 'students') {
+            fetchStudents();
+        }
+    }, [activeTab, fetchStudents]);
 
     // ✅ เพิ่ม Type 'exercise', 'html', 'flashcard'
     const [addType, setAddType] = useState<'header' | 'video' | 'text' | 'quiz' | 'exercise' | 'html' | 'flashcard'>('header');
@@ -642,256 +666,329 @@ export default function ManageLessonsPage() {
                     </div>
                 </div>
 
-                {loading ? <div className="p-10 text-center text-indigo-400">กำลังโหลด...</div> : (
-                    <>
-                        <div className={`bg-white p-8 rounded-[2.5rem] shadow-xl shadow-indigo-100 border border-indigo-50 mb-10 transition-all duration-300 ${editId ? 'ring-4 ring-amber-200' : ''}`}>
+                {/* ✅ Tab Navigation */}
+                <div className="flex gap-4 mb-8">
+                    <button
+                        onClick={() => setActiveTab('lessons')}
+                        className={`px-6 py-3 rounded-2xl font-bold transition-all ${activeTab === 'lessons' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        📚 จัดการบทเรียน
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('students')}
+                        className={`px-6 py-3 rounded-2xl font-bold transition-all ${activeTab === 'students' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        👨‍🎓 รายชื่อผู้เรียน ({students.length})
+                    </button>
+                </div>
 
-                            {/* ✅ เพิ่มปุ่มเมนู 5 ปุ่ม (รวม Exercise) */}
-                            <div className="grid grid-cols-5 gap-2 p-2 bg-slate-100 rounded-3xl mb-8 overflow-x-auto">
-                                <button type="button" onClick={() => setAddType('header')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'header' ? 'bg-orange-400 text-white shadow-lg shadow-orange-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><HeaderIcon /> <span className="hidden sm:inline">ชื่อบท</span></button>
-                                <button type="button" onClick={() => setAddType('video')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'video' ? 'bg-blue-500 text-white shadow-lg shadow-blue-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><VideoIcon /> <span className="hidden sm:inline">วิดีโอ</span></button>
-                                <button type="button" onClick={() => setAddType('text')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'text' ? 'bg-pink-500 text-white shadow-lg shadow-pink-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><TextIcon /> <span className="hidden sm:inline">บทความ</span></button>
-                                <button type="button" onClick={() => setAddType('quiz')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'quiz' ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><QuizIcon /> <span className="hidden sm:inline">คำถาม</span></button>
-                                {/* ✅ ปุ่ม Exercise ใหม่ */}
-                                <button type="button" onClick={() => setAddType('exercise')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'exercise' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><ExerciseIcon /> <span className="hidden sm:inline">แบบฝึกหัด</span></button>
-                                {/* ✅ ปุ่ม HTML ใหม่ */}
-                                <button type="button" onClick={() => setAddType('html')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'html' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><HtmlIcon /> <span className="hidden sm:inline">HTML</span></button>
-                                {/* ✅ ปุ่ม Flashcard ใหม่ */}
-                                <button type="button" onClick={() => setAddType('flashcard')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'flashcard' ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><FlashcardIcon /> <span className="hidden sm:inline">Flashcard</span></button>
-                            </div>
+                {
+                    loading ? <div className="p-10 text-center text-indigo-400">กำลังโหลด...</div> : activeTab === 'lessons' ? (
+                        <>
+                            <div className={`bg-white p-8 rounded-[2.5rem] shadow-xl shadow-indigo-100 border border-indigo-50 mb-10 transition-all duration-300 ${editId ? 'ring-4 ring-amber-200' : ''}`}>
 
-                            <div className="flex justify-between items-center mb-6 px-2">
-                                <h3 className={`font-bold text-xl flex items-center gap-3 ${addType === 'video' ? 'text-blue-600' : addType === 'quiz' ? 'text-purple-600' : addType === 'text' ? 'text-pink-600' : addType === 'exercise' ? 'text-emerald-600' : addType === 'html' ? 'text-cyan-600' : addType === 'flashcard' ? 'text-yellow-600' : 'text-orange-600'}`}>
-                                    <div className={`w-3 h-3 rounded-full ${addType === 'video' ? 'bg-blue-500' : addType === 'quiz' ? 'bg-purple-500' : addType === 'text' ? 'bg-pink-500' : addType === 'exercise' ? 'bg-emerald-500' : addType === 'html' ? 'bg-cyan-500' : addType === 'flashcard' ? 'bg-yellow-500' : 'bg-orange-500'}`}></div>
-                                    {editId ? '✏️ แก้ไขข้อมูล' : (addType === 'video' ? 'เพิ่มวิดีโอใหม่' : addType === 'quiz' ? 'สร้างคำถาม (Quiz)' : addType === 'text' ? 'เพิ่มบทความ/ชีท' : addType === 'exercise' ? 'เพิ่มแบบฝึกหัด (PDF Link)' : addType === 'html' ? 'เพิ่ม HTML Container' : addType === 'flashcard' ? 'เพิ่ม Flashcard' : 'เพิ่มหัวข้อบทเรียน')}
-                                </h3>
-                                <div className="flex gap-2">
-                                    {editId && <button onClick={handleCancelEdit} className="text-sm font-bold text-rose-400 hover:text-rose-600 underline transition bg-rose-50 px-3 py-1 rounded-lg">ยกเลิก</button>}
+                                {/* ✅ เพิ่มปุ่มเมนู 5 ปุ่ม (รวม Exercise) */}
+                                <div className="grid grid-cols-5 gap-2 p-2 bg-slate-100 rounded-3xl mb-8 overflow-x-auto">
+                                    <button type="button" onClick={() => setAddType('header')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'header' ? 'bg-orange-400 text-white shadow-lg shadow-orange-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><HeaderIcon /> <span className="hidden sm:inline">ชื่อบท</span></button>
+                                    <button type="button" onClick={() => setAddType('video')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'video' ? 'bg-blue-500 text-white shadow-lg shadow-blue-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><VideoIcon /> <span className="hidden sm:inline">วิดีโอ</span></button>
+                                    <button type="button" onClick={() => setAddType('text')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'text' ? 'bg-pink-500 text-white shadow-lg shadow-pink-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><TextIcon /> <span className="hidden sm:inline">บทความ</span></button>
+                                    <button type="button" onClick={() => setAddType('quiz')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'quiz' ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><QuizIcon /> <span className="hidden sm:inline">คำถาม</span></button>
+                                    {/* ✅ ปุ่ม Exercise ใหม่ */}
+                                    <button type="button" onClick={() => setAddType('exercise')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'exercise' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><ExerciseIcon /> <span className="hidden sm:inline">แบบฝึกหัด</span></button>
+                                    {/* ✅ ปุ่ม HTML ใหม่ */}
+                                    <button type="button" onClick={() => setAddType('html')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'html' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><HtmlIcon /> <span className="hidden sm:inline">HTML</span></button>
+                                    {/* ✅ ปุ่ม Flashcard ใหม่ */}
+                                    <button type="button" onClick={() => setAddType('flashcard')} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'flashcard' ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-200 scale-105' : 'text-slate-400 hover:bg-white'}`}><FlashcardIcon /> <span className="hidden sm:inline">Flashcard</span></button>
                                 </div>
-                            </div>
 
-                            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                                {addType !== 'header' && (
-                                    <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 animate-in fade-in slide-in-from-top-2">
-                                        <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 ml-1">📂 เลือกบทเรียนหลัก</label>
-                                        <select value={selectedHeaderId} onChange={(e) => setSelectedHeaderId(e.target.value)} className="w-full p-3 rounded-xl border-2 border-indigo-200 bg-white font-bold text-indigo-900 outline-none focus:border-indigo-500 transition">
-                                            <option value="">-- กรุณาเลือกบทเรียน --</option>
-                                            {availableHeaders.length > 0 ? availableHeaders.map((h) => <option key={h.id} value={h.id}>📂 {h.title}</option>) : <option disabled>⚠️ ยังไม่มีชื่อบทเรียน</option>}
-                                        </select>
+                                <div className="flex justify-between items-center mb-6 px-2">
+                                    <h3 className={`font-bold text-xl flex items-center gap-3 ${addType === 'video' ? 'text-blue-600' : addType === 'quiz' ? 'text-purple-600' : addType === 'text' ? 'text-pink-600' : addType === 'exercise' ? 'text-emerald-600' : addType === 'html' ? 'text-cyan-600' : addType === 'flashcard' ? 'text-yellow-600' : 'text-orange-600'}`}>
+                                        <div className={`w-3 h-3 rounded-full ${addType === 'video' ? 'bg-blue-500' : addType === 'quiz' ? 'bg-purple-500' : addType === 'text' ? 'bg-pink-500' : addType === 'exercise' ? 'bg-emerald-500' : addType === 'html' ? 'bg-cyan-500' : addType === 'flashcard' ? 'bg-yellow-500' : 'bg-orange-500'}`}></div>
+                                        {editId ? '✏️ แก้ไขข้อมูล' : (addType === 'video' ? 'เพิ่มวิดีโอใหม่' : addType === 'quiz' ? 'สร้างคำถาม (Quiz)' : addType === 'text' ? 'เพิ่มบทความ/ชีท' : addType === 'exercise' ? 'เพิ่มแบบฝึกหัด (PDF Link)' : addType === 'html' ? 'เพิ่ม HTML Container' : addType === 'flashcard' ? 'เพิ่ม Flashcard' : 'เพิ่มหัวข้อบทเรียน')}
+                                    </h3>
+                                    <div className="flex gap-2">
+                                        {editId && <button onClick={handleCancelEdit} className="text-sm font-bold text-rose-400 hover:text-rose-600 underline transition bg-rose-50 px-3 py-1 rounded-lg">ยกเลิก</button>}
                                     </div>
-                                )}
+                                </div>
 
-                                <input type="text" placeholder={addType === 'quiz' ? "ตั้งคำถาม..." : addType === 'exercise' ? "ชื่อแบบฝึกหัดทบทวน..." : addType === 'html' ? "ชื่อหัวข้อ (เช่น แบบฝึกหัด, สรุปเนื้อหา)..." : "ชื่อ/หัวข้อ..."} className="w-full p-5 border-2 rounded-2xl outline-none transition font-bold text-lg shadow-sm" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} />
-
-                                {addType === 'video' && (
-                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                        <input type="text" placeholder="🔗 วางลิงก์ YouTube..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none transition font-mono text-sm" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} />
-                                        <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
-                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
-                                            <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้ดูฟรี (Free Preview) 🎁</label>
+                                <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                                    {addType !== 'header' && (
+                                        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 animate-in fade-in slide-in-from-top-2">
+                                            <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 ml-1">📂 เลือกบทเรียนหลัก</label>
+                                            <select value={selectedHeaderId} onChange={(e) => setSelectedHeaderId(e.target.value)} className="w-full p-3 rounded-xl border-2 border-indigo-200 bg-white font-bold text-indigo-900 outline-none focus:border-indigo-500 transition">
+                                                <option value="">-- กรุณาเลือกบทเรียน --</option>
+                                                {availableHeaders.length > 0 ? availableHeaders.map((h) => <option key={h.id} value={h.id}>📂 {h.title}</option>) : <option disabled>⚠️ ยังไม่มีชื่อบทเรียน</option>}
+                                            </select>
                                         </div>
-                                        <textarea placeholder="📝 คำอธิบายวิดีโอ..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none min-h-[120px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
-                                    </div>
-                                )}
+                                    )}
 
-                                {addType === 'text' && (
-                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                        <div className="bg-pink-50 p-4 rounded-2xl border-2 border-pink-100 border-dashed">
-                                            <label className="text-xs font-bold text-pink-400 uppercase tracking-wider mb-2 block">🖼️ รูปภาพปกบทความ (Cover Image)</label>
+                                    <input type="text" placeholder={addType === 'quiz' ? "ตั้งคำถาม..." : addType === 'exercise' ? "ชื่อแบบฝึกหัดทบทวน..." : addType === 'html' ? "ชื่อหัวข้อ (เช่น แบบฝึกหัด, สรุปเนื้อหา)..." : "ชื่อ/หัวข้อ..."} className="w-full p-5 border-2 rounded-2xl outline-none transition font-bold text-lg shadow-sm" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} />
+
+                                    {addType === 'video' && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                                            <input type="text" placeholder="🔗 วางลิงก์ YouTube..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none transition font-mono text-sm" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} />
+                                            <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
+                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
+                                                <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้ดูฟรี (Free Preview) 🎁</label>
+                                            </div>
+                                            <textarea placeholder="📝 คำอธิบายวิดีโอ..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none min-h-[120px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                        </div>
+                                    )}
+
+                                    {addType === 'text' && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                                            <div className="bg-pink-50 p-4 rounded-2xl border-2 border-pink-100 border-dashed">
+                                                <label className="text-xs font-bold text-pink-400 uppercase tracking-wider mb-2 block">🖼️ รูปภาพปกบทความ (Cover Image)</label>
+                                                <div className="relative group">
+                                                    <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="article-image-upload" />
+                                                    <label htmlFor="article-image-upload" className="w-full h-32 bg-white border-2 border-dashed border-pink-300 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-pink-100 hover:border-pink-400 transition text-pink-400 font-bold shadow-sm">
+                                                        <span className="text-2xl bg-pink-100 p-2 rounded-full">📷</span>
+                                                        <span>คลิกเพิ่มรูปภาพ</span>
+                                                        <span className="text-xs text-pink-300 font-normal mt-1">ขนาดแนะนำ 1920 x 1080 px (16:9)</span>
+                                                    </label>
+                                                </div>
+                                                {imagePreview && <div className="mt-4 rounded-xl overflow-hidden h-40 w-full bg-slate-200 border-2 border-white shadow-md"><img src={imagePreview} alt="Preview" className="h-full w-full object-cover" /></div>}
+                                            </div>
+                                            <textarea placeholder="เขียนเนื้อหาบทเรียน..." className="w-full p-6 bg-pink-50 border-2 border-pink-100 rounded-2xl outline-none min-h-[200px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                            <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
+                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
+                                                <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้อ่านฟรี (Free Read) 📖</label>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ✅ New Exercise Form (PDF Link) */}
+                                    {addType === 'exercise' && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                                            <div className="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-100">
+                                                <label className="block text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">🔗 ลิงก์ไฟล์แบบฝึกหัด (Google Drive / PDF)</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="วางลิงก์ Google Drive หรือ PDF ที่นี่..."
+                                                    className="w-full p-4 bg-white border-2 border-emerald-200 rounded-xl outline-none focus:border-emerald-500 transition text-emerald-800 font-medium placeholder:text-emerald-300/70"
+                                                    value={pdfUrl}
+                                                    onChange={(e) => setPdfUrl(e.target.value)}
+                                                />
+                                                <p className="text-xs text-emerald-500 mt-2">* แนะนำให้แชร์ลิงก์เป็น "ทุกคนที่มีลิงก์" (Anyone with the link) เพื่อให้นักเรียนเข้าถึงได้</p>
+                                            </div>
+                                            <textarea placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..." className="w-full p-4 bg-emerald-50 border-2 border-emerald-100 rounded-2xl outline-none min-h-[100px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                        </div>
+                                    )}
+
+                                    {addType === 'quiz' && (
+                                        <div className="space-y-3 bg-purple-50 p-6 rounded-[2rem] border-2 border-purple-100 animate-in fade-in">
+                                            <p className="text-sm font-bold text-purple-500 uppercase tracking-wider mb-2">กำหนดตัวเลือก & เฉลย</p>
+                                            {quizOptions.map((opt, index) => (
+                                                <div key={index} className={`flex items-center gap-3 p-3 rounded-2xl border-2 ${correctAnswer === index ? 'bg-white border-green-400 shadow-md' : 'bg-white/50 border-transparent'}`}>
+                                                    <div className="cursor-pointer" onClick={() => setCorrectAnswer(index)}><div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${correctAnswer === index ? 'border-green-500 bg-green-500 text-white' : 'border-slate-300'}`}>✓</div></div>
+                                                    <input type="text" placeholder={`ตัวเลือกที่ ${index + 1}`} className="flex-1 p-2 bg-transparent outline-none" value={opt} onChange={(e) => handleQuizOptionChange(index, e.target.value)} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+
+
+                                    {addType === 'flashcard' && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                                            <div className="flex gap-4 mb-2">
+                                                <button type="button" onClick={() => setPasteMode(false)} className={`flex-1 py-2 rounded-xl font-bold transition ${!pasteMode ? 'bg-yellow-500 text-white shadow-md' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>📂 อัปโหลดไฟล์ CSV</button>
+                                                <button type="button" onClick={() => setPasteMode(true)} className={`flex-1 py-2 rounded-xl font-bold transition ${pasteMode ? 'bg-yellow-500 text-white shadow-md' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>📝 วางข้อมูล (Copy & Paste)</button>
+                                            </div>
+
+                                            {!pasteMode ? (
+                                                <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100">
+                                                    <label className="block text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">📂 อัปโหลดไฟล์ CSV (Front,Back)</label>
+                                                    <input
+                                                        type="file"
+                                                        accept=".csv"
+                                                        onChange={handleCsvUpload}
+                                                        className="w-full p-3 bg-white border-2 border-yellow-200 rounded-xl outline-none focus:border-yellow-500 transition text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200"
+                                                    />
+                                                    <p className="text-xs text-yellow-500 mt-2">* รูปแบบไฟล์: บรรทัดละ 1 คู่ (คำถาม,คำตอบ)</p>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100">
+                                                    <label className="block text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">📝 วางข้อมูลจาก Excel / Sheets</label>
+                                                    <textarea
+                                                        placeholder={`ตัวอย่าง:\nคำถาม 1\tคำตอบ 1\nคำถาม 2\tคำตอบ 2`}
+                                                        onChange={handleTextPaste}
+                                                        className="w-full p-4 bg-white border-2 border-yellow-200 rounded-xl outline-none focus:border-yellow-500 transition text-slate-700 min-h-[150px] font-mono text-sm"
+                                                    />
+                                                    <p className="text-xs text-yellow-500 mt-2">* รองรับการก๊อปปี้จาก Excel (คั่นด้วย Tab) หรือ CSV (คั่นด้วย Comma)</p>
+                                                </div>
+                                            )}
+
+                                            {flashcardData.length > 0 && (
+                                                <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm max-h-60 overflow-y-auto">
+                                                    <h4 className="font-bold text-slate-700 mb-3 sticky top-0 bg-white pb-2 border-b">📋 ตัวอย่างข้อมูล ({flashcardData.length} ใบ)</h4>
+                                                    <table className="w-full text-sm text-left">
+                                                        <thead className="text-xs text-slate-400 uppercase bg-slate-50">
+                                                            <tr>
+                                                                <th className="px-3 py-2 rounded-l-lg">ด้านหน้า (Front)</th>
+                                                                <th className="px-3 py-2 rounded-r-lg">ด้านหลัง (Back)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {flashcardData.map((card, idx) => (
+                                                                <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50">
+                                                                    <td className="px-3 py-2 font-medium text-slate-700">{card.front}</td>
+                                                                    <td className="px-3 py-2 text-slate-500">{card.back}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                            <textarea placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..." className="w-full p-4 bg-yellow-50 border-2 border-yellow-100 rounded-2xl outline-none min-h-[100px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                        </div>
+                                    )}
+
+                                    {addType === 'header' && (
+                                        <div className="space-y-4 p-6 bg-orange-50 border-2 border-orange-100 rounded-[2rem] animate-in fade-in">
                                             <div className="relative group">
-                                                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="article-image-upload" />
-                                                <label htmlFor="article-image-upload" className="w-full h-32 bg-white border-2 border-dashed border-pink-300 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-pink-100 hover:border-pink-400 transition text-pink-400 font-bold shadow-sm">
-                                                    <span className="text-2xl bg-pink-100 p-2 rounded-full">📷</span>
-                                                    <span>คลิกเพิ่มรูปภาพ</span>
-                                                    <span className="text-xs text-pink-300 font-normal mt-1">ขนาดแนะนำ 1920 x 1080 px (16:9)</span>
+                                                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="header-upload" />
+                                                <label htmlFor="header-upload" className="w-full h-40 bg-white border-2 border-dashed border-orange-300 rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition text-orange-400 font-bold shadow-sm">
+                                                    <span className="text-4xl bg-orange-100 p-3 rounded-full">📁</span>
+                                                    <span>คลิกเพื่ออัปโหลดรูปภาพ</span>
+                                                    <span className="text-xs text-orange-300 font-normal mt-1">ขนาดแนะนำ 1920 x 1080 px (16:9)</span>
                                                 </label>
                                             </div>
-                                            {imagePreview && <div className="mt-4 rounded-xl overflow-hidden h-40 w-full bg-slate-200 border-2 border-white shadow-md"><img src={imagePreview} alt="Preview" className="h-full w-full object-cover" /></div>}
+                                            {imagePreview && <div className="mt-4 rounded-2xl overflow-hidden h-56 w-full bg-slate-200"><img src={imagePreview} alt="Preview" className="h-full w-full object-contain" /></div>}
                                         </div>
-                                        <textarea placeholder="เขียนเนื้อหาบทเรียน..." className="w-full p-6 bg-pink-50 border-2 border-pink-100 rounded-2xl outline-none min-h-[200px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
-                                        <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
-                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
-                                            <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้อ่านฟรี (Free Read) 📖</label>
-                                        </div>
+                                    )}
+
+
+
+                                    <button type="submit" disabled={submitting} className={`w-full py-4 rounded-2xl font-black text-white shadow-lg hover:shadow-xl transition text-lg tracking-wide mt-2 ${submitting ? 'bg-slate-400 cursor-not-allowed' : addType === 'exercise' ? 'bg-emerald-500 hover:bg-emerald-600' : addType === 'html' ? 'bg-cyan-500 hover:bg-cyan-600' : addType === 'flashcard' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
+                                        {submitting ? '⏳ กำลังบันทึก...' : editId ? '💾 บันทึกการแก้ไข' : '+ เพิ่มลงในบทเรียน'}
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* Lesson List */}
+                            <div className="space-y-6">
+                                {groupedLessons.map((group, index) => (
+                                    <LessonGroup
+                                        key={index}
+                                        group={group}
+                                        handleEdit={handleEditClick}
+                                        handleDelete={handleDelete}
+                                        handleToggleVisibility={handleToggleVisibility}
+                                        handleMoveLesson={handleMoveLesson}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* Bulk Import & Delete All */}
+                            <div className="mt-20 pt-10 border-t-2 border-slate-100">
+                                <h3 className="text-xl font-black text-slate-700 mb-6">⚙️ เครื่องมือขั้นสูง</h3>
+
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    {/* Bulk Import */}
+                                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                                        <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">📥 นำเข้าบทเรียนทีละเยอะๆ (Bulk Import)</h4>
+                                        <input
+                                            type="text"
+                                            placeholder="ชื่อบทเรียนใหม่ (Chapter Name)"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl mb-3 outline-none"
+                                            value={bulkChapterTitle}
+                                            onChange={(e) => setBulkChapterTitle(e.target.value)}
+                                        />
+                                        <textarea
+                                            placeholder={`วางรายชื่อตอนที่นี่...\nตัวอย่าง:\nEP.1 ปูพื้นฐาน | https://youtu.be/...\nEP.2 ตะลุยโจทย์ | https://youtu.be/...`}
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none min-h-[150px] font-mono text-sm mb-4"
+                                            value={bulkImportText}
+                                            onChange={(e) => setBulkImportText(e.target.value)}
+                                        />
+                                        <button
+                                            onClick={handleBulkImport}
+                                            disabled={submitting}
+                                            className="w-full py-3 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200 transition"
+                                        >
+                                            {submitting ? 'กำลังทำงาน...' : '🚀 เริ่มนำเข้าข้อมูล'}
+                                        </button>
                                     </div>
-                                )}
 
-                                {/* ✅ New Exercise Form (PDF Link) */}
-                                {addType === 'exercise' && (
-                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                        <div className="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-100">
-                                            <label className="block text-xs font-bold text-emerald-600 uppercase tracking-wider mb-2">🔗 ลิงก์ไฟล์แบบฝึกหัด (Google Drive / PDF)</label>
-                                            <input
-                                                type="text"
-                                                placeholder="วางลิงก์ Google Drive หรือ PDF ที่นี่..."
-                                                className="w-full p-4 bg-white border-2 border-emerald-200 rounded-xl outline-none focus:border-emerald-500 transition text-emerald-800 font-medium placeholder:text-emerald-300/70"
-                                                value={pdfUrl}
-                                                onChange={(e) => setPdfUrl(e.target.value)}
-                                            />
-                                            <p className="text-xs text-emerald-500 mt-2">* แนะนำให้แชร์ลิงก์เป็น "ทุกคนที่มีลิงก์" (Anyone with the link) เพื่อให้นักเรียนเข้าถึงได้</p>
-                                        </div>
-                                        <textarea placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..." className="w-full p-4 bg-emerald-50 border-2 border-emerald-100 rounded-2xl outline-none min-h-[100px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
-                                    </div>
-                                )}
-
-                                {addType === 'quiz' && (
-                                    <div className="space-y-3 bg-purple-50 p-6 rounded-[2rem] border-2 border-purple-100 animate-in fade-in">
-                                        <p className="text-sm font-bold text-purple-500 uppercase tracking-wider mb-2">กำหนดตัวเลือก & เฉลย</p>
-                                        {quizOptions.map((opt, index) => (
-                                            <div key={index} className={`flex items-center gap-3 p-3 rounded-2xl border-2 ${correctAnswer === index ? 'bg-white border-green-400 shadow-md' : 'bg-white/50 border-transparent'}`}>
-                                                <div className="cursor-pointer" onClick={() => setCorrectAnswer(index)}><div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${correctAnswer === index ? 'border-green-500 bg-green-500 text-white' : 'border-slate-300'}`}>✓</div></div>
-                                                <input type="text" placeholder={`ตัวเลือกที่ ${index + 1}`} className="flex-1 p-2 bg-transparent outline-none" value={opt} onChange={(e) => handleQuizOptionChange(index, e.target.value)} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-
-
-                                {addType === 'flashcard' && (
-                                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                        <div className="flex gap-4 mb-2">
-                                            <button type="button" onClick={() => setPasteMode(false)} className={`flex-1 py-2 rounded-xl font-bold transition ${!pasteMode ? 'bg-yellow-500 text-white shadow-md' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>📂 อัปโหลดไฟล์ CSV</button>
-                                            <button type="button" onClick={() => setPasteMode(true)} className={`flex-1 py-2 rounded-xl font-bold transition ${pasteMode ? 'bg-yellow-500 text-white shadow-md' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>📝 วางข้อมูล (Copy & Paste)</button>
-                                        </div>
-
-                                        {!pasteMode ? (
-                                            <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100">
-                                                <label className="block text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">📂 อัปโหลดไฟล์ CSV (Front,Back)</label>
-                                                <input
-                                                    type="file"
-                                                    accept=".csv"
-                                                    onChange={handleCsvUpload}
-                                                    className="w-full p-3 bg-white border-2 border-yellow-200 rounded-xl outline-none focus:border-yellow-500 transition text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200"
-                                                />
-                                                <p className="text-xs text-yellow-500 mt-2">* รูปแบบไฟล์: บรรทัดละ 1 คู่ (คำถาม,คำตอบ)</p>
-                                            </div>
-                                        ) : (
-                                            <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100">
-                                                <label className="block text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">📝 วางข้อมูลจาก Excel / Sheets</label>
-                                                <textarea
-                                                    placeholder={`ตัวอย่าง:\nคำถาม 1\tคำตอบ 1\nคำถาม 2\tคำตอบ 2`}
-                                                    onChange={handleTextPaste}
-                                                    className="w-full p-4 bg-white border-2 border-yellow-200 rounded-xl outline-none focus:border-yellow-500 transition text-slate-700 min-h-[150px] font-mono text-sm"
-                                                />
-                                                <p className="text-xs text-yellow-500 mt-2">* รองรับการก๊อปปี้จาก Excel (คั่นด้วย Tab) หรือ CSV (คั่นด้วย Comma)</p>
-                                            </div>
-                                        )}
-
-                                        {flashcardData.length > 0 && (
-                                            <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm max-h-60 overflow-y-auto">
-                                                <h4 className="font-bold text-slate-700 mb-3 sticky top-0 bg-white pb-2 border-b">📋 ตัวอย่างข้อมูล ({flashcardData.length} ใบ)</h4>
-                                                <table className="w-full text-sm text-left">
-                                                    <thead className="text-xs text-slate-400 uppercase bg-slate-50">
-                                                        <tr>
-                                                            <th className="px-3 py-2 rounded-l-lg">ด้านหน้า (Front)</th>
-                                                            <th className="px-3 py-2 rounded-r-lg">ด้านหลัง (Back)</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {flashcardData.map((card, idx) => (
-                                                            <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50">
-                                                                <td className="px-3 py-2 font-medium text-slate-700">{card.front}</td>
-                                                                <td className="px-3 py-2 text-slate-500">{card.back}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                        <textarea placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..." className="w-full p-4 bg-yellow-50 border-2 border-yellow-100 rounded-2xl outline-none min-h-[100px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
-                                    </div>
-                                )}
-
-                                {addType === 'header' && (
-                                    <div className="space-y-4 p-6 bg-orange-50 border-2 border-orange-100 rounded-[2rem] animate-in fade-in">
-                                        <div className="relative group">
-                                            <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="header-upload" />
-                                            <label htmlFor="header-upload" className="w-full h-40 bg-white border-2 border-dashed border-orange-300 rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition text-orange-400 font-bold shadow-sm">
-                                                <span className="text-4xl bg-orange-100 p-3 rounded-full">📁</span>
-                                                <span>คลิกเพื่ออัปโหลดรูปภาพ</span>
-                                                <span className="text-xs text-orange-300 font-normal mt-1">ขนาดแนะนำ 1920 x 1080 px (16:9)</span>
-                                            </label>
-                                        </div>
-                                        {imagePreview && <div className="mt-4 rounded-2xl overflow-hidden h-56 w-full bg-slate-200"><img src={imagePreview} alt="Preview" className="h-full w-full object-contain" /></div>}
-                                    </div>
-                                )}
-
-
-
-                                <button type="submit" disabled={submitting} className={`w-full py-4 rounded-2xl font-black text-white shadow-lg hover:shadow-xl transition text-lg tracking-wide mt-2 ${submitting ? 'bg-slate-400 cursor-not-allowed' : addType === 'exercise' ? 'bg-emerald-500 hover:bg-emerald-600' : addType === 'html' ? 'bg-cyan-500 hover:bg-cyan-600' : addType === 'flashcard' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
-                                    {submitting ? '⏳ กำลังบันทึก...' : editId ? '💾 บันทึกการแก้ไข' : '+ เพิ่มลงในบทเรียน'}
-                                </button>
-                            </form>
-                        </div>
-
-                        {/* ✅ Bulk Import Section */}
-                        <div className="bg-white rounded-[2.5rem] shadow-xl shadow-indigo-100 border border-indigo-50 mb-10 overflow-hidden">
-                            <button
-                                onClick={() => setIsBulkImportOpen(!isBulkImportOpen)}
-                                className="w-full p-8 flex items-center justify-between bg-white hover:bg-slate-50 transition"
-                            >
-                                <h3 className="font-bold text-xl text-indigo-900 flex items-center gap-2">
-                                    📝 นำเข้าบทเรียนทีละหลายตอน (Bulk Import)
-                                </h3>
-                                <span className={`transform transition-transform duration-300 ${isBulkImportOpen ? 'rotate-180' : ''}`}>▼</span>
-                            </button>
-
-                            <div className={`transition-all duration-500 ease-in-out ${isBulkImportOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                                <div className="p-8 pt-0">
-                                    <div className="bg-indigo-50/50 p-6 rounded-2xl border-2 border-indigo-100 border-dashed space-y-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 ml-1">📂 ชื่อบทเรียนใหม่ (New Chapter)</label>
-                                            <input
-                                                type="text"
-                                                placeholder="ตัวอย่าง: บทที่ 1 จำนวนนับ"
-                                                className="w-full p-4 bg-white border-2 border-indigo-200 rounded-xl outline-none focus:border-indigo-500 transition font-bold text-indigo-900"
-                                                value={bulkChapterTitle}
-                                                onChange={(e) => setBulkChapterTitle(e.target.value)}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 ml-1">📝 รายชื่อตอน (Title | URL)</label>
-                                            <textarea
-                                                placeholder={`รูปแบบ: ชื่อตอน | ลิงก์ YouTube (1 บรรทัด = 1 ตอน)\n\nตัวอย่าง:\nตอนที่ 1 การบวก | https://youtu.be/abc1\nตอนที่ 2 การลบ | https://youtu.be/abc2\n...`}
-                                                className="w-full p-4 bg-white border-2 border-indigo-200 rounded-xl outline-none focus:border-indigo-500 transition min-h-[200px] font-medium text-slate-700 font-mono text-sm"
-                                                value={bulkImportText}
-                                                onChange={(e) => setBulkImportText(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="flex justify-between mt-4">
-                                            <button
-                                                onClick={handleDeleteAllLessons}
-                                                disabled={submitting || lessons.length === 0}
-                                                className="px-6 py-3 rounded-xl font-bold text-rose-500 border-2 border-rose-100 hover:bg-rose-50 transition flex items-center gap-2"
-                                            >
-                                                🗑 ล้างข้อมูลทั้งหมด
-                                            </button>
-                                            <button
-                                                onClick={handleBulkImport}
-                                                disabled={submitting || !bulkImportText.trim()}
-                                                className={`px-6 py-3 rounded-xl font-bold text-white shadow-lg transition flex items-center gap-2 ${submitting || !bulkImportText.trim() ? 'bg-slate-300 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:scale-105 active:scale-95'}`}
-                                            >
-                                                {submitting ? '⏳ กำลังทำงาน...' : '🚀 เริ่มนำเข้าข้อมูล'}
-                                            </button>
-                                        </div>
-                                        <p className="text-xs text-slate-400 mt-3 text-center">
-                                            * ระบบจะสร้างบทเรียนใหม่ต่อจากลำดับล่าสุดให้อัตโนมัติ
-                                        </p>
+                                    {/* Danger Zone */}
+                                    <div className="bg-rose-50 p-6 rounded-3xl border border-rose-100">
+                                        <h4 className="font-bold text-rose-900 mb-4 flex items-center gap-2">⚠️ พื้นที่อันตราย (Danger Zone)</h4>
+                                        <p className="text-sm text-rose-700 mb-6">การลบข้อมูลที่นี่จะไม่สามารถกู้คืนได้ กรุณาตรวจสอบให้แน่ใจก่อนกดปุ่ม</p>
+                                        <button
+                                            onClick={handleDeleteAllLessons}
+                                            disabled={submitting}
+                                            className="w-full py-3 bg-white border-2 border-rose-200 text-rose-600 font-bold rounded-xl hover:bg-rose-500 hover:text-white hover:border-rose-500 transition"
+                                        >
+                                            🗑 ลบบทเรียนทั้งหมดในคอร์สนี้
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
+                        </>
+                    ) : (
                         <div className="space-y-4">
-                            {groupedLessons.map((group, index) => (
-                                <LessonGroup key={index} group={group} handleEdit={handleEditClick} handleDelete={handleDelete} handleToggleVisibility={handleToggleVisibility} handleMoveLesson={handleMoveLesson} />
-                            ))}
-                        </div>
-                    </>
-                )}
-            </div>
-        </div >
+                            {students.length === 0 ? (
+                                <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 text-slate-400">
+                                    ยังไม่มีนักเรียนในคอร์สนี้
+                                </div>
+                            ) : (
+                                students.map((student) => {
+                                    // Calculate Attendance Status
+                                    let status = 'none';
+                                    let diffDays = 0;
+                                    let lastAccessDate = null;
 
+                                    if (student.lastAccessedAt) {
+                                        lastAccessDate = student.lastAccessedAt.toDate();
+                                        const now = new Date();
+                                        const diffTime = Math.abs(now.getTime() - lastAccessDate.getTime());
+                                        diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                                        if (diffDays > 7) status = 'critical';
+                                        else if (diffDays > 3) status = 'warning';
+                                        else status = 'good';
+                                    }
+
+                                    return (
+                                        <div key={student.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-md transition">
+                                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                                <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-lg
+                                                ${status === 'critical' ? 'bg-rose-500 shadow-rose-200' :
+                                                        status === 'warning' ? 'bg-amber-400 shadow-amber-200' :
+                                                            status === 'good' ? 'bg-emerald-500 shadow-emerald-200' : 'bg-slate-300'}`}>
+                                                    {student.studentName ? student.studentName.charAt(0).toUpperCase() : '?'}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-lg text-slate-800">{student.studentName || "ไม่ระบุชื่อ"}</h3>
+                                                    <div className="flex flex-col text-sm text-slate-500 gap-1">
+                                                        <span>📞 {student.studentTel || "-"}</span>
+                                                        <span>🆔 {student.studentLine || "-"}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-4 w-full md:w-auto bg-slate-50 p-4 rounded-2xl">
+                                                <div className="text-right">
+                                                    <p className="text-xs font-bold text-slate-400 uppercase">เข้าเรียนล่าสุด</p>
+                                                    <p className={`font-bold text-lg ${status === 'critical' ? 'text-rose-600' : status === 'warning' ? 'text-amber-600' : status === 'good' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                                        {lastAccessDate ? `${diffDays} วันที่แล้ว` : "ยังไม่เคยเข้าเรียน"}
+                                                    </p>
+                                                    <p className="text-xs text-slate-400">
+                                                        {lastAccessDate ? lastAccessDate.toLocaleString('th-TH') : '-'}
+                                                    </p>
+                                                </div>
+                                                <div className="text-3xl">
+                                                    {status === 'critical' ? '🚨' : status === 'warning' ? '⚡' : status === 'good' ? '🔥' : '💤'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )
+                }
+            </div >
+        </div >
     );
 }

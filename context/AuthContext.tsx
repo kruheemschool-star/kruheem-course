@@ -11,7 +11,7 @@ import {
     createUserWithEmailAndPassword,
     sendPasswordResetEmail
 } from "firebase/auth";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
@@ -19,6 +19,7 @@ interface UserProfile {
     displayName?: string;
     avatar?: string;
     role?: string;
+    lastActive?: any;
 }
 
 interface AuthContextType {
@@ -26,6 +27,7 @@ interface AuthContextType {
     userProfile: UserProfile | null;
     isAdmin: boolean;
     loading: boolean;
+    daysSinceLastActive: number | null;
     googleSignIn: () => Promise<void>;
     emailSignIn: (email: string, password: string) => Promise<void>;
     emailSignUp: (email: string, password: string) => Promise<void>;
@@ -41,6 +43,8 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [daysSinceLastActive, setDaysSinceLastActive] = useState<number | null>(null);
+    const [hasCheckedActivity, setHasCheckedActivity] = useState(false);
 
     const googleSignIn = async () => {
         const provider = new GoogleAuthProvider();
@@ -82,6 +86,8 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         try {
             await signOut(auth);
             setUserProfile(null);
+            setDaysSinceLastActive(null);
+            setHasCheckedActivity(false);
         } catch (error) {
             console.error("Logout Error:", error);
         }
@@ -109,7 +115,32 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
                 // Real-time listener for user profile
                 const unsubscribeProfile = onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
                     if (docSnap.exists()) {
-                        setUserProfile(docSnap.data() as UserProfile);
+                        const data = docSnap.data() as UserProfile;
+                        setUserProfile(data);
+
+                        // Calculate Days Since Last Active (Only once per session)
+                        if (!hasCheckedActivity) {
+                            const now = new Date();
+                            let diff = 0;
+
+                            if (data.lastActive?.toDate) {
+                                const last = data.lastActive.toDate();
+                                diff = now.getTime() - last.getTime();
+                                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                                setDaysSinceLastActive(days);
+                            } else {
+                                setDaysSinceLastActive(0); // First time or no data
+                            }
+
+                            setHasCheckedActivity(true);
+
+                            // Update Last Active if > 1 hour (3600000 ms) or undefined
+                            if (!data.lastActive || diff > 3600000) {
+                                setDoc(doc(db, "users", currentUser.uid), {
+                                    lastActive: serverTimestamp()
+                                }, { merge: true }).catch(err => console.error("Update lastActive failed", err));
+                            }
+                        }
                     } else {
                         setUserProfile(null);
                     }
@@ -120,14 +151,16 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 setIsAdmin(false);
                 setUserProfile(null);
+                setDaysSinceLastActive(null);
+                setHasCheckedActivity(false);
                 setLoading(false);
             }
         });
         return () => unsubscribeAuth();
-    }, []);
+    }, [hasCheckedActivity]); // Add hasCheckedActivity dependency to ensure logic works
 
     return (
-        <AuthContext.Provider value={{ user, userProfile, isAdmin, loading, googleSignIn, emailSignIn, emailSignUp, resetPassword, logOut, updateProfile }}>
+        <AuthContext.Provider value={{ user, userProfile, isAdmin, loading, daysSinceLastActive, googleSignIn, emailSignIn, emailSignUp, resetPassword, logOut, updateProfile }}>
             {children}
         </AuthContext.Provider>
     );

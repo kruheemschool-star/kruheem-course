@@ -20,7 +20,7 @@ const SearchIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24
 const LockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>;
 
 export default function MyCoursesPage() {
-    const { user, userProfile, updateProfile, loading: authLoading } = useUserAuth();
+    const { user, userProfile, updateProfile, loading: authLoading, daysSinceLastActive } = useUserAuth();
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [editingName, setEditingName] = useState("");
     const [editingAvatar, setEditingAvatar] = useState("");
@@ -32,6 +32,9 @@ export default function MyCoursesPage() {
     const router = useRouter();
     const [dismissedIds, setDismissedIds] = useState<string[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
+
+    // --- Welcome Message State ---
+    const [welcomeMessage, setWelcomeMessage] = useState<{ title: string, msg: string, color: string, icon: string } | null>(null);
 
     // --- Smart Search State ---
     const [allCourses, setAllCourses] = useState<any[]>([]);
@@ -64,6 +67,37 @@ export default function MyCoursesPage() {
 
         setIsLoaded(true);
     }, []);
+
+    // ✅ Determine Welcome Message based on Days Absent
+    useEffect(() => {
+        if (daysSinceLastActive !== null) {
+            if (daysSinceLastActive > 7) {
+                setWelcomeMessage({
+                    title: `ไม่ได้เจอกันนานเลยนะครับ! (${daysSinceLastActive} วัน)`,
+                    msg: "ดีใจที่คุณกลับมา! อย่าลืมทบทวนบทเรียนบ่อยๆ นะครับ การเรียนอย่างสม่ำเสมอจะช่วยให้เก่งขึ้นไวมากครับ",
+                    color: "bg-rose-100 border-rose-200 text-rose-800",
+                    icon: "⏰"
+                });
+            } else if (daysSinceLastActive >= 3) {
+                setWelcomeMessage({
+                    title: `กลับมาแล้วสินะ! (หายไป ${daysSinceLastActive} วัน)`,
+                    msg: "มาลุยกันต่อเลยครับ! ความพยายามอยู่ที่ไหน ความสำเร็จอยู่ที่นั่น",
+                    color: "bg-orange-100 border-orange-200 text-orange-800",
+                    icon: "🔥"
+                });
+            } else if (daysSinceLastActive >= 1) {
+                setWelcomeMessage({
+                    title: "ยินดีต้อนรับกลับครับ!",
+                    msg: "พร้อมเรียนรู้วันนี้หรือยังครับ? ไปลุยกันเลย!",
+                    color: "bg-indigo-100 border-indigo-200 text-indigo-800",
+                    icon: "👋"
+                });
+            } else {
+                // < 1 day (Came back same day)
+                setWelcomeMessage(null);
+            }
+        }
+    }, [daysSinceLastActive]);
 
     // ✅ Save settings to LocalStorage
     useEffect(() => {
@@ -404,6 +438,25 @@ export default function MyCoursesPage() {
                 <Navbar />
 
                 <div className="max-w-7xl mx-auto px-6 md:px-12 pb-24 pt-40 flex-grow w-full">
+
+                    {/* ✅ Welcome Message (Last Active) */}
+                    {welcomeMessage && (
+                        <div className={`mb-8 p-6 rounded-[2rem] border-2 flex items-center md:items-start gap-6 shadow-sm animate-in slide-in-from-top-4 duration-500 ${welcomeMessage.color}`}>
+                            <div className="text-5xl bg-white rounded-full w-20 h-20 flex items-center justify-center shadow-sm flex-shrink-0 border-4 border-white/50">
+                                {welcomeMessage.icon}
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="font-black text-2xl mb-2 tracking-tight">{welcomeMessage.title}</h3>
+                                <p className="font-medium opacity-90 leading-relaxed text-lg">{welcomeMessage.msg}</p>
+                            </div>
+                            <button
+                                onClick={() => setWelcomeMessage(null)}
+                                className="text-slate-400 hover:text-slate-600 p-2 hover:bg-white/50 rounded-full transition"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                    )}
 
                     {/* ✅ 4 Cards Grid Layout */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
