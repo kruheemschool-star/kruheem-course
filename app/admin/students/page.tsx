@@ -148,8 +148,16 @@ export default function AdminStudentsPage() {
     }
 
     const handleEdit = (item: any) => {
+        // Try to find courseId if missing (Legacy Data Support)
+        let currentCourseId = item.courseId;
+        if (!currentCourseId && item.courseTitle) {
+            const foundCourse = allCourses.find(c => c.title === item.courseTitle);
+            if (foundCourse) currentCourseId = foundCourse.id;
+        }
+
         setEditingItem({
             ...item,
+            courseId: currentCourseId || "", // Default to empty string if not found
             lineId: item.lineId || "",
             userTel: item.userTel || ""
         });
@@ -411,7 +419,19 @@ export default function AdminStudentsPage() {
                             <div><label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">เบอร์โทรศัพท์</label><input type="text" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 focus:border-indigo-400 outline-none" value={editingItem.userTel} onChange={(e) => setEditingItem({ ...editingItem, userTel: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">อีเมลผู้ปกครอง</label><input type="email" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 focus:border-indigo-400 outline-none" value={editingItem.userEmail} onChange={(e) => setEditingItem({ ...editingItem, userEmail: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">LINE ID</label><input type="text" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 focus:border-indigo-400 outline-none" value={editingItem.lineId} onChange={(e) => setEditingItem({ ...editingItem, lineId: e.target.value })} /></div>
-                            <div><label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">คอร์สที่ลงเรียน</label><select className="w-full p-3 bg-emerald-50 border-2 border-emerald-100 rounded-xl font-bold text-emerald-700 cursor-pointer focus:border-emerald-400 outline-none" value={editingItem.courseId} onChange={handleCourseChange}>{allCourses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}</select></div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">คอร์สที่ลงเรียน</label>
+                                <select
+                                    className="w-full p-3 bg-emerald-50 border-2 border-emerald-100 rounded-xl font-bold text-emerald-700 cursor-pointer focus:border-emerald-400 outline-none"
+                                    value={editingItem.courseId}
+                                    onChange={handleCourseChange}
+                                >
+                                    <option value="" disabled>-- เลือกคอร์สเรียน --</option>
+                                    {allCourses.map((c) => (
+                                        <option key={c.id} value={c.id}>{c.title}</option>
+                                    ))}
+                                </select>
+                            </div>
                             <div><label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">สถานะการเรียน</label><select className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 cursor-pointer focus:border-indigo-400 outline-none" value={editingItem.status} onChange={(e) => setEditingItem({ ...editingItem, status: e.target.value })}><option value="pending">⏳ รอตรวจสอบ</option><option value="approved">✅ อนุมัติ/เรียนได้</option><option value="suspended">⏸ พักการเรียน</option><option value="rejected">❌ ยกเลิก</option></select></div>
 
                             {/* ✅ Edit Duration */}
