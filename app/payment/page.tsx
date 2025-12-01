@@ -198,7 +198,12 @@ export default function PaymentPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <span className={`font-bold text-sm block truncate ${selectedCourses.includes(course.id) ? 'text-emerald-700' : 'text-slate-600'}`}>{course.title}</span>
-                        <span className="text-xs text-slate-400">{course.price?.toLocaleString()} บาท</span>
+                        <div className="flex items-center gap-2">
+                          {course.fullPrice > 0 && (
+                            <span className="text-xs text-slate-300 line-through">฿{Number(course.fullPrice).toLocaleString()}</span>
+                          )}
+                          <span className="text-xs text-slate-400">{course.price?.toLocaleString()} บาท</span>
+                        </div>
                       </div>
                     </div>
                   ))
