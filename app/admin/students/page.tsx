@@ -277,12 +277,6 @@ export default function AdminStudentsPage() {
             <div className="max-w-[95%] mx-auto">
                 <div className="flex justify-between items-center mb-6">
                     <Link href="/admin" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 font-bold transition">← กลับหน้า Dashboard</Link>
-                    <button
-                        onClick={() => fixData(false)}
-                        className="bg-indigo-100 text-indigo-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-indigo-200 transition flex items-center gap-2"
-                    >
-                        ⚡️ อัปเดตวันหมดอายุย้อนหลัง
-                    </button>
                 </div>
 
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4">
