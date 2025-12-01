@@ -753,8 +753,10 @@ export default function MyCoursesPage() {
                                                                 {(() => {
                                                                     if (course.accessType === 'lifetime') {
                                                                         return (
-                                                                            <div className="mb-2 text-center">
-                                                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">♾️ เรียนได้ตลอดชีพ</span>
+                                                                            <div className="mb-3 flex justify-center">
+                                                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 shadow-sm flex items-center gap-1">
+                                                                                    ♾️ เรียนได้ตลอดชีพ
+                                                                                </span>
                                                                             </div>
                                                                         );
                                                                     } else if (course.expiryDate) {
@@ -765,15 +767,20 @@ export default function MyCoursesPage() {
 
                                                                         if (diffDays <= 0) {
                                                                             return (
-                                                                                <div className="mb-2 text-center">
-                                                                                    <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-full">หมดอายุแล้ว</span>
+                                                                                <div className="mb-3 flex justify-center">
+                                                                                    <span className="text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 flex items-center gap-1">
+                                                                                        🔒 หมดอายุแล้ว ({expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })})
+                                                                                    </span>
                                                                                 </div>
                                                                             );
                                                                         } else {
                                                                             return (
-                                                                                <div className="mb-2 text-center">
-                                                                                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${diffDays < 30 ? 'text-orange-600 bg-orange-50' : 'text-emerald-600 bg-emerald-50'}`}>
-                                                                                        ⏳ เหลือเวลา {diffDays} วัน
+                                                                                <div className="mb-3 flex flex-col items-center gap-1">
+                                                                                    <span className={`text-xs font-bold px-3 py-1.5 rounded-full border shadow-sm flex items-center gap-1 ${diffDays < 30 ? 'text-orange-600 bg-orange-50 border-orange-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
+                                                                                        ⏳ เหลือเวลาเรียน {diffDays} วัน
+                                                                                    </span>
+                                                                                    <span className="text-[10px] text-slate-400 font-medium">
+                                                                                        หมดอายุ: {expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
                                                                                     </span>
                                                                                 </div>
                                                                             );

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where } from "firebase/firestore";
 import Link from "next/link";
 
 
@@ -11,6 +11,7 @@ const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewB
 const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>;
 const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const PhoneIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>;
+const MagicIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /><path d="M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" /></svg>; // Placeholder
 
 const ITEMS_PER_PAGE = 30; // จำนวนรายการต่อหน้า
 
@@ -154,6 +155,75 @@ export default function AdminStudentsPage() {
         }
     };
 
+    // ✅ Auto Fix Data (Run automatically if needed)
+    const fixData = async (silent = false) => {
+        if (!silent && !confirm("ระบบจะทำการตรวจสอบและกำหนดวันหมดอายุ (5 ปี) ให้กับนักเรียนที่ยังไม่มีข้อมูลวันหมดอายุ โดยใช้วันที่สมัครเป็นวันเริ่มนับ\n\nยืนยันการทำรายการ?")) return;
+
+        if (!silent) setLoading(true);
+        try {
+            const q = query(collection(db, "enrollments"), where("status", "==", "approved"));
+            const snapshot = await getDocs(q);
+            let count = 0;
+            const updatesPromise = [];
+
+            for (const docSnap of snapshot.docs) {
+                const data = docSnap.data();
+
+                // Check if expiryDate is missing OR approvedAt is missing
+                if (!data.expiryDate || !data.approvedAt) {
+                    const updates: any = {};
+
+                    // 1. Determine Start Date (Use approvedAt if exists, else createdAt, else Now)
+                    let startDate = data.approvedAt ? data.approvedAt.toDate() : (data.createdAt ? data.createdAt.toDate() : new Date());
+
+                    // 2. Fix approvedAt if missing
+                    if (!data.approvedAt) {
+                        updates.approvedAt = data.createdAt || new Date(); // Use createdAt as approvedAt if missing
+                        startDate = updates.approvedAt.toDate ? updates.approvedAt.toDate() : updates.approvedAt;
+                    }
+
+                    // 3. Fix expiryDate if missing
+                    if (!data.expiryDate) {
+                        const expiryDate = new Date(startDate);
+                        expiryDate.setFullYear(expiryDate.getFullYear() + 5);
+                        updates.expiryDate = expiryDate;
+                        updates.accessType = "limited";
+                    }
+
+                    if (Object.keys(updates).length > 0) {
+                        updatesPromise.push(updateDoc(doc(db, "enrollments", docSnap.id), updates));
+                        count++;
+                    }
+                }
+            }
+
+            if (updatesPromise.length > 0) {
+                await Promise.all(updatesPromise);
+                if (!silent) alert(`✅ อัปเดตข้อมูลเรียบร้อย ${count} รายการ`);
+                fetchData(); // Reload data
+            } else {
+                if (!silent) alert("ข้อมูลปกติอยู่แล้ว ไม่มีการเปลี่ยนแปลง");
+            }
+
+        } catch (error) {
+            console.error(error);
+            if (!silent) alert("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
+        } finally {
+            if (!silent) setLoading(false);
+        }
+    };
+
+    // Auto-check on load
+    useEffect(() => {
+        if (enrollments.length > 0) {
+            const needsFix = enrollments.some(item => item.status === 'approved' && (!item.expiryDate || !item.approvedAt));
+            if (needsFix) {
+                console.log("Found missing data, auto-fixing...");
+                fixData(true);
+            }
+        }
+    }, [enrollments]);
+
     // Pagination Component
     const PaginationControl = () => (
         <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
@@ -169,7 +239,15 @@ export default function AdminStudentsPage() {
 
         <div className="min-h-screen bg-[#F8F9FD] font-sans text-slate-800 p-8">
             <div className="max-w-[95%] mx-auto">
-                <Link href="/admin" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 mb-6 font-bold transition">← กลับหน้า Dashboard</Link>
+                <div className="flex justify-between items-center mb-6">
+                    <Link href="/admin" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 font-bold transition">← กลับหน้า Dashboard</Link>
+                    <button
+                        onClick={() => fixData(false)}
+                        className="bg-indigo-100 text-indigo-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-indigo-200 transition flex items-center gap-2"
+                    >
+                        ⚡️ อัปเดตวันหมดอายุย้อนหลัง
+                    </button>
+                </div>
 
                 <div className="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4">
                     <div>
@@ -215,7 +293,9 @@ export default function AdminStudentsPage() {
                                 {/* ✅ ใช้ currentItems (ไม่ Error แล้ว) */}
                                 {currentItems.map((item, index) => (
                                     <tr key={item.id} className="hover:bg-slate-50/80 transition-colors group">
-                                        <td className="p-5 text-sm font-bold text-slate-400">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
+                                        <td className="p-5 text-sm font-bold text-slate-400">
+                                            {filteredEnrollments.length - ((currentPage - 1) * ITEMS_PER_PAGE + index)}
+                                        </td>
                                         <td className="p-5 text-sm text-slate-500 font-mono">
                                             <div><span className="text-xs text-slate-400">แจ้ง:</span> {item.formattedDate}</div>
                                             {item.formattedApprovedDate && <div className="text-emerald-600 font-bold"><span className="text-xs text-emerald-400">อนุมัติ:</span> {item.formattedApprovedDate}</div>}
@@ -245,11 +325,36 @@ export default function AdminStudentsPage() {
                                         </td>
                                         <td className="p-5">
                                             {item.status === 'approved' ? (
-                                                <div className="flex flex-col">
+                                                <div className="flex flex-col gap-1">
                                                     <span className="text-xs font-bold bg-green-100 text-green-600 px-3 py-1 rounded-full border border-green-200 w-fit">✅ เรียนได้</span>
-                                                    <span className="text-[10px] text-slate-400 mt-1 font-bold">
-                                                        {item.accessType === 'lifetime' ? '♾️ ตลอดชีพ' : item.expiryDate ? `หมดอายุ: ${new Date(item.expiryDate.seconds ? item.expiryDate.seconds * 1000 : item.expiryDate).toLocaleDateString('th-TH')}` : '-'}
-                                                    </span>
+
+                                                    {item.accessType === 'lifetime' ? (
+                                                        <span className="text-[10px] text-indigo-500 font-bold">♾️ ตลอดชีพ</span>
+                                                    ) : item.expiryDate ? (
+                                                        (() => {
+                                                            const expiry = new Date(item.expiryDate.seconds ? item.expiryDate.seconds * 1000 : item.expiryDate);
+                                                            const now = new Date();
+                                                            const diffTime = expiry.getTime() - now.getTime();
+                                                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                                                            return (
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[10px] text-slate-400 font-bold">
+                                                                        หมดอายุ: {expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                                                    </span>
+                                                                    {diffDays > 0 ? (
+                                                                        <span className={`text-[10px] font-bold ${diffDays < 30 ? 'text-orange-500' : 'text-emerald-500'}`}>
+                                                                            ⏳ เหลือ {diffDays} วัน
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[10px] text-rose-500 font-bold">🔒 หมดอายุแล้ว</span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()
+                                                    ) : (
+                                                        <span className="text-[10px] text-slate-300">-</span>
+                                                    )}
                                                 </div>
                                             ) : item.status === 'pending' ? <span className="text-xs font-bold bg-orange-100 text-orange-600 px-3 py-1 rounded-full border border-orange-200 animate-pulse">⏳ รอตรวจสอบ</span> : item.status === 'suspended' ? <span className="text-xs font-bold bg-slate-200 text-slate-600 px-3 py-1 rounded-full border border-slate-300">⏸ พักการเรียน</span> : <span className="text-xs font-bold bg-rose-100 text-rose-600 px-3 py-1 rounded-full border border-rose-200">❌ ยกเลิก</span>}
                                         </td>
