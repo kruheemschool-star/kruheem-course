@@ -235,9 +235,14 @@ export default function CourseSalesPage() {
 
                                             <div className="relative flex items-center gap-3">
                                                 <span>สมัครเรียนทันที</span>
-                                                <span className="bg-white/20 border border-white/20 px-2 py-0.5 rounded text-sm backdrop-blur-sm">
-                                                    {course.price ? `฿${course.price.toLocaleString()}` : 'ฟรี'}
-                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    {course.fullPrice > 0 && (
+                                                        <span className="text-xs text-blue-100 line-through decoration-blue-200/50">฿{course.fullPrice.toLocaleString()}</span>
+                                                    )}
+                                                    <span className="bg-white/20 border border-white/20 px-2 py-0.5 rounded text-sm backdrop-blur-sm">
+                                                        {course.price ? `฿${course.price.toLocaleString()}` : 'ฟรี'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </button>
 

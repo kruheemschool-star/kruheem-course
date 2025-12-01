@@ -19,6 +19,7 @@ export default function CourseManagerPage() {
   const [videoId, setVideoId] = useState("");
   const [docUrl, setDocUrl] = useState("");
   const [price, setPrice] = useState("");
+  const [fullPrice, setFullPrice] = useState("");
   const [currentImageUrl, setCurrentImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
@@ -104,6 +105,7 @@ export default function CourseManagerPage() {
     setVideoId(course.videoId);
     setDocUrl(course.docUrl || "");
     setPrice(course.price || "");
+    setFullPrice(course.fullPrice || "");
     setCurrentImageUrl(course.image);
     setImagePreview(course.image);
     setImageFile(null);
@@ -118,6 +120,7 @@ export default function CourseManagerPage() {
     setVideoId("");
     setDocUrl("");
     setPrice("");
+    setFullPrice("");
     setCurrentImageUrl("");
     setImagePreview("");
     setImageFile(null);
@@ -177,6 +180,7 @@ export default function CourseManagerPage() {
         desc,
         category,
         price: Number(price) || 0,
+        fullPrice: Number(fullPrice) || 0,
         image: downloadURL,
         videoId,
         docUrl,
@@ -190,6 +194,7 @@ export default function CourseManagerPage() {
         await addDoc(collection(db, "courses"), {
           ...courseData,
           price: Number(price) || 0,
+          fullPrice: Number(fullPrice) || 0,
           createdAt: new Date()
         });
         showToast("✅ เพิ่มคอร์สใหม่เรียบร้อย!");
@@ -403,13 +408,18 @@ export default function CourseManagerPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-base font-bold text-stone-600">ราคาคอร์ส (บาท)</label>
-                <input type="number" className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition font-bold text-blue-600 text-lg" value={price} onChange={(e) => setPrice(e.target.value)} />
+                <label className="text-base font-bold text-stone-600">ราคาเต็ม (บาท)</label>
+                <input type="number" className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition font-bold text-slate-500 text-lg line-through" value={fullPrice} onChange={(e) => setFullPrice(e.target.value)} placeholder="เช่น 2500" />
               </div>
               <div className="space-y-2">
-                <label className="text-base font-bold text-stone-600">YouTube Intro</label>
-                <input type="text" className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition text-lg" value={videoId} onChange={(e) => setVideoId(e.target.value)} />
+                <label className="text-base font-bold text-stone-600">ราคาขายจริง (บาท)</label>
+                <input type="number" className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition font-bold text-blue-600 text-lg" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="เช่น 1500" />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-base font-bold text-stone-600">YouTube Intro (Video ID)</label>
+              <input type="text" className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition text-lg" value={videoId} onChange={(e) => setVideoId(e.target.value)} placeholder="เช่น dQw4w9WgXcQ" />
             </div>
 
             <div className="space-y-2">
@@ -464,7 +474,12 @@ export default function CourseManagerPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-stone-800 truncate text-lg md:text-xl">{c.title}</h3>
-                          <p className="text-sm font-bold text-blue-600 mt-1">{c.price ? `฿${c.price.toLocaleString()}` : "ฟรี"}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {c.fullPrice > 0 && (
+                              <span className="text-sm font-bold text-slate-400 line-through">฿{c.fullPrice.toLocaleString()}</span>
+                            )}
+                            <p className="text-sm font-bold text-blue-600">{c.price ? `฿${c.price.toLocaleString()}` : "ฟรี"}</p>
+                          </div>
                         </div>
                       </div>
                       <div className="flex gap-2 w-full md:w-auto justify-end">

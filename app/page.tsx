@@ -419,7 +419,12 @@ export default function HomePage() {
                           <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100">
                             <div className="flex flex-col">
                               <span className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">Course Price</span>
-                              <span className="text-3xl font-black text-slate-800 tracking-tight">{course.price ? `฿${course.price.toLocaleString()}` : "Free"}</span>
+                              <div className="flex items-center gap-2">
+                                {course.fullPrice > 0 && (
+                                  <span className="text-sm font-bold text-slate-400 line-through">฿{course.fullPrice.toLocaleString()}</span>
+                                )}
+                                <span className="text-3xl font-black text-slate-800 tracking-tight">{course.price ? `฿${course.price.toLocaleString()}` : "Free"}</span>
+                              </div>
                             </div>
                             <span className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all duration-500 shadow-sm group-hover:shadow-lg group-hover:scale-110">
                               <ArrowRight size={24} strokeWidth={3} />
