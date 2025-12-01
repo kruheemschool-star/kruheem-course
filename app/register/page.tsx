@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useUserAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, AlertCircle, ArrowRight } from "lucide-react";
 
-export default function RegisterPage() {
+function RegisterContent() {
     const { emailSignUp, googleSignIn } = useUserAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -189,5 +189,13 @@ export default function RegisterPage() {
                 </p>
             </div>
         </div>
+    );
+}
+
+export default function RegisterPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F5F2EB] text-slate-500">กำลังโหลด...</div>}>
+            <RegisterContent />
+        </Suspense>
     );
 }
