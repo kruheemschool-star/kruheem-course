@@ -574,7 +574,7 @@ export default function MyCoursesPage() {
                                                         {notif.type === 'general' ? '📢' : '✨'}
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-bold text-slate-700 leading-tight mb-1">{notif.type === 'general' ? notif.message : notif.lessonTitle}</p>
+                                                        <p className="text-sm font-normal text-slate-700 leading-tight mb-1">{notif.type === 'general' ? notif.message : notif.lessonTitle}</p>
                                                         <p className="text-xs text-slate-400">{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString('th-TH') : 'เมื่อเร็วๆ นี้'}</p>
                                                     </div>
                                                     <button onClick={(e) => handleDismiss(e, notif.id)} className="text-slate-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition">✕</button>
