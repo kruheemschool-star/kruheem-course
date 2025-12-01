@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc } from "firebase/firestore";
 import Link from "next/link";
 
 
@@ -12,6 +12,31 @@ const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" view
 const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const PhoneIcon = () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>;
 const MagicIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /><path d="M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" /></svg>; // Placeholder
+
+const UserAvatar = ({ userId, name }: { userId?: string, name?: string }) => {
+    const [avatar, setAvatar] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!userId) return;
+        getDoc(doc(db, "users", userId)).then(snap => {
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.avatar) setAvatar(data.avatar);
+            }
+        }).catch(err => console.error(err));
+    }, [userId]);
+
+    if (avatar) {
+        // eslint-disable-next-line @next/next/no-img-element
+        return <img src={avatar} alt={name || "User"} className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-100 flex-shrink-0" />;
+    }
+
+    return (
+        <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0">
+            {name?.charAt(0).toUpperCase() || "?"}
+        </div>
+    );
+};
 
 const ITEMS_PER_PAGE = 30; // จำนวนรายการต่อหน้า
 
@@ -302,9 +327,7 @@ export default function AdminStudentsPage() {
                                         </td>
                                         <td className="p-5">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0">
-                                                    {item.userName?.charAt(0).toUpperCase() || "?"}
-                                                </div>
+                                                <UserAvatar userId={item.userId} name={item.userName} />
                                                 <div>
                                                     <div className="font-bold text-slate-700 text-base">{item.userName || "ไม่ระบุชื่อ"}</div>
                                                     <div className="text-xs text-slate-400 font-medium">{item.userEmail}</div>
