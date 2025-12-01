@@ -15,20 +15,31 @@ const MagicIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 
 
 const UserAvatar = ({ userId, name }: { userId?: string, name?: string }) => {
     const [avatar, setAvatar] = useState<string | null>(null);
+    const [imageError, setImageError] = useState(false);
 
     useEffect(() => {
         if (!userId) return;
         getDoc(doc(db, "users", userId)).then(snap => {
             if (snap.exists()) {
                 const data = snap.data();
-                if (data.avatar) setAvatar(data.avatar);
+                if (data.avatar) {
+                    setAvatar(data.avatar);
+                    setImageError(false);
+                }
             }
         }).catch(err => console.error(err));
     }, [userId]);
 
-    if (avatar) {
+    if (avatar && !imageError) {
         // eslint-disable-next-line @next/next/no-img-element
-        return <img src={avatar} alt={name || "User"} className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-100 flex-shrink-0" />;
+        return (
+            <img
+                src={avatar}
+                alt={name || "User"}
+                className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-100 flex-shrink-0"
+                onError={() => setImageError(true)}
+            />
+        );
     }
 
     return (
