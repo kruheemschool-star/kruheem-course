@@ -64,7 +64,8 @@ export default function AdminEnrollmentsPage() {
             } else {
                 // Force 5 years default if not specified, otherwise use selection
                 const years = duration === "5_years" ? 5 : parseInt(duration.split("_")[0]);
-                expiryDate.setFullYear(now.getFullYear() + years);
+                expiryDate = new Date(now); // Clone now
+                expiryDate.setFullYear(expiryDate.getFullYear() + years);
             }
 
             await updateDoc(doc(db, "enrollments", id), {
