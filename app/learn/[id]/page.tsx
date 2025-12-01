@@ -464,14 +464,26 @@ export default function CoursePlayer() {
                         const isOpen = openSections.includes(group.header.id);
                         return (
                             <div key={group.header.id} className="border-b border-gray-50">
-                                <button onClick={() => toggleSection(group.header.id)} className="w-full flex flex-col p-4 bg-white hover:bg-gray-50 transition text-left group">
-                                    <div className="flex items-center justify-between w-full mb-2">
-                                        <h3 className="text-base md:text-lg font-black text-slate-800 tracking-tight truncate pr-2 flex-1">
-                                            {group.header.title}
-                                        </h3>
-                                        <span className={`text-gray-400 transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
-                                    </div>
-                                </button>
+                                <div className={`w-full flex items-center justify-between p-4 bg-white hover:bg-gray-50 transition border-b border-gray-50 ${activeLesson?.id === group.header.id ? 'bg-indigo-50/50' : ''}`}>
+                                    <button
+                                        onClick={() => {
+                                            changeLesson(group.header);
+                                            if (!isOpen) toggleSection(group.header.id);
+                                        }}
+                                        className={`text-base md:text-lg font-black tracking-tight truncate pr-2 flex-1 text-left ${activeLesson?.id === group.header.id ? 'text-indigo-600' : 'text-slate-800'}`}
+                                    >
+                                        {group.header.title}
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleSection(group.header.id);
+                                        }}
+                                        className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition"
+                                    >
+                                        <span className={`block transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+                                    </button>
+                                </div>
 
                                 <div className={`grid transition-[grid-template-rows] duration-500 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                                     <div className="overflow-hidden">
