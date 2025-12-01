@@ -1803,13 +1803,13 @@ export default function CourseSalesPage() {
                         {/* Category Badge (Glass) */}
                         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/50 bg-white/30 backdrop-blur-md shadow-sm">
                             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-[0_0_10px_rgba(74,222,128,0.5)]"></span>
-                            <span className="text-xs font-bold text-slate-600 tracking-wide uppercase">
+                            <span className="text-sm font-bold text-slate-600 tracking-wide uppercase">
                                 {course.category || "คอร์สแนะนำ"}
                             </span>
                         </div>
 
                         {/* Title */}
-                        <h1 className="text-4xl md:text-6xl font-black leading-tight tracking-tight text-slate-800 drop-shadow-sm">
+                        <h1 className="text-5xl md:text-7xl font-black leading-tight tracking-tight text-slate-800 drop-shadow-sm">
                             {course.title}
                         </h1>
 
@@ -1858,7 +1858,7 @@ export default function CourseSalesPage() {
                                     })()}
 
                                     <Link href={`/learn/${courseId}`}>
-                                        <button className="w-full md:w-auto group relative px-10 py-4 rounded-2xl font-bold text-lg text-white overflow-hidden transition-all hover:-translate-y-1 shadow-xl shadow-green-200">
+                                        <button className="w-full md:w-auto group relative px-10 py-5 rounded-2xl font-bold text-xl text-white overflow-hidden transition-all hover:-translate-y-1 shadow-xl shadow-green-200">
                                             <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
                                             <div className="absolute inset-0 bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-20 transition-opacity"></div>
                                             <div className="relative flex items-center justify-center gap-3">
@@ -1882,7 +1882,7 @@ export default function CourseSalesPage() {
                                         {/* Enroll Button (Glassmorphism High Emphasis) */}
                                         <button
                                             onClick={handlePaymentClick}
-                                            className="group relative px-8 py-4 rounded-2xl font-bold text-lg text-white overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-xl shadow-blue-200/50"
+                                            className="group relative px-10 py-5 rounded-2xl font-bold text-xl text-white overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-xl shadow-blue-200/50"
                                         >
                                             <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 opacity-90"></div>
                                             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
@@ -1903,7 +1903,7 @@ export default function CourseSalesPage() {
 
                                         {/* Free Trial Button (Glassmorphism Low Emphasis) */}
                                         <Link href={`/learn/${courseId}`}>
-                                            <button className="px-8 py-4 rounded-2xl font-bold text-lg text-slate-600 bg-white/30 border border-white/60 backdrop-blur-md hover:bg-white/50 hover:border-white transition-all duration-300 shadow-lg shadow-slate-200/30 flex items-center gap-2 group">
+                                            <button className="px-10 py-5 rounded-2xl font-bold text-xl text-slate-600 bg-white/30 border border-white/60 backdrop-blur-md hover:bg-white/50 hover:border-white transition-all duration-300 shadow-lg shadow-slate-200/30 flex items-center gap-2 group">
                                                 <span className="w-8 h-8 rounded-full bg-white/50 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform shadow-sm">▶</span>
                                                 ทดลองเรียน
                                             </button>
@@ -1978,37 +1978,37 @@ export default function CourseSalesPage() {
                         <div className={`absolute top-0 left-0 w-64 h-64 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 ${content.painPoint.blobs[0]}`}></div>
                         <div className={`absolute bottom-0 right-0 w-64 h-64 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 ${content.painPoint.blobs[1]}`}></div>
 
-                        <h2 className="text-3xl md:text-4xl font-black text-slate-800 leading-tight mb-4 relative z-10">
+                        <h2 className="text-4xl md:text-5xl font-black text-slate-800 leading-tight mb-6 relative z-10">
                             {content.painPoint.title}
                         </h2>
-                        <p className="text-lg text-slate-600 mb-10 font-medium relative z-10">{content.painPoint.subtitle}</p>
+                        <p className="text-xl text-slate-600 mb-12 font-medium relative z-10">{content.painPoint.subtitle}</p>
 
                         <div className="text-left grid md:grid-cols-2 gap-10 items-start relative z-10">
                             {/* Pain Points */}
                             <div className={`${content.painPoint.problemBox.bg} rounded-3xl p-6 border border-white/60 shadow-sm`}>
-                                <h3 className="font-bold text-xl text-slate-700 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">{content.painPoint.problemBox.icon}</span> {content.painPoint.problemBox.title}
+                                <h3 className="font-bold text-2xl text-slate-700 mb-6 flex items-center gap-2">
+                                    <span className="text-3xl">{content.painPoint.problemBox.icon}</span> {content.painPoint.problemBox.title}
                                 </h3>
-                                <ul className="space-y-4">
+                                <ul className="space-y-5">
                                     {content.painPoint.problemBox.items.map((item, i) => (
                                         <li key={i} className="flex items-start gap-3">
                                             <span className="text-2xl flex-shrink-0">{item.icon}</span>
-                                            <span className="text-slate-600">{item.text}</span>
+                                            <span className="text-lg text-slate-600">{item.text}</span>
                                         </li>
                                     ))}
                                 </ul>
                             </div>
                             {/* The Solution */}
                             <div className={`${content.painPoint.solutionBox.bg} rounded-3xl p-6 border ${content.painPoint.solutionBox.border} shadow-sm`}>
-                                <h3 className="font-bold text-xl text-slate-700 mb-4 flex items-center gap-2">
-                                    <span className="text-2xl">{content.painPoint.solutionBox.icon}</span> {content.painPoint.solutionBox.title}
+                                <h3 className="font-bold text-2xl text-slate-700 mb-6 flex items-center gap-2">
+                                    <span className="text-3xl">{content.painPoint.solutionBox.icon}</span> {content.painPoint.solutionBox.title}
                                 </h3>
-                                <p className="text-slate-600 mb-4 font-medium">{content.painPoint.solutionBox.desc}</p>
-                                <ul className="space-y-3">
+                                <p className="text-lg text-slate-600 mb-6 font-medium">{content.painPoint.solutionBox.desc}</p>
+                                <ul className="space-y-4">
                                     {content.painPoint.solutionBox.items.map((item, i) => (
                                         <li key={i} className="flex items-start gap-3">
-                                            <span className="text-xl text-green-600 font-bold">{item.icon}</span>
-                                            <span className="text-slate-700">{item.text}</span>
+                                            <span className="text-2xl text-green-600 font-bold">{item.icon}</span>
+                                            <span className="text-lg text-slate-700">{item.text}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -2021,8 +2021,8 @@ export default function CourseSalesPage() {
                 {/* Curriculum Section */}
                 <section className="max-w-4xl mx-auto px-6 py-12">
                     <div className="bg-white/60 backdrop-blur-xl rounded-[2.5rem] shadow-lg p-8 md:p-12 border border-white/50">
-                        <h2 className="text-3xl font-bold text-center text-slate-800 mb-2">เนื้อหาที่จะได้เรียนในเทอมนี้ 📚</h2>
-                        <p className="text-center text-slate-500 mb-10">เนื้อหาฉบับปรับปรุง สสวท. ปี 60 (ปรับปรุงล่าสุด)</p>
+                        <h2 className="text-4xl font-bold text-center text-slate-800 mb-4">เนื้อหาที่จะได้เรียนในเทอมนี้ 📚</h2>
+                        <p className="text-center text-lg text-slate-500 mb-12">เนื้อหาฉบับปรับปรุง สสวท. ปี 60 (ปรับปรุงล่าสุด)</p>
 
                         <div className="space-y-4">
                             {content.curriculum.map((chapter, index) => (
@@ -2036,8 +2036,8 @@ export default function CourseSalesPage() {
                                                 {chapter.id}
                                             </div>
                                             <div>
-                                                <h3 className="font-bold text-lg text-slate-800">{chapter.title}</h3>
-                                                <p className="text-slate-600 text-sm">{chapter.desc}</p>
+                                                <h3 className="font-bold text-xl text-slate-800">{chapter.title}</h3>
+                                                <p className="text-slate-600 text-base">{chapter.desc}</p>
                                             </div>
                                         </div>
                                         <svg
@@ -2050,7 +2050,7 @@ export default function CourseSalesPage() {
                                     <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${openChapterIndex === index ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                                         <div className="overflow-hidden">
                                             <div className="px-5 pb-5 pt-0 pl-[5.5rem]">
-                                                <ul className="list-disc text-slate-700 space-y-2 text-sm">
+                                                <ul className="list-disc text-slate-700 space-y-3 text-lg">
                                                     {chapter.content.map((item, i) => (
                                                         <li key={i}>{item}</li>
                                                     ))}
@@ -2068,14 +2068,14 @@ export default function CourseSalesPage() {
                 {/* Importance of Each Chapter */}
                 {content.importance && (
                     <section className="max-w-5xl mx-auto px-6 py-12">
-                        <h2 className="text-3xl font-bold text-center text-slate-800 mb-4">แต่ละบทสำคัญอย่างไร? 🤔</h2>
-                        <p className="text-center text-slate-500 mb-10">มาดูกันว่าแต่ละบทจะเปิดประตูสู่โลกใบไหนให้คุณ</p>
+                        <h2 className="text-4xl font-bold text-center text-slate-800 mb-6">แต่ละบทสำคัญอย่างไร? 🤔</h2>
+                        <p className="text-center text-lg text-slate-500 mb-12">มาดูกันว่าแต่ละบทจะเปิดประตูสู่โลกใบไหนให้คุณ</p>
 
                         <div className="grid md:grid-cols-2 gap-6">
                             {content.importance.map((item, i) => (
                                 <div key={i} className={`${item.color} backdrop-blur-md rounded-3xl p-8 border border-white/50 hover:shadow-lg transition-all`}>
-                                    <h3 className="text-xl font-bold mb-3 text-slate-800">{item.title}</h3>
-                                    <p className="text-slate-600 leading-relaxed text-sm">
+                                    <h3 className="text-2xl font-bold mb-4 text-slate-800">{item.title}</h3>
+                                    <p className="text-slate-600 leading-relaxed text-lg">
                                         {item.desc}
                                     </p>
                                 </div>
@@ -2088,14 +2088,14 @@ export default function CourseSalesPage() {
                 {/* Choices Section */}
                 <section className="max-w-6xl mx-auto px-6 py-16">
                     <div className="text-center mb-12">
-                        <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-4">ทางเลือกมีแค่ 2 ทาง... <br className="md:hidden" />อยู่ที่คุณจะเลือก</h2>
+                        <h2 className="text-4xl md:text-5xl font-bold text-slate-800 mb-6">ทางเลือกมีแค่ 2 ทาง... <br className="md:hidden" />อยู่ที่คุณจะเลือก</h2>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-8">
                         {/* Choice 1 */}
                         <div className={`${content.choices.colors.old} backdrop-blur-md rounded-[2rem] p-8 md:p-10 border border-white/50 relative overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-xl`}>
-                            <h3 className="text-2xl font-bold text-slate-700 mb-6">ทางเลือกที่ 1: เส้นทางเดิม</h3>
-                            <p className="text-slate-600 leading-relaxed text-lg">
+                            <h3 className="text-3xl font-bold text-slate-700 mb-8">ทางเลือกที่ 1: เส้นทางเดิม</h3>
+                            <p className="text-slate-600 leading-relaxed text-xl">
                                 {content.choices.oldPath}
                             </p>
                         </div>
@@ -2103,15 +2103,15 @@ export default function CourseSalesPage() {
                         {/* Choice 2 */}
                         <div className={`${content.choices.colors.new} backdrop-blur-md rounded-[2rem] p-8 md:p-10 border border-white/50 relative overflow-hidden flex flex-col justify-between shadow-lg transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl`}>
                             <div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-6">ทางเลือกที่ 2: เส้นทางสู่ความสำเร็จ</h3>
-                                <p className="text-slate-700 leading-relaxed text-lg mb-8">
+                                <h3 className="text-3xl font-bold text-slate-800 mb-8">ทางเลือกที่ 2: เส้นทางสู่ความสำเร็จ</h3>
+                                <p className="text-slate-700 leading-relaxed text-xl mb-10">
                                     {content.choices.newPath}
                                 </p>
                             </div>
 
                             <button
                                 onClick={handlePaymentClick}
-                                className={`w-full py-4 rounded-xl ${content.choices.colors.button} text-white font-bold text-xl shadow-lg transition-all transform hover:scale-105 active:scale-95 border border-white/30`}
+                                className={`w-full py-5 rounded-xl ${content.choices.colors.button} text-white font-bold text-2xl shadow-lg transition-all transform hover:scale-105 active:scale-95 border border-white/30`}
                             >
                                 เลือกเส้นทางสู่ความสำเร็จ
                             </button>
@@ -2225,11 +2225,11 @@ export default function CourseSalesPage() {
                 )}
                 {/* 5. FAQ */}
                 <section className="max-w-3xl mx-auto px-6 pb-24 mt-32">
-                    <div className="text-center mb-10">
-                        <h2 className="text-2xl md:text-3xl font-black text-slate-800 mb-4 leading-tight">
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-6 leading-tight">
                             🔥 ถามตรง-ตอบเคลียร์! <br className="hidden md:block" />เรื่องที่ใจอยากรู้ ก่อนตัดสินใจลุย 🔥
                         </h2>
-                        <p className="text-slate-600 text-lg">
+                        <p className="text-slate-600 text-xl">
                             มีความกังวลเหล่านี้อยู่ใช่ไหม? อ่านให้จบ แล้วจะพบว่า <span className="text-indigo-600 font-bold">"ทางออก"</span> ของเกรด 4 อยู่ใกล้แค่นี้!
                         </p>
                     </div>
@@ -2292,12 +2292,12 @@ export default function CourseSalesPage() {
                                         onClick={() => setOpenFaqIndex(openFaqIndex === i ? null : i)}
                                         className={`w-full px-6 py-5 text-left font-bold text-slate-800 flex justify-between items-start gap-4 bg-transparent`}
                                     >
-                                        <span className="text-lg">{faq.q}</span>
+                                        <span className="text-xl">{faq.q}</span>
                                         <span className="text-slate-500 font-bold text-xl flex-shrink-0 mt-0.5">{openFaqIndex === i ? "−" : "+"}</span>
                                     </button>
                                     <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${openFaqIndex === i ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                                         <div className="overflow-hidden">
-                                            <div className="px-6 pb-6 pt-2 text-slate-700 leading-relaxed border-t border-black/5">
+                                            <div className="px-6 pb-6 pt-2 text-slate-700 leading-relaxed border-t border-black/5 text-lg">
                                                 {faq.a}
                                             </div>
                                         </div>
@@ -2308,10 +2308,10 @@ export default function CourseSalesPage() {
                     </div>
 
                     <div className="mt-12 text-center bg-indigo-50 rounded-2xl p-8 border border-indigo-100">
-                        <p className="text-lg font-medium text-indigo-900 mb-2">
+                        <p className="text-xl font-medium text-indigo-900 mb-4">
                             อย่าปล่อยให้ "ความลังเล" ขโมยโอกาสเกรด 4 ของน้องไป
                         </p>
-                        <p className="text-slate-600">
+                        <p className="text-slate-600 text-lg">
                             ทุกคำถามเคลียร์ใจหมดแล้ว ที่เหลือคือ "การตัดสินใจของคุณ" <br />
                             คอร์สนี้ไม่ใช่แค่สอนเลข แต่คือการสร้าง "ความมั่นใจ" ใหม่ให้น้องตลอดชีวิต
                         </p>
