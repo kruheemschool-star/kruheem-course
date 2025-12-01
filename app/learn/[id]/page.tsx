@@ -427,7 +427,7 @@ export default function CoursePlayer() {
                     )}
 
                     {/* ✅ Google Drive Link Button */}
-                    {course?.docUrl && (
+                    {course?.docUrl && (isEnrolled || isAdmin) && (
                         <a
                             href={course.docUrl}
                             target="_blank"
