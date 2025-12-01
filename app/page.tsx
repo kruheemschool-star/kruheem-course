@@ -27,22 +27,14 @@ const BannerImage = ({ url, isActive, index }: { url: string, isActive: boolean,
       className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
     >
       {!loaded && (
-        <div className="absolute inset-0 bg-[#FDFBF7] flex flex-col items-center justify-center z-20">
-          <div className="relative w-40 h-32 flex items-center justify-center overflow-hidden">
-            {/* Duck */}
-            <div className="text-6xl animate-duck-run absolute bottom-10 drop-shadow-sm">
-              🦆
-            </div>
-            {/* Ground/Shadow */}
-            <div className="w-24 h-3 bg-stone-200/50 rounded-full absolute bottom-8 blur-sm animate-pulse"></div>
-          </div>
-          {/* Loading Text/Dots */}
-          <div className="flex items-center gap-2 mt-[-10px]">
-            <span className="text-amber-800/60 font-bold text-sm tracking-widest uppercase">Loading</span>
-            <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-              <span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-bounce"></span>
+        <div className="absolute inset-0 bg-stone-100 z-20 overflow-hidden">
+          {/* Shimmer Effect */}
+          <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
+
+          {/* Subtle Center Icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-stone-200/50 flex items-center justify-center animate-pulse">
+              <Sparkles className="w-6 h-6 text-stone-300" />
             </div>
           </div>
         </div>
@@ -486,22 +478,9 @@ export default function HomePage() {
         }
         .animate-fade-in { animation: fadeIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-        @keyframes duck-run {
-            0% { transform: translateX(-50px) scaleX(1) translateY(0); }
-            10% { transform: translateX(-30px) scaleX(1) translateY(-5px); }
-            20% { transform: translateX(-10px) scaleX(1) translateY(0); }
-            30% { transform: translateX(10px) scaleX(1) translateY(-5px); }
-            40% { transform: translateX(30px) scaleX(1) translateY(0); }
-            50% { transform: translateX(50px) scaleX(1) translateY(-5px); }
-            51% { transform: translateX(50px) scaleX(-1) translateY(0); }
-            60% { transform: translateX(30px) scaleX(-1) translateY(-5px); }
-            70% { transform: translateX(10px) scaleX(-1) translateY(0); }
-            80% { transform: translateX(-10px) scaleX(-1) translateY(-5px); }
-            90% { transform: translateX(-30px) scaleX(-1) translateY(0); }
-            100% { transform: translateX(-50px) scaleX(-1) translateY(-5px); }
-            101% { transform: translateX(-50px) scaleX(1) translateY(0); }
+        @keyframes shimmer {
+            100% { transform: translateX(100%); }
         }
-        .animate-duck-run { animation: duck-run 3s infinite linear; }
       `}</style>
     </div >
   );
