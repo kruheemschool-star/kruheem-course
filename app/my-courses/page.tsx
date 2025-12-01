@@ -214,7 +214,9 @@ export default function MyCoursesPage() {
                             id: doc.id,
                             ...courseData,
                             status: enrollment ? enrollment.status : null, // approved, pending, suspended, rejected
-                            enrollmentId: enrollment ? enrollment.id : null // เก็บ ID ใบสมัครไว้ใช้แก้
+                            enrollmentId: enrollment ? enrollment.id : null, // เก็บ ID ใบสมัครไว้ใช้แก้
+                            expiryDate: enrollment ? enrollment.expiryDate : null,
+                            accessType: enrollment ? enrollment.accessType : null
                         };
                     });
 
@@ -747,9 +749,57 @@ export default function MyCoursesPage() {
 
                                                     <div className="mt-auto pt-4">
                                                         {course.status === 'approved' ? (
-                                                            <Link href={`/learn/${course.id}`} className="w-full py-3 rounded-xl bg-[#D9E9CF] hover:bg-[#C8DDBB] text-emerald-800 font-bold flex items-center justify-center gap-2 transition shadow-sm">
-                                                                <PlayIcon /> เข้าเรียน
-                                                            </Link>
+                                                            <>
+                                                                {(() => {
+                                                                    if (course.accessType === 'lifetime') {
+                                                                        return (
+                                                                            <div className="mb-2 text-center">
+                                                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">♾️ เรียนได้ตลอดชีพ</span>
+                                                                            </div>
+                                                                        );
+                                                                    } else if (course.expiryDate) {
+                                                                        const now = new Date();
+                                                                        const expiry = course.expiryDate.toDate ? course.expiryDate.toDate() : new Date(course.expiryDate);
+                                                                        const diffTime = expiry.getTime() - now.getTime();
+                                                                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                                                                        if (diffDays <= 0) {
+                                                                            return (
+                                                                                <div className="mb-2 text-center">
+                                                                                    <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-full">หมดอายุแล้ว</span>
+                                                                                </div>
+                                                                            );
+                                                                        } else {
+                                                                            return (
+                                                                                <div className="mb-2 text-center">
+                                                                                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${diffDays < 30 ? 'text-orange-600 bg-orange-50' : 'text-emerald-600 bg-emerald-50'}`}>
+                                                                                        ⏳ เหลือเวลา {diffDays} วัน
+                                                                                    </span>
+                                                                                </div>
+                                                                            );
+                                                                        }
+                                                                    }
+                                                                    return null;
+                                                                })()}
+
+                                                                {(() => {
+                                                                    const isExpired = course.expiryDate && course.accessType !== 'lifetime' && (course.expiryDate.toDate ? course.expiryDate.toDate() : new Date(course.expiryDate)) < new Date();
+
+                                                                    if (isExpired) {
+                                                                        return (
+                                                                            <button disabled className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold cursor-not-allowed flex items-center justify-center gap-2">
+                                                                                🔒 หมดอายุการใช้งาน
+                                                                            </button>
+                                                                        );
+                                                                    }
+
+                                                                    return (
+                                                                        <Link href={`/learn/${course.id}`} className="w-full py-3 rounded-xl bg-[#D9E9CF] hover:bg-[#C8DDBB] text-emerald-800 font-bold flex items-center justify-center gap-2 transition shadow-sm">
+                                                                            <PlayIcon /> เข้าเรียน
+                                                                        </Link>
+                                                                    );
+                                                                })()}
+                                                            </>
                                                         ) : course.status === 'pending' ? (
                                                             <Link
                                                                 href={`/payment?courseId=${course.id}`}

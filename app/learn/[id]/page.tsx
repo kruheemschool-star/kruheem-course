@@ -151,6 +151,7 @@ export default function CoursePlayer() {
 
     // ✅ State สำหรับเก็บสถานะการลงทะเบียน (Approved หรือไม่)
     const [isEnrolled, setIsEnrolled] = useState(false);
+    const [isExpired, setIsExpired] = useState(false);
 
     // ✅ State สำหรับ Mobile Menu
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -170,14 +171,22 @@ export default function CoursePlayer() {
                     );
                     const snapshot = await getDocs(q);
                     if (!snapshot.empty) {
+                        const enrollmentData = snapshot.docs[0].data();
+
+                        // Check Expiration
+                        if (enrollmentData.accessType !== 'lifetime' && enrollmentData.expiryDate) {
+                            const expiry = enrollmentData.expiryDate.toDate ? enrollmentData.expiryDate.toDate() : new Date(enrollmentData.expiryDate);
+                            if (expiry < new Date()) {
+                                setIsExpired(true);
+                                setIsEnrolled(false);
+                                return;
+                            }
+                        }
+
                         setIsEnrolled(true); // 🎉 มีสิทธิ์เรียน
 
                         // ✅ Update Last Accessed Time
-                        const enrollRef = doc(db, "enrollments", `${user.uid}_${courseId}`);
-                        // We use setDoc with merge: true to be safe, or updateDoc. 
-                        // Since we know it exists (snapshot not empty), updateDoc is fine, but we need to import it.
-                        // Let's use setDoc with merge to avoid import issues if updateDoc isn't imported yet, 
-                        // actually I'll add updateDoc to imports.
+                        const enrollRef = doc(db, "enrollments", snapshot.docs[0].id);
                         await setDoc(enrollRef, {
                             lastAccessedAt: serverTimestamp()
                         }, { merge: true });
@@ -668,10 +677,12 @@ export default function CoursePlayer() {
                     ) : (
                         // Locked Screen
                         <div className="flex flex-col items-center justify-center h-full text-center p-10">
-                            <div className="text-6xl mb-4">🔒</div>
-                            <h2 className="text-2xl font-bold text-gray-800">Lesson Locked</h2>
-                            <p className="text-gray-500 mb-6">กรุณาสมัครเรียนและรอการอนุมัติเพื่อเข้าถึงเนื้อหา</p>
-                            <Link href="/payment" className="bg-orange-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-orange-600 transition">แจ้งโอนเงิน / สมัครเรียน</Link>
+                            <div className="text-6xl mb-4">{isExpired ? '⏳' : '🔒'}</div>
+                            <h2 className="text-2xl font-bold text-gray-800">{isExpired ? 'คอร์สหมดอายุแล้ว' : 'Lesson Locked'}</h2>
+                            <p className="text-gray-500 mb-6">{isExpired ? 'ระยะเวลาการเรียนของคุณสิ้นสุดลงแล้ว กรุณาต่ออายุคอร์สเรียน' : 'กรุณาสมัครเรียนและรอการอนุมัติเพื่อเข้าถึงเนื้อหา'}</p>
+                            <Link href="/payment" className="bg-orange-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-orange-600 transition">
+                                {isExpired ? 'ต่ออายุคอร์สเรียน' : 'แจ้งโอนเงิน / สมัครเรียน'}
+                            </Link>
                         </div>
                     )}
                 </div>

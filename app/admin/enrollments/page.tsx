@@ -43,14 +43,37 @@ export default function AdminEnrollmentsPage() {
         fetchData();
     }, []);
 
+    const [selectedDurations, setSelectedDurations] = useState<Record<string, string>>({});
+
     // ฟังก์ชันอนุมัติ
     const handleApprove = async (id: string) => {
-        if (!confirm("ยืนยันการอนุมัติ? ผู้เรียนจะเข้าเรียนได้ทันที")) return;
+        // Default to 5 years automatically
+        const duration = selectedDurations[id] || "5_years";
+
+        if (!confirm("ยืนยันการอนุมัติ? ผู้เรียนจะเข้าเรียนได้ทันที (ระยะเวลาเรียน 5 ปี)")) return;
+
         try {
+            const now = new Date();
+            let expiryDate = new Date();
+            let accessType = "limited";
+
+            // Default logic: 5 Years
+            if (duration === "lifetime") {
+                accessType = "lifetime";
+                expiryDate.setFullYear(now.getFullYear() + 100);
+            } else {
+                // Force 5 years default if not specified, otherwise use selection
+                const years = duration === "5_years" ? 5 : parseInt(duration.split("_")[0]);
+                expiryDate.setFullYear(now.getFullYear() + years);
+            }
+
             await updateDoc(doc(db, "enrollments", id), {
-                status: "approved"
+                status: "approved",
+                approvedAt: now,
+                expiryDate: expiryDate,
+                accessType: accessType
             });
-            alert("✅ อนุมัติเรียบร้อย!");
+            alert("✅ อนุมัติเรียบร้อย! (กำหนดเวลาเรียน 5 ปี)");
             fetchData(); // รีโหลดข้อมูล
         } catch (error) {
             console.error("Error:", error);
@@ -137,19 +160,36 @@ export default function AdminEnrollmentsPage() {
                                     </div>
 
                                     {/* ปุ่มจัดการ */}
-                                    <div className="flex gap-3">
-                                        <button
-                                            onClick={() => handleDelete(item.id)}
-                                            className="flex-1 py-3 rounded-xl border-2 border-rose-100 text-rose-500 font-bold hover:bg-rose-50 transition flex items-center justify-center gap-2"
-                                        >
-                                            ✕ ปฏิเสธ / ลบ
-                                        </button>
-                                        <button
-                                            onClick={() => handleApprove(item.id)}
-                                            className="flex-[2] py-3 rounded-xl bg-[#00C853] hover:bg-[#00b54b] text-white font-bold shadow-lg shadow-green-200 transition flex items-center justify-center gap-2 transform hover:-translate-y-1"
-                                        >
-                                            ✅ อนุมัติให้เข้าเรียน
-                                        </button>
+                                    <div className="flex flex-col gap-3">
+                                        {/* Hidden Duration Selector (Default 5 Years) */}
+                                        {/* <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
+                                            <span className="text-xs font-bold text-slate-500 pl-2">ระยะเวลาเรียน:</span>
+                                            <select
+                                                className="flex-1 bg-transparent font-bold text-slate-700 outline-none text-sm"
+                                                value={selectedDurations[item.id] || "5_years"}
+                                                onChange={(e) => setSelectedDurations(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                            >
+                                                <option value="1_year">1 ปี</option>
+                                                <option value="3_years">3 ปี</option>
+                                                <option value="5_years">5 ปี (ค่าเริ่มต้น)</option>
+                                                <option value="lifetime">ตลอดชีพ</option>
+                                            </select>
+                                        </div> */}
+
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => handleDelete(item.id)}
+                                                className="flex-1 py-3 rounded-xl border-2 border-rose-100 text-rose-500 font-bold hover:bg-rose-50 transition flex items-center justify-center gap-2"
+                                            >
+                                                ✕ ปฏิเสธ
+                                            </button>
+                                            <button
+                                                onClick={() => handleApprove(item.id)}
+                                                className="flex-[2] py-3 rounded-xl bg-[#00C853] hover:bg-[#00b54b] text-white font-bold shadow-lg shadow-green-200 transition flex items-center justify-center gap-2 transform hover:-translate-y-1"
+                                            >
+                                                ✅ อนุมัติ (5 ปี)
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

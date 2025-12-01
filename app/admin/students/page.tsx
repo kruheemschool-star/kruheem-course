@@ -45,7 +45,10 @@ export default function AdminStudentsPage() {
                 ...doc.data(),
                 formattedDate: doc.data().createdAt?.toDate
                     ? doc.data().createdAt.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
-                    : '-'
+                    : '-',
+                formattedApprovedDate: doc.data().approvedAt?.toDate
+                    ? doc.data().approvedAt.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+                    : null
             }));
 
             setEnrollments(data);
@@ -126,7 +129,9 @@ export default function AdminStudentsPage() {
                 lineId: editingItem.lineId,
                 status: editingItem.status,
                 courseId: editingItem.courseId,
-                courseTitle: editingItem.courseTitle
+                courseTitle: editingItem.courseTitle,
+                accessType: editingItem.accessType || "limited",
+                expiryDate: editingItem.expiryDate || null
             });
             setIsEditOpen(false);
             fetchData();
@@ -197,7 +202,7 @@ export default function AdminStudentsPage() {
                             <thead className="bg-indigo-50/50 border-b border-indigo-100">
                                 <tr>
                                     <th className="p-5 text-left text-sm font-bold text-indigo-900 w-12">#</th>
-                                    <th className="p-5 text-left text-sm font-bold text-indigo-900">วันที่แจ้งโอน</th>
+                                    <th className="p-5 text-left text-sm font-bold text-indigo-900">วันที่แจ้งโอน / อนุมัติ</th>
                                     <th className="p-5 text-left text-sm font-bold text-indigo-900">ชื่อนักเรียน (ผู้เรียน)</th>
                                     <th className="p-5 text-left text-sm font-bold text-indigo-900">เบอร์โทรศัพท์</th>
                                     <th className="p-5 text-left text-sm font-bold text-indigo-900">คอร์สที่ลงเรียน</th>
@@ -211,7 +216,10 @@ export default function AdminStudentsPage() {
                                 {currentItems.map((item, index) => (
                                     <tr key={item.id} className="hover:bg-slate-50/80 transition-colors group">
                                         <td className="p-5 text-sm font-bold text-slate-400">{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</td>
-                                        <td className="p-5 text-sm text-slate-500 font-mono">{item.formattedDate}</td>
+                                        <td className="p-5 text-sm text-slate-500 font-mono">
+                                            <div><span className="text-xs text-slate-400">แจ้ง:</span> {item.formattedDate}</div>
+                                            {item.formattedApprovedDate && <div className="text-emerald-600 font-bold"><span className="text-xs text-emerald-400">อนุมัติ:</span> {item.formattedApprovedDate}</div>}
+                                        </td>
                                         <td className="p-5">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-400 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm flex-shrink-0">
@@ -236,7 +244,14 @@ export default function AdminStudentsPage() {
                                             ) : <span className="text-slate-300 text-xs italic">ไม่มีหลักฐาน</span>}
                                         </td>
                                         <td className="p-5">
-                                            {item.status === 'approved' ? <span className="text-xs font-bold bg-green-100 text-green-600 px-3 py-1 rounded-full border border-green-200">✅ เรียนได้</span> : item.status === 'pending' ? <span className="text-xs font-bold bg-orange-100 text-orange-600 px-3 py-1 rounded-full border border-orange-200 animate-pulse">⏳ รอตรวจสอบ</span> : item.status === 'suspended' ? <span className="text-xs font-bold bg-slate-200 text-slate-600 px-3 py-1 rounded-full border border-slate-300">⏸ พักการเรียน</span> : <span className="text-xs font-bold bg-rose-100 text-rose-600 px-3 py-1 rounded-full border border-rose-200">❌ ยกเลิก</span>}
+                                            {item.status === 'approved' ? (
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold bg-green-100 text-green-600 px-3 py-1 rounded-full border border-green-200 w-fit">✅ เรียนได้</span>
+                                                    <span className="text-[10px] text-slate-400 mt-1 font-bold">
+                                                        {item.accessType === 'lifetime' ? '♾️ ตลอดชีพ' : item.expiryDate ? `หมดอายุ: ${new Date(item.expiryDate.seconds ? item.expiryDate.seconds * 1000 : item.expiryDate).toLocaleDateString('th-TH')}` : '-'}
+                                                    </span>
+                                                </div>
+                                            ) : item.status === 'pending' ? <span className="text-xs font-bold bg-orange-100 text-orange-600 px-3 py-1 rounded-full border border-orange-200 animate-pulse">⏳ รอตรวจสอบ</span> : item.status === 'suspended' ? <span className="text-xs font-bold bg-slate-200 text-slate-600 px-3 py-1 rounded-full border border-slate-300">⏸ พักการเรียน</span> : <span className="text-xs font-bold bg-rose-100 text-rose-600 px-3 py-1 rounded-full border border-rose-200">❌ ยกเลิก</span>}
                                         </td>
                                         <td className="p-5 text-right flex justify-end gap-2">
                                             <button onClick={() => handleEdit(item)} className="text-amber-400 hover:text-amber-600 transition p-2 hover:bg-amber-50 rounded-full border border-transparent hover:border-amber-100"><EditIcon /></button>
@@ -265,6 +280,31 @@ export default function AdminStudentsPage() {
                             <div><label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">LINE ID</label><input type="text" className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 focus:border-indigo-400 outline-none" value={editingItem.lineId} onChange={(e) => setEditingItem({ ...editingItem, lineId: e.target.value })} /></div>
                             <div><label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">คอร์สที่ลงเรียน</label><select className="w-full p-3 bg-emerald-50 border-2 border-emerald-100 rounded-xl font-bold text-emerald-700 cursor-pointer focus:border-emerald-400 outline-none" value={editingItem.courseId} onChange={handleCourseChange}>{allCourses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}</select></div>
                             <div><label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">สถานะการเรียน</label><select className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 cursor-pointer focus:border-indigo-400 outline-none" value={editingItem.status} onChange={(e) => setEditingItem({ ...editingItem, status: e.target.value })}><option value="pending">⏳ รอตรวจสอบ</option><option value="approved">✅ อนุมัติ/เรียนได้</option><option value="suspended">⏸ พักการเรียน</option><option value="rejected">❌ ยกเลิก</option></select></div>
+
+                            {/* ✅ Edit Duration */}
+                            <div className="pt-4 border-t border-slate-100">
+                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">ประเภทสิทธิ์การเรียน</label>
+                                <select
+                                    className="w-full p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl font-bold text-indigo-700 cursor-pointer focus:border-indigo-400 outline-none mb-3"
+                                    value={editingItem.accessType || "limited"}
+                                    onChange={(e) => setEditingItem({ ...editingItem, accessType: e.target.value })}
+                                >
+                                    <option value="limited">📅 กำหนดวันหมดอายุ</option>
+                                    <option value="lifetime">♾️ ตลอดชีพ</option>
+                                </select>
+
+                                {editingItem.accessType !== 'lifetime' && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">วันหมดอายุ</label>
+                                        <input
+                                            type="date"
+                                            className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-slate-700 focus:border-indigo-400 outline-none"
+                                            value={editingItem.expiryDate ? new Date(editingItem.expiryDate.seconds ? editingItem.expiryDate.seconds * 1000 : editingItem.expiryDate).toISOString().split('T')[0] : ""}
+                                            onChange={(e) => setEditingItem({ ...editingItem, expiryDate: new Date(e.target.value) })}
+                                        />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="flex gap-3 mt-8"><button onClick={() => setIsEditOpen(false)} className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition">ยกเลิก</button><button onClick={saveEdit} className="flex-1 py-3 rounded-xl font-bold text-white bg-indigo-500 hover:bg-indigo-600 transition shadow-lg shadow-indigo-200">บันทึก</button></div>
                     </div>
