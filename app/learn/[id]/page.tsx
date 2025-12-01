@@ -6,6 +6,8 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
 import Certificate from "@/app/components/Certificate";
+import "katex/dist/katex.min.css";
+import { InlineMath } from "react-katex";
 
 // Interface
 interface Lesson {
@@ -34,6 +36,20 @@ const CheckIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 
 const ExerciseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" /><path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" /></svg>;
 const HtmlIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M14.447 3.027a.75.75 0 01.527.92l-4.5 16.5a.75.75 0 01-1.448-.394l4.5-16.5a.75.75 0 01.921-.526zM16.72 6.22a.75.75 0 011.06 0l5.25 5.25a.75.75 0 010 1.06l-5.25 5.25a.75.75 0 11-1.06-1.06L21.44 12l-4.72-4.72a.75.75 0 010-1.06zm-9.44 0a.75.75 0 010 1.06L2.56 12l4.72 4.72a.75.75 0 01-1.06 1.06L.97 12.53a.75.75 0 010-1.06l5.25-5.25a.75.75 0 011.06 0z" clipRule="evenodd" /></svg>;
 const FlashcardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M19.5 22.5a3 3 0 003-3v-9a3 3 0 00-3-3h-9a3 3 0 00-3 3v9a3 3 0 003 3h9z" /><path d="M4.5 19.5a3 3 0 003-3v-9a3 3 0 00-3-3h-9a3 3 0 00-3 3v9a3 3 0 003 3h9z" transform="rotate(180 12 12) translate(12 12)" opacity="0.5" /></svg>;
+
+// ✅ Helper to render LaTeX mixed with text
+const renderWithLatex = (text: string) => {
+    if (!text) return "";
+    // Split by $...$
+    const parts = text.split(/(\$[^$]+\$)/g);
+    return parts.map((part, index) => {
+        if (part.startsWith('$') && part.endsWith('$')) {
+            // Remove $ and render LaTeX
+            return <InlineMath key={index} math={part.slice(1, -1)} />;
+        }
+        return <span key={index}>{part}</span>;
+    });
+};
 
 const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -82,7 +98,7 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
                     <div className="absolute w-full h-full backface-hidden bg-white rounded-[2rem] shadow-xl border-2 border-slate-100 flex flex-col items-center justify-center p-10 text-center hover:shadow-2xl hover:border-yellow-200 transition-all">
                         <span className="absolute top-6 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
                         <h3 className="text-2xl md:text-4xl font-bold text-slate-800 leading-relaxed">
-                            {cards[currentIndex].front}
+                            {renderWithLatex(cards[currentIndex].front)}
                         </h3>
                         <p className="absolute bottom-6 text-slate-400 text-sm animate-pulse">Click to flip ↻</p>
                     </div>
@@ -91,7 +107,7 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
                     <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[2rem] shadow-xl border-2 border-yellow-200 flex flex-col items-center justify-center p-10 text-center">
                         <span className="absolute top-6 left-6 text-xs font-bold text-yellow-600 uppercase tracking-widest">Answer</span>
                         <h3 className="text-2xl md:text-4xl font-bold text-yellow-800 leading-relaxed">
-                            {cards[currentIndex].back}
+                            {renderWithLatex(cards[currentIndex].back)}
                         </h3>
                     </div>
                 </div>
