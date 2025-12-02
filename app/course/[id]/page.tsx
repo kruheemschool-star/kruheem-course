@@ -7,6 +7,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
+import Grade6Content from "./Grade6Content";
 
 // SVG Icons for Content
 
@@ -138,6 +139,10 @@ export default function CourseSalesPage() {
     const isM6Term2 = course.title.includes("ม.6") && course.title.includes("เทอม 2");
     const isRuleOfThree = course.title.includes("บัญญัติไตรยางค์");
     const isGrade6Entrance = course.title.includes("ป.6") || course.title.includes("สอบเข้า ม.1");
+
+    if (isGrade6Entrance) {
+        return <Grade6Content />;
+    }
 
     let content;
 
