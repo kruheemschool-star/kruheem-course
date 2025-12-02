@@ -35,6 +35,7 @@ export default function CourseSalesPage() {
     const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
     // Curriculum Accordion State
     const [openChapterIndex, setOpenChapterIndex] = useState<number | null>(null);
+    const [openGiftedPartIndex, setOpenGiftedPartIndex] = useState<number | null>(null);
 
     // Review Images (1-19 .jpg)
     const reviewImages = Array.from({ length: 19 }, (_, i) => `/images/reviews/review${i + 1}.jpg`);
@@ -475,38 +476,62 @@ export default function CourseSalesPage() {
                     desc: "เนื้อหาพิเศษสำหรับน้องที่ต้องการความท้าทาย",
                     color: "bg-yellow-100/70",
                     iconColor: "text-yellow-600",
-                    content: [
-                        "PART 1: รากฐานคณิตศาสตร์และทักษะการคำนวณ",
-                        "• บทที่ 1: หลักการคำนวณ",
-                        "• บทที่ 2: เลขยกกำลัง",
-                        "• บทที่ 3: ตัวประกอบ",
-                        "• บทที่ 4: ห.ร.ม. และ ค.ร.น.",
-                        "• บทที่ 5: แบบรูป",
-                        "• บทที่ 6: ฟีโบนักชี",
-                        "• บทที่ 7: ลำดับเลขคณิต",
-                        "• บทที่ 8: การหารลงตัว",
-                        "PART 2: เศษส่วน ทศนิยม และอนุกรมขั้นสูง",
-                        "• บทที่ 9: เศษส่วนซ้อน",
-                        "• บทที่ 10: อนุกรมเทเลสโกปิก",
-                        "• บทที่ 11: แยกเศษส่วนย่อย",
-                        "• บทที่ 12: ทศนิยมซ้ำ",
-                        "PART 3: สมการและการแก้โจทย์ปัญหา",
-                        "• บทที่ 13: สมการเชิงเส้น",
-                        "• บทที่ 14: ระบบสมการ",
-                        "PART 4: คณิตศาสตร์ประยุกต์ในชีวิตจริง",
-                        "• บทที่ 15: อัตราส่วน",
-                        "• บทที่ 16: ร้อยละ",
-                        "• บทที่ 17: กำไร-ขาดทุน",
-                        "• บทที่ 18: ดอกเบี้ย",
-                        "PART 5: เรขาคณิตและการให้เหตุผล",
-                        "• บทที่ 19: พีทาโกรัส",
-                        "• บทที่ 20: สามเหลี่ยมคล้าย",
-                        "• บทที่ 21-28: เรขาคณิตต่างๆ",
-                        "PART 6: กลยุทธ์และเทคนิคพิชิตข้อสอบ",
-                        "• บทที่ 29: พื้นที่แรเงา",
-                        "• บทที่ 30: เรขาคณิตวิเคราะห์",
-                        "• บทที่ 31: ปริมาตร",
-                        "• บทที่ 32-40: โจทย์ปัญหาต่างๆ"
+                    parts: [
+                        {
+                            title: "PART 1: รากฐานคณิตศาสตร์และทักษะการคำนวณ",
+                            items: [
+                                "บทที่ 1: หลักการคำนวณ",
+                                "บทที่ 2: เลขยกกำลัง",
+                                "บทที่ 3: ตัวประกอบ",
+                                "บทที่ 4: ห.ร.ม. และ ค.ร.น.",
+                                "บทที่ 5: แบบรูป",
+                                "บทที่ 6: ฟีโบนักชี",
+                                "บทที่ 7: ลำดับเลขคณิต",
+                                "บทที่ 8: การหารลงตัว"
+                            ]
+                        },
+                        {
+                            title: "PART 2: เศษส่วน ทศนิยม และอนุกรมขั้นสูง",
+                            items: [
+                                "บทที่ 9: เศษส่วนซ้อน",
+                                "บทที่ 10: อนุกรมเทเลสโกปิก",
+                                "บทที่ 11: แยกเศษส่วนย่อย",
+                                "บทที่ 12: ทศนิยมซ้ำ"
+                            ]
+                        },
+                        {
+                            title: "PART 3: สมการและการแก้โจทย์ปัญหา",
+                            items: [
+                                "บทที่ 13: สมการเชิงเส้น",
+                                "บทที่ 14: ระบบสมการ"
+                            ]
+                        },
+                        {
+                            title: "PART 4: คณิตศาสตร์ประยุกต์ในชีวิตจริง",
+                            items: [
+                                "บทที่ 15: อัตราส่วน",
+                                "บทที่ 16: ร้อยละ",
+                                "บทที่ 17: กำไร-ขาดทุน",
+                                "บทที่ 18: ดอกเบี้ย"
+                            ]
+                        },
+                        {
+                            title: "PART 5: เรขาคณิตและการให้เหตุผล",
+                            items: [
+                                "บทที่ 19: พีทาโกรัส",
+                                "บทที่ 20: สามเหลี่ยมคล้าย",
+                                "บทที่ 21-28: เรขาคณิตต่างๆ"
+                            ]
+                        },
+                        {
+                            title: "PART 6: กลยุทธ์และเทคนิคพิชิตข้อสอบ",
+                            items: [
+                                "บทที่ 29: พื้นที่แรเงา",
+                                "บทที่ 30: เรขาคณิตวิเคราะห์",
+                                "บทที่ 31: ปริมาตร",
+                                "บทที่ 32-40: โจทย์ปัญหาต่างๆ"
+                            ]
+                        }
                     ]
                 }
             ],
@@ -2444,9 +2469,42 @@ export default function CourseSalesPage() {
                                         <div className="overflow-hidden">
                                             <div className="px-5 pb-5 pt-0 pl-[5.5rem]">
                                                 <ul className="list-disc text-slate-700 space-y-3 text-lg">
-                                                    {chapter.content.map((item, i) => (
-                                                        <li key={i}>{item}</li>
-                                                    ))}
+                                                    {chapter.parts ? (
+                                                        <div className="space-y-3 -ml-6 mr-2">
+                                                            {chapter.parts.map((part: any, pIndex: number) => (
+                                                                <div key={pIndex} className="bg-yellow-50/80 rounded-xl border border-yellow-200/60 overflow-hidden">
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setOpenGiftedPartIndex(openGiftedPartIndex === pIndex ? null : pIndex);
+                                                                        }}
+                                                                        className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-yellow-100/50 transition-colors"
+                                                                    >
+                                                                        <span className="font-bold text-yellow-800 text-base">{part.title}</span>
+                                                                        <svg className={`w-5 h-5 text-yellow-600 transition-transform duration-300 ${openGiftedPartIndex === pIndex ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                                        </svg>
+                                                                    </button>
+                                                                    <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${openGiftedPartIndex === pIndex ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                                                                        <div className="overflow-hidden">
+                                                                            <ul className="px-5 pb-4 pt-0 list-none space-y-2 text-slate-700">
+                                                                                {part.items.map((item: string, i: number) => (
+                                                                                    <li key={i} className="flex items-start gap-3">
+                                                                                        <span className="text-yellow-500 mt-1.5 text-[0.6rem] shrink-0">●</span>
+                                                                                        <span>{item}</span>
+                                                                                    </li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        chapter.content && chapter.content.map((item: any, i: number) => (
+                                                            <li key={i}>{item}</li>
+                                                        ))
+                                                    )}
                                                 </ul>
                                             </div>
                                         </div>
