@@ -137,6 +137,7 @@ export default function CourseSalesPage() {
     const isM6Term1 = course.title.includes("ม.6") && course.title.includes("เทอม 1");
     const isM6Term2 = course.title.includes("ม.6") && course.title.includes("เทอม 2");
     const isRuleOfThree = course.title.includes("บัญญัติไตรยางค์");
+    const isGrade6Entrance = course.title.includes("ป.6") || course.title.includes("สอบเข้า ม.1");
 
     let content;
 
