@@ -309,7 +309,7 @@ export default function AdminDashboard() {
                         </Link>
 
                         {/* 10. Online Users (Green/Lime Gradient) */}
-                        <div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-lime-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-default">
+                        <a href="#online-users-section" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-lime-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
                             <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
                             <div className="flex justify-between items-start mb-4 relative z-10">
                                 <span className="text-4xl drop-shadow-sm">🟢</span>
@@ -321,20 +321,21 @@ export default function AdminDashboard() {
                             </div>
                             <h3 className="font-bold text-xl text-green-900/80 group-hover:text-green-900 relative z-10">กำลังใช้งาน</h3>
                             <p className="text-sm text-green-800/60 mt-1 relative z-10">นักเรียนที่ออนไลน์ขณะนี้</p>
-                        </div>
+                        </a>
 
                     </div>
 
                     {/* 🔴 Online Users List Section */}
-                    {onlineUsers.length > 0 && (
-                        <div className="mt-8 bg-white rounded-3xl p-8 shadow-sm border border-green-100 animate-in fade-in slide-in-from-bottom-4">
-                            <h3 className="font-bold text-xl text-stone-800 mb-6 flex items-center gap-2">
-                                <span className="relative flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                </span>
-                                นักเรียนที่กำลังออนไลน์ ({onlineUsers.length} คน)
-                            </h3>
+                    <div id="online-users-section" className="mt-8 bg-white rounded-3xl p-8 shadow-sm border border-green-100 animate-in fade-in slide-in-from-bottom-4 scroll-mt-24">
+                        <h3 className="font-bold text-xl text-stone-800 mb-6 flex items-center gap-2">
+                            <span className="relative flex h-3 w-3">
+                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${onlineUsers.length > 0 ? 'bg-green-400' : 'bg-gray-400'} opacity-75`}></span>
+                                <span className={`relative inline-flex rounded-full h-3 w-3 ${onlineUsers.length > 0 ? 'bg-green-500' : 'bg-gray-500'}`}></span>
+                            </span>
+                            นักเรียนที่กำลังออนไลน์ ({onlineUsers.length} คน)
+                        </h3>
+
+                        {onlineUsers.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {onlineUsers.map((user, idx) => (
                                     <div key={idx} className="flex items-center gap-4 p-4 rounded-2xl bg-green-50/50 border border-green-100">
@@ -349,8 +350,13 @@ export default function AdminDashboard() {
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    )}
+                        ) : (
+                            <div className="text-center py-10 text-stone-400 italic bg-stone-50 rounded-2xl border border-stone-100">
+                                <span className="text-4xl block mb-2">😴</span>
+                                ยังไม่มีนักเรียนออนไลน์ในขณะนี้
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* 3. Analytics Section */}
