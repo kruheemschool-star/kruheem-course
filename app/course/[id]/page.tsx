@@ -533,7 +533,7 @@ export default function CourseSalesPage() {
                         }
                     ]
         },
-            ],
+
         importance: [
             {
                 title: "ปูพื้นฐานใหม่หมดจด 🧱",
