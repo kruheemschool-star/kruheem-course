@@ -15,9 +15,13 @@ export default function AdminDashboard() {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [pendingCount, setPendingCount] = useState(0);
     const [ticketsCount, setTicketsCount] = useState(0);
+    const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
 
     useEffect(() => {
         fetchData();
+        // Refresh online status every minute
+        const interval = setInterval(fetchData, 60000);
+        return () => clearInterval(interval);
     }, []);
 
     const fetchData = async () => {
@@ -34,6 +38,27 @@ export default function AdminDashboard() {
             const qTickets = query(collection(db, "support_tickets"), where("status", "==", "pending"));
             const snapTickets = await getDocs(qTickets);
             setTicketsCount(snapTickets.size);
+
+            // ✅ Fetch Online Users (Active in last 10 mins)
+            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+            const qOnline = query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo));
+            const snapOnline = await getDocs(qOnline);
+
+            // Deduplicate users (in case a user is enrolled in multiple courses and active in all?)
+            // Actually, enrollments are per course. So if a user is active in one course, they are online.
+            // We should group by userId or userName to avoid duplicates if they have multiple tabs open? 
+            // But lastAccessedAt is per enrollment.
+            // Let's just map them and maybe filter unique userNames.
+            const onlineData = snapOnline.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+            // Filter unique users by email or name
+            const uniqueOnline = onlineData.filter((user, index, self) =>
+                index === self.findIndex((t) => (
+                    t.userEmail === user.userEmail
+                ))
+            );
+
+            setOnlineUsers(uniqueOnline);
 
         } catch (error) {
             console.error("Error fetching data:", error);
@@ -283,7 +308,49 @@ export default function AdminDashboard() {
                             <p className="text-sm text-slate-800/60 mt-1 relative z-10">ดาวน์โหลดข้อมูลเก็บไว้</p>
                         </Link>
 
+                        {/* 10. Online Users (Green/Lime Gradient) */}
+                        <div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-lime-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-default">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">🟢</span>
+                                {onlineUsers.length > 0 && (
+                                    <span className="bg-white/80 text-green-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-pulse">
+                                        {onlineUsers.length} Online
+                                    </span>
+                                )}
+                            </div>
+                            <h3 className="font-bold text-xl text-green-900/80 group-hover:text-green-900 relative z-10">กำลังใช้งาน</h3>
+                            <p className="text-sm text-green-800/60 mt-1 relative z-10">นักเรียนที่ออนไลน์ขณะนี้</p>
+                        </div>
+
                     </div>
+
+                    {/* 🔴 Online Users List Section */}
+                    {onlineUsers.length > 0 && (
+                        <div className="mt-8 bg-white rounded-3xl p-8 shadow-sm border border-green-100 animate-in fade-in slide-in-from-bottom-4">
+                            <h3 className="font-bold text-xl text-stone-800 mb-6 flex items-center gap-2">
+                                <span className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                </span>
+                                นักเรียนที่กำลังออนไลน์ ({onlineUsers.length} คน)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {onlineUsers.map((user, idx) => (
+                                    <div key={idx} className="flex items-center gap-4 p-4 rounded-2xl bg-green-50/50 border border-green-100">
+                                        <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-bold text-lg">
+                                            {user.userName ? user.userName.charAt(0).toUpperCase() : 'U'}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-stone-700 truncate">{user.userName || user.userEmail || "Unknown User"}</p>
+                                            <p className="text-xs text-stone-500 truncate">{user.courseTitle || "กำลังเลือกคอร์ส"}</p>
+                                            <p className="text-[10px] text-green-600 mt-1">ใช้งานเมื่อ: {user.lastAccessedAt?.toDate().toLocaleTimeString('th-TH')}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* 3. Analytics Section */}

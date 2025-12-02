@@ -212,6 +212,27 @@ export default function CoursePlayer() {
                 }
             };
             checkEnrollment();
+
+            // ✅ Heartbeat: Update lastAccessedAt every 5 minutes while online
+            const interval = setInterval(async () => {
+                try {
+                    const q = query(
+                        collection(db, "enrollments"),
+                        where("userId", "==", user.uid),
+                        where("courseId", "==", courseId),
+                        where("status", "==", "approved")
+                    );
+                    const snapshot = await getDocs(q);
+                    if (!snapshot.empty) {
+                        const enrollRef = doc(db, "enrollments", snapshot.docs[0].id);
+                        await setDoc(enrollRef, { lastAccessedAt: serverTimestamp() }, { merge: true });
+                    }
+                } catch (err) {
+                    console.error("Heartbeat error:", err);
+                }
+            }, 5 * 60 * 1000); // 5 minutes
+
+            return () => clearInterval(interval);
         }
     }, [user, courseId, authLoading]);
 
