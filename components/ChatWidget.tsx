@@ -4,10 +4,13 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc, updateDoc, getDoc, where, getDocs } from "firebase/firestore";
 import { useUserAuth } from "@/context/AuthContext";
 
+import { signInAnonymously } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+
 import { usePathname } from "next/navigation";
 
 export default function ChatWidget() {
-    const { user } = useUserAuth();
+    const { user, loading } = useUserAuth();
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<any[]>([]);
@@ -31,20 +34,23 @@ export default function ChatWidget() {
         }
     };
 
-    // 1. Determine Chat ID (User ID or Guest ID)
+    // 1. Auto-Login as Guest (Anonymous) if not logged in
     useEffect(() => {
-        if (user) {
+        if (!loading && !user) {
+            signInAnonymously(auth).catch((error) => {
+                console.error("Anonymous auth failed:", error);
+                // Fallback to local ID if anon auth fails (e.g. disabled in console)
+                let guestId = localStorage.getItem("kruheem_guest_chat_id");
+                if (!guestId) {
+                    guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    localStorage.setItem("kruheem_guest_chat_id", guestId);
+                }
+                setChatId(guestId);
+            });
+        } else if (user) {
             setChatId(user.uid);
-        } else {
-            // Check local storage for existing guest ID
-            let guestId = localStorage.getItem("kruheem_guest_chat_id");
-            if (!guestId) {
-                guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                localStorage.setItem("kruheem_guest_chat_id", guestId);
-            }
-            setChatId(guestId);
         }
-    }, [user]);
+    }, [user, loading]);
 
     // 2. Listen to Messages
     useEffect(() => {
@@ -115,12 +121,14 @@ export default function ChatWidget() {
             // 2. Update main chat document (for Admin list)
             const chatRef = doc(db, "chats", chatId);
 
-            // Get enrolled courses if user is logged in
+            // Get enrolled courses if user is logged in (and not anonymous)
             let enrolledCourses = "Guest";
             let userTel = "";
             let lineId = "";
 
-            if (user) {
+            const isMember = user && !user.isAnonymous;
+
+            if (isMember) {
                 try {
                     const q = query(
                         collection(db, "enrollments"),
@@ -147,10 +155,10 @@ export default function ChatWidget() {
                 lastMessage: text,
                 lastUpdated: serverTimestamp(),
                 userId: chatId,
-                userName: user?.displayName || "Guest (ผู้เยี่ยมชม)",
-                userImage: user?.photoURL || "",
+                userName: isMember ? (user.displayName || "Member") : "Guest (ผู้เยี่ยมชม)",
+                userImage: isMember ? (user.photoURL || "") : "",
                 isRead: false, // Mark as unread for admin
-                userType: user ? 'member' : 'guest',
+                userType: isMember ? 'member' : 'guest',
                 enrolledCourses: enrolledCourses,
                 userTel: userTel,
                 lineId: lineId
