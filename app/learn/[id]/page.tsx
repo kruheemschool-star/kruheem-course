@@ -703,23 +703,26 @@ export default function CoursePlayer() {
                                         {activeLesson.content && <div className="prose prose-lg max-w-none text-slate-600 leading-loose whitespace-pre-wrap font-medium">{activeLesson.content}</div>}
                                     </div>
 
-                                    {/* HTML Content Frame (Browser Look) */}
-                                    <div className="relative mx-auto bg-slate-900 rounded-t-[1.5rem] rounded-b-[1rem] p-2 shadow-2xl border border-slate-800 max-w-5xl ring-4 ring-slate-200/50">
+                                    {/* HTML Content Frame (Browser Look - Light Theme) */}
+                                    <div className="relative mx-auto bg-white rounded-t-[1rem] rounded-b-[1rem] shadow-xl border border-slate-200 max-w-6xl ring-1 ring-slate-100">
                                         {/* Browser Toolbar */}
-                                        <div className="flex items-center gap-2 mb-2 px-3 py-2">
-                                            <div className="flex gap-1.5">
-                                                <div className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E]"></div>
-                                                <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]"></div>
-                                                <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]"></div>
+                                        <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100 rounded-t-[1rem]">
+                                            <div className="flex gap-2">
+                                                <div className="w-3 h-3 rounded-full bg-slate-300"></div>
+                                                <div className="w-3 h-3 rounded-full bg-slate-300"></div>
+                                                <div className="w-3 h-3 rounded-full bg-slate-300"></div>
                                             </div>
-                                            <div className="flex-1 ml-4 bg-slate-800 h-7 rounded-md flex items-center px-3 text-[10px] text-slate-400 font-mono border border-slate-700/50 shadow-inner">
-                                                <span className="opacity-50">view-source:</span>
-                                                <span className="ml-1 text-slate-300 truncate">{activeLesson.title}</span>
+                                            {/* Address Bar */}
+                                            <div className="flex-1 ml-4 bg-white h-8 rounded-lg flex items-center px-4 text-xs text-slate-400 font-medium border border-slate-200 shadow-sm">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 mr-2 opacity-50">
+                                                    <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+                                                </svg>
+                                                <span className="truncate">{activeLesson.title}</span>
                                             </div>
                                         </div>
 
                                         {/* Content Area */}
-                                        <div className="bg-white rounded-lg overflow-hidden relative w-full">
+                                        <div className="bg-white rounded-b-[1rem] overflow-hidden relative w-full">
                                             <iframe
                                                 srcDoc={activeLesson.htmlCode || ""}
                                                 className="w-full h-[800px] border-0 bg-white"
