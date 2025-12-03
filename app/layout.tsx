@@ -1,6 +1,7 @@
 // ไฟล์: app/layout.tsx
 import "./globals.css";
 import { AuthContextProvider } from "@/context/AuthContext";
+import ChatWidget from "@/components/ChatWidget";
 import localFont from 'next/font/local'
 
 const prompt = localFont({
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${prompt.variable} font-sans`}>
         <AuthContextProvider>
           {children}
+          <ChatWidget />
         </AuthContextProvider>
       </body>
     </html>
