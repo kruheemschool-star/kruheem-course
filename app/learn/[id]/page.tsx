@@ -698,10 +698,7 @@ export default function CoursePlayer() {
                         ) : activeLesson?.type === 'html' ? (
                             <div className="w-full min-h-full flex flex-col items-center justify-center py-6 px-4 bg-slate-100">
                                 <div className="w-full max-w-6xl">
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
-                                        <h2 className="text-2xl font-black text-slate-800 mb-2">{activeLesson.title}</h2>
-                                        {activeLesson.content && <div className="prose prose-base max-w-none text-slate-600 leading-relaxed whitespace-pre-wrap font-medium">{activeLesson.content}</div>}
-                                    </div>
+
 
                                     {/* HTML Content (Clean View) */}
                                     <div className="w-full max-w-[90rem] mx-auto">
