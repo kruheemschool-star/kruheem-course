@@ -538,7 +538,7 @@ export default function CoursePlayer() {
                                                             </p>
                                                             <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
                                                                 {lesson.type === 'quiz' ? <QuestionIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : lesson.type === 'flashcard' ? <FlashcardIcon /> : <PlayIcon />}
-                                                                <span>{lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'exercise' ? 'Exercise' : lesson.type === 'html' ? 'HTML' : lesson.type === 'flashcard' ? 'Flashcard' : 'Reading'}</span>
+                                                                <span>{lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'exercise' ? 'Exercise' : lesson.type === 'html' ? 'สรุป' : lesson.type === 'flashcard' ? 'Flashcard' : 'Reading'}</span>
                                                             </div>
                                                         </div>
                                                         {!isUnlocked && <span className="ml-auto text-xs">🔒</span>}
