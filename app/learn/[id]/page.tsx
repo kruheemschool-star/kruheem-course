@@ -697,10 +697,32 @@ export default function CoursePlayer() {
                             </div>
                         ) : activeLesson?.type === 'html' ? (
                             <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
-                                <div className="w-full max-w-5xl bg-white rounded-[2rem] shadow-xl border border-slate-200 p-8 md:p-12">
-                                    <h2 className="text-3xl font-black text-slate-800 mb-6 border-b border-slate-100 pb-4">{activeLesson.title}</h2>
-                                    {activeLesson.content && <div className="prose prose-lg max-w-none text-slate-600 mb-8 leading-loose whitespace-pre-wrap font-medium">{activeLesson.content}</div>}
-                                    <div className="w-full overflow-hidden rounded-xl border border-slate-100 bg-slate-50" dangerouslySetInnerHTML={{ __html: activeLesson.htmlCode || "" }} />
+                                <div className="w-full max-w-6xl">
+                                    <div className="bg-white rounded-[2rem] shadow-xl border border-slate-200 p-8 md:p-10 mb-8">
+                                        <h2 className="text-3xl font-black text-slate-800 mb-4">{activeLesson.title}</h2>
+                                        {activeLesson.content && <div className="prose prose-lg max-w-none text-slate-600 leading-loose whitespace-pre-wrap font-medium">{activeLesson.content}</div>}
+                                    </div>
+
+                                    {/* HTML Content Frame (Browser Look) */}
+                                    <div className="relative mx-auto bg-slate-900 rounded-t-[1.5rem] rounded-b-[1rem] p-2 shadow-2xl border border-slate-800 max-w-5xl ring-4 ring-slate-200/50">
+                                        {/* Browser Toolbar */}
+                                        <div className="flex items-center gap-2 mb-2 px-3 py-2">
+                                            <div className="flex gap-1.5">
+                                                <div className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E]"></div>
+                                                <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123]"></div>
+                                                <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29]"></div>
+                                            </div>
+                                            <div className="flex-1 ml-4 bg-slate-800 h-7 rounded-md flex items-center px-3 text-[10px] text-slate-400 font-mono border border-slate-700/50 shadow-inner">
+                                                <span className="opacity-50">view-source:</span>
+                                                <span className="ml-1 text-slate-300 truncate">{activeLesson.title}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Content Area */}
+                                        <div className="bg-white rounded-lg overflow-hidden relative w-full min-h-[400px] flex items-center justify-center">
+                                            <div className="w-full h-full overflow-auto custom-scrollbar p-1" dangerouslySetInnerHTML={{ __html: activeLesson.htmlCode || "" }} />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         ) : activeLesson?.type === 'flashcard' ? (

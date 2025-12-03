@@ -918,7 +918,21 @@ export default function ManageLessonsPage() {
                                         </div>
                                     )}
 
-
+                                    {addType === 'html' && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                                            <div className="bg-cyan-50 p-6 rounded-2xl border-2 border-cyan-100">
+                                                <label className="block text-xs font-bold text-cyan-600 uppercase tracking-wider mb-2">💻 HTML Code / Embed Code</label>
+                                                <textarea
+                                                    placeholder="วางโค้ด HTML หรือ Iframe ที่นี่..."
+                                                    className="w-full p-4 bg-white border-2 border-cyan-200 rounded-xl outline-none focus:border-cyan-500 transition text-slate-700 font-mono text-sm min-h-[200px]"
+                                                    value={htmlCode}
+                                                    onChange={(e) => setHtmlCode(e.target.value)}
+                                                />
+                                                <p className="text-xs text-cyan-500 mt-2">* รองรับ Iframe, Script, และ HTML Tags ทั่วไป</p>
+                                            </div>
+                                            <textarea placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..." className="w-full p-4 bg-cyan-50 border-2 border-cyan-100 rounded-2xl outline-none min-h-[100px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                        </div>
+                                    )}
 
                                     <button type="submit" disabled={submitting} className={`w-full py-4 rounded-2xl font-black text-white shadow-lg hover:shadow-xl transition text-lg tracking-wide mt-2 ${submitting ? 'bg-slate-400 cursor-not-allowed' : addType === 'exercise' ? 'bg-emerald-500 hover:bg-emerald-600' : addType === 'html' ? 'bg-cyan-500 hover:bg-cyan-600' : addType === 'flashcard' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
                                         {submitting ? '⏳ กำลังบันทึก...' : editId ? '💾 บันทึกการแก้ไข' : '+ เพิ่มลงในบทเรียน'}
