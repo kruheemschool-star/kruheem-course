@@ -60,8 +60,8 @@ export default function AdminChatPage() {
 
             // Sort client-side by createdAt
             msgs.sort((a: any, b: any) => {
-                const timeA = a.createdAt?.toMillis() || 0;
-                const timeB = b.createdAt?.toMillis() || 0;
+                const timeA = a.createdAt ? a.createdAt.toMillis() : Date.now();
+                const timeB = b.createdAt ? b.createdAt.toMillis() : Date.now();
                 return timeA - timeB;
             });
 
