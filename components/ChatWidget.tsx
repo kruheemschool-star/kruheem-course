@@ -156,9 +156,9 @@ export default function ChatWidget() {
                 lineId: lineId
             }, { merge: true });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error sending message:", error);
-            alert("ส่งข้อความไม่สำเร็จ! กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
+            alert(`ส่งข้อความไม่สำเร็จ! (${error.code || error.message}) กรุณาลองใหม่อีกครั้ง`);
         }
     };
 
