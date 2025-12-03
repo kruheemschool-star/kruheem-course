@@ -696,11 +696,11 @@ export default function CoursePlayer() {
                                 </div>
                             </div>
                         ) : activeLesson?.type === 'html' ? (
-                            <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
+                            <div className="w-full min-h-full flex flex-col items-center justify-center py-6 px-4 bg-slate-100">
                                 <div className="w-full max-w-6xl">
-                                    <div className="bg-white rounded-[2rem] shadow-xl border border-slate-200 p-8 md:p-10 mb-8">
-                                        <h2 className="text-3xl font-black text-slate-800 mb-4">{activeLesson.title}</h2>
-                                        {activeLesson.content && <div className="prose prose-lg max-w-none text-slate-600 leading-loose whitespace-pre-wrap font-medium">{activeLesson.content}</div>}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+                                        <h2 className="text-2xl font-black text-slate-800 mb-2">{activeLesson.title}</h2>
+                                        {activeLesson.content && <div className="prose prose-base max-w-none text-slate-600 leading-relaxed whitespace-pre-wrap font-medium">{activeLesson.content}</div>}
                                     </div>
 
                                     {/* HTML Content (Clean View) */}
@@ -709,7 +709,7 @@ export default function CoursePlayer() {
                                             srcDoc={activeLesson.htmlCode || ""}
                                             className="w-full h-[100vh] min-h-[800px] border-0 bg-transparent"
                                             title="Lesson Content"
-                                            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                                            sandbox="allow-scripts allow-same-origin"
                                         />
                                     </div>
                                 </div>
