@@ -203,7 +203,9 @@ export default function ChatWidget() {
             `}>
                 {/* Header */}
                 <div className="bg-indigo-600 p-4 flex items-center gap-3 text-white shadow-md">
-                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-xl">👨‍🏫</div>
+                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center overflow-hidden border-2 border-white/30">
+                        <img src="/assets/kruheem_avatar.png" alt="Admin" className="w-full h-full object-cover" />
+                    </div>
                     <div>
                         <h3 className="font-bold text-lg">สอบถามครูฮีม</h3>
                         <p className="text-xs text-indigo-100 flex items-center gap-1">
