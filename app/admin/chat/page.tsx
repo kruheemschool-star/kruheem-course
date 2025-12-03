@@ -50,11 +50,21 @@ export default function AdminChatPage() {
 
         // Mark as read
         const chatRef = doc(db, "chats", selectedChatId);
-        updateDoc(chatRef, { isRead: true });
+        updateDoc(chatRef, { isRead: true }).catch(err => console.error("Error marking read:", err));
 
-        const q = query(collection(db, "chats", selectedChatId, "messages"), orderBy("createdAt", "asc"));
+        // Remove orderBy to prevent Indexing issues
+        const q = query(collection(db, "chats", selectedChatId, "messages"));
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Sort client-side by createdAt
+            msgs.sort((a: any, b: any) => {
+                const timeA = a.createdAt?.toMillis() || 0;
+                const timeB = b.createdAt?.toMillis() || 0;
+                return timeA - timeB;
+            });
+
             setMessages(msgs);
 
             // Play sound if last message is from user and very recent
@@ -62,6 +72,9 @@ export default function AdminChatPage() {
             if (lastMsg && lastMsg.sender === 'user' && Date.now() - (lastMsg.createdAt?.toMillis() || 0) < 5000) {
                 playNotificationSound();
             }
+        }, (error) => {
+            console.error("Error fetching messages:", error);
+            // alert("ไม่สามารถดึงข้อความได้: " + error.message); // Optional: Alert admin
         });
 
         return () => unsubscribe();

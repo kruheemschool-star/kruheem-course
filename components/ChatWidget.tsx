@@ -50,9 +50,19 @@ export default function ChatWidget() {
     useEffect(() => {
         if (!chatId) return;
 
-        const q = query(collection(db, "chats", chatId, "messages"), orderBy("createdAt", "asc"));
+        // Remove orderBy to prevent Indexing issues
+        const q = query(collection(db, "chats", chatId, "messages"));
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Sort client-side
+            msgs.sort((a: any, b: any) => {
+                const timeA = a.createdAt?.toMillis() || 0;
+                const timeB = b.createdAt?.toMillis() || 0;
+                return timeA - timeB;
+            });
+
             setMessages(msgs);
 
             const lastMsg: any = msgs[msgs.length - 1];
@@ -68,6 +78,9 @@ export default function ChatWidget() {
                     setUnreadCount(1);
                 }
             }
+        }, (error) => {
+            console.error("Error fetching messages:", error);
+            // alert("Connection Error: " + error.message);
         });
 
         return () => unsubscribe();
