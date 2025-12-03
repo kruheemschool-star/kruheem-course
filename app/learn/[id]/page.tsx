@@ -696,20 +696,13 @@ export default function CoursePlayer() {
                                 </div>
                             </div>
                         ) : activeLesson?.type === 'html' ? (
-                            <div className="w-full min-h-full flex flex-col items-center justify-center py-6 px-4 bg-slate-100">
-                                <div className="w-full max-w-6xl">
-
-
-                                    {/* HTML Content (Clean View) */}
-                                    <div className="w-full max-w-[90rem] mx-auto">
-                                        <iframe
-                                            srcDoc={activeLesson.htmlCode || ""}
-                                            className="w-full h-[100vh] min-h-[800px] border-0 bg-transparent"
-                                            title="Lesson Content"
-                                            sandbox="allow-scripts allow-same-origin"
-                                        />
-                                    </div>
-                                </div>
+                            <div className="w-full min-h-full bg-white">
+                                <iframe
+                                    srcDoc={activeLesson.htmlCode || ""}
+                                    className="w-full min-h-[calc(100dvh-5rem)] border-0"
+                                    title="Lesson Content"
+                                    sandbox="allow-scripts allow-same-origin"
+                                />
                             </div>
                         ) : activeLesson?.type === 'flashcard' ? (
                             <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
