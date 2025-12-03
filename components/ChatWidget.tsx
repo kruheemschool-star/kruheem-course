@@ -145,6 +145,7 @@ export default function ChatWidget() {
 
         } catch (error) {
             console.error("Error sending message:", error);
+            alert("ส่งข้อความไม่สำเร็จ! กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ");
         }
     };
 

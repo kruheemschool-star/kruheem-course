@@ -23,9 +23,18 @@ export default function AdminChatPage() {
 
     // 1. Fetch All Chats (Real-time)
     useEffect(() => {
-        const q = query(collection(db, "chats"), orderBy("lastUpdated", "desc"));
+        // Remove orderBy to avoid index issues for now
+        const q = query(collection(db, "chats"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Sort client-side
+            chatList.sort((a: any, b: any) => {
+                const timeA = a.lastUpdated?.toMillis() || 0;
+                const timeB = b.lastUpdated?.toMillis() || 0;
+                return timeB - timeA;
+            });
+
             setChats(chatList);
 
             // Check for unread messages to play sound (logic can be improved)
