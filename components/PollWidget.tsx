@@ -76,7 +76,7 @@ export default function PollWidget() {
     const totalVotes = Object.values(pollData.votes || {}).reduce((a: any, b: any) => a + b, 0) as number;
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4 font-sans">
+        <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-4 font-sans">
             <AnimatePresence>
                 {isOpen && (
                     <motion.div

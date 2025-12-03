@@ -153,12 +153,12 @@ export default function ChatWidget() {
             {/* Floating Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`fixed bottom-6 right-6 z-50 group flex items-center gap-3 p-2 pr-6 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-indigo-500/40
-                ${isOpen ? 'bg-rose-500' : 'bg-indigo-600'} text-white`}
+                className={`fixed bottom-6 right-6 z-50 group flex items-center gap-3 p-2 pr-6 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:scale-105 hover:shadow-[0_8px_30px_rgb(0,0,0,0.2)]
+                ${isOpen ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'} border border-slate-100`}
             >
                 {isOpen ? (
                     <>
-                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                        <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -168,16 +168,22 @@ export default function ChatWidget() {
                 ) : (
                     <>
                         <div className="relative">
-                            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-inner">
-                                👨‍🏫
+                            <div className="w-12 h-12 -ml-4 -my-4 flex items-center justify-center">
+                                <img
+                                    src="/assets/kruheem_avatar.png"
+                                    alt="Admin"
+                                    className="w-24 h-24 max-w-none object-cover drop-shadow-xl transform -translate-y-3 -translate-x-1 hover:scale-110 transition-transform duration-300"
+                                />
                             </div>
                             {/* Online status */}
-                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-indigo-600 rounded-full animate-pulse"></span>
+                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full animate-pulse z-10"></span>
                         </div>
 
                         <div className="flex flex-col items-start">
-                            <span className="text-[10px] text-indigo-100 leading-tight opacity-90">สนใจคอร์สเรียน?</span>
-                            <span className="text-sm font-bold leading-tight">สอบถามครูฮีม</span>
+                            <span className="text-[10px] text-slate-400 leading-tight">สนใจคอร์สเรียน?</span>
+                            <span className="text-sm font-black leading-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+                                สอบถามครูฮีม
+                            </span>
                         </div>
 
                         {/* Red Dot for unread */}
