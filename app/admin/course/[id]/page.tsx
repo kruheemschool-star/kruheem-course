@@ -514,6 +514,7 @@ export default function ManageLessonsPage() {
         } else if (lesson.type === 'html') {
             setHtmlCode(lesson.htmlCode || "");
             setLessonContent(lesson.content || "");
+            setIsFree(lesson.isFree || false);
         } else if (lesson.type === 'flashcard') {
             setFlashcardData(lesson.flashcardData || []);
             setLessonContent(lesson.content || "");
@@ -572,6 +573,7 @@ export default function ManageLessonsPage() {
             } else if (addType === 'html') {
                 dataToSave.htmlCode = htmlCode;
                 dataToSave.content = lessonContent;
+                dataToSave.isFree = isFree;
             } else if (addType === 'flashcard') {
                 dataToSave.flashcardData = flashcardData;
                 dataToSave.content = lessonContent;
@@ -929,6 +931,10 @@ export default function ManageLessonsPage() {
                                                     onChange={(e) => setHtmlCode(e.target.value)}
                                                 />
                                                 <p className="text-xs text-cyan-500 mt-2">* รองรับ Iframe, Script, และ HTML Tags ทั่วไป</p>
+                                            </div>
+                                            <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
+                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
+                                                <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้ดูฟรี (Free Preview) 🎁</label>
                                             </div>
                                             <textarea placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..." className="w-full p-4 bg-cyan-50 border-2 border-cyan-100 rounded-2xl outline-none min-h-[100px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
                                         </div>
