@@ -719,8 +719,13 @@ export default function CoursePlayer() {
                                         </div>
 
                                         {/* Content Area */}
-                                        <div className="bg-white rounded-lg overflow-hidden relative w-full min-h-[400px] flex items-center justify-center">
-                                            <div className="w-full h-full overflow-auto custom-scrollbar p-1" dangerouslySetInnerHTML={{ __html: activeLesson.htmlCode || "" }} />
+                                        <div className="bg-white rounded-lg overflow-hidden relative w-full">
+                                            <iframe
+                                                srcDoc={activeLesson.htmlCode || ""}
+                                                className="w-full h-[800px] border-0 bg-white"
+                                                title="Lesson Content"
+                                                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                                            />
                                         </div>
                                     </div>
                                 </div>
