@@ -138,8 +138,34 @@ export default function HomePage() {
 
   const [showRobloxModal, setShowRobloxModal] = useState(false);
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'EducationalOrganization',
+    name: 'KruHeem Course',
+    url: 'https://www.kruheemmath.com',
+    logo: 'https://www.kruheemmath.com/assets/kruheem_avatar.png',
+    sameAs: [
+      'https://www.facebook.com/kruheem',
+      'https://www.youtube.com/kruheem'
+    ],
+    description: 'สถาบันกวดวิชาคณิตศาสตร์ออนไลน์ โดยครูฮีม เน้นความเข้าใจ เทคนิคคิดลัด และการนำไปใช้จริง',
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: 'Bangkok',
+      addressCountry: 'TH'
+    },
+    offers: {
+      '@type': 'Offer',
+      category: 'Online Course'
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F2EB] font-sans selection:bg-amber-200 selection:text-amber-900 flex flex-col overflow-x-hidden">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Dynamic Mesh Gradient Background (Warm Paper Theme) */}
       <div className="fixed inset-0 z-0">
         <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-amber-200/40 rounded-full blur-[100px] mix-blend-multiply animate-blob"></div>
