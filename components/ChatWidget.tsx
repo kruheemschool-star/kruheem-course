@@ -21,9 +21,7 @@ export default function ChatWidget() {
     const [lastAdminReadAt, setLastAdminReadAt] = useState<any>(null);
 
     // Hide on classroom pages and admin pages
-    if (pathname?.startsWith("/learn/") || pathname?.startsWith("/admin")) {
-        return null;
-    }
+    const isHidden = pathname?.startsWith("/learn/") || pathname?.startsWith("/admin");
 
     // 🔊 Sound Effect
     const playNotificationSound = () => {
@@ -37,6 +35,7 @@ export default function ChatWidget() {
 
     // 1. Auto-Login as Guest (Anonymous) if not logged in
     useEffect(() => {
+        if (isHidden) return;
         if (!loading && !user) {
             signInAnonymously(auth).catch((error) => {
                 console.error("Anonymous auth failed:", error);
@@ -55,6 +54,7 @@ export default function ChatWidget() {
 
     // 2. Listen to Messages & Chat Status
     useEffect(() => {
+        if (isHidden) return;
         if (!chatId) return;
 
         // A. Listen to Messages
@@ -104,6 +104,7 @@ export default function ChatWidget() {
 
     // 3. Auto-scroll and Mark Read
     useEffect(() => {
+        if (isHidden) return;
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
         if (isOpen && chatId) {
@@ -187,6 +188,8 @@ export default function ChatWidget() {
             alert(`ส่งข้อความไม่สำเร็จ! (${error.code || error.message}) กรุณาลองใหม่อีกครั้ง`);
         }
     };
+
+    if (isHidden) return null;
 
     return (
         <>
