@@ -196,7 +196,7 @@ export default function ChatWidget() {
             {/* Floating Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`fixed bottom-6 right-6 z-50 group flex items-center gap-3 p-2 pr-6 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:scale-105 hover:shadow-[0_8px_30px_rgb(0,0,0,0.2)]
+                className={`fixed bottom-10 right-6 z-50 group flex items-center gap-3 p-2 pr-6 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-300 hover:scale-105 hover:shadow-[0_8px_30px_rgb(0,0,0,0.2)]
                 ${isOpen ? 'bg-slate-800 text-white' : 'bg-white text-slate-800'} border border-slate-100`}
             >
                 {isOpen ? (
@@ -215,7 +215,7 @@ export default function ChatWidget() {
                                 <img
                                     src="/assets/kruheem_avatar.png"
                                     alt="Admin"
-                                    className="w-24 h-24 max-w-none object-cover drop-shadow-xl transform -translate-y-6 -translate-x-1 group-hover:scale-[1.8] transition-transform duration-300"
+                                    className="w-24 h-24 max-w-none object-cover drop-shadow-xl transform -translate-y-2 -translate-x-1 group-hover:scale-[1.8] transition-transform duration-300"
                                 />
                             </div>
                             {/* Online status */}
