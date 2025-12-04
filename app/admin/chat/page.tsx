@@ -55,9 +55,12 @@ export default function AdminChatPage() {
     useEffect(() => {
         if (!selectedChat) return;
 
-        // Mark as read
+        // Mark as read & Update Admin Read Timestamp
         const chatRef = doc(db, "chats", selectedChat.id);
-        updateDoc(chatRef, { isRead: true }).catch(err => console.error("Error marking read:", err));
+        updateDoc(chatRef, {
+            isRead: true,
+            lastAdminReadAt: serverTimestamp()
+        }).catch(err => console.error("Error marking read:", err));
 
         const q = query(collection(db, "chats", selectedChat.id, "messages"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -83,6 +86,9 @@ export default function AdminChatPage() {
 
         return () => unsubscribe();
     }, [selectedChat?.id]);
+
+    // Helper to get latest chat data
+    const currentChat = selectedChat ? (chats.find(c => c.id === selectedChat.id) || selectedChat) : null;
 
     // 3. Auto-scroll
     useEffect(() => {
@@ -236,7 +242,7 @@ export default function AdminChatPage() {
                         {/* Chat Area */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-stone-50/50">
                             {messages.map((msg) => (
-                                <div key={msg.id} className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                                <div key={msg.id} className={`flex flex-col ${msg.sender === 'admin' ? 'items-end' : 'items-start'}`}>
                                     <div className={`py-3 px-5 rounded-2xl max-w-[80%] shadow-sm text-sm
                                         ${msg.sender === 'admin'
                                             ? 'bg-indigo-600 text-white rounded-tr-none'
@@ -247,6 +253,14 @@ export default function AdminChatPage() {
                                             {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '...'}
                                         </div>
                                     </div>
+                                    {/* Read Receipt for Admin Messages */}
+                                    {msg.sender === 'admin' && (
+                                        <span className="text-[10px] text-stone-400 mt-1 mr-1">
+                                            {currentChat?.lastUserReadAt && msg.createdAt?.toMillis() <= currentChat.lastUserReadAt.toMillis()
+                                                ? "อ่านแล้ว"
+                                                : "ยังไม่อ่าน"}
+                                        </span>
+                                    )}
                                 </div>
                             ))}
                             <div ref={messagesEndRef} />

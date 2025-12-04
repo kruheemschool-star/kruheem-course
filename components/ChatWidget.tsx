@@ -18,6 +18,7 @@ export default function ChatWidget() {
     const [chatId, setChatId] = useState<string>("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [lastAdminReadAt, setLastAdminReadAt] = useState<any>(null);
 
     // Hide on classroom pages and admin pages
     if (pathname?.startsWith("/learn/") || pathname?.startsWith("/admin")) {
@@ -52,14 +53,13 @@ export default function ChatWidget() {
         }
     }, [user, loading]);
 
-    // 2. Listen to Messages
+    // 2. Listen to Messages & Chat Status
     useEffect(() => {
         if (!chatId) return;
 
-        // Remove orderBy to prevent Indexing issues
+        // A. Listen to Messages
         const q = query(collection(db, "chats", chatId, "messages"));
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribeMessages = onSnapshot(q, (snapshot) => {
             const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
             // Sort client-side
@@ -86,20 +86,38 @@ export default function ChatWidget() {
             }
         }, (error) => {
             console.error("Error fetching messages:", error);
-            // alert("Connection Error: " + error.message);
         });
 
-        return () => unsubscribe();
+        // B. Listen to Chat Document (for Read Receipts)
+        const unsubscribeChat = onSnapshot(doc(db, "chats", chatId), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setLastAdminReadAt(data.lastAdminReadAt || null);
+            }
+        });
+
+        return () => {
+            unsubscribeMessages();
+            unsubscribeChat();
+        };
     }, [chatId, isOpen]);
 
     // 3. Auto-scroll and Mark Read
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-        if (isOpen && messages.length > 0) {
+        if (isOpen && chatId) {
+            // Clear local badge
             setUnreadCount(0);
-            const lastMsg = messages[messages.length - 1];
-            localStorage.setItem(`chat_last_read_${chatId}`, lastMsg.id);
+            if (messages.length > 0) {
+                const lastMsg = messages[messages.length - 1];
+                localStorage.setItem(`chat_last_read_${chatId}`, lastMsg.id);
+            }
+
+            // Update Firestore: User has read the chat
+            updateDoc(doc(db, "chats", chatId), {
+                lastUserReadAt: serverTimestamp()
+            }).catch(err => console.log("Error updating read status:", err));
         }
     }, [messages, isOpen, chatId]);
 
@@ -247,7 +265,7 @@ export default function ChatWidget() {
                     </div>
 
                     {messages.map((msg) => (
-                        <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div key={msg.id} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
                             <div className={`py-2 px-4 rounded-2xl shadow-sm max-w-[85%] text-sm break-words
                                 ${msg.sender === 'user'
                                     ? 'bg-indigo-600 text-white rounded-tr-none'
@@ -255,6 +273,14 @@ export default function ChatWidget() {
                                 }`}>
                                 {msg.text}
                             </div>
+                            {/* Read Receipt for User Messages */}
+                            {msg.sender === 'user' && (
+                                <span className="text-[10px] text-slate-400 mt-1 mr-1">
+                                    {lastAdminReadAt && msg.createdAt?.toMillis() <= lastAdminReadAt.toMillis()
+                                        ? "อ่านแล้ว"
+                                        : "ยังไม่อ่าน"}
+                                </span>
+                            )}
                         </div>
                     ))}
                     <div ref={messagesEndRef} />
