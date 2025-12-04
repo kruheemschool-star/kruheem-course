@@ -19,8 +19,8 @@ export default function ChatWidget() {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [unreadCount, setUnreadCount] = useState(0);
 
-    // Hide on classroom pages
-    if (pathname?.startsWith("/learn/")) {
+    // Hide on classroom pages and admin pages
+    if (pathname?.startsWith("/learn/") || pathname?.startsWith("/admin")) {
         return null;
     }
 

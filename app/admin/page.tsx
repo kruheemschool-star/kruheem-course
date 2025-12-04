@@ -260,226 +260,240 @@ export default function AdminDashboard() {
                         </Link>
 
                         {/* 6. ถาม-ตอบ (Cyan Gradient) */}
-                        {/* 7. ถาม-ตอบ / แจ้งปัญหา (Cyan Gradient) */}
-                        <Link href="/admin/support" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">💬</span>
-                                {ticketsCount > 0 && (
-                                    <span className="bg-white/80 text-blue-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-bounce">
-                                        {ticketsCount} ใหม่
-                                    </span>
-                                )}
-                            </div>
-                            <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">ถาม-ตอบ / แจ้งปัญหา</h3>
-                            <p className="text-sm text-blue-800/60 mt-1 relative z-10">ตอบคำถามจากนักเรียน</p>
-                        </Link>
+                        <h3 className="font-bold text-xl text-pink-900/80 group-hover:text-pink-900 relative z-10">จัดการโฆษณา</h3>
+                        <p className="text-sm text-pink-800/60 mt-1 relative z-10">เปลี่ยนรูปภาพหน้าเว็บ</p>
+                    </Link>
 
-                        {/* 8. Polls (Indigo Gradient) */}
-
-
-
-
-                        {/* 8. Polls (Indigo Gradient) */}
-                        <Link href="/admin/poll" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-indigo-100 to-violet-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">📝</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-indigo-900/80 group-hover:text-indigo-900 relative z-10">แบบสอบถาม</h3>
-                            <p className="text-sm text-indigo-800/60 mt-1 relative z-10">สร้าง Poll ถามความเห็น</p>
-                        </Link>
-                        <div onClick={handleExport} className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-emerald-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">📥</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-green-900/80 group-hover:text-green-900 relative z-10">Export Excel</h3>
-                            <p className="text-sm text-green-800/60 mt-1 relative z-10">ดาวน์โหลดรายงาน</p>
+                    {/* 7. ระบบแชท (Indigo Gradient) - NEW */}
+                    <Link href="/admin/chat" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-indigo-100 to-violet-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                        <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                            <span className="text-4xl drop-shadow-sm">💬</span>
                         </div>
+                        <h3 className="font-bold text-xl text-indigo-900/80 group-hover:text-indigo-900 relative z-10">แชทกับลูกค้า</h3>
+                        <p className="text-sm text-indigo-800/60 mt-1 relative z-10">ตอบแชทสด Real-time</p>
+                    </Link>
 
-                        {/* 9. สำรองข้อมูล (Gray/Slate Gradient) */}
-                        <Link href="/admin/backup" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-slate-100 to-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">💾</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-slate-900/80 group-hover:text-slate-900 relative z-10">สำรองข้อมูล</h3>
-                            <p className="text-sm text-slate-800/60 mt-1 relative z-10">ดาวน์โหลดข้อมูลเก็บไว้</p>
-                        </Link>
+                    {/* 8. ถาม-ตอบ / แจ้งปัญหา (Cyan Gradient) */}
+                    <Link href="/admin/support" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                        <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                            <span className="text-4xl drop-shadow-sm">🎫</span>
+                            {ticketsCount > 0 && (
+                                <span className="bg-white/80 text-blue-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-bounce">
+                                    {ticketsCount} ใหม่
+                                </span>
+                            )}
+                        </div>
+                        <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">แจ้งปัญหา (Ticket)</h3>
+                        <p className="text-sm text-blue-800/60 mt-1 relative z-10">ระบบตั๋วแจ้งซ่อม/ปัญหา</p>
+                    </Link>
 
-                        {/* 10. Online Users (Green/Lime Gradient) */}
-                        <a href="#online-users-section" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-lime-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">🟢</span>
-                                {onlineUsers.length > 0 && (
-                                    <span className="bg-white/80 text-green-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-pulse">
-                                        {onlineUsers.length} Online
-                                    </span>
-                                )}
-                            </div>
-                            <h3 className="font-bold text-xl text-green-900/80 group-hover:text-green-900 relative z-10">กำลังใช้งาน</h3>
-                            <p className="text-sm text-green-800/60 mt-1 relative z-10">นักเรียนที่ออนไลน์ขณะนี้</p>
-                        </a>
+                    {/* 8. Polls (Indigo Gradient) */}
 
+
+
+
+                    {/* 8. Polls (Indigo Gradient) */}
+                    <Link href="/admin/poll" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-indigo-100 to-violet-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                        <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                            <span className="text-4xl drop-shadow-sm">📝</span>
+                        </div>
+                        <h3 className="font-bold text-xl text-indigo-900/80 group-hover:text-indigo-900 relative z-10">แบบสอบถาม</h3>
+                        <p className="text-sm text-indigo-800/60 mt-1 relative z-10">สร้าง Poll ถามความเห็น</p>
+                    </Link>
+                    <div onClick={handleExport} className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-emerald-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                        <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                            <span className="text-4xl drop-shadow-sm">📥</span>
+                        </div>
+                        <h3 className="font-bold text-xl text-green-900/80 group-hover:text-green-900 relative z-10">Export Excel</h3>
+                        <p className="text-sm text-green-800/60 mt-1 relative z-10">ดาวน์โหลดรายงาน</p>
                     </div>
 
-                    {/* 🔴 Online Users List Section */}
-                    <div id="online-users-section" className="mt-8 bg-white rounded-3xl p-8 shadow-sm border border-green-100 animate-in fade-in slide-in-from-bottom-4 scroll-mt-24">
-                        <h3 className="font-bold text-xl text-stone-800 mb-6 flex items-center gap-2">
-                            <span className="relative flex h-3 w-3">
-                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${onlineUsers.length > 0 ? 'bg-green-400' : 'bg-gray-400'} opacity-75`}></span>
-                                <span className={`relative inline-flex rounded-full h-3 w-3 ${onlineUsers.length > 0 ? 'bg-green-500' : 'bg-gray-500'}`}></span>
-                            </span>
-                            นักเรียนที่กำลังออนไลน์ ({onlineUsers.length} คน)
-                        </h3>
+                    {/* 9. สำรองข้อมูล (Gray/Slate Gradient) */}
+                    <Link href="/admin/backup" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-slate-100 to-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                        <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                            <span className="text-4xl drop-shadow-sm">💾</span>
+                        </div>
+                        <h3 className="font-bold text-xl text-slate-900/80 group-hover:text-slate-900 relative z-10">สำรองข้อมูล</h3>
+                        <p className="text-sm text-slate-800/60 mt-1 relative z-10">ดาวน์โหลดข้อมูลเก็บไว้</p>
+                    </Link>
 
-                        {onlineUsers.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {onlineUsers.map((user, idx) => (
-                                    <div key={idx} className="flex items-center gap-4 p-4 rounded-2xl bg-green-50/50 border border-green-100">
-                                        <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-bold text-lg">
-                                            {user.userName ? user.userName.charAt(0).toUpperCase() : 'U'}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="font-bold text-stone-700 truncate">{user.userName || user.userEmail || "Unknown User"}</p>
-                                            <p className="text-xs text-stone-500 truncate">{user.courseTitle || "กำลังเลือกคอร์ส"}</p>
-                                            <p className="text-[10px] text-green-600 mt-1">ใช้งานเมื่อ: {user.lastAccessedAt?.toDate().toLocaleTimeString('th-TH')}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 text-stone-400 italic bg-stone-50 rounded-2xl border border-stone-100">
-                                <span className="text-4xl block mb-2">😴</span>
-                                ยังไม่มีนักเรียนออนไลน์ในขณะนี้
-                            </div>
-                        )}
-                    </div>
+                    {/* 10. Online Users (Green/Lime Gradient) */}
+                    <a href="#online-users-section" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-lime-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                        <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                            <span className="text-4xl drop-shadow-sm">🟢</span>
+                            {onlineUsers.length > 0 && (
+                                <span className="bg-white/80 text-green-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-pulse">
+                                    {onlineUsers.length} Online
+                                </span>
+                            )}
+                        </div>
+                        <h3 className="font-bold text-xl text-green-900/80 group-hover:text-green-900 relative z-10">กำลังใช้งาน</h3>
+                        <p className="text-sm text-green-800/60 mt-1 relative z-10">นักเรียนที่ออนไลน์ขณะนี้</p>
+                    </a>
+
                 </div>
 
-                {/* 3. Analytics Section */}
-                <div id="report-section" className="pt-8">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-                        <div>
-                            <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-3">
-                                📈 รายงานสถิติ
-                                <span className="text-xs bg-white/80 text-stone-500 px-3 py-1 rounded-full shadow-sm">Approved Data</span>
-                            </h2>
-                        </div>
+                {/* 🔴 Online Users List Section */}
+                <div id="online-users-section" className="mt-8 bg-white rounded-3xl p-8 shadow-sm border border-green-100 animate-in fade-in slide-in-from-bottom-4 scroll-mt-24">
+                    <h3 className="font-bold text-xl text-stone-800 mb-6 flex items-center gap-2">
+                        <span className="relative flex h-3 w-3">
+                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${onlineUsers.length > 0 ? 'bg-green-400' : 'bg-gray-400'} opacity-75`}></span>
+                            <span className={`relative inline-flex rounded-full h-3 w-3 ${onlineUsers.length > 0 ? 'bg-green-500' : 'bg-gray-500'}`}></span>
+                        </span>
+                        นักเรียนที่กำลังออนไลน์ ({onlineUsers.length} คน)
+                    </h3>
 
-                        <div className="flex items-center gap-3 bg-white/70 p-2 pr-4 rounded-2xl shadow-sm backdrop-blur-sm">
-                            <div className="bg-amber-100 p-2 rounded-xl">📅</div>
-                            <select
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-lg"
-                            >
-                                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                                    <option key={year} value={year}>ปี {year + 543}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Stats Summary Boxes */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="rounded-3xl p-8 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-xl shadow-fuchsia-200/50 transform hover:scale-105 transition duration-500">
-                            <p className="text-fuchsia-100 font-medium mb-2 text-sm uppercase tracking-wider">💰 รายได้รวม (ปี {selectedYear + 543})</p>
-                            <h3 className="text-5xl font-black tracking-tight">฿{stats.totalRevenue.toLocaleString()}</h3>
-                        </div>
-                        <div className="rounded-3xl p-8 bg-white shadow-sm hover:shadow-md transition border-none relative overflow-hidden group">
-                            <div className="absolute right-0 top-0 w-32 h-32 bg-sky-50 rounded-bl-full -mr-8 -mt-8 transition group-hover:scale-110"></div>
-                            <p className="text-stone-400 font-bold text-sm mb-2 uppercase tracking-wide relative z-10">👨‍🎓 นักเรียนใหม่</p>
-                            <h3 className="text-4xl font-bold text-stone-800 relative z-10">{stats.totalStudents.toLocaleString()} <span className="text-xl text-stone-400 font-normal">คน</span></h3>
-                        </div>
-                        <div className="rounded-3xl p-8 bg-white shadow-sm hover:shadow-md transition border-none relative overflow-hidden group">
-                            <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 transition group-hover:scale-110"></div>
-                            <p className="text-stone-400 font-bold text-sm mb-2 uppercase tracking-wide relative z-10">📚 คอร์สที่ขายออก</p>
-                            <h3 className="text-4xl font-bold text-stone-800 relative z-10">{stats.courseData.length} <span className="text-xl text-stone-400 font-normal">วิชา</span></h3>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                        {/* Pictogram Chart Section */}
-                        <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm h-full">
-                            <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
-                                <span className="text-indigo-500">📅</span> สรุปรายได้และจำนวนนักเรียนรายเดือน
-                            </h3>
-
-                            <div className="space-y-6">
-                                {stats.monthlyData.map((m, index) => (
-                                    <div key={index} className="group flex items-start gap-4 border-b border-stone-50 pb-4 last:border-none last:pb-0">
-                                        <div className="font-bold text-stone-400 w-10 text-sm pt-1">{m.month}</div>
-
-                                        {/* Pictogram Area */}
-                                        <div className="flex-1 flex flex-wrap gap-1 items-center min-h-[28px]">
-                                            {m.students > 0 ? (
-                                                Array.from({ length: m.students }).map((_, i) => (
-                                                    <span
-                                                        key={i}
-                                                        className="text-xl animate-in zoom-in duration-500 hover:scale-125 transition cursor-default"
-                                                        style={{ animationDelay: `${i * 100}ms` }}
-                                                        title={`นักเรียนคนที่ ${i + 1}`}
-                                                    >
-                                                        🧒
-                                                    </span>
-                                                ))
-                                            ) : (
-                                                <span className="text-stone-200 text-xs font-light italic self-center">ไม่มีนักเรียน</span>
-                                            )}
-                                        </div>
-
-                                        <div className="flex flex-col items-end min-w-[80px]">
-                                            <span className={`font-bold text-sm transition ${m.revenue > 0 ? 'text-indigo-600' : 'text-stone-300'}`}>
-                                                {m.revenue > 0 ? `฿${m.revenue.toLocaleString()}` : '-'}
-                                            </span>
-                                            {m.students > 0 && <span className="text-[10px] text-stone-400">{m.students} คน</span>}
-                                        </div>
+                    {onlineUsers.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {onlineUsers.map((user, idx) => (
+                                <div key={idx} className="flex items-center gap-4 p-4 rounded-2xl bg-green-50/50 border border-green-100">
+                                    <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-bold text-lg">
+                                        {user.userName ? user.userName.charAt(0).toUpperCase() : 'U'}
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Ranking Section */}
-                        <div className="bg-white rounded-3xl p-8 shadow-sm h-fit">
-                            <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
-                                <span className="text-amber-500">🏆</span> อันดับคอร์สขายดี
-                            </h3>
-
-                            <div className="space-y-4">
-                                {stats.courseData.map((c, index) => (
-                                    <div key={index} className="flex items-center justify-between p-4 rounded-2xl bg-stone-50/50 hover:bg-amber-50/50 transition group cursor-default">
-                                        <div className="flex items-center gap-4 overflow-hidden">
-                                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black text-white shadow-sm transform group-hover:scale-110 transition
-                                          ${index === 0 ? 'bg-amber-400' : index === 1 ? 'bg-stone-400' : index === 2 ? 'bg-orange-400' : 'bg-indigo-200'}`}>
-                                                {index + 1}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="font-bold text-stone-700 text-sm truncate group-hover:text-amber-700 transition">{c.title}</p>
-                                                <p className="text-xs font-medium text-stone-400">{c.students} คนลงทะเบียน</p>
-                                            </div>
-                                        </div>
-                                        <div className="font-bold text-stone-600 text-sm whitespace-nowrap group-hover:text-amber-600">
-                                            ฿{c.revenue.toLocaleString()}
-                                        </div>
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-stone-700 truncate">{user.userName || user.userEmail || "Unknown User"}</p>
+                                        <p className="text-xs text-stone-500 truncate">{user.courseTitle || "กำลังเลือกคอร์ส"}</p>
+                                        <p className="text-[10px] text-green-600 mt-1">ใช้งานเมื่อ: {user.lastAccessedAt?.toDate().toLocaleTimeString('th-TH')}</p>
                                     </div>
-                                ))}
-
-                                {stats.courseData.length === 0 && (
-                                    <div className="text-center py-10 text-stone-300 italic">
-                                        ยังไม่มีข้อมูลคอร์ส
-                                    </div>
-                                )}
-                            </div>
+                                </div>
+                            ))}
                         </div>
-
-                    </div>
+                    ) : (
+                        <div className="text-center py-10 text-stone-400 italic bg-stone-50 rounded-2xl border border-stone-100">
+                            <span className="text-4xl block mb-2">😴</span>
+                            ยังไม่มีนักเรียนออนไลน์ในขณะนี้
+                        </div>
+                    )}
                 </div>
-
-            </main>
         </div>
+
+                {/* 3. Analytics Section */ }
+    <div id="report-section" className="pt-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+            <div>
+                <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-3">
+                    📈 รายงานสถิติ
+                    <span className="text-xs bg-white/80 text-stone-500 px-3 py-1 rounded-full shadow-sm">Approved Data</span>
+                </h2>
+            </div>
+
+            <div className="flex items-center gap-3 bg-white/70 p-2 pr-4 rounded-2xl shadow-sm backdrop-blur-sm">
+                <div className="bg-amber-100 p-2 rounded-xl">📅</div>
+                <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-lg"
+                >
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                        <option key={year} value={year}>ปี {year + 543}</option>
+                    ))}
+                </select>
+            </div>
+        </div>
+
+        {/* Stats Summary Boxes */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="rounded-3xl p-8 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-xl shadow-fuchsia-200/50 transform hover:scale-105 transition duration-500">
+                <p className="text-fuchsia-100 font-medium mb-2 text-sm uppercase tracking-wider">💰 รายได้รวม (ปี {selectedYear + 543})</p>
+                <h3 className="text-5xl font-black tracking-tight">฿{stats.totalRevenue.toLocaleString()}</h3>
+            </div>
+            <div className="rounded-3xl p-8 bg-white shadow-sm hover:shadow-md transition border-none relative overflow-hidden group">
+                <div className="absolute right-0 top-0 w-32 h-32 bg-sky-50 rounded-bl-full -mr-8 -mt-8 transition group-hover:scale-110"></div>
+                <p className="text-stone-400 font-bold text-sm mb-2 uppercase tracking-wide relative z-10">👨‍🎓 นักเรียนใหม่</p>
+                <h3 className="text-4xl font-bold text-stone-800 relative z-10">{stats.totalStudents.toLocaleString()} <span className="text-xl text-stone-400 font-normal">คน</span></h3>
+            </div>
+            <div className="rounded-3xl p-8 bg-white shadow-sm hover:shadow-md transition border-none relative overflow-hidden group">
+                <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 transition group-hover:scale-110"></div>
+                <p className="text-stone-400 font-bold text-sm mb-2 uppercase tracking-wide relative z-10">📚 คอร์สที่ขายออก</p>
+                <h3 className="text-4xl font-bold text-stone-800 relative z-10">{stats.courseData.length} <span className="text-xl text-stone-400 font-normal">วิชา</span></h3>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            {/* Pictogram Chart Section */}
+            <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm h-full">
+                <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
+                    <span className="text-indigo-500">📅</span> สรุปรายได้และจำนวนนักเรียนรายเดือน
+                </h3>
+
+                <div className="space-y-6">
+                    {stats.monthlyData.map((m, index) => (
+                        <div key={index} className="group flex items-start gap-4 border-b border-stone-50 pb-4 last:border-none last:pb-0">
+                            <div className="font-bold text-stone-400 w-10 text-sm pt-1">{m.month}</div>
+
+                            {/* Pictogram Area */}
+                            <div className="flex-1 flex flex-wrap gap-1 items-center min-h-[28px]">
+                                {m.students > 0 ? (
+                                    Array.from({ length: m.students }).map((_, i) => (
+                                        <span
+                                            key={i}
+                                            className="text-xl animate-in zoom-in duration-500 hover:scale-125 transition cursor-default"
+                                            style={{ animationDelay: `${i * 100}ms` }}
+                                            title={`นักเรียนคนที่ ${i + 1}`}
+                                        >
+                                            🧒
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className="text-stone-200 text-xs font-light italic self-center">ไม่มีนักเรียน</span>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col items-end min-w-[80px]">
+                                <span className={`font-bold text-sm transition ${m.revenue > 0 ? 'text-indigo-600' : 'text-stone-300'}`}>
+                                    {m.revenue > 0 ? `฿${m.revenue.toLocaleString()}` : '-'}
+                                </span>
+                                {m.students > 0 && <span className="text-[10px] text-stone-400">{m.students} คน</span>}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Ranking Section */}
+            <div className="bg-white rounded-3xl p-8 shadow-sm h-fit">
+                <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
+                    <span className="text-amber-500">🏆</span> อันดับคอร์สขายดี
+                </h3>
+
+                <div className="space-y-4">
+                    {stats.courseData.map((c, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 rounded-2xl bg-stone-50/50 hover:bg-amber-50/50 transition group cursor-default">
+                            <div className="flex items-center gap-4 overflow-hidden">
+                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black text-white shadow-sm transform group-hover:scale-110 transition
+                                          ${index === 0 ? 'bg-amber-400' : index === 1 ? 'bg-stone-400' : index === 2 ? 'bg-orange-400' : 'bg-indigo-200'}`}>
+                                    {index + 1}
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="font-bold text-stone-700 text-sm truncate group-hover:text-amber-700 transition">{c.title}</p>
+                                    <p className="text-xs font-medium text-stone-400">{c.students} คนลงทะเบียน</p>
+                                </div>
+                            </div>
+                            <div className="font-bold text-stone-600 text-sm whitespace-nowrap group-hover:text-amber-600">
+                                ฿{c.revenue.toLocaleString()}
+                            </div>
+                        </div>
+                    ))}
+
+                    {stats.courseData.length === 0 && (
+                        <div className="text-center py-10 text-stone-300 italic">
+                            ยังไม่มีข้อมูลคอร์ส
+                        </div>
+                    )}
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+            </main >
+        </div >
     );
 }
