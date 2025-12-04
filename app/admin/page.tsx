@@ -237,15 +237,7 @@ export default function AdminDashboard() {
                             <p className="text-sm text-teal-800/60 mt-1 relative z-10">เพิ่ม/ลบ บทเรียน</p>
                         </Link>
 
-                        {/* 4. สรุปสถิติ (Purple Gradient) */}
-                        <a href="#report-section" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-purple-100 to-fuchsia-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">📈</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-fuchsia-900/80 group-hover:text-fuchsia-900 relative z-10">สรุปผลประกอบการ</h3>
-                            <p className="text-sm text-fuchsia-800/60 mt-1 relative z-10">วิเคราะห์ยอดขาย</p>
-                        </a>
+
 
                         {/* 5. ประกาศข่าวสาร (Amber Gradient) */}
                         <Link href="/admin/notifications" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-amber-100 to-orange-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
@@ -327,20 +319,7 @@ export default function AdminDashboard() {
                             <p className="text-sm text-slate-800/60 mt-1 relative z-10">ดาวน์โหลดข้อมูลเก็บไว้</p>
                         </Link>
 
-                        {/* 10. Online Users (Green/Lime Gradient) */}
-                        <a href="#online-users-section" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-lime-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">🟢</span>
-                                {onlineUsers.length > 0 && (
-                                    <span className="bg-white/80 text-green-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-pulse">
-                                        {onlineUsers.length} Online
-                                    </span>
-                                )}
-                            </div>
-                            <h3 className="font-bold text-xl text-green-900/80 group-hover:text-green-900 relative z-10">กำลังใช้งาน</h3>
-                            <p className="text-sm text-green-800/60 mt-1 relative z-10">นักเรียนที่ออนไลน์ขณะนี้</p>
-                        </a>
+
 
                     </div>
 
