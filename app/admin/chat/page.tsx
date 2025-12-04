@@ -9,6 +9,7 @@ export default function AdminChatPage() {
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
     const [messages, setMessages] = useState<any[]>([]);
     const [replyMessage, setReplyMessage] = useState("");
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // 🔊 Sound Effect
@@ -26,6 +27,7 @@ export default function AdminChatPage() {
         // Remove orderBy to avoid index issues for now
         const q = query(collection(db, "chats"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            setFetchError(null); // Clear error on success
             const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
             // Sort client-side
@@ -40,6 +42,9 @@ export default function AdminChatPage() {
             // Check for unread messages to play sound (logic can be improved)
             const hasUnread = chatList.some((c: any) => c.isRead === false);
             // In a real app, we'd track previous state to only play on NEW unread
+        }, (error) => {
+            console.error("Error fetching chat list:", error);
+            setFetchError(error.message);
         });
         return () => unsubscribe();
     }, []);
@@ -118,6 +123,12 @@ export default function AdminChatPage() {
                         💬 แชทลูกค้า
                         <span className="bg-rose-100 text-rose-600 text-xs px-2 py-1 rounded-full">{chats.filter((c: any) => c.isRead === false).length} ใหม่</span>
                     </h2>
+                    {fetchError && (
+                        <div className="mt-2 p-2 bg-red-50 text-red-600 text-xs rounded-lg border border-red-200">
+                            Error: {fetchError} <br />
+                            <span className="font-bold">กรุณาตรวจสอบ Firestore Rules</span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     {chats.length === 0 ? (
