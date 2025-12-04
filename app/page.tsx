@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, getDoc, setDoc, increment } from "firebase/firestore";
 import Link from "next/link";
 import {
   BookOpen,
@@ -59,6 +59,27 @@ export default function HomePage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [badgeText, setBadgeText] = useState("คอร์สยอดนิยม");
   const [badgeIcon, setBadgeIcon] = useState("Star");
+
+  // Track Daily Visits
+  useEffect(() => {
+    const trackVisit = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const visitedKey = `visited_${today}`;
+
+      if (!sessionStorage.getItem(visitedKey)) {
+        sessionStorage.setItem(visitedKey, 'true');
+        try {
+          const statsRef = doc(db, "stats", "daily_visits");
+          await setDoc(statsRef, {
+            [today]: increment(1)
+          }, { merge: true });
+        } catch (error) {
+          console.error("Error tracking visit:", error);
+        }
+      }
+    };
+    trackVisit();
+  }, []);
 
   useEffect(() => {
     const fetchCourses = async () => {
