@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, Clock, User, Send, X, Phone, Smartphone } from "lucide-react";
+import { ArrowLeft, MessageCircle, Clock, User, Send, X, Phone, Smartphone, Trash2 } from "lucide-react";
 
 export default function AdminChatPage() {
     const [chats, setChats] = useState<any[]>([]);
@@ -120,6 +120,21 @@ export default function AdminChatPage() {
         }
     };
 
+    const handleDeleteChat = async (e: React.MouseEvent, chatId: string) => {
+        e.stopPropagation();
+        if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบแชทนี้? การกระทำนี้ไม่สามารถย้อนกลับได้")) return;
+
+        try {
+            await deleteDoc(doc(db, "chats", chatId));
+            if (selectedChat?.id === chatId) {
+                setSelectedChat(null);
+            }
+        } catch (error) {
+            console.error("Error deleting chat:", error);
+            alert("เกิดข้อผิดพลาดในการลบแชท");
+        }
+    };
+
     if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
 
     return (
@@ -184,6 +199,13 @@ export default function AdminChatPage() {
                                                 </div>
                                             </div>
                                         </div>
+                                        <button
+                                            onClick={(e) => handleDeleteChat(e, chat.id)}
+                                            className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-full transition z-10"
+                                            title="ลบแชท"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
                                     </div>
 
                                     <div className="bg-stone-50 p-4 rounded-2xl text-sm text-stone-600 flex items-start gap-2">
