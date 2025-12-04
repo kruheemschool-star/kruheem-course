@@ -17,6 +17,7 @@ export default function AdminDashboard() {
     const [ticketsCount, setTicketsCount] = useState(0);
     const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
     const [dailyVisits, setDailyVisits] = useState<Record<string, number>>({});
+    const [trafficTimeRange, setTrafficTimeRange] = useState<'week' | 'month' | 'year'>('week');
 
     useEffect(() => {
         fetchData();
@@ -496,37 +497,93 @@ export default function AdminDashboard() {
 
                         {/* Traffic Analytics Section */}
                         <div className="lg:col-span-3 bg-white rounded-3xl p-8 shadow-sm mt-8">
-                            <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
-                                <span className="text-sky-500">📊</span> สถิติผู้เข้าชมเว็บไซต์ (Website Traffic)
-                            </h3>
+                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                                <h3 className="font-bold text-xl text-stone-800 flex items-center gap-2">
+                                    <span className="text-sky-500">📊</span> สถิติผู้เข้าชมเว็บไซต์ (Website Traffic)
+                                </h3>
+                                <div className="flex bg-stone-100 p-1 rounded-xl">
+                                    <button
+                                        onClick={() => setTrafficTimeRange('week')}
+                                        className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${trafficTimeRange === 'week' ? 'bg-white text-sky-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                                    >
+                                        รายสัปดาห์
+                                    </button>
+                                    <button
+                                        onClick={() => setTrafficTimeRange('month')}
+                                        className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${trafficTimeRange === 'month' ? 'bg-white text-sky-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                                    >
+                                        รายเดือน
+                                    </button>
+                                    <button
+                                        onClick={() => setTrafficTimeRange('year')}
+                                        className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${trafficTimeRange === 'year' ? 'bg-white text-sky-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                                    >
+                                        รายปี
+                                    </button>
+                                </div>
+                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {/* Daily Visits Chart */}
+                                {/* Dynamic Chart */}
                                 <div>
-                                    <h4 className="font-bold text-stone-600 mb-4">ยอดคนเข้าชม 7 วันล่าสุด</h4>
-                                    <div className="flex items-end gap-2 h-48 border-b border-stone-200 pb-2">
+                                    <h4 className="font-bold text-stone-600 mb-4">
+                                        {trafficTimeRange === 'week' && "ยอดคนเข้าชม 7 วันล่าสุด"}
+                                        {trafficTimeRange === 'month' && "ยอดคนเข้าชม 30 วันล่าสุด"}
+                                        {trafficTimeRange === 'year' && "ยอดคนเข้าชมรายเดือน (ปีนี้)"}
+                                    </h4>
+                                    <div className="flex items-end gap-2 h-48 border-b border-stone-200 pb-2 overflow-x-auto">
                                         {(() => {
-                                            const days = [];
-                                            for (let i = 6; i >= 0; i--) {
-                                                const d = new Date();
-                                                d.setDate(d.getDate() - i);
-                                                days.push(d.toISOString().split('T')[0]);
+                                            let dataPoints: { label: string, value: number, fullLabel: string }[] = [];
+
+                                            if (trafficTimeRange === 'week' || trafficTimeRange === 'month') {
+                                                const daysCount = trafficTimeRange === 'week' ? 7 : 30;
+                                                for (let i = daysCount - 1; i >= 0; i--) {
+                                                    const d = new Date();
+                                                    d.setDate(d.getDate() - i);
+                                                    const dateStr = d.toISOString().split('T')[0];
+                                                    dataPoints.push({
+                                                        label: d.toLocaleDateString('th-TH', { day: 'numeric', month: trafficTimeRange === 'week' ? 'short' : undefined }),
+                                                        value: dailyVisits[dateStr] || 0,
+                                                        fullLabel: d.toLocaleDateString('th-TH', { dateStyle: 'long' })
+                                                    });
+                                                }
+                                            } else {
+                                                // Year View (Monthly Aggregation)
+                                                const currentYear = new Date().getFullYear();
+                                                const monthlyVisits: Record<string, number> = {};
+
+                                                // Aggregate visits by month
+                                                Object.keys(dailyVisits).forEach(date => {
+                                                    const [y, m] = date.split('-');
+                                                    if (parseInt(y) === currentYear) {
+                                                        const key = `${parseInt(m)}`;
+                                                        monthlyVisits[key] = (monthlyVisits[key] || 0) + dailyVisits[date];
+                                                    }
+                                                });
+
+                                                for (let i = 0; i < 12; i++) {
+                                                    const date = new Date(currentYear, i, 1);
+                                                    const monthKey = `${i + 1}`;
+                                                    dataPoints.push({
+                                                        label: date.toLocaleDateString('th-TH', { month: 'short' }),
+                                                        value: monthlyVisits[monthKey] || 0,
+                                                        fullLabel: date.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
+                                                    });
+                                                }
                                             }
-                                            const maxVisits = Math.max(...days.map(d => dailyVisits[d] || 0), 10);
 
-                                            return days.map(date => {
-                                                const visits = dailyVisits[date] || 0;
-                                                const height = (visits / maxVisits) * 100;
-                                                const dayName = new Date(date).toLocaleDateString('th-TH', { weekday: 'short' });
+                                            const maxVal = Math.max(...dataPoints.map(d => d.value), 10);
 
+                                            return dataPoints.map((point, idx) => {
+                                                const height = (point.value / maxVal) * 100;
                                                 return (
-                                                    <div key={date} className="flex-1 flex flex-col items-center gap-1 group">
+                                                    <div key={idx} className="flex-1 flex flex-col items-center gap-1 group min-w-[20px]">
                                                         <div className="relative w-full bg-sky-100 rounded-t-lg hover:bg-sky-200 transition-all duration-500" style={{ height: `${height}%` }}>
-                                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                {visits} คน
+                                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                                                {point.value} คน ({point.fullLabel})
                                                             </div>
                                                         </div>
-                                                        <span className="text-xs text-stone-400">{dayName}</span>
+                                                        <span className="text-[10px] text-stone-400 truncate w-full text-center">{point.label}</span>
                                                     </div>
                                                 );
                                             });
