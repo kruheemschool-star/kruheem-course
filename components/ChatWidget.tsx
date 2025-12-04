@@ -215,7 +215,7 @@ export default function ChatWidget() {
                                 <img
                                     src="/assets/kruheem_avatar.png"
                                     alt="Admin"
-                                    className="w-24 h-24 max-w-none object-cover drop-shadow-xl transform -translate-y-3 -translate-x-1 group-hover:scale-125 group-hover:-rotate-6 transition-transform duration-300"
+                                    className="w-24 h-24 max-w-none object-cover drop-shadow-xl transform -translate-y-3 -translate-x-1 group-hover:scale-150 group-hover:-rotate-12 transition-transform duration-300"
                                 />
                             </div>
                             {/* Online status */}
