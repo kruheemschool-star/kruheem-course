@@ -26,7 +26,7 @@ export default function ChatWidget() {
     // 🔊 Sound Effect
     const playNotificationSound = () => {
         try {
-            const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3"); // เสียงแจ้งเตือนสั้นๆ
+            const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"); // เสียงกระดิ่งนุ่มๆ (Happy Bell)
             audio.play().catch(e => console.log("Audio play failed", e));
         } catch (error) {
             console.error("Error playing sound", error);
