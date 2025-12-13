@@ -49,24 +49,61 @@ export default function AdminDashboard() {
 
             // ✅ Fetch Online Users (Active in last 10 mins)
             const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-            const qOnline = query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo));
-            const snapOnline = await getDocs(qOnline);
 
-            // Deduplicate users (in case a user is enrolled in multiple courses and active in all?)
-            // Actually, enrollments are per course. So if a user is active in one course, they are online.
-            // We should group by userId or userName to avoid duplicates if they have multiple tabs open? 
-            // But lastAccessedAt is per enrollment.
-            // Let's just map them and maybe filter unique userNames.
-            const onlineData = snapOnline.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+            // 1. Active in Course (Enrollments)
+            const qOnlineEnrollments = query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo));
+            const snapOnlineEnrollments = await getDocs(qOnlineEnrollments);
 
-            // Filter unique users by email or name
-            const uniqueOnline = onlineData.filter((user, index, self) =>
-                index === self.findIndex((t) => (
-                    t.userEmail === user.userEmail
-                ))
-            );
+            // 2. Active on Site (Users)
+            const qOnlineUsers = query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo));
+            const snapOnlineUsers = await getDocs(qOnlineUsers);
 
-            setOnlineUsers(uniqueOnline);
+            const onlineMap = new Map();
+
+            // Process Site Visitors first
+            snapOnlineUsers.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.email) {
+                    onlineMap.set(data.email, {
+                        ...data,
+                        userName: data.displayName || data.email,
+                        userEmail: data.email,
+                        lastAccessedAt: data.lastActive,
+                        isMember: false, // Default to false, check later
+                        currentActivity: 'กำลังเยี่ยมชมเว็บไซต์'
+                    });
+                }
+            });
+
+            // Process Active Students (Overwrite Visitors if studying)
+            snapOnlineEnrollments.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.userEmail) {
+                    const existing = onlineMap.get(data.userEmail) || {};
+                    onlineMap.set(data.userEmail, {
+                        ...existing,
+                        ...data,
+                        userName: data.userName || existing.userName || data.userEmail, // Prefer enrollment name
+                        userEmail: data.userEmail,
+                        currentActivity: `กำลังเรียน: ${data.courseTitle || 'ไม่ระบุวิชา'}`,
+                        isStudying: true
+                    });
+                }
+            });
+
+            const uniqueOnline = Array.from(onlineMap.values());
+
+            // Determine Member vs Guest (Check against approvedData)
+            const finalOnlineUsers = uniqueOnline.map((user: any) => {
+                const isMember = approvedData.some(e => e.userEmail === user.userEmail);
+                return {
+                    ...user,
+                    isMember: isMember,
+                    userType: isMember ? 'สมาชิก' : 'แขกทั่วไป'
+                };
+            });
+
+            setOnlineUsers(finalOnlineUsers);
 
         } catch (error) {
             console.error("Error fetching data:", error);
@@ -336,14 +373,20 @@ export default function AdminDashboard() {
                         {onlineUsers.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {onlineUsers.map((user, idx) => (
-                                    <div key={idx} className="flex items-center gap-4 p-4 rounded-2xl bg-green-50/50 border border-green-100">
-                                        <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-bold text-lg">
+                                    <div key={idx} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${user.isMember ? 'bg-indigo-50/50 border-indigo-100' : 'bg-stone-50 border-stone-100'}`}>
+                                        <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shadow-sm ${user.isMember ? 'bg-indigo-100 text-indigo-600' : 'bg-stone-200 text-stone-500'}`}>
                                             {user.userName ? user.userName.charAt(0).toUpperCase() : 'U'}
+                                            <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${user.isStudying ? 'bg-green-500' : 'bg-amber-400'}`}></span>
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="font-bold text-stone-700 truncate">{user.userName || user.userEmail || "Unknown User"}</p>
-                                            <p className="text-xs text-stone-500 truncate">{user.courseTitle || "กำลังเลือกคอร์ส"}</p>
-                                            <p className="text-[10px] text-green-600 mt-1">ใช้งานเมื่อ: {user.lastAccessedAt?.toDate().toLocaleTimeString('th-TH')}</p>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <p className="font-bold text-stone-700 truncate text-sm">{user.userName || user.userEmail || "Unknown User"}</p>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${user.isMember ? 'bg-indigo-100 text-indigo-600' : 'bg-stone-200 text-stone-500'}`}>
+                                                    {user.userType}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-stone-500 truncate">{user.currentActivity}</p>
+                                            <p className="text-[10px] text-stone-400 mt-1">ใช้งานเมื่อ: {user.lastAccessedAt?.toDate ? user.lastAccessedAt.toDate().toLocaleTimeString('th-TH') : 'เมื่อสักครู่'}</p>
                                         </div>
                                     </div>
                                 ))}

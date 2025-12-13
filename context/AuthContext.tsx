@@ -134,8 +134,8 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
 
                             setHasCheckedActivity(true);
 
-                            // Update Last Active if > 1 hour (3600000 ms) or undefined
-                            if (!data.lastActive || diff > 3600000) {
+                            // Update Last Active if > 5 minutes (300000 ms) or undefined
+                            if (!data.lastActive || diff > 300000) {
                                 setDoc(doc(db, "users", currentUser.uid), {
                                     lastActive: serverTimestamp()
                                 }, { merge: true }).catch(err => console.error("Update lastActive failed", err));
