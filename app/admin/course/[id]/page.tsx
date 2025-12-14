@@ -607,30 +607,24 @@ export default function ManageLessonsPage() {
     };
 
     const [bulkImportText, setBulkImportText] = useState("");
-    const [bulkChapterTitle, setBulkChapterTitle] = useState("");
+    const [bulkHeaderId, setBulkHeaderId] = useState("");
 
     const handleBulkImport = async () => {
-        if (!bulkChapterTitle.trim()) return showToast("กรุณาระบุชื่อบทเรียนใหม่ (Chapter Name)", "error");
+        if (!bulkHeaderId) return showToast("กรุณาเลือกบทเรียน (Chapter) ที่ต้องการนำเข้า", "error");
         if (!bulkImportText.trim()) return showToast("กรุณาระบุรายชื่อตอน", "error");
 
+        const header = availableHeaders.find(h => h.id === bulkHeaderId);
+        const headerTitle = header ? header.title : "ไม่ระบุ";
+
         const lines = bulkImportText.trim().split('\n').filter(line => line.trim() !== "");
-        if (!confirm(`⚠️ คุณต้องการสร้างบทเรียน "${bulkChapterTitle}" พร้อมเนื้อหา ${lines.length} รายการ ใช่หรือไม่?`)) return;
+        if (!confirm(`⚠️ คุณต้องการนำเข้าบทเรียน ${lines.length} ตอน ไปยัง "${headerTitle}" ใช่หรือไม่?`)) return;
 
         setSubmitting(true);
         try {
-            // 1. Create New Header (Chapter)
+            // Get Current Max Order
             let currentOrder = lessons.length > 0 ? Math.max(...lessons.map(l => l.order || 0)) + 1 : 1;
 
-            const headerRef = await addDoc(collection(db, "courses", courseId, "lessons"), {
-                title: bulkChapterTitle.trim(),
-                type: "header",
-                createdAt: new Date(),
-                order: currentOrder
-            });
-            const newHeaderId = headerRef.id;
-            currentOrder++;
-
-            // 2. Process Text
+            // Process Text
             const batch = writeBatch(db);
 
             lines.forEach((line, index) => {
@@ -644,7 +638,7 @@ export default function ManageLessonsPage() {
                 batch.set(docRef, {
                     title: title,
                     type: "video",
-                    headerId: newHeaderId,
+                    headerId: bulkHeaderId, // Use selected header ID
                     videoId: videoId,
                     content: "",
                     isFree: false,
@@ -654,9 +648,9 @@ export default function ManageLessonsPage() {
             });
 
             await batch.commit();
-            showToast(`✅ สร้างบทเรียน "${bulkChapterTitle}" และนำเข้า ${lines.length} ตอนสำเร็จ!`);
+            showToast(`✅ นำเข้า ${lines.length} ตอนไปยัง "${headerTitle}" สำเร็จ!`);
             setBulkImportText("");
-            setBulkChapterTitle("");
+            setBulkHeaderId("");
             fetchCourseInfo();
 
         } catch (error: any) {
@@ -968,13 +962,16 @@ export default function ManageLessonsPage() {
                                     {/* Bulk Import */}
                                     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                                         <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">📥 นำเข้าบทเรียนทีละเยอะๆ (Bulk Import)</h4>
-                                        <input
-                                            type="text"
-                                            placeholder="ชื่อบทเรียนใหม่ (Chapter Name)"
+                                        <select
+                                            value={bulkHeaderId}
+                                            onChange={(e) => setBulkHeaderId(e.target.value)}
                                             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl mb-3 outline-none"
-                                            value={bulkChapterTitle}
-                                            onChange={(e) => setBulkChapterTitle(e.target.value)}
-                                        />
+                                        >
+                                            <option value="">-- เลือกบทเรียนที่จะนำเข้า (Select Chapter) --</option>
+                                            {availableHeaders.map((h) => (
+                                                <option key={h.id} value={h.id}>{h.title}</option>
+                                            ))}
+                                        </select>
                                         <textarea
                                             placeholder={`วางรายชื่อตอนที่นี่...\nตัวอย่าง:\nEP.1 ปูพื้นฐาน | https://youtu.be/...\nEP.2 ตะลุยโจทย์ | https://youtu.be/...`}
                                             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none min-h-[150px] font-mono text-sm mb-4"
