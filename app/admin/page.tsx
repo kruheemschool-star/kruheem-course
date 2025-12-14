@@ -30,7 +30,7 @@ export default function AdminDashboard() {
         try {
             const qApproved = query(collection(db, "enrollments"), where("status", "==", "approved"));
             const snapApproved = await getDocs(qApproved);
-            const approvedData = snapApproved.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const approvedData: any[] = snapApproved.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setEnrollments(approvedData);
 
             const qPending = query(collection(db, "enrollments"), where("status", "==", "pending"));
