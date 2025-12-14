@@ -560,12 +560,19 @@ export default function AdminDashboard() {
                                     </button>
                                 </div>
 
-                                <div className="mt-6 flex items-center justify-between p-4 bg-sky-50 rounded-2xl border border-sky-100">
-                                    <div>
-                                        <p className="text-sm font-bold text-sky-700">👁️ เข้าชมทั้งหมด (Total Visits)</p>
-                                        <p className="text-xs text-sky-500/70">นับรวมทุกครั้งที่มีคนเข้าเว็บ</p>
+
+                                <div className="mt-6 flex items-center justify-between gap-6 p-8 bg-gradient-to-r from-sky-50 to-blue-50 rounded-[2.5rem] border border-sky-100 shadow-sm relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/40 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <span className="flex items-center justify-center w-12 h-12 bg-white rounded-2xl shadow-sm text-2xl">👁️</span>
+                                            <p className="text-lg font-bold text-sky-900">เข้าชมทั้งหมด <span className="opacity-60 font-normal text-sm ml-1">(Total Visits)</span></p>
+                                        </div>
+                                        <p className="text-stone-500 text-sm pl-1">สถิติคนเข้าเว็บไซต์สะสม</p>
                                     </div>
-                                    <h3 className="text-3xl font-black text-sky-600">{totalVisits.toLocaleString()}</h3>
+                                    <h3 className="relative z-10 text-6xl font-black text-sky-600 tracking-tighter drop-shadow-sm">
+                                        {totalVisits.toLocaleString()}
+                                    </h3>
                                 </div>
                             </div>
 
