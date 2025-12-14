@@ -73,7 +73,8 @@ export default function AdminDashboard() {
                         userEmail: data.email,
                         lastAccessedAt: data.lastActive,
                         isMember: false, // Default to false, check later
-                        currentActivity: 'กำลังเยี่ยมชมเว็บไซต์'
+                        currentActivity: 'กำลังเยี่ยมชมเว็บไซต์',
+                        sessionStart: data.sessionStart,
                     });
                 }
             });
@@ -389,7 +390,19 @@ export default function AdminDashboard() {
                                                 </span>
                                             </div>
                                             <p className="text-xs text-stone-500 truncate">{user.currentActivity}</p>
-                                            <p className="text-[10px] text-stone-400 mt-1">ใช้งานเมื่อ: {user.lastAccessedAt?.toDate ? user.lastAccessedAt.toDate().toLocaleTimeString('th-TH') : 'เมื่อสักครู่'}</p>
+                                            <p className="text-[10px] text-stone-400 mt-1">
+                                                {(() => {
+                                                    if (user.sessionStart?.toDate) {
+                                                        const start = user.sessionStart.toDate();
+                                                        const diff = Math.floor((new Date().getTime() - start.getTime()) / 60000); // Minutes
+                                                        // Ensure non-negative and handle edge cases
+                                                        const mins = diff < 0 ? 0 : diff;
+                                                        return `อยู่ในเว็บไซต์นาน ${mins} นาที`;
+                                                    } else {
+                                                        return 'เพิ่งเข้าชมเมื่อสักครู่';
+                                                    }
+                                                })()}
+                                            </p>
                                         </div>
                                     </div>
                                 ))}

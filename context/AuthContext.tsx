@@ -121,24 +121,52 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
                         // Calculate Days Since Last Active (Only once per session)
                         if (!hasCheckedActivity) {
                             const now = new Date();
-                            let diff = 0;
-
+                            // Days calculation moved to logic block
                             if (data.lastActive?.toDate) {
                                 const last = data.lastActive.toDate();
-                                diff = now.getTime() - last.getTime();
-                                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                                const diffDays = now.getTime() - last.getTime();
+                                const days = Math.floor(diffDays / (1000 * 60 * 60 * 24));
                                 setDaysSinceLastActive(days);
                             } else {
-                                setDaysSinceLastActive(0); // First time or no data
+                                setDaysSinceLastActive(0);
                             }
 
                             setHasCheckedActivity(true);
 
-                            // Update Last Active if > 5 minutes (300000 ms) or undefined
-                            if (!data.lastActive || diff > 300000) {
-                                setDoc(doc(db, "users", currentUser.uid), {
-                                    lastActive: serverTimestamp()
-                                }, { merge: true }).catch(err => console.error("Update lastActive failed", err));
+                            // Calculate time difference
+                            // now is already defined above
+                            let lastActiveTime = 0;
+                            if (data.lastActive?.toDate) {
+                                lastActiveTime = data.lastActive.toDate().getTime();
+                            }
+
+                            const diff = now.getTime() - lastActiveTime;
+                            const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+                            const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes (Throttle writes)
+
+                            setHasCheckedActivity(true);
+
+                            // Logic: 
+                            // 1. If inactive > 30 mins -> New Session (Update sessionStart & lastActive)
+                            // 2. If inactive > 5 mins -> Heartbeat (Update lastActive only)
+
+                            const updateData: any = {};
+                            let shouldUpdate = false;
+
+                            if (lastActiveTime === 0 || diff > SESSION_TIMEOUT) {
+                                // New Session
+                                updateData.sessionStart = serverTimestamp();
+                                updateData.lastActive = serverTimestamp();
+                                shouldUpdate = true;
+                            } else if (diff > HEARTBEAT_INTERVAL) {
+                                // Within session, just heartbeat
+                                updateData.lastActive = serverTimestamp();
+                                shouldUpdate = true;
+                            }
+
+                            if (shouldUpdate) {
+                                setDoc(doc(db, "users", currentUser.uid), updateData, { merge: true })
+                                    .catch(err => console.error("Update activity failed", err));
                             }
                         }
                     } else {
