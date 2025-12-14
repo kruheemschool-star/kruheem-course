@@ -17,6 +17,7 @@ export default function AdminDashboard() {
     const [ticketsCount, setTicketsCount] = useState(0);
     const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
     const [dailyVisits, setDailyVisits] = useState<Record<string, number>>({});
+    const [totalVisits, setTotalVisits] = useState(0);
     const [trafficTimeRange, setTrafficTimeRange] = useState<'week' | 'month' | 'year'>('week');
 
     useEffect(() => {
@@ -44,7 +45,9 @@ export default function AdminDashboard() {
             // Fetch Daily Visits
             const statsDoc = await getDoc(doc(db, "stats", "daily_visits"));
             if (statsDoc.exists()) {
-                setDailyVisits(statsDoc.data() as Record<string, number>);
+                const data = statsDoc.data();
+                setDailyVisits(data as Record<string, number>);
+                setTotalVisits(data.total_visits || 0);
             }
 
             // ✅ Fetch Online Users (Active in last 10 mins)
@@ -543,6 +546,14 @@ export default function AdminDashboard() {
                                         รายปี
                                     </button>
                                 </div>
+
+                                <div className="mt-6 flex items-center justify-between p-4 bg-sky-50 rounded-2xl border border-sky-100">
+                                    <div>
+                                        <p className="text-sm font-bold text-sky-700">👁️ เข้าชมทั้งหมด (Total Visits)</p>
+                                        <p className="text-xs text-sky-500/70">นับรวมทุกครั้งที่มีคนเข้าเว็บ</p>
+                                    </div>
+                                    <h3 className="text-3xl font-black text-sky-600">{totalVisits.toLocaleString()}</h3>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -562,7 +573,8 @@ export default function AdminDashboard() {
                                                 for (let i = daysCount - 1; i >= 0; i--) {
                                                     const d = new Date();
                                                     d.setDate(d.getDate() - i);
-                                                    const dateStr = d.toISOString().split('T')[0];
+                                                    // Use Asia/Bangkok time to match VisitorTracker
+                                                    const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
                                                     dataPoints.push({
                                                         label: d.toLocaleDateString('th-TH', { day: 'numeric', month: trafficTimeRange === 'week' ? 'short' : undefined }),
                                                         value: dailyVisits[dateStr] || 0,
