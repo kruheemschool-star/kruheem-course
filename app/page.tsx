@@ -182,7 +182,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F2EB] font-sans selection:bg-amber-200 selection:text-amber-900 flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-[#F5F2EB] dark:bg-slate-950 font-sans selection:bg-amber-200 selection:text-amber-900 flex flex-col overflow-x-hidden transition-colors duration-500">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -208,19 +208,19 @@ export default function HomePage() {
               </span>
             </div>
 
-            <h1 className="font-mero text-3xl md:text-5xl lg:text-6xl font-black text-slate-900 mb-8 tracking-tight leading-tight drop-shadow-md max-w-6xl mx-auto py-2">
+            <h1 className="font-mero text-3xl md:text-5xl lg:text-6xl font-black text-slate-900 dark:text-slate-50 mb-8 tracking-tight leading-tight drop-shadow-md max-w-6xl mx-auto py-2">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 block mb-1 leading-tight">
                 ในขณะที่เรากำลังลังเล
               </span>
-              <span className="block text-slate-800 mb-1 leading-tight">
+              <span className="block text-slate-800 dark:text-slate-200 mb-1 leading-tight">
                 มีเด็กคนอื่น ๆ ที่กำลังเรียนอยู่
               </span>
-              <span className="block text-slate-700 leading-tight">
+              <span className="block text-slate-700 dark:text-slate-300 leading-tight">
                 และกำลังก้าวไปข้างหน้าอย่างไม่หยุดยั้ง
               </span>
             </h1>
 
-            <p className="text-lg md:text-xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed font-medium">
+            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-12 max-w-3xl mx-auto leading-relaxed font-medium">
               การเรียนคณิตศาสตร์เหมือนการเติมน้ำใส่แก้วที่รั่ว <br className="hidden md:block" />
               ถ้าไม่เติมให้มากพอและต่อเนื่อง น้ำก็ไม่มีวันเต็มแก้ว
             </p>
@@ -297,13 +297,13 @@ export default function HomePage() {
         {/* Story Section */}
         <section className="py-16 px-6 relative z-10">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white/40 backdrop-blur-xl rounded-[3rem] p-8 md:p-12 border border-white/60 shadow-lg relative overflow-hidden group hover:bg-white/50 transition-all duration-500">
+            <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl rounded-[3rem] p-8 md:p-12 border border-white/60 dark:border-slate-800 shadow-lg relative overflow-hidden group hover:bg-white/50 dark:hover:bg-slate-800/50 transition-all duration-500">
               <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:opacity-20 transition-opacity duration-500">
-                <Quote size={120} className="text-amber-900" />
+                <Quote size={120} className="text-amber-900 dark:text-amber-500" />
               </div>
 
-              <div className="relative z-10 space-y-8 text-slate-700 leading-relaxed text-lg md:text-xl font-medium">
-                <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-8 leading-tight">
+              <div className="relative z-10 space-y-8 text-slate-700 dark:text-slate-300 leading-relaxed text-lg md:text-xl font-medium">
+                <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 mb-8 leading-tight">
                   ผมเคยเกือบยอมแพ้... <br />
                   <span className="text-amber-600">จนวันที่ค้นพบ &quot;ความจริง&quot; ของการเรียนเลขให้เก่ง</span>
                 </h2>

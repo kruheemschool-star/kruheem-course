@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthContextProvider } from "@/context/AuthContext";
 import ChatWidget from "@/components/ChatWidget";
 import VisitorTracker from "@/components/VisitorTracker";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import localFont from 'next/font/local'
 
 const prompt = localFont({
@@ -74,11 +75,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="th" suppressHydrationWarning>
       <body className={`${prompt.variable} font-sans`}>
-        <AuthContextProvider>
-          <VisitorTracker />
-          {children}
-          <ChatWidget />
-        </AuthContextProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthContextProvider>
+            <VisitorTracker />
+            {children}
+            <ChatWidget />
+          </AuthContextProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

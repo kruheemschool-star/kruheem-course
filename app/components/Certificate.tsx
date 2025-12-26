@@ -40,95 +40,99 @@ export default function Certificate({ studentName, courseTitle, onClose }: Certi
                 {/* Certificate Container (To be captured) */}
                 <div
                     ref={certificateRef}
-                    className="relative bg-white aspect-[4/3] md:aspect-[16/9] rounded-[2rem] overflow-hidden shadow-2xl flex flex-col items-center justify-center text-center p-8 md:p-12 border-[8px] border-white"
+                    className="relative bg-white aspect-[1.414/1] w-full max-w-5xl mx-auto rounded-xl overflow-hidden shadow-2xl flex flex-col items-center text-center p-12 text-slate-800"
                     style={{
-                        background: "linear-gradient(135deg, #FF00CC 0%, #333399 100%)",
+                        backgroundImage: "radial-gradient(circle at 50% 50%, #ffffff 0%, #f8fafc 100%)",
                     }}
                 >
-                    {/* Background Patterns */}
-                    <div className="absolute inset-0 opacity-20"
-                        style={{
-                            backgroundImage: "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.4) 0%, transparent 20%), radial-gradient(circle at 80% 80%, rgba(255,255,255,0.4) 0%, transparent 20%)",
-                            backgroundSize: "50% 50%"
-                        }}
-                    />
+                    {/* Formal Border */}
+                    <div className="absolute inset-4 border-[3px] border-double border-amber-500/50 rounded-lg pointer-events-none"></div>
+                    <div className="absolute inset-6 border border-slate-200 rounded pointer-events-none"></div>
 
-                    {/* Decorative Elements */}
-                    <div className="absolute top-0 left-0 w-32 h-32 bg-yellow-400 rounded-br-[4rem] opacity-80 z-0"></div>
-                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-cyan-400 rounded-tl-[4rem] opacity-80 z-0"></div>
+                    {/* Corner Ornaments (CSS Shapes) */}
+                    <div className="absolute top-4 left-4 w-16 h-16 border-t-[3px] border-l-[3px] border-amber-500 rounded-tl-lg"></div>
+                    <div className="absolute top-4 right-4 w-16 h-16 border-t-[3px] border-r-[3px] border-amber-500 rounded-tr-lg"></div>
+                    <div className="absolute bottom-4 left-4 w-16 h-16 border-b-[3px] border-l-[3px] border-amber-500 rounded-bl-lg"></div>
+                    <div className="absolute bottom-4 right-4 w-16 h-16 border-b-[3px] border-r-[3px] border-amber-500 rounded-br-lg"></div>
 
-                    {/* Content Layer */}
-                    <div className="relative z-10 w-full h-full flex flex-col items-center justify-between bg-white/10 backdrop-blur-md rounded-[1.5rem] border border-white/20 p-6 md:p-10 shadow-inner">
+                    {/* Content */}
+                    <div className="relative z-10 w-full h-full flex flex-col items-center justify-between py-8 px-16">
 
-                        {/* Header: LEVEL UP */}
-                        <div className="space-y-2">
-                            <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-orange-500 drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] tracking-wider uppercase"
-                                style={{ WebkitTextStroke: "2px #5B21B6" }}>
-                                LEVEL UP!
-                            </h1>
-                            <p className="text-white font-bold tracking-[0.2em] text-sm md:text-base uppercase opacity-90">
-                                Mission Accomplished • 100% Complete
-                            </p>
-                        </div>
-
-                        {/* Progress Bar Visual */}
-                        <div className="w-full max-w-lg h-6 md:h-8 bg-black/40 rounded-full border-2 border-white/30 relative overflow-hidden my-4 shadow-inner">
-                            <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 w-full animate-pulse shadow-[0_0_20px_rgba(52,211,153,0.6)]"></div>
-                            <div className="absolute inset-0 flex items-center justify-center text-[10px] md:text-xs font-black text-white drop-shadow-md">
-                                MAX ENERGY
+                        {/* Logo / Header */}
+                        <div className="flex flex-col items-center gap-4">
+                            {/* Simple Icon Logo */}
+                            <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white text-3xl shadow-md">
+                                🎓
                             </div>
-                        </div>
-
-                        {/* Main Text */}
-                        <div className="flex-1 flex flex-col justify-center w-full space-y-4">
-                            <p className="text-cyan-200 font-bold text-lg md:text-xl uppercase tracking-widest">
-                                Certificate of Completion
-                            </p>
-
-                            <div className="relative py-4">
-                                <h2 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_8px_rgba(0,0,0,0.3)]">
-                                    {studentName}
-                                </h2>
-                                <div className="h-1 w-1/2 mx-auto bg-gradient-to-r from-transparent via-yellow-400 to-transparent mt-2"></div>
-                            </div>
-
                             <div className="space-y-1">
-                                <p className="text-slate-200 text-sm md:text-base font-medium">
-                                    Has successfully mastered the skill:
+                                <h1 className="text-sm tracking-[0.3em] font-bold text-slate-500 uppercase">
+                                    KruHeem Math School
+                                </h1>
+                                <h2 className="text-4xl md:text-5xl font-serif font-bold text-slate-800 tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-slate-800 to-slate-600">
+                                    CERTIFICATE
+                                </h2>
+                                <p className="text-amber-500 font-bold tracking-[0.2em] text-xs uppercase">
+                                    OF COMPLETION
                                 </p>
-                                <h3 className="text-2xl md:text-3xl font-extrabold text-yellow-300 drop-shadow-md">
-                                    {courseTitle}
+                            </div>
+                        </div>
+
+                        {/* Main Body */}
+                        <div className="w-full flex-1 flex flex-col justify-center gap-6 my-4">
+                            <p className="text-slate-500 italic font-serif text-lg">
+                                ขอมอบประกาศนียบัตรฉบับนี้ให้ไว้เพื่อแสดงว่า
+                                <br />
+                                <span className="text-xs not-italic text-slate-400 font-sans tracking-wide">(This certificate is presented to)</span>
+                            </p>
+
+                            <div className="relative py-2">
+                                <h3 className="text-4xl md:text-5xl font-serif font-bold text-slate-900 drop-shadow-sm px-8 py-2 border-b-2 border-slate-100 inline-block min-w-[50%]">
+                                    {studentName}
                                 </h3>
                             </div>
+
+                            <p className="text-slate-500 italic font-serif text-lg">
+                                ได้ผ่านการเรียนและทดสอบในหลักสูตร
+                                <br />
+                                <span className="text-xs not-italic text-slate-400 font-sans tracking-wide">(Has successfully completed the course)</span>
+                            </p>
+
+                            <h4 className="text-2xl md:text-3xl font-bold text-amber-600">
+                                {courseTitle}
+                            </h4>
                         </div>
 
-                        {/* Footer / Badges */}
-                        <div className="flex items-center justify-center gap-6 mt-6">
-                            <div className="flex flex-col items-center gap-1">
-                                <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl border-2 border-white/30 shadow-lg flex items-center justify-center text-2xl md:text-3xl">
-                                    🧠
+                        {/* Footer: Date & Signature */}
+                        <div className="w-full flex justify-between items-end mt-8 px-10">
+                            <div className="text-center">
+                                <div className="border-b border-slate-300 w-40 mb-2 pb-1">
+                                    <p className="text-slate-800 font-medium">
+                                        {new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                    </p>
                                 </div>
-                                <span className="text-[10px] md:text-xs font-bold text-white uppercase bg-black/20 px-2 py-0.5 rounded-full">Intelligence</span>
+                                <p className="text-xs text-slate-400 uppercase tracking-wider font-bold">Date</p>
                             </div>
-                            <div className="flex flex-col items-center gap-1">
-                                <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-rose-500 to-orange-600 rounded-xl border-2 border-white/30 shadow-lg flex items-center justify-center text-2xl md:text-3xl">
-                                    🔥
+
+                            {/* Seal */}
+                            <div className="relative">
+                                <div className="w-24 h-24 rounded-full border-4 border-amber-500/30 flex items-center justify-center opacity-80">
+                                    <div className="w-20 h-20 rounded-full border border-amber-500/50 flex items-center justify-center">
+                                        <span className="text-amber-500/50 font-black text-xs text-center leading-tight">OFFICIAL<br />SEAL</span>
+                                    </div>
                                 </div>
-                                <span className="text-[10px] md:text-xs font-bold text-white uppercase bg-black/20 px-2 py-0.5 rounded-full">Passion</span>
                             </div>
-                            <div className="flex flex-col items-center gap-1">
-                                <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl border-2 border-white/30 shadow-lg flex items-center justify-center text-2xl md:text-3xl">
-                                    ⚡
+
+                            <div className="text-center">
+                                <div className="border-b border-slate-300 w-40 mb-2 py-1">
+                                    {/* Mock Signature */}
+                                    <p className="font-script text-2xl text-slate-800 transform -rotate-2">
+                                        KruHeem
+                                    </p>
                                 </div>
-                                <span className="text-[10px] md:text-xs font-bold text-white uppercase bg-black/20 px-2 py-0.5 rounded-full">Skill</span>
+                                <p className="text-xs text-slate-400 uppercase tracking-wider font-bold">KruHeem Academy</p>
                             </div>
                         </div>
 
-                        {/* Signature / Date */}
-                        <div className="absolute bottom-4 right-6 text-right opacity-80">
-                            <p className="text-[10px] text-white font-mono">AUTHORIZED BY</p>
-                            <p className="text-sm font-bold text-yellow-400 font-script">KruHeem Academy</p>
-                        </div>
                     </div>
                 </div>
 

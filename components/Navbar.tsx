@@ -13,12 +13,14 @@ import {
     Plus,
     Minus,
     X,
-    Divide
+    Divide,
+    HelpCircle
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { ModeToggle } from "@/components/ModeToggle";
 
 export default function Navbar() {
     const { user, userProfile, isAdmin, logOut, googleSignIn } = useUserAuth();
@@ -49,7 +51,7 @@ export default function Navbar() {
     };
 
     return (
-        <nav className="fixed top-0 left-0 right-0 z-50 bg-white/60 backdrop-blur-xl border-b border-white/40 py-4 px-6 md:px-12 flex justify-between items-center transition-all">
+        <nav className="fixed top-0 left-0 right-0 z-50 bg-white/60 dark:bg-slate-950/80 backdrop-blur-xl border-b border-white/40 dark:border-slate-800 py-4 px-6 md:px-12 flex justify-between items-center transition-all">
             <Link href="/" className="flex items-center gap-3 group">
                 {/* Logo: Math Teacher Concept */}
                 <div className="relative w-12 h-12 group-hover:scale-110 transition-transform duration-300 animate-heartbeat">
@@ -70,15 +72,23 @@ export default function Navbar() {
                 `}</style>
 
                 <div className="flex flex-col">
-                    <span className="text-slate-800 font-black text-lg leading-none tracking-tight group-hover:text-amber-600 transition-colors">KruHeem</span>
-                    <span className="text-slate-500 text-xs font-bold tracking-wider">MATH SCHOOL</span>
+                    <span className="text-slate-800 dark:text-slate-100 font-black text-lg leading-none tracking-tight group-hover:text-amber-600 transition-colors">KruHeem</span>
+                    <span className="text-slate-500 dark:text-slate-400 text-xs font-bold tracking-wider">MATH SCHOOL</span>
                 </div>
             </Link>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-4">
+                <ModeToggle />
+                <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden md:block mx-1"></div>
+                <div className="hidden md:flex items-center">
+                    <Link href="/how-to-apply" className="font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-2 px-3 py-2 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
+                        <HelpCircle size={20} />
+                        <span className="hidden lg:inline">วิธีสมัครเรียน</span>
+                    </Link>
+                </div>
                 <button
                     onClick={handlePaymentClick}
-                    className="hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm text-slate-700 bg-white/40 border border-white/60 hover:bg-white/60 hover:border-white transition-all duration-300 hover:text-amber-700 active:scale-95 hover:-translate-y-1"
+                    className="hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm text-slate-700 dark:text-slate-200 bg-white/40 dark:bg-slate-800/40 border border-white/60 dark:border-slate-700 hover:bg-white/60 dark:hover:bg-slate-800/60 hover:border-white transition-all duration-300 hover:text-amber-700 dark:hover:text-amber-400 active:scale-95 hover:-translate-y-1"
                 >
                     <CreditCard size={18} />
                     <span>สั่งซื้อและแจ้งโอน</span>
