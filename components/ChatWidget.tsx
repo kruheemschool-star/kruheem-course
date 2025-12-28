@@ -20,8 +20,8 @@ export default function ChatWidget() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [lastAdminReadAt, setLastAdminReadAt] = useState<any>(null);
 
-    // Hide on classroom pages and admin pages
-    const isHidden = pathname?.startsWith("/learn/") || pathname?.startsWith("/admin");
+    // Hide on classroom pages, admin pages, and auth pages to prevent anonymous auth conflicts
+    const isHidden = pathname?.startsWith("/learn/") || pathname?.startsWith("/admin") || pathname === "/login" || pathname === "/register" || pathname === "/forgot-password";
 
     // 🔊 Sound Effect
     const playNotificationSound = () => {
@@ -37,20 +37,17 @@ export default function ChatWidget() {
     useEffect(() => {
         if (isHidden) return;
         if (!loading && !user) {
-            signInAnonymously(auth).catch((error) => {
-                console.error("Anonymous auth failed:", error);
-                // Fallback to local ID if anon auth fails (e.g. disabled in console)
-                let guestId = localStorage.getItem("kruheem_guest_chat_id");
-                if (!guestId) {
-                    guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                    localStorage.setItem("kruheem_guest_chat_id", guestId);
-                }
-                setChatId(guestId);
-            });
+            // Use local Guest ID to avoid "admin-restricted-operation" error if Anonymous Auth is disabled
+            let guestId = localStorage.getItem("kruheem_guest_chat_id");
+            if (!guestId) {
+                guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                localStorage.setItem("kruheem_guest_chat_id", guestId);
+            }
+            setChatId(guestId);
         } else if (user) {
             setChatId(user.uid);
         }
-    }, [user, loading]);
+    }, [user, loading, isHidden]);
 
     // 2. Listen to Messages & Chat Status
     useEffect(() => {

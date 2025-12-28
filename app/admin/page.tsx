@@ -4,6 +4,7 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where, orderBy, doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
+import TrafficChart from "./components/TrafficChart";
 
 
 export default function AdminDashboard() {
@@ -202,6 +203,49 @@ export default function AdminDashboard() {
 
         return { totalRevenue, totalStudents, monthlyData, courseData, maxMonthlyRevenue };
     }, [enrollments, selectedYear]);
+
+    const chartData = useMemo(() => {
+        let dataPoints: { label: string, value: number, fullLabel: string }[] = [];
+
+        if (trafficTimeRange === 'week' || trafficTimeRange === 'month') {
+            const daysCount = trafficTimeRange === 'week' ? 7 : 30;
+            for (let i = daysCount - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                // Use Asia/Bangkok time to match VisitorTracker
+                const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
+                dataPoints.push({
+                    label: d.toLocaleDateString('th-TH', { day: 'numeric', month: trafficTimeRange === 'week' ? 'short' : undefined }),
+                    value: dailyVisits[dateStr] || 0,
+                    fullLabel: d.toLocaleDateString('th-TH', { dateStyle: 'long' })
+                });
+            }
+        } else {
+            // Year View (Monthly Aggregation)
+            const currentYear = new Date().getFullYear();
+            const monthlyVisits: Record<string, number> = {};
+
+            // Aggregate visits by month
+            Object.keys(dailyVisits).forEach(date => {
+                const [y, m] = date.split('-');
+                if (parseInt(y) === currentYear) {
+                    const key = `${parseInt(m)}`;
+                    monthlyVisits[key] = (monthlyVisits[key] || 0) + dailyVisits[date];
+                }
+            });
+
+            for (let i = 0; i < 12; i++) {
+                const date = new Date(currentYear, i, 1);
+                const monthKey = `${i + 1}`;
+                dataPoints.push({
+                    label: date.toLocaleDateString('th-TH', { month: 'short' }),
+                    value: monthlyVisits[monthKey] || 0,
+                    fullLabel: date.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
+                });
+            }
+        }
+        return dataPoints;
+    }, [trafficTimeRange, dailyVisits]);
 
 
     if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
@@ -584,64 +628,8 @@ export default function AdminDashboard() {
                                         {trafficTimeRange === 'month' && "ยอดคนเข้าชม 30 วันล่าสุด"}
                                         {trafficTimeRange === 'year' && "ยอดคนเข้าชมรายเดือน (ปีนี้)"}
                                     </h4>
-                                    <div className="flex items-end gap-2 h-48 border-b border-stone-200 pb-2 overflow-x-auto">
-                                        {(() => {
-                                            let dataPoints: { label: string, value: number, fullLabel: string }[] = [];
-
-                                            if (trafficTimeRange === 'week' || trafficTimeRange === 'month') {
-                                                const daysCount = trafficTimeRange === 'week' ? 7 : 30;
-                                                for (let i = daysCount - 1; i >= 0; i--) {
-                                                    const d = new Date();
-                                                    d.setDate(d.getDate() - i);
-                                                    // Use Asia/Bangkok time to match VisitorTracker
-                                                    const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
-                                                    dataPoints.push({
-                                                        label: d.toLocaleDateString('th-TH', { day: 'numeric', month: trafficTimeRange === 'week' ? 'short' : undefined }),
-                                                        value: dailyVisits[dateStr] || 0,
-                                                        fullLabel: d.toLocaleDateString('th-TH', { dateStyle: 'long' })
-                                                    });
-                                                }
-                                            } else {
-                                                // Year View (Monthly Aggregation)
-                                                const currentYear = new Date().getFullYear();
-                                                const monthlyVisits: Record<string, number> = {};
-
-                                                // Aggregate visits by month
-                                                Object.keys(dailyVisits).forEach(date => {
-                                                    const [y, m] = date.split('-');
-                                                    if (parseInt(y) === currentYear) {
-                                                        const key = `${parseInt(m)}`;
-                                                        monthlyVisits[key] = (monthlyVisits[key] || 0) + dailyVisits[date];
-                                                    }
-                                                });
-
-                                                for (let i = 0; i < 12; i++) {
-                                                    const date = new Date(currentYear, i, 1);
-                                                    const monthKey = `${i + 1}`;
-                                                    dataPoints.push({
-                                                        label: date.toLocaleDateString('th-TH', { month: 'short' }),
-                                                        value: monthlyVisits[monthKey] || 0,
-                                                        fullLabel: date.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
-                                                    });
-                                                }
-                                            }
-
-                                            const maxVal = Math.max(...dataPoints.map(d => d.value), 10);
-
-                                            return dataPoints.map((point, idx) => {
-                                                const height = (point.value / maxVal) * 100;
-                                                return (
-                                                    <div key={idx} className="flex-1 flex flex-col items-center gap-1 group min-w-[20px]">
-                                                        <div className="relative w-full bg-sky-100 rounded-t-lg hover:bg-sky-200 transition-all duration-500" style={{ height: `${height}%` }}>
-                                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                                                {point.value} คน ({point.fullLabel})
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-[10px] text-stone-400 truncate w-full text-center">{point.label}</span>
-                                                    </div>
-                                                );
-                                            });
-                                        })()}
+                                    <div className="h-64 w-full">
+                                        <TrafficChart data={chartData} />
                                     </div>
                                 </div>
 
