@@ -80,12 +80,17 @@ export default function Navbar() {
             <div className="flex items-center gap-2 sm:gap-4">
                 <ModeToggle />
                 <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden md:block mx-1"></div>
-                <div className="hidden md:flex items-center">
+                <div className="hidden md:flex items-center gap-1">
+                    <Link href="/reviews" className="font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-2 px-3 py-2 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
+                        <Sparkles size={20} />
+                        <span className="hidden lg:inline">รีวิว</span>
+                    </Link>
                     <Link href="/how-to-apply" className="font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-2 px-3 py-2 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
                         <HelpCircle size={20} />
                         <span className="hidden lg:inline">วิธีสมัครเรียน</span>
                     </Link>
                 </div>
+
                 <button
                     onClick={handlePaymentClick}
                     className="hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm text-slate-700 dark:text-slate-200 bg-white/40 dark:bg-slate-800/40 border border-white/60 dark:border-slate-700 hover:bg-white/60 dark:hover:bg-slate-800/60 hover:border-white transition-all duration-300 hover:text-amber-700 dark:hover:text-amber-400 active:scale-95 hover:-translate-y-1"

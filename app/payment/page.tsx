@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, addDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, addDoc, where, updateDoc, doc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -35,6 +35,73 @@ export default function PaymentPage() {
     "ม.ปลาย (ม.4-6)": 4,
     "ม.ปลาย (คณิตเพิ่มเติม)": 4
   };
+
+  // Coupon State
+  const [couponCode, setCouponCode] = useState("");
+  const [discount, setDiscount] = useState<{ code: string, amount: number, type: string } | null>(null);
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+
+    try {
+      // 1. Query by Code first
+      const q = query(collection(db, "coupons"), where("code", "==", couponCode.toUpperCase()));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        alert("❌ ไม่พบโค้ดส่วนลดนี้");
+        setCouponCode("");
+        return;
+      }
+
+      const couponData = snapshot.docs[0].data();
+
+      // 2. Check if already used
+      if (couponData.isUsed) {
+        alert("❌ โค้ดนี้ถูกใช้งานไปแล้ว");
+        setCouponCode("");
+        return;
+      }
+
+      // Calculate Discount
+      let discountAmount = 0;
+      if (couponData.discountPercent) {
+        discountAmount = Math.floor((totalPrice * couponData.discountPercent) / 100);
+      } else if (couponData.discountAmount) {
+        discountAmount = couponData.discountAmount;
+      }
+
+      // Cap discount to not exceed total price
+      if (discountAmount > totalPrice) discountAmount = totalPrice;
+
+      setDiscount({
+        code: couponCode.toUpperCase(),
+        amount: discountAmount,
+        type: couponData.source || 'promo' // 'review_reward' or 'promo'
+      });
+
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      alert("เกิดข้อผิดพลาดในการตรวจสอบคูปอง");
+    }
+  };
+
+  const totalPrice = courses
+    .filter(course => selectedCourses.includes(course.id))
+    .reduce((sum, course) => sum + Number(course.price || 0), 0);
+
+  const finalPrice = discount ? Math.max(0, totalPrice - discount.amount) : totalPrice;
+
+  // Reset coupon if total price changes (e.g. course selection changes)
+  useEffect(() => {
+    if (discount) {
+      // Re-validate discount amount if it was percentage based, strictly speaking we should probably re-calc
+      // For simplicity, let's just reset to avoid edge cases where price drops below discount fixed amount or similar quirks
+      setDiscount(null);
+      setCouponCode("");
+    }
+  }, [selectedCourses]);
+
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -71,9 +138,7 @@ export default function PaymentPage() {
     }
   };
 
-  const totalPrice = courses
-    .filter(course => selectedCourses.includes(course.id))
-    .reduce((sum, course) => sum + Number(course.price || 0), 0);
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,6 +165,16 @@ export default function PaymentPage() {
 
       const promises = selectedCourses.map(async (courseId) => {
         const courseInfo = courses.find(c => c.id === courseId);
+        const price = Number(courseInfo?.price || 0);
+
+        // Calculate per-item discount (Weighted distribution)
+        let itemDiscount = 0;
+        if (discount && totalPrice > 0) {
+          const ratio = price / totalPrice;
+          itemDiscount = Math.floor(discount.amount * ratio);
+        }
+        const itemFinalPrice = Math.max(0, price - itemDiscount);
+
         return addDoc(collection(db, "enrollments"), {
           userId: user.uid,
           userName: fullName,
@@ -108,7 +183,10 @@ export default function PaymentPage() {
           userEmail: user.email,
           courseId: courseId,
           courseTitle: courseInfo?.title || "Unknown Course",
-          price: courseInfo?.price || 0,
+          price: price,
+          couponCode: discount?.code || null,
+          discountAmount: itemDiscount,
+          finalPrice: itemFinalPrice,
           slipUrl: downloadURL,
           status: "pending",
           createdAt: new Date()
@@ -116,6 +194,19 @@ export default function PaymentPage() {
       });
 
       await Promise.all(promises);
+
+      // ✅ Update Coupon Status to 'Used' immediately to prevent reuse
+      if (discount) {
+        const qCoupon = query(collection(db, "coupons"), where("code", "==", discount.code));
+        const couponSnap = await getDocs(qCoupon);
+        if (!couponSnap.empty) {
+          const couponDoc = couponSnap.docs[0];
+          await updateDoc(doc(db, "coupons", couponDoc.id), {
+            isUsed: true
+          });
+        }
+      }
+
       alert("✅ แจ้งโอนเงินเรียบร้อย! ข้อมูลถูกส่งไปยัง Admin แล้วครับ");
       router.push("/my-courses");
 
@@ -341,9 +432,61 @@ export default function PaymentPage() {
 
                 {/* Amount to Pay */}
                 <div className="mt-6 text-center">
-                  <div className="inline-flex flex-col items-center gap-2 px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl shadow-lg shadow-emerald-200">
-                    <span className="text-white/80 text-xs font-bold uppercase tracking-wider">ยอดที่ต้องชำระ</span>
-                    <span className="text-white font-black text-3xl tracking-tight">{totalPrice.toLocaleString()} บาท</span>
+                  <div className="flex flex-col gap-4 mb-4">
+                    {/* Coupon Input */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="กรอกโค้ดส่วนลด (ถ้ามี)"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        className="flex-1 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:font-normal"
+                        disabled={!!discount}
+                      />
+                      {discount ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDiscount(null);
+                            setCouponCode("");
+                          }}
+                          className="px-4 py-2 bg-red-100 text-red-500 font-bold rounded-xl hover:bg-red-200 transition"
+                        >
+                          ยกเลิก
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          className="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition"
+                          disabled={!couponCode.trim()}
+                        >
+                          ใช้โค้ด
+                        </button>
+                      )}
+                    </div>
+
+                    {discount && (
+                      <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex justify-between items-center text-emerald-700 animate-in fade-in slide-in-from-top-2">
+                        <span className="text-sm font-bold flex items-center gap-2">
+                          🏷️ ใช้โค้ดส่วนลด {discount.code}
+                        </span>
+                        <span className="font-black">- ฿{discount.amount.toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="inline-flex flex-col items-center gap-1 px-8 py-5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-[2rem] shadow-xl shadow-emerald-200 w-full relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+
+                    {discount && (
+                      <span className="text-emerald-100 text-sm font-bold line-through decoration-emerald-200/60 decoration-2">฿{totalPrice.toLocaleString()}</span>
+                    )}
+
+                    <span className="text-white/90 text-xs font-bold uppercase tracking-wider mb-1">ยอดที่ต้องชำระสุทธิ</span>
+                    <span className="text-white font-black text-4xl tracking-tight leading-none">
+                      {finalPrice.toLocaleString()} <span className="text-lg font-bold opacity-80">บาท</span>
+                    </span>
                   </div>
                 </div>
               </div>

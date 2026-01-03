@@ -9,8 +9,8 @@ import { ArrowLeft, MessageSquare, Paperclip, CheckCircle, Trash2, Clock, User, 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PollWidget from "@/components/PollWidget";
-
 import { useUserAuth } from "@/context/AuthContext";
+import ReviewForm from "@/app/reviews/ReviewForm";
 
 // --- Icons ---
 const PlayIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" /></svg>;
@@ -22,6 +22,8 @@ const LockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 2
 export default function MyCoursesPage() {
     const { user, userProfile, updateProfile, loading: authLoading, daysSinceLastActive } = useUserAuth();
     const [showProfileModal, setShowProfileModal] = useState(false);
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [reviewingCourse, setReviewingCourse] = useState<any>(null);
     const [editingName, setEditingName] = useState("");
     const [editingAvatar, setEditingAvatar] = useState("");
     const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -185,6 +187,10 @@ export default function MyCoursesPage() {
     // Flatten for initial state check if needed, or just use categories in render
     const ALL_AVATARS = Object.values(AVATAR_CATEGORIES).flat();
 
+    const [reviewedCourses, setReviewedCourses] = useState<Record<string, any>>({});
+
+    // ... existing useEffect ...
+
     useEffect(() => {
         if (!authLoading && !user) {
             router.push("/");
@@ -192,46 +198,77 @@ export default function MyCoursesPage() {
         }
 
         if (user) {
-            const fetchCourses = async () => {
+            const fetchCoursesAndReviews = async () => {
                 try {
-                    // 1. ดึงประวัติการสมัครทั้งหมดของ User นี้
+                    // 1. Fetch Enrollments
                     const qEnroll = query(collection(db, "enrollments"), where("userId", "==", user.uid));
                     const snapshotEnroll = await getDocs(qEnroll);
-
                     const userEnrollments = snapshotEnroll.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
-                    // 2. ดึงข้อมูลคอร์สมาเทียบ
+                    // 2. Fetch Reviews by this User
+                    const qReviews = query(collection(db, "reviews"), where("userId", "==", user.uid));
+                    const snapshotReviews = await getDocs(qReviews);
+
+                    // 3. Fetch Coupons
+                    const qCoupons = query(collection(db, "coupons"), where("userId", "==", user.uid));
+                    const snapshotCoupons = await getDocs(qCoupons);
+                    // Sort client-side to avoid creating a new composite index
+                    const coupons = snapshotCoupons.docs
+                        .map(d => d.data())
+                        .sort((a: any, b: any) => {
+                            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                            return dateB.getTime() - dateA.getTime();
+                        });
+
+                    // Sort reviews by date descending to match coupons 1:1
+                    const reviews = snapshotReviews.docs
+                        .map(d => d.data())
+                        .sort((a: any, b: any) => {
+                            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                            return dateB.getTime() - dateA.getTime();
+                        });
+
+                    const reviewsMap: Record<string, any> = {};
+                    reviews.forEach((review, index) => {
+                        if (review.courseId) {
+                            // Try to map 1:1 with sorted coupons
+                            const coupon = coupons[index];
+
+                            const couponCode = coupon ? coupon.code : "ReviewReward";
+                            const isCouponUsed = coupon ? coupon.isUsed : false;
+
+                            reviewsMap[review.courseId] = { ...review, couponCode, isCouponUsed };
+                        }
+                    });
+                    setReviewedCourses(reviewsMap);
+
+                    // 4. Fetch Courses
                     const qCourses = query(collection(db, "courses"));
                     const snapshotCourses = await getDocs(qCourses);
 
                     const coursesData = snapshotCourses.docs.map(doc => {
                         const courseData = doc.data();
-
-                        // หา Enrollment ที่ตรงกับคอร์สนี้ (ถ้ามี)
                         const enrollment = userEnrollments.find((e: any) => e.courseId === doc.id);
-
                         return {
                             id: doc.id,
                             ...courseData,
-                            status: enrollment ? enrollment.status : null, // approved, pending, suspended, rejected
-                            enrollmentId: enrollment ? enrollment.id : null, // เก็บ ID ใบสมัครไว้ใช้แก้
+                            status: enrollment ? enrollment.status : null,
+                            enrollmentId: enrollment ? enrollment.id : null,
                             expiryDate: enrollment ? enrollment.expiryDate : null,
                             accessType: enrollment ? enrollment.accessType : null
                         };
                     });
 
-                    // กรองเอาเฉพาะคอร์สที่ User มีส่วนเกี่ยวข้อง
                     const myCourses = coursesData.filter((c: any) => c.status);
                     setEnrolledCourses(myCourses);
-                    setAllCourses(coursesData); // เก็บข้อมูลคอร์สทั้งหมดไว้สำหรับค้นหา
+                    setAllCourses(coursesData);
 
-                    // 3. Fetch All Lessons for Smart Search (Lazy fetch could be better, but for now fetch all)
+                    // 5. Fetch Lessons
                     const lessonsQuery = query(collectionGroup(db, "lessons"));
                     const lessonsSnapshot = await getDocs(lessonsQuery);
                     const lessons = lessonsSnapshot.docs.map(doc => {
-                        // Hacky way to get courseId from ref parent
-                        // ref.parent is "lessons" collection
-                        // ref.parent.parent is "courses/{courseId}" doc
                         const courseId = doc.ref.parent.parent?.id;
                         return {
                             id: doc.id,
@@ -247,7 +284,7 @@ export default function MyCoursesPage() {
                     setLoading(false);
                 }
             };
-            fetchCourses();
+            fetchCoursesAndReviews();
             fetchUserTickets();
         }
     }, [user, authLoading, router]);
@@ -698,6 +735,8 @@ export default function MyCoursesPage() {
                             )}
                         </div>
 
+
+
                     </div>
 
                     <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-3">
@@ -801,9 +840,39 @@ export default function MyCoursesPage() {
                                                                     }
 
                                                                     return (
-                                                                        <Link href={`/learn/${course.id}`} className="w-full py-3 rounded-xl bg-[#D9E9CF] hover:bg-[#C8DDBB] text-emerald-800 font-bold flex items-center justify-center gap-2 transition shadow-sm">
-                                                                            <PlayIcon /> เข้าเรียน
-                                                                        </Link>
+                                                                        <div className="flex flex-col gap-2 w-full">
+                                                                            <Link href={`/learn/${course.id}`} className="w-full py-3 rounded-xl bg-[#D9E9CF] hover:bg-[#C8DDBB] text-emerald-800 font-bold flex items-center justify-center gap-2 transition shadow-sm">
+                                                                                <PlayIcon /> เข้าเรียน
+                                                                            </Link>
+                                                                            {reviewedCourses[course.id] ? (
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setReviewingCourse({
+                                                                                            ...course,
+                                                                                            initialCouponCode: reviewedCourses[course.id].couponCode,
+                                                                                            isCouponUsed: reviewedCourses[course.id].isCouponUsed
+                                                                                        });
+                                                                                        setShowReviewModal(true);
+                                                                                    }}
+                                                                                    className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition shadow-sm border ${reviewedCourses[course.id].isCouponUsed
+                                                                                        ? "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
+                                                                                        : "bg-violet-100 text-violet-700 border-violet-200 hover:bg-violet-200"
+                                                                                        }`}
+                                                                                >
+                                                                                    {reviewedCourses[course.id].isCouponUsed ? "✔️ ใช้โค้ดแล้ว" : "🎟️ ดูโค้ดส่วนลด"}
+                                                                                </button>
+                                                                            ) : (
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setReviewingCourse(course);
+                                                                                        setShowReviewModal(true);
+                                                                                    }}
+                                                                                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-100 to-orange-100 text-orange-800 font-bold text-sm flex items-center justify-center gap-2 hover:from-amber-200 hover:to-orange-200 transition shadow-sm border border-orange-200/50"
+                                                                                >
+                                                                                    🎁 รีวิวรับคูปอง
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
                                                                     );
                                                                 })()}
                                                             </>
@@ -843,162 +912,195 @@ export default function MyCoursesPage() {
             </div>
 
             {/* ✅ Profile Edit Modal */}
-            {showProfileModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowProfileModal(false)}></div>
-                    <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-lg relative z-10 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
-                        <button
-                            onClick={() => setShowProfileModal(false)}
-                            className="absolute top-6 right-6 w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition"
-                        >
-                            ✕
-                        </button>
-
-                        <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">สร้างอวตารของคุณ</h2>
-
-                        <div className="space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                            {/* Avatar Selection */}
-                            <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-3">เลือกตัวละครที่ชอบ</label>
-                                <div className="space-y-6">
-                                    {Object.entries(AVATAR_CATEGORIES).map(([category, avatars]) => (
-                                        <div key={category}>
-                                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{category}</h3>
-                                            <div className="grid grid-cols-5 gap-3">
-                                                {avatars.map((avatar) => (
-                                                    <button
-                                                        key={avatar}
-                                                        onClick={() => setEditingAvatar(avatar)}
-                                                        className={`aspect-square rounded-2xl flex items-center justify-center text-3xl transition-all ${editingAvatar === avatar ? 'bg-indigo-100 border-2 border-indigo-500 scale-110 shadow-md' : 'bg-slate-50 hover:bg-slate-100 border border-transparent hover:scale-105'}`}
-                                                    >
-                                                        {avatar}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Name Input */}
-                            <div className="pt-4 border-t border-slate-100">
-                                <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อเล่นของคุณ</label>
-                                <input
-                                    type="text"
-                                    value={editingName}
-                                    onChange={(e) => setEditingName(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 text-center text-lg placeholder:font-normal"
-                                    placeholder="เช่น น้องภู, น้องมีนา"
-                                />
-                            </div>
-
+            {
+                showProfileModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowProfileModal(false)}></div>
+                        <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-lg relative z-10 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
                             <button
-                                onClick={handleSaveProfile}
-                                disabled={isSavingProfile}
-                                className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xl shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                onClick={() => setShowProfileModal(false)}
+                                className="absolute top-6 right-6 w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition"
                             >
-                                {isSavingProfile ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+                                ✕
                             </button>
+
+                            <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">สร้างอวตารของคุณ</h2>
+
+                            <div className="space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                                {/* Avatar Selection */}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-3">เลือกตัวละครที่ชอบ</label>
+                                    <div className="space-y-6">
+                                        {Object.entries(AVATAR_CATEGORIES).map(([category, avatars]) => (
+                                            <div key={category}>
+                                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{category}</h3>
+                                                <div className="grid grid-cols-5 gap-3">
+                                                    {avatars.map((avatar) => (
+                                                        <button
+                                                            key={avatar}
+                                                            onClick={() => setEditingAvatar(avatar)}
+                                                            className={`aspect-square rounded-2xl flex items-center justify-center text-3xl transition-all ${editingAvatar === avatar ? 'bg-indigo-100 border-2 border-indigo-500 scale-110 shadow-md' : 'bg-slate-50 hover:bg-slate-100 border border-transparent hover:scale-105'}`}
+                                                        >
+                                                            {avatar}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Name Input */}
+                                <div className="pt-4 border-t border-slate-100">
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อเล่นของคุณ</label>
+                                    <input
+                                        type="text"
+                                        value={editingName}
+                                        onChange={(e) => setEditingName(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 text-center text-lg placeholder:font-normal"
+                                        placeholder="เช่น น้องภู, น้องมีนา"
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={handleSaveProfile}
+                                    disabled={isSavingProfile}
+                                    className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xl shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    {isSavingProfile ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
             {/* ✅ Chat Modal (User Side) */}
-            {selectedTicket && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedTicket(null)}></div>
-                    <div className="bg-white rounded-[2rem] w-full max-w-lg h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative z-10">
-                        {/* Modal Header */}
-                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <div>
-                                <h3 className="font-bold text-slate-800 truncate max-w-[200px]">{selectedTicket.subject}</h3>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${selectedTicket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>
-                                    {selectedTicket.status === 'resolved' ? 'แก้ไขแล้ว' : 'รอตรวจสอบ'}
-                                </span>
-                            </div>
-                            <button onClick={() => setSelectedTicket(null)} className="p-2 hover:bg-slate-200 rounded-full transition">
-                                <X size={20} className="text-slate-500" />
-                            </button>
-                        </div>
-
-                        {/* Chat Area */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 custom-scrollbar">
-                            {/* Original Ticket Message */}
-                            <div className="flex justify-end">
-                                <div className="bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[85%] shadow-sm">
-                                    <p className="text-sm">{selectedTicket.message}</p>
-                                    {selectedTicket.attachmentUrl && (
-                                        <a href={selectedTicket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-200 bg-indigo-700/50 px-2 py-1 rounded-lg hover:bg-indigo-700 transition">
-                                            <Paperclip size={12} /> ไฟล์แนบ
-                                        </a>
-                                    )}
-                                    <span className="text-[10px] text-indigo-200 block mt-1 text-right">
-                                        {selectedTicket.createdAt?.toDate ? selectedTicket.createdAt.toDate().toLocaleString('th-TH') : 'เริ่มต้น'}
+            {
+                selectedTicket && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedTicket(null)}></div>
+                        <div className="bg-white rounded-[2rem] w-full max-w-lg h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative z-10">
+                            {/* Modal Header */}
+                            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                <div>
+                                    <h3 className="font-bold text-slate-800 truncate max-w-[200px]">{selectedTicket.subject}</h3>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${selectedTicket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>
+                                        {selectedTicket.status === 'resolved' ? 'แก้ไขแล้ว' : 'รอตรวจสอบ'}
                                     </span>
                                 </div>
+                                <button onClick={() => setSelectedTicket(null)} className="p-2 hover:bg-slate-200 rounded-full transition">
+                                    <X size={20} className="text-slate-500" />
+                                </button>
                             </div>
 
-                            {/* Conversation */}
-                            {messages.map((msg) => (
-                                <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`p-3 rounded-2xl max-w-[85%] shadow-sm ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-100 text-slate-700 rounded-tl-none'}`}>
-                                        <p className="text-sm">{msg.text}</p>
-                                        {msg.attachmentUrl && (
-                                            <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className={`mt-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg ${msg.sender === 'user' ? 'bg-indigo-700/50 text-indigo-100 hover:bg-indigo-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
+                            {/* Chat Area */}
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 custom-scrollbar">
+                                {/* Original Ticket Message */}
+                                <div className="flex justify-end">
+                                    <div className="bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[85%] shadow-sm">
+                                        <p className="text-sm">{selectedTicket.message}</p>
+                                        {selectedTicket.attachmentUrl && (
+                                            <a href={selectedTicket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-200 bg-indigo-700/50 px-2 py-1 rounded-lg hover:bg-indigo-700 transition">
                                                 <Paperclip size={12} /> ไฟล์แนบ
                                             </a>
                                         )}
-                                        <div className={`flex items-center gap-1 mt-1 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                            <span className={`text-[10px] ${msg.sender === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                                {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleString('th-TH') : 'เมื่อสักครู่'}
-                                            </span>
-                                            {msg.sender === 'user' && (
-                                                <span className="text-[10px] ml-1 font-bold">
-                                                    {selectedTicket.lastAdminReadAt?.toDate && msg.createdAt?.toDate && selectedTicket.lastAdminReadAt.toDate() > msg.createdAt.toDate() ? (
-                                                        <span className="text-green-300">อ่านแล้ว</span>
-                                                    ) : (
-                                                        <span className="text-indigo-300">ยังไม่อ่าน</span>
-                                                    )}
-                                                </span>
-                                            )}
-                                        </div>
+                                        <span className="text-[10px] text-indigo-200 block mt-1 text-right">
+                                            {selectedTicket.createdAt?.toDate ? selectedTicket.createdAt.toDate().toLocaleString('th-TH') : 'เริ่มต้น'}
+                                        </span>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
 
-                        {/* Input Area */}
-                        <form onSubmit={handleSendReply} className="p-4 bg-white border-t border-slate-100 flex gap-2 items-end">
-                            <label className="p-3 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer transition">
-                                <Paperclip size={20} />
-                                <input type="file" className="hidden" onChange={(e) => setReplyFile(e.target.files?.[0] || null)} />
-                            </label>
-                            <div className="flex-1 flex flex-col gap-2">
-                                {replyFile && (
-                                    <div className="flex items-center justify-between bg-indigo-50 px-3 py-1 rounded-lg text-xs text-indigo-600">
-                                        <span className="truncate max-w-[200px]">{replyFile.name}</span>
-                                        <button type="button" onClick={() => setReplyFile(null)} className="hover:text-indigo-800"><X size={14} /></button>
+                                {/* Conversation */}
+                                {messages.map((msg) => (
+                                    <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`p-3 rounded-2xl max-w-[85%] shadow-sm ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-100 text-slate-700 rounded-tl-none'}`}>
+                                            <p className="text-sm">{msg.text}</p>
+                                            {msg.attachmentUrl && (
+                                                <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className={`mt-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg ${msg.sender === 'user' ? 'bg-indigo-700/50 text-indigo-100 hover:bg-indigo-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
+                                                    <Paperclip size={12} /> ไฟล์แนบ
+                                                </a>
+                                            )}
+                                            <div className={`flex items-center gap-1 mt-1 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                                <span className={`text-[10px] ${msg.sender === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                                    {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleString('th-TH') : 'เมื่อสักครู่'}
+                                                </span>
+                                                {msg.sender === 'user' && (
+                                                    <span className="text-[10px] ml-1 font-bold">
+                                                        {selectedTicket.lastAdminReadAt?.toDate && msg.createdAt?.toDate && selectedTicket.lastAdminReadAt.toDate() > msg.createdAt.toDate() ? (
+                                                            <span className="text-green-300">อ่านแล้ว</span>
+                                                        ) : (
+                                                            <span className="text-indigo-300">ยังไม่อ่าน</span>
+                                                        )}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
-                                <input
-                                    type="text"
-                                    value={replyText}
-                                    onChange={(e) => setReplyText(e.target.value)}
-                                    placeholder="พิมพ์ข้อความ..."
-                                    className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none transition"
-                                />
+                                ))}
                             </div>
-                            <button
-                                type="submit"
-                                disabled={isSendingReply || (!replyText.trim() && !replyFile)}
-                                className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-indigo-200"
-                            >
-                                <Send size={20} />
-                            </button>
-                        </form>
+
+                            {/* Input Area */}
+                            <form onSubmit={handleSendReply} className="p-4 bg-white border-t border-slate-100 flex gap-2 items-end">
+                                <label className="p-3 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer transition">
+                                    <Paperclip size={20} />
+                                    <input type="file" className="hidden" onChange={(e) => setReplyFile(e.target.files?.[0] || null)} />
+                                </label>
+                                <div className="flex-1 flex flex-col gap-2">
+                                    {replyFile && (
+                                        <div className="flex items-center justify-between bg-indigo-50 px-3 py-1 rounded-lg text-xs text-indigo-600">
+                                            <span className="truncate max-w-[200px]">{replyFile.name}</span>
+                                            <button type="button" onClick={() => setReplyFile(null)} className="hover:text-indigo-800"><X size={14} /></button>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="text"
+                                        value={replyText}
+                                        onChange={(e) => setReplyText(e.target.value)}
+                                        placeholder="พิมพ์ข้อความ..."
+                                        className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={isSendingReply || (!replyText.trim() && !replyFile)}
+                                    className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-indigo-200"
+                                >
+                                    <Send size={20} />
+                                </button>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+
+            {/* ✅ Review Modal */}
+            {
+                showReviewModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowReviewModal(false)}></div>
+                        <div className="relative z-10 w-full max-w-lg animate-in fade-in zoom-in-95 duration-300">
+                            {/* We wrap ReviewForm and add a close button */}
+                            <div className="relative">
+                                <ReviewForm
+                                    courseId={reviewingCourse?.id}
+                                    courseName={reviewingCourse?.title}
+                                    initialCouponCode={reviewingCourse?.initialCouponCode}
+                                    isCouponUsed={reviewingCourse?.isCouponUsed}
+                                />
+                                <button
+                                    onClick={() => {
+                                        setShowReviewModal(false);
+                                        setReviewingCourse(null);
+                                    }}
+                                    className="absolute top-4 right-4 bg-white text-slate-800 w-10 h-10 rounded-full flex items-center justify-center transition shadow-lg hover:scale-110 active:scale-90 z-50 border-2 border-slate-100"
+                                >
+                                    <X size={24} strokeWidth={2.5} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 }

@@ -357,6 +357,7 @@ export default function AdminDashboard() {
                         </Link>
 
                         {/* 8. ถาม-ตอบ / แจ้งปัญหา (Cyan Gradient) */}
+                        {/* 8. ถาม-ตอบ / แจ้งปัญหา (Cyan Gradient) */}
                         <Link href="/admin/support" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
                             <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
                             <div className="flex justify-between items-start mb-4 relative z-10">
@@ -371,7 +372,15 @@ export default function AdminDashboard() {
                             <p className="text-sm text-blue-800/60 mt-1 relative z-10">ระบบตั๋วแจ้งซ่อม/ปัญหา</p>
                         </Link>
 
-                        {/* 8. Polls (Indigo Gradient) */}
+                        {/* 9. จัดการรีวิว (Fuchsia Gradient) */}
+                        <Link href="/admin/reviews" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-fuchsia-100 to-purple-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">⭐</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-purple-900/80 group-hover:text-purple-900 relative z-10">จัดการรีวิว</h3>
+                            <p className="text-sm text-purple-800/60 mt-1 relative z-10">ซ่อน/ลบ รีวิวที่ไม่เหมาะสม</p>
+                        </Link>
 
 
 

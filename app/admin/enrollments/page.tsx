@@ -74,6 +74,27 @@ export default function AdminEnrollmentsPage() {
                 expiryDate: expiryDate,
                 accessType: accessType
             });
+
+            // ✅ Update Coupon Usage Logic
+            const enrollment = enrollments.find(e => e.id === id);
+            if (enrollment && enrollment.couponCode) {
+                try {
+                    const qCoupon = query(collection(db, "coupons"), where("code", "==", enrollment.couponCode));
+                    const couponSnap = await getDocs(qCoupon);
+
+                    if (!couponSnap.empty) {
+                        const couponDoc = couponSnap.docs[0];
+                        await updateDoc(doc(db, "coupons", couponDoc.id), {
+                            usedCount: (couponDoc.data().usedCount || 0) + 1,
+                            isUsed: true // Mark as used for single-use coupons (review rewards)
+                        });
+                        console.log(`Updated usage for coupon ${enrollment.couponCode}`);
+                    }
+                } catch (couponError) {
+                    console.error("Error updating coupon stats:", couponError);
+                    // Don't block approval if coupon update fails, just log it
+                }
+            }
             alert("✅ อนุมัติเรียบร้อย! (กำหนดเวลาเรียน 5 ปี)");
             fetchData(); // รีโหลดข้อมูล
         } catch (error) {
@@ -127,7 +148,18 @@ export default function AdminEnrollmentsPage() {
                                 <div className="flex-1 flex flex-col justify-center">
                                     <div>
                                         <h2 className="text-2xl font-black text-indigo-900 mb-1">{item.courseTitle}</h2>
-                                        <div className="text-3xl font-black text-slate-800 mb-4">฿{item.price?.toLocaleString()}</div>
+
+                                        {/* Price Display */}
+                                        <div className="mb-4">
+                                            {item.discountAmount > 0 ? (
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm text-slate-400 line-through font-bold">฿{item.price?.toLocaleString()}</span>
+                                                    <span className="text-3xl font-black text-emerald-600">฿{item.finalPrice?.toLocaleString()}</span>
+                                                </div>
+                                            ) : (
+                                                <div className="text-3xl font-black text-slate-800">฿{item.price?.toLocaleString()}</div>
+                                            )}
+                                        </div>
                                         <span className="inline-block bg-yellow-100 text-yellow-700 px-3 py-1 rounded-lg text-xs font-bold mb-6">⏳ รอตรวจสอบสลิป</span>
                                     </div>
 
@@ -160,22 +192,22 @@ export default function AdminEnrollmentsPage() {
                                         </div>
                                     </div>
 
-                                    {/* ปุ่มจัดการ */}
                                     <div className="flex flex-col gap-3">
-                                        {/* Hidden Duration Selector (Default 5 Years) */}
-                                        {/* <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-slate-200">
-                                            <span className="text-xs font-bold text-slate-500 pl-2">ระยะเวลาเรียน:</span>
-                                            <select
-                                                className="flex-1 bg-transparent font-bold text-slate-700 outline-none text-sm"
-                                                value={selectedDurations[item.id] || "5_years"}
-                                                onChange={(e) => setSelectedDurations(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                            >
-                                                <option value="1_year">1 ปี</option>
-                                                <option value="3_years">3 ปี</option>
-                                                <option value="5_years">5 ปี (ค่าเริ่มต้น)</option>
-                                                <option value="lifetime">ตลอดชีพ</option>
-                                            </select>
-                                        </div> */}
+                                        {/* Coupon Display Section */}
+                                        {item.couponCode && (
+                                            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex justify-between items-center mb-2">
+                                                <div>
+                                                    <div className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                                                        <span className="text-lg">🎟️</span> ใช้คูปองส่วนลด
+                                                    </div>
+                                                    <div className="font-black text-emerald-800 text-lg">{item.couponCode}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-xs text-emerald-500 font-bold">ส่วนลด</div>
+                                                    <div className="font-black text-emerald-600">-฿{item.discountAmount?.toLocaleString()}</div>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         <div className="flex gap-3">
                                             <button
