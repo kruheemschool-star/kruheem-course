@@ -856,10 +856,10 @@ export default function CoursePlayer() {
                                                                 </p>
                                                                 <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
                                                                     {lesson.type === 'quiz' ? <QuestionIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : lesson.type === 'flashcard' ? <FlashcardIcon /> : <PlayIcon />}
-                                                                    <span>{lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'exercise' ? 'Exercise' : lesson.type === 'html' ? 'สรุป' : lesson.type === 'flashcard' ? 'Flashcard' : 'Reading'}</span>
+                                                                    <span>{lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'exercise' ? 'Exercise' : lesson.type === 'html' ? 'ตะลุยโจทย์ (Exam)' : lesson.type === 'flashcard' ? 'Flashcard' : 'Reading'}</span>
                                                                 </div>
                                                             </div>
-                                                            {!isUnlocked && <span className="ml-auto text-xs">🔒</span>}
+                                                            {(!isUnlocked || (lesson.type === 'html' && !isEnrolled && !isAdmin)) && <span className="ml-auto text-xs">🔒</span>}
                                                         </button>
                                                     );
                                                 })}
@@ -987,22 +987,38 @@ export default function CoursePlayer() {
                                 </div>
                             </div>
                         ) : activeLesson?.type === 'html' ? (
-                            (() => {
-                                const examQuestions = tryParseQuestions(activeLesson.content || "");
-                                if (examQuestions) {
-                                    return <ExamRunner questions={examQuestions} onComplete={() => markAsComplete(activeLesson.id)} />;
-                                }
-                                return (
-                                    <div className="w-full min-h-full bg-white">
-                                        <iframe
-                                            srcDoc={activeLesson.htmlCode || activeLesson.content || ""}
-                                            className="w-full min-h-[calc(100dvh-5rem)] border-0"
-                                            title="Lesson Content"
-                                            sandbox="allow-scripts allow-same-origin"
-                                        />
+                            !isEnrolled && !isAdmin ? (
+                                <div className="w-full min-h-[60vh] flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-500">
+                                    <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-12 h-12 text-red-500"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
                                     </div>
-                                );
-                            })()
+                                    <h2 className="text-3xl font-black text-slate-800 mb-4">สงวนสิทธิ์สำหรับนักเรียนในคอร์ส</h2>
+                                    <p className="text-slate-500 text-lg mb-8 max-w-md">
+                                        เนื้อหา "ตะลุยโจทย์" (Exam Mode) สงวนสิทธิ์เฉพาะผู้ที่ลงทะเบียนเรียนแล้วเท่านั้นครับ
+                                    </p>
+                                    <a href={`/course/${courseId}`} className="px-8 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-lg shadow-lg hover:scale-105 hover:shadow-xl transition-all flex items-center gap-2">
+                                        <span>👉</span>
+                                        <span>สมัครเรียนคอร์สนี้</span>
+                                    </a>
+                                </div>
+                            ) : (
+                                (() => {
+                                    const examQuestions = tryParseQuestions(activeLesson.content || "");
+                                    if (examQuestions) {
+                                        return <ExamRunner questions={examQuestions} onComplete={() => markAsComplete(activeLesson.id)} />;
+                                    }
+                                    return (
+                                        <div className="w-full min-h-full bg-white">
+                                            <iframe
+                                                srcDoc={activeLesson.htmlCode || activeLesson.content || ""}
+                                                className="w-full min-h-[calc(100dvh-5rem)] border-0"
+                                                title="Lesson Content"
+                                                sandbox="allow-scripts allow-same-origin"
+                                            />
+                                        </div>
+                                    );
+                                })()
+                            )
                         ) : activeLesson?.type === 'flashcard' ? (
                             <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
                                 <div className="w-full max-w-4xl">
