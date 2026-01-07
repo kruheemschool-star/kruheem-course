@@ -7,7 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
-import { Plus, Trash2, FileJson, Blocks, AlertCircle, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, FileJson, Blocks, AlertCircle, Image as ImageIcon, Copy } from 'lucide-react';
 
 
 // --- Icons (Updated for Clarity) ---
@@ -1003,24 +1003,142 @@ export default function ManageLessonsPage() {
                                                         </div>
                                                     )}
 
-                                                    {smartExamBlocks.map((block, idx) => (
-                                                        <div key={idx} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden group hover:border-cyan-300 transition-colors">
-                                                            <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex items-center justify-between">
-                                                                <span className="text-xs font-bold text-slate-500">ข้อที่ {idx + 1}</span>
-                                                                <button type="button" onClick={() => deleteSmartQuestion(idx)} className="text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={14} /></button>
+                                                    <div className="space-y-4">
+                                                        {/* Tools Bar */}
+                                                        <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-100 p-3 rounded-xl border border-slate-200">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="px-3 py-1 bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold flex items-center gap-1">
+                                                                    <FileJson size={14} />
+                                                                    JSON Mode
+                                                                </div>
+                                                                <span className="text-xs text-slate-400">|</span>
+                                                                <span className="text-xs text-slate-500">
+                                                                    {smartExamBlocks.length} ข้อ
+                                                                </span>
                                                             </div>
-                                                            <textarea
-                                                                value={block}
-                                                                onChange={(e) => updateSmartBlock(idx, e.target.value)}
-                                                                className="w-full h-40 p-4 text-sm font-mono text-slate-700 outline-none resize-y"
-                                                                spellCheck="false"
-                                                            />
-                                                        </div>
-                                                    ))}
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        try {
+                                                                            // Attempt Auto-Fix Logic (Mimicking Exam Hub)
+                                                                            let currentText = htmlCode;
 
-                                                    <button type="button" onClick={addSmartQuestion} className="w-full py-3 border-2 border-dashed border-cyan-300 bg-cyan-50 hover:bg-cyan-100 text-cyan-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors">
-                                                        <Plus size={18} /> เพิ่มข้อสอบใหม่
-                                                    </button>
+                                                                            // 1. Basic cleanup
+                                                                            currentText = currentText
+                                                                                .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+                                                                                .replace(/[\u2018\u2019]/g, "'")
+                                                                                .replace(/[\t]/g, "  ")
+                                                                                // eslint-disable-next-line no-control-regex
+                                                                                .replace(/[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "");
+
+                                                                            // 2. Fix Trailing Commas
+                                                                            currentText = currentText.replace(/,(\s*[}\]])/g, '$1');
+
+                                                                            // 3. Fix Unquoted Keys
+                                                                            currentText = currentText.replace(/([{,]\s*)([a-zA-Z0-9_]+?)\s*:/g, '$1"$2":');
+
+                                                                            // 4. Validate
+                                                                            const parsed = JSON.parse(currentText);
+
+                                                                            // Update State
+                                                                            const formatted = JSON.stringify(parsed, null, 2);
+                                                                            setHtmlCode(formatted);
+                                                                            if (Array.isArray(parsed)) {
+                                                                                setSmartExamBlocks(parsed.map(q => JSON.stringify(q, null, 2)));
+                                                                            }
+                                                                            showToast("✅ ตรวจสอบและแก้ไข JSON เรียบร้อย", "success");
+                                                                        } catch (e: any) {
+                                                                            alert(`❌ แก้ไขไม่สำเร็จ: ${e.message}`);
+                                                                        }
+                                                                    }}
+                                                                    className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                                                >
+                                                                    ✨ ตรวจสอบและจัดรูปแบบ (Auto Fix)
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const template = `[
+  {
+    "question": "โจทย์ข้อที่ 1",
+    "options": ["ตัวเลือก A", "ตัวเลือก B", "ตัวเลือก C", "ตัวเลือก D"],
+    "correctAnswer": 0,
+    "explanation": "คำอธิบายเฉลย"
+  }
+]`;
+                                                                        setHtmlCode(template);
+                                                                        setSmartExamBlocks([JSON.stringify(JSON.parse(template)[0], null, 2)]);
+                                                                    }}
+                                                                    className="px-3 py-1.5 bg-slate-200 text-slate-600 hover:bg-slate-300 rounded-lg text-xs font-bold transition"
+                                                                >
+                                                                    ตัวอย่าง
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Warning for Direct Edits */}
+                                                        <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex gap-3 text-xs text-amber-800">
+                                                            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                                                            <p>
+                                                                การแก้ไขในช่องด้านล่างแต่ละช่อง จะซิงค์ไปยัง JSON หลักโดยอัตโนมัติ
+                                                                หากคุณต้องการแก้ไขแบบละเอียดให้ใช้ปุ่ม "ตรวจสอบและจัดรูปแบบ"
+                                                            </p>
+                                                        </div>
+
+                                                        {smartExamBlocks.map((block, idx) => (
+                                                            <div key={idx} className="bg-white rounded-xl border-2 border-slate-100 shadow-sm overflow-hidden group hover:border-indigo-300 transition-all duration-200">
+                                                                <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold">{idx + 1}</span>
+                                                                        <span className="text-xs font-bold text-slate-500">Question Block</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const newBlocks = [...smartExamBlocks];
+                                                                                // Duplicate
+                                                                                newBlocks.splice(idx + 1, 0, block);
+                                                                                setSmartExamBlocks(newBlocks);
+                                                                                setHtmlCode(`[\n${newBlocks.join(',\n')}\n]`);
+                                                                            }}
+                                                                            className="text-slate-400 hover:text-indigo-500 transition-colors"
+                                                                            title="ทำซ้ำ"
+                                                                        >
+                                                                            <Copy size={14} />
+                                                                        </button>
+                                                                        <button type="button" onClick={() => deleteSmartQuestion(idx)} className="text-slate-400 hover:text-rose-500 transition-colors" title="ลบ"><Trash2 size={14} /></button>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="relative">
+                                                                    <textarea
+                                                                        value={block}
+                                                                        onChange={(e) => updateSmartBlock(idx, e.target.value)}
+                                                                        className="w-full h-48 p-4 text-sm font-mono text-slate-700 bg-white outline-none resize-y leading-relaxed focus:bg-indigo-50/10 transition-colors"
+                                                                        spellCheck="false"
+                                                                    />
+                                                                    <div className="absolute bottom-2 right-2 text-[10px] text-slate-300 pointer-events-none font-sans border border-slate-100 px-2 py-0.5 rounded bg-white">
+                                                                        JSON Object
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+
+                                                        <button type="button" onClick={addSmartQuestion} className="w-full py-4 border-2 border-dashed border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-500 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors hover:shadow-sm">
+                                                            <Plus size={20} /> เพิ่มข้อสอบข้อใหม่ (Add Question)
+                                                        </button>
+
+                                                        {/* Raw JSON Toggle (Optional) */}
+                                                        <details className="mt-4">
+                                                            <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600 transition w-max">แสดงโค้ดรวม (Raw Final JSON)</summary>
+                                                            <textarea
+                                                                value={htmlCode}
+                                                                readOnly
+                                                                className="w-full h-32 mt-2 p-3 bg-slate-100 text-slate-500 text-xs font-mono rounded-xl outline-none"
+                                                            />
+                                                        </details>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>

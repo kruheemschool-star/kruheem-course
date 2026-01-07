@@ -9,9 +9,10 @@ interface ExamSystemProps {
     examData: ExamQuestion[];
     examTitle: string;
     initialQuestionIndex?: number;
+    onComplete?: (score: number, total: number) => void;
 }
 
-export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, initialQuestionIndex = 0 }) => {
+export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, initialQuestionIndex = 0, onComplete }) => {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
     const [answers, setAnswers] = useState<Record<number, number>>({});
     const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({}); // ข้อที่กดตรวจแล้ว
@@ -58,6 +59,15 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         for (let i = 0; i < totalQuestions; i++) allChecked[i] = true;
         setCheckedQuestions(allChecked);
         setIsFinished(true);
+
+        // Notify parent
+        if (onComplete) {
+            let score = 0;
+            examData.forEach((q, index) => {
+                if (answers[index] === q.correctIndex) score++;
+            });
+            onComplete(score, totalQuestions);
+        }
     };
 
     const handleRestart = () => {
