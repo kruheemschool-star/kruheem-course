@@ -358,13 +358,21 @@ export default function CoursePlayer() {
         else setOpenSections([...openSections, headerId]);
     };
 
-    // ✅ Group lessons by header (Robust Logic matching Admin)
+    // ✅ Separate Exam Lessons (For Prominent Display)
+    const examLessons = useMemo(() => {
+        return visibleLessons.filter(l => l.type === 'html' && (l.htmlCode?.trim().startsWith('[') || l.htmlCode?.trim().startsWith('{')));
+    }, [visibleLessons]);
+
+    // ✅ Group lessons by header (Exclude Exams from main list)
     const groupedLessons = useMemo(() => {
-        const headers = visibleLessons.filter(l => l.type === 'header');
+        // Filter out exams
+        const regularLessons = visibleLessons.filter(l => !(l.type === 'html' && (l.htmlCode?.trim().startsWith('[') || l.htmlCode?.trim().startsWith('{'))));
+
+        const headers = regularLessons.filter(l => l.type === 'header');
         const groups = headers.map(header => ({ header, items: [] as Lesson[] }));
         const uncategorizedItems: Lesson[] = [];
 
-        visibleLessons.forEach(lesson => {
+        regularLessons.forEach(lesson => {
             if (lesson.type === 'header') return;
             if (lesson.headerId) {
                 const group = groups.find(g => g.header.id === lesson.headerId);
@@ -479,6 +487,48 @@ export default function CoursePlayer() {
                             </svg>
                             เอกสารประกอบการเรียน
                         </a>
+                    )}
+
+                    {/* ✅ SPECIAL EXAM SECTION (MOVED HERE) */}
+                    {examLessons.length > 0 && (
+                        <div className="mt-6 w-full animate-in slide-in-from-left-4 fade-in duration-500">
+                            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-4 shadow-lg shadow-indigo-200 text-white relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-10 -mt-10 blur-2xl group-hover:scale-150 transition-all duration-700"></div>
+
+                                <h3 className="font-bold text-sm mb-3 flex items-center gap-2 relative z-10 text-indigo-50 border-b border-indigo-500/50 pb-2">
+                                    <span className="text-xl">🔥</span> ตะลุยโจทย์ (Exams)
+                                </h3>
+
+                                <div className="space-y-2 relative z-10 max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
+                                    {examLessons.map((exam: Lesson) => {
+                                        const isActive = activeLesson?.id === exam.id;
+                                        const isUnlocked = isLessonUnlocked(exam);
+                                        return (
+                                            <button
+                                                key={exam.id}
+                                                onClick={() => {
+                                                    if (isUnlocked) {
+                                                        changeLesson(exam);
+                                                        setIsMobileMenuOpen(false);
+                                                    }
+                                                }}
+                                                disabled={!isUnlocked}
+                                                className={`w-full text-left text-xs font-bold py-2.5 px-3 rounded-xl transition-all flex items-center justify-between group/btn
+                                                    ${isActive
+                                                        ? 'bg-white text-indigo-700 shadow-md'
+                                                        : 'bg-indigo-700/50 hover:bg-indigo-700 text-indigo-100 hover:text-white border border-indigo-600'}
+                                                    ${!isUnlocked ? 'opacity-50 cursor-not-allowed grayscale' : ''}
+                                                `}
+                                            >
+                                                <span className="truncate flex-1">{exam.title}</span>
+                                                {isActive && <span className="text-indigo-500 animate-pulse">●</span>}
+                                                {!isUnlocked && <span>🔒</span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
 
