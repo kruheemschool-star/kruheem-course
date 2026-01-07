@@ -66,45 +66,57 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
                 {/* Question Image (If Exists) */}
                 {question.image && (
-                    <div className="mb-8 flex justify-center">
+                    <div className="my-8 flex justify-center w-full">
                         <div
-                            className="relative group cursor-zoom-in inline-block rounded-xl overflow-hidden border border-stone-200 shadow-sm hover:shadow-md transition-all"
+                            className="relative group cursor-zoom-in inline-block rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm transition-all duration-300 hover:border-indigo-300 hover:shadow-xl hover:scale-[1.02] max-w-full"
                             onClick={() => setIsZoomed(true)}
                         >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={question.image}
-                                alt="Question Diagram"
-                                className="max-w-full h-auto max-h-[400px] object-contain bg-slate-50"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                <div className="bg-white/90 p-2 rounded-full shadow-lg backdrop-blur-sm">
-                                    <ZoomIn className="text-stone-700" size={24} />
-                                </div>
+                            {/* Image Container with larger max-height */}
+                            <div className="bg-white p-1 sm:p-2">
+                                <img
+                                    src={question.image}
+                                    alt="Question Diagram"
+                                    className="max-w-full h-auto max-h-[500px] object-contain rounded-lg mx-auto"
+                                />
+                            </div>
+
+                            {/* Elegant Overlay */}
+                            <div className="absolute inset-0 bg-indigo-900/0 group-hover:bg-indigo-900/5 transition-all duration-300 flex items-center justify-center">
+                                <span className="opacity-0 group-hover:opacity-100 bg-white/95 backdrop-blur-sm text-indigo-600 font-bold px-5 py-2.5 rounded-full shadow-2xl transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 flex items-center gap-2 border border-white/50">
+                                    <ZoomIn size={18} />
+                                    <span>ขยายรูปใหญ่</span>
+                                </span>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Zoom Modal */}
+                {/* Refined Zoom Modal */}
                 {isZoomed && question.image && (
                     <div
-                        className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+                        className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4 sm:p-8 animate-in fade-in duration-300"
                         onClick={() => setIsZoomed(false)}
                     >
+                        {/* Close Button */}
                         <button
-                            className="absolute top-6 right-6 text-white/70 hover:text-white p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                            className="absolute top-6 right-6 text-white/50 hover:text-white hover:rotate-90 transition-all duration-300 p-2"
                             onClick={() => setIsZoomed(false)}
                         >
-                            <X size={32} />
+                            <X size={40} />
                         </button>
+
+                        {/* Full Image */}
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={question.image}
                             alt="Question Diagram Full"
-                            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+                            className="max-w-full max-h-[95vh] w-auto h-auto object-contain rounded-lg shadow-2xl animate-in zoom-in-90 duration-300"
                             onClick={(e) => e.stopPropagation()}
                         />
+
+                        <p className="absolute bottom-8 text-white/40 text-sm font-medium animate-in slide-in-from-bottom-4 delay-150">
+                            กดที่ว่างเพื่อปิด
+                        </p>
                     </div>
                 )}
 

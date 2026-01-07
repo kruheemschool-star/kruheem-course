@@ -7,7 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
-import { Plus, Trash2, FileJson, Blocks, AlertCircle, Image as ImageIcon, Copy } from 'lucide-react';
+import { Plus, Trash2, FileJson, Blocks, AlertCircle, Image as ImageIcon, Copy, Edit2 } from 'lucide-react';
 
 
 // --- Icons (Updated for Clarity) ---
@@ -47,6 +47,16 @@ const renderWithLatex = (text: string) => {
         }
         return <span key={index}>{part}</span>;
     });
+};
+
+// ✅ Helper to validate JSON string
+const tryParseJson = (str: string) => {
+    try {
+        JSON.parse(str);
+        return true;
+    } catch (e) {
+        return false;
+    }
 };
 
 // ✨ Component แสดงกลุ่มบทเรียน
@@ -145,6 +155,19 @@ export default function ManageLessonsPage() {
     const [activeTab, setActiveTab] = useState<'lessons' | 'students'>('lessons');
     const [students, setStudents] = useState<any[]>([]);
     const [expandedStudentIds, setExpandedStudentIds] = useState<string[]>([]);
+
+    // ✏️ Inline Edit State
+    const [editingQIndex, setEditingQIndex] = useState<number | null>(null);
+    const [tempEditQuestion, setTempEditQuestion] = useState<any>(null);
+
+    const handleSaveEditQuestion = () => {
+        if (editingQIndex === null || !tempEditQuestion) return;
+        const updated = [...examQuestions];
+        updated[editingQIndex] = tempEditQuestion;
+        updateExamContent(updated);
+        setEditingQIndex(null);
+        setTempEditQuestion(null);
+    };
 
     const toggleStudentExpand = (id: string) => {
         setExpandedStudentIds(prev =>
@@ -261,7 +284,84 @@ export default function ManageLessonsPage() {
 
     // ✅ Flashcard State
     const [flashcardData, setFlashcardData] = useState<{ front: string, back: string }[]>([]);
-    const [pasteMode, setPasteMode] = useState(false); // Toggle between File and Paste
+    const [pasteMode, setPasteMode] = useState(false);
+
+    // ⚡️ Exam System State
+    const [examQuestions, setExamQuestions] = useState<any[]>([]);
+    const [isRawMode, setIsRawMode] = useState(false);
+    const [newQuestionJson, setNewQuestionJson] = useState("");
+    const [isAddingQuestion, setIsAddingQuestion] = useState(false);
+
+    // Sync LessonContent -> ExamQuestions (On Load / Mode Switch)
+    useEffect(() => {
+        if (addType === 'html' && lessonContent) {
+            try {
+                // Prevent Infinite Loop: Check if content matches current state
+                const currentStr = JSON.stringify(examQuestions, null, 2);
+                if (currentStr === lessonContent) return;
+
+                const parsed = JSON.parse(lessonContent);
+                if (Array.isArray(parsed)) {
+                    setExamQuestions(parsed);
+                }
+            } catch (e) {
+                // If invalid JSON, maybe force Raw Mode or just keep empty
+                if (lessonContent.trim()) setIsRawMode(true);
+            }
+        } else if (addType === 'html' && !lessonContent) {
+            if (examQuestions.length > 0) setExamQuestions([]);
+        }
+    }, [addType, lessonContent, examQuestions]);
+
+    // Sync ExamQuestions -> LessonContent (When ExamQuestions change)
+    const updateExamContent = (newQuestions: any[]) => {
+        setExamQuestions(newQuestions);
+        setLessonContent(JSON.stringify(newQuestions, null, 2));
+    };
+
+    const handleAddSingleQuestion = () => {
+        try {
+            const cleanJson = newQuestionJson.trim();
+            if (!cleanJson) return;
+            const parsed = JSON.parse(cleanJson);
+
+            // Handle both Single Object and Array of Objects
+            const newItems = Array.isArray(parsed) ? parsed : [parsed];
+
+            // Auto-assign ID if missing (max + 1)
+            let maxId = examQuestions.reduce((max, q) => Math.max(max, q.id || 0), 0);
+
+            const processedItems = newItems.map(item => {
+                if (!item.id) {
+                    maxId++;
+                    return { ...item, id: maxId };
+                }
+                return item;
+            });
+
+            const updated = [...examQuestions, ...processedItems];
+            updateExamContent(updated);
+            setNewQuestionJson("");
+            setIsAddingQuestion(false);
+            showToast(`✅ เพิ่ม ${processedItems.length} ข้อเรียบร้อย!`);
+        } catch (e) {
+            showToast("❌ JSON ไม่ถูกต้อง: " + (e as Error).message, "error");
+        }
+    };
+
+    const handleDeleteQuestion = (index: number) => {
+        if (!confirm("ลบข้อนี้?")) return;
+        const updated = examQuestions.filter((_, i) => i !== index);
+        updateExamContent(updated);
+    };
+
+    const handleMoveQuestion = (index: number, direction: 'up' | 'down') => {
+        if ((direction === 'up' && index === 0) || (direction === 'down' && index === examQuestions.length - 1)) return;
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        const updated = [...examQuestions];
+        [updated[index], updated[targetIndex]] = [updated[targetIndex], updated[index]];
+        updateExamContent(updated);
+    }; // Toggle between File and Paste
 
     // Image Upload State
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -349,11 +449,15 @@ export default function ManageLessonsPage() {
 
 
     const availableHeaders = lessons.filter(l => l.type === 'header');
+
+    // ✅ Separate Exams from Standard Content
+    const examLessons = lessons.filter(l => l.type === 'html');
+
     const groupedLessons = (() => {
         const groups: any[] = availableHeaders.map(header => ({ header: header, items: [] }));
         const uncategorizedItems: any[] = [];
         lessons.forEach(lesson => {
-            if (lesson.type === 'header') return;
+            if (lesson.type === 'header' || lesson.type === 'html') return; // Skip Headers & Exams
             if (lesson.headerId) {
                 const groupIndex = groups.findIndex(g => g.header.id === lesson.headerId);
                 if (groupIndex !== -1) groups[groupIndex].items.push(lesson);
@@ -592,7 +696,7 @@ export default function ManageLessonsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!lessonTitle) return showToast("กรุณาใส่ชื่อ/หัวข้อ", "error");
-        if (addType !== 'header' && !selectedHeaderId) return showToast("⚠️ กรุณาเลือก 'บทเรียนหลัก'", "error");
+        if (addType !== 'header' && addType !== 'html' && !selectedHeaderId) return showToast("⚠️ กรุณาเลือก 'บทเรียนหลัก'", "error");
         if (addType === 'quiz' && quizOptions.some(opt => opt.trim() === "")) return showToast("กรุณาใส่ตัวเลือกให้ครบ", "error");
         if (addType === 'flashcard' && flashcardData.length === 0) return showToast("กรุณาอัปโหลดไฟล์ CSV หรือเพิ่มข้อมูล Flashcard", "error");
 
@@ -813,9 +917,9 @@ export default function ManageLessonsPage() {
                                 </div>
 
                                 <div className="flex justify-between items-center mb-6 px-2">
-                                    <h3 className={`font-bold text-xl flex items-center gap-3 ${addType === 'video' ? 'text-blue-600' : addType === 'quiz' ? 'text-purple-600' : addType === 'text' ? 'text-pink-600' : addType === 'exercise' ? 'text-emerald-600' : addType === 'html' ? 'text-cyan-600' : addType === 'flashcard' ? 'text-yellow-600' : 'text-orange-600'}`}>
-                                        <div className={`w-3 h-3 rounded-full ${addType === 'video' ? 'bg-blue-500' : addType === 'quiz' ? 'bg-purple-500' : addType === 'text' ? 'bg-pink-500' : addType === 'exercise' ? 'bg-emerald-500' : addType === 'html' ? 'bg-cyan-500' : addType === 'flashcard' ? 'bg-yellow-500' : 'bg-orange-500'}`}></div>
-                                        {editId ? '✏️ แก้ไขข้อมูล' : (addType === 'video' ? 'เพิ่มวิดีโอใหม่' : addType === 'quiz' ? 'สร้างคำถาม (Quiz)' : addType === 'text' ? 'เพิ่มบทความ/ชีท' : addType === 'exercise' ? 'เพิ่มแบบฝึกหัด (PDF Link)' : addType === 'html' ? 'สร้างชุดข้อสอบ (Exam System)' : addType === 'flashcard' ? 'เพิ่ม Flashcard' : 'เพิ่มหัวข้อบทเรียน')}
+                                    <h3 className={`font-bold text-xl flex items-center gap-3 ${addType === 'video' ? 'text-blue-600' : addType === 'quiz' ? 'text-purple-600' : addType === 'text' ? 'text-pink-600' : addType === 'exercise' ? 'text-emerald-600' : addType === 'flashcard' ? 'text-yellow-600' : 'text-orange-600'}`}>
+                                        <div className={`w-3 h-3 rounded-full ${addType === 'video' ? 'bg-blue-500' : addType === 'quiz' ? 'bg-purple-500' : addType === 'text' ? 'bg-pink-500' : addType === 'exercise' ? 'bg-emerald-500' : addType === 'flashcard' ? 'bg-yellow-500' : 'bg-orange-500'}`}></div>
+                                        {editId ? '✏️ แก้ไขข้อมูล' : (addType === 'video' ? 'เพิ่มวิดีโอใหม่' : addType === 'quiz' ? 'สร้างคำถาม (Quiz)' : addType === 'text' ? 'เพิ่มบทความ/ชีท' : addType === 'exercise' ? 'เพิ่มแบบฝึกหัด (PDF Link)' : addType === 'flashcard' ? 'เพิ่ม Flashcard' : 'เพิ่มหัวข้อบทเรียน')}
                                     </h3>
                                     <div className="flex gap-2">
                                         {editId && <button onClick={handleCancelEdit} className="text-sm font-bold text-rose-400 hover:text-rose-600 underline transition bg-rose-50 px-3 py-1 rounded-lg">ยกเลิก</button>}
@@ -823,7 +927,7 @@ export default function ManageLessonsPage() {
                                 </div>
 
                                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                                    {addType !== 'header' && (
+                                    {addType !== 'header' && addType !== 'html' && (
                                         <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 animate-in fade-in slide-in-from-top-2">
                                             <label className="block text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2 ml-1">📂 เลือกบทเรียนหลัก</label>
                                             <select value={selectedHeaderId} onChange={(e) => setSelectedHeaderId(e.target.value)} className="w-full p-3 rounded-xl border-2 border-indigo-200 bg-white font-bold text-indigo-900 outline-none focus:border-indigo-500 transition">
@@ -971,181 +1075,219 @@ export default function ManageLessonsPage() {
 
                                     {addType === 'html' && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                            <div className="bg-slate-50 p-6 rounded-2xl border-2 border-cyan-100">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <label className="block text-xs font-bold text-cyan-600 uppercase tracking-wider">🧩 Exam Editor (JSON System)</label>
-                                                    <div className="text-[10px] bg-cyan-100 text-cyan-700 px-2 py-1 rounded">
-                                                        รองรับ One-Question-Per-Block
-                                                    </div>
+                                            {/* Toolbar */}
+                                            <div className="flex justify-between items-center mb-2">
+                                                <div className="flex bg-cyan-50 p-1 rounded-xl border border-cyan-100">
+                                                    <button type="button" onClick={() => setIsRawMode(false)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${!isRawMode ? 'bg-cyan-500 text-white shadow-sm' : 'text-cyan-600 hover:bg-cyan-100'}`}>🃏 Smart Cards</button>
+                                                    <button type="button" onClick={() => setIsRawMode(true)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${isRawMode ? 'bg-cyan-500 text-white shadow-sm' : 'text-cyan-600 hover:bg-cyan-100'}`}>📝 Raw Code (Advanced)</button>
                                                 </div>
 
-                                                {/* Smart Editor Area */}
-                                                <div className="space-y-4">
-                                                    {smartExamBlocks.length === 0 && !htmlCode.trim() && (
-                                                        <div className="text-center py-8 border-2 border-dashed border-slate-300 rounded-xl">
-                                                            <Blocks className="mx-auto text-slate-300 mb-2" size={32} />
-                                                            <p className="text-slate-400 text-sm">ยังไม่มีข้อสอบ</p>
-                                                            <p className="text-slate-400 text-xs mt-1">กดปุ่มด้านล่างเพื่อเพิ่มข้อแรก</p>
-                                                        </div>
-                                                    )}
+                                                {!isRawMode && (
+                                                    <button type="button" onClick={() => setIsAddingQuestion(!isAddingQuestion)} className="bg-cyan-100 hover:bg-cyan-200 text-cyan-700 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1 border border-cyan-200">
+                                                        {isAddingQuestion ? '❌ ยกเลิก' : '➕ เพิ่มข้อ (Paste Code)'}
+                                                    </button>
+                                                )}
+                                            </div>
 
-                                                    {/* Fallback for Legacy HTML: If htmlCode has content but not JSON array */}
-                                                    {htmlCode.trim() && !htmlCode.trim().startsWith('[') && (
-                                                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 mb-4">
-                                                            <h4 className="flex items-center gap-2 text-orange-700 font-bold text-sm mb-2"><AlertCircle size={16} /> ตรวจพบ HTML เดิม</h4>
-                                                            <textarea
-                                                                value={htmlCode}
-                                                                onChange={(e) => setHtmlCode(e.target.value)}
-                                                                className="w-full p-2 text-xs font-mono bg-white border border-orange-200 rounded"
-                                                                rows={5}
-                                                            />
-                                                            <p className="text-xs text-orange-500 mt-2">ระบบตรวจพบว่าเป็น HTML ไม่ใช่ JSON ข้อสอบ. คุณสามารถลบแล้วสร้างใหม่เป็นข้อสอบได้ หรือใช้งานแบบเดิม.</p>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="space-y-4">
-                                                        {/* Tools Bar */}
-                                                        <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-100 p-3 rounded-xl border border-slate-200">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="px-3 py-1 bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold flex items-center gap-1">
-                                                                    <FileJson size={14} />
-                                                                    JSON Mode
-                                                                </div>
-                                                                <span className="text-xs text-slate-400">|</span>
-                                                                <span className="text-xs text-slate-500">
-                                                                    {smartExamBlocks.length} ข้อ
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        try {
-                                                                            // Attempt Auto-Fix Logic (Mimicking Exam Hub)
-                                                                            let currentText = htmlCode;
-
-                                                                            // 1. Basic cleanup
-                                                                            currentText = currentText
-                                                                                .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
-                                                                                .replace(/[\u2018\u2019]/g, "'")
-                                                                                .replace(/[\t]/g, "  ")
-                                                                                // eslint-disable-next-line no-control-regex
-                                                                                .replace(/[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "");
-
-                                                                            // 2. Fix Trailing Commas
-                                                                            currentText = currentText.replace(/,(\s*[}\]])/g, '$1');
-
-                                                                            // 3. Fix Unquoted Keys
-                                                                            currentText = currentText.replace(/([{,]\s*)([a-zA-Z0-9_]+?)\s*:/g, '$1"$2":');
-
-                                                                            // 4. Validate
-                                                                            const parsed = JSON.parse(currentText);
-
-                                                                            // Update State
-                                                                            const formatted = JSON.stringify(parsed, null, 2);
-                                                                            setHtmlCode(formatted);
-                                                                            if (Array.isArray(parsed)) {
-                                                                                setSmartExamBlocks(parsed.map(q => JSON.stringify(q, null, 2)));
-                                                                            }
-                                                                            showToast("✅ ตรวจสอบและแก้ไข JSON เรียบร้อย", "success");
-                                                                        } catch (e: any) {
-                                                                            alert(`❌ แก้ไขไม่สำเร็จ: ${e.message}`);
-                                                                        }
-                                                                    }}
-                                                                    className="px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-bold transition flex items-center gap-1"
-                                                                >
-                                                                    ✨ ตรวจสอบและจัดรูปแบบ (Auto Fix)
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const template = `[
-  {
-    "question": "โจทย์ข้อที่ 1",
-    "options": ["ตัวเลือก A", "ตัวเลือก B", "ตัวเลือก C", "ตัวเลือก D"],
-    "correctAnswer": 0,
-    "explanation": "คำอธิบายเฉลย"
-  }
-]`;
-                                                                        setHtmlCode(template);
-                                                                        setSmartExamBlocks([JSON.stringify(JSON.parse(template)[0], null, 2)]);
-                                                                    }}
-                                                                    className="px-3 py-1.5 bg-slate-200 text-slate-600 hover:bg-slate-300 rounded-lg text-xs font-bold transition"
-                                                                >
-                                                                    ตัวอย่าง
-                                                                </button>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Warning for Direct Edits */}
-                                                        <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex gap-3 text-xs text-amber-800">
-                                                            <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                                                            <p>
-                                                                การแก้ไขในช่องด้านล่างแต่ละช่อง จะซิงค์ไปยัง JSON หลักโดยอัตโนมัติ
-                                                                หากคุณต้องการแก้ไขแบบละเอียดให้ใช้ปุ่ม "ตรวจสอบและจัดรูปแบบ"
-                                                            </p>
-                                                        </div>
-
-                                                        {smartExamBlocks.map((block, idx) => (
-                                                            <div key={idx} className="bg-white rounded-xl border-2 border-slate-100 shadow-sm overflow-hidden group hover:border-indigo-300 transition-all duration-200">
-                                                                <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex items-center justify-between">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold">{idx + 1}</span>
-                                                                        <span className="text-xs font-bold text-slate-500">Question Block</span>
-                                                                    </div>
-                                                                    <div className="flex gap-2">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                const newBlocks = [...smartExamBlocks];
-                                                                                // Duplicate
-                                                                                newBlocks.splice(idx + 1, 0, block);
-                                                                                setSmartExamBlocks(newBlocks);
-                                                                                setHtmlCode(`[\n${newBlocks.join(',\n')}\n]`);
-                                                                            }}
-                                                                            className="text-slate-400 hover:text-indigo-500 transition-colors"
-                                                                            title="ทำซ้ำ"
-                                                                        >
-                                                                            <Copy size={14} />
-                                                                        </button>
-                                                                        <button type="button" onClick={() => deleteSmartQuestion(idx)} className="text-slate-400 hover:text-rose-500 transition-colors" title="ลบ"><Trash2 size={14} /></button>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="relative">
-                                                                    <textarea
-                                                                        value={block}
-                                                                        onChange={(e) => updateSmartBlock(idx, e.target.value)}
-                                                                        className="w-full h-48 p-4 text-sm font-mono text-slate-700 bg-white outline-none resize-y leading-relaxed focus:bg-indigo-50/10 transition-colors"
-                                                                        spellCheck="false"
-                                                                    />
-                                                                    <div className="absolute bottom-2 right-2 text-[10px] text-slate-300 pointer-events-none font-sans border border-slate-100 px-2 py-0.5 rounded bg-white">
-                                                                        JSON Object
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-
-                                                        <button type="button" onClick={addSmartQuestion} className="w-full py-4 border-2 border-dashed border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-500 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors hover:shadow-sm">
-                                                            <Plus size={20} /> เพิ่มข้อสอบข้อใหม่ (Add Question)
-                                                        </button>
-
-                                                        {/* Raw JSON Toggle (Optional) */}
-                                                        <details className="mt-4">
-                                                            <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600 transition w-max">แสดงโค้ดรวม (Raw Final JSON)</summary>
-                                                            <textarea
-                                                                value={htmlCode}
-                                                                readOnly
-                                                                className="w-full h-32 mt-2 p-3 bg-slate-100 text-slate-500 text-xs font-mono rounded-xl outline-none"
-                                                            />
-                                                        </details>
-                                                    </div>
+                                            {/* Add Question Panel */}
+                                            {isAddingQuestion && !isRawMode && (
+                                                <div className="bg-cyan-50 p-4 rounded-2xl border-2 border-cyan-200 shadow-sm animate-in slide-in-from-top-2">
+                                                    <label className="block text-xs font-bold text-cyan-700 mb-2">วางโค้ด JSON ของข้อสอบ "ข้อเดียว" ที่นี่:</label>
+                                                    <textarea
+                                                        placeholder={`{\n  "id": ...,\n  "question": "..."\n}`}
+                                                        className="w-full p-4 bg-white border-2 border-cyan-100 rounded-xl outline-none min-h-[150px] font-mono text-xs text-slate-600 mb-3"
+                                                        value={newQuestionJson}
+                                                        onChange={(e) => setNewQuestionJson(e.target.value)}
+                                                    />
+                                                    <button type="button" onClick={handleAddSingleQuestion} className="w-full py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl font-bold transition shadow-sm">บันทึกข้อสอบข้อนี้ ✅</button>
                                                 </div>
-                                            </div>
-                                            <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
-                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
-                                                <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้ดูฟรี (Free Preview) 🎁</label>
-                                            </div>
-                                            <textarea placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..." className="w-full p-4 bg-cyan-50 border-2 border-cyan-100 rounded-2xl outline-none min-h-[100px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                            )}
+
+                                            {/* Editor Area */}
+                                            {isRawMode ? (
+                                                <div className="bg-slate-900 p-6 rounded-2xl border-2 border-slate-700 relative group">
+                                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition"><span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-1 rounded">Raw JSON Mode</span></div>
+                                                    <textarea
+                                                        className="w-full bg-transparent text-cyan-400 outline-none min-h-[400px] font-mono text-xs leading-relaxed custom-scrollbar"
+                                                        value={lessonContent}
+                                                        onChange={(e) => setLessonContent(e.target.value)}
+                                                        spellCheck={false}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-1 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                                                    {examQuestions.length > 0 ? examQuestions.map((q, idx) => {
+                                                        const isEditing = editingQIndex === idx;
+
+                                                        if (isEditing) {
+                                                            return (
+                                                                <div key={idx} className="bg-cyan-50 p-6 rounded-xl border-2 border-cyan-300 shadow-md animate-in zoom-in-95 duration-200">
+                                                                    <div className="flex justify-between items-center mb-4">
+                                                                        <span className="font-black text-cyan-700">✏️ แก้ไขข้อที่ {idx + 1}</span>
+                                                                        <div className="flex gap-2">
+                                                                            <button type="button" onClick={() => setEditingQIndex(null)} className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 font-bold hover:bg-slate-50">ยกเลิก</button>
+                                                                            <button type="button" onClick={handleSaveEditQuestion} className="px-4 py-1.5 rounded-lg bg-cyan-600 text-white font-bold hover:bg-cyan-700 shadow-sm">บันทึก</button>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="space-y-4">
+                                                                        <div>
+                                                                            <label className="text-xs font-bold text-cyan-600 mb-1 block">โจทย์คำถาม</label>
+                                                                            <textarea
+                                                                                className="w-full p-3 rounded-lg border border-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 font-medium"
+                                                                                rows={3}
+                                                                                value={tempEditQuestion.question}
+                                                                                onChange={(e) => setTempEditQuestion({ ...tempEditQuestion, question: e.target.value })}
+                                                                            />
+                                                                        </div>
+
+                                                                        <div className="grid md:grid-cols-2 gap-4">
+                                                                            <div className="space-y-2">
+                                                                                <label className="text-xs font-bold text-cyan-600 mb-1 block">ตัวเลือก (Options)</label>
+                                                                                {tempEditQuestion.options?.map((opt: string, optIdx: number) => (
+                                                                                    <div key={optIdx} className="flex gap-2">
+                                                                                        <span className="w-6 h-8 flex items-center justify-center bg-cyan-100 rounded text-cyan-700 font-bold text-xs shrink-0">{optIdx + 1}</span>
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            className="flex-1 p-2 rounded border border-cyan-100 text-sm"
+                                                                                            value={opt}
+                                                                                            onChange={(e) => {
+                                                                                                const newOptions = [...tempEditQuestion.options];
+                                                                                                newOptions[optIdx] = e.target.value;
+                                                                                                setTempEditQuestion({ ...tempEditQuestion, options: newOptions });
+                                                                                            }}
+                                                                                        />
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => {
+                                                                                                const newOptions = tempEditQuestion.options.filter((_: any, i: number) => i !== optIdx);
+                                                                                                setTempEditQuestion({ ...tempEditQuestion, options: newOptions });
+                                                                                            }}
+                                                                                            className="w-8 h-8 rounded bg-red-50 text-red-400 hover:bg-red-100"
+                                                                                        >
+                                                                                            <Trash2 size={14} className="mx-auto" />
+                                                                                        </button>
+                                                                                    </div>
+                                                                                ))}
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setTempEditQuestion({ ...tempEditQuestion, options: [...(tempEditQuestion.options || []), ""] })}
+                                                                                    className="text-xs font-bold text-cyan-600 hover:underline mt-2 flex items-center gap-1"
+                                                                                >
+                                                                                    <Plus size={12} /> เพิ่มตัวเลือก
+                                                                                </button>
+                                                                            </div>
+
+                                                                            <div className="space-y-4">
+                                                                                <div>
+                                                                                    <label className="text-xs font-bold text-cyan-600 mb-1 block">เฉลยข้อที่ถูกต้อง (Index)</label>
+                                                                                    <select
+                                                                                        className="w-full p-2 rounded border border-cyan-200 text-sm font-bold text-cyan-800"
+                                                                                        value={tempEditQuestion.answerIndex ?? 0}
+                                                                                        onChange={(e) => setTempEditQuestion({ ...tempEditQuestion, answerIndex: parseInt(e.target.value) })}
+                                                                                    >
+                                                                                        {tempEditQuestion.options?.map((opt: string, i: number) => (
+                                                                                            <option key={i} value={i}>ตัวเลือกที่ {i + 1}: {opt.substring(0, 30)}...</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                </div>
+                                                                                <div>
+                                                                                    <label className="text-xs font-bold text-cyan-600 mb-1 block">คำอธิบายเฉลย (Explanation)</label>
+                                                                                    <textarea
+                                                                                        className="w-full p-2 rounded-lg border border-cyan-200 text-sm"
+                                                                                        rows={3}
+                                                                                        value={tempEditQuestion.explanation || ""}
+                                                                                        placeholder="อธิบายว่าทำไมถึงตอบข้อนี้..."
+                                                                                        onChange={(e) => setTempEditQuestion({ ...tempEditQuestion, explanation: e.target.value })}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition group animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${idx * 0.05}s` }}>
+                                                                <div className="flex justify-between items-start gap-4">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <span className="bg-cyan-100 text-cyan-700 text-[10px] font-bold px-1.5 py-0.5 rounded">#{idx + 1}</span>
+                                                                            {q.id && <span className="text-[10px] text-slate-400 font-mono">ID: {q.id}</span>}
+                                                                        </div>
+                                                                        <p className="text-sm font-bold text-slate-700 line-clamp-2">{q.question || "(ไม่มีโจทย์)"}</p>
+
+                                                                        {/* Image Preview & Upload */}
+                                                                        <div className="mt-2 flex items-center gap-3">
+                                                                            {q.image && (
+                                                                                <div className="relative group w-16 h-12 bg-slate-900 rounded border border-slate-200 overflow-hidden shrink-0">
+                                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                                    <img src={q.image} alt="Q" className="w-full h-full object-contain" />
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() => {
+                                                                                            const updated = [...examQuestions];
+                                                                                            delete updated[idx].image;
+                                                                                            updateExamContent(updated);
+                                                                                        }}
+                                                                                        className="absolute top-0 right-0 bg-red-500/80 hover:bg-red-600 text-white p-0.5 rounded-bl opacity-0 group-hover:opacity-100 transition"
+                                                                                    >
+                                                                                        <Trash2 size={10} />
+                                                                                    </button>
+                                                                                </div>
+                                                                            )}
+
+                                                                            <label className="cursor-pointer flex items-center gap-1.5 px-2 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-[10px] text-slate-500 font-bold transition">
+                                                                                <ImageIcon size={12} />
+                                                                                {q.image ? "เปลี่ยนรูป" : "แนบรูป"}
+                                                                                <input
+                                                                                    type="file"
+                                                                                    className="hidden"
+                                                                                    accept="image/*"
+                                                                                    onChange={async (e) => {
+                                                                                        const file = e.target.files?.[0];
+                                                                                        if (!file) return;
+                                                                                        try {
+                                                                                            const filename = `course-exam-images/${Date.now()}_${idx}_${file.name}`;
+                                                                                            const storageRef = ref(storage, filename);
+                                                                                            const snapshot = await uploadBytes(storageRef, file);
+                                                                                            const url = await getDownloadURL(snapshot.ref);
+
+                                                                                            const updated = [...examQuestions];
+                                                                                            updated[idx] = { ...updated[idx], image: url };
+                                                                                            updateExamContent(updated);
+                                                                                        } catch (err) {
+                                                                                            console.error(err);
+                                                                                            alert("อัปโหลดไม่สำเร็จ");
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            </label>
+                                                                        </div>
+
+                                                                        <p className="text-xs text-slate-500 mt-2 truncate">
+                                                                            ตัวเลือก: {Array.isArray(q.options) ? q.options.length : 0} ข้อ | เฉลย: ข้อ {(q.answerIndex || 0) + 1}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex flex-col gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition">
+                                                                        <button type="button" onClick={() => { setEditingQIndex(idx); setTempEditQuestion(JSON.parse(JSON.stringify(q))); }} className="p-1 hover:bg-cyan-50 rounded text-slate-400 hover:text-cyan-600 mb-2" title="แก้ไขข้อความ"><Edit2 size={16} /></button>
+                                                                        <button type="button" onClick={() => handleMoveQuestion(idx, 'up')} disabled={idx === 0} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30"><ArrowUpIcon /></button>
+                                                                        <button type="button" onClick={() => handleMoveQuestion(idx, 'down')} disabled={idx === examQuestions.length - 1} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 disabled:opacity-30"><ArrowDownIcon /></button>
+                                                                        <button type="button" onClick={() => handleDeleteQuestion(idx)} className="p-1 hover:bg-red-50 rounded text-red-300 hover:text-red-500 mt-2"><Trash2 size={16} /></button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }) : (
+                                                        <div className="text-center py-12 text-slate-400 flex flex-col items-center gap-2">
+                                                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-3xl">📭</div>
+                                                            <p className="font-bold">ยังไม่มีข้อสอบในชุดนี้</p>
+                                                            <p className="text-xs">กดปุ่ม <span className="text-cyan-600 font-bold">+ เพิ่มข้อ</span> ด้านบนเพื่อเริ่มสร้าง</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -1156,17 +1298,72 @@ export default function ManageLessonsPage() {
                             </div>
 
                             {/* Lesson List */}
-                            <div className="space-y-6">
-                                {groupedLessons.map((group, index) => (
-                                    <LessonGroup
-                                        key={index}
-                                        group={group}
-                                        handleEdit={handleEditClick}
-                                        handleDelete={handleDelete}
-                                        handleToggleVisibility={handleToggleVisibility}
-                                        handleMoveLesson={handleMoveLesson}
-                                    />
-                                ))}
+                            <div className="space-y-8">
+
+                                {/* ⚡️ ZONE 1: Exam Hub */}
+                                <div className="bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-100 rounded-[2.5rem] p-6 md:p-8 relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-200/20 rounded-full blur-3xl opacity-50 -mr-20 -mt-20 pointer-events-none"></div>
+
+                                    <div className="relative z-10 flex flex-col gap-6">
+                                        <div className="flex items-center gap-3 border-b-2 border-cyan-200/50 pb-4">
+                                            <div className="w-10 h-10 bg-cyan-200 text-cyan-700 rounded-xl flex items-center justify-center text-xl shadow-sm">⚡️</div>
+                                            <div>
+                                                <h3 className="text-xl font-black text-cyan-900">โซนข้อสอบ (Exam Zone)</h3>
+                                                <p className="text-xs font-bold text-cyan-600/70">จัดการชุดข้อสอบทั้งหมดที่นี่</p>
+                                            </div>
+                                        </div>
+
+                                        {examLessons.length > 0 ? (
+                                            <div className="grid gap-3">
+                                                {examLessons.map(exam => (
+                                                    <div key={exam.id} className="bg-white p-4 rounded-2xl border-2 border-cyan-100/50 shadow-sm hover:shadow-md hover:border-cyan-300 transition flex items-center justify-between group/card">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-14 h-14 bg-cyan-50 text-cyan-600 rounded-2xl flex items-center justify-center font-bold text-sm border-2 border-cyan-100 group-hover/card:scale-105 transition shadow-sm">
+                                                                <Blocks size={24} />
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className="bg-cyan-100 text-cyan-700 text-[10px] font-bold px-2 py-0.5 rounded-full">EXAM</span>
+                                                                    {exam.isHidden && <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full">HIDDEN</span>}
+                                                                </div>
+                                                                <h4 className="font-bold text-slate-700 text-lg">{exam.title}</h4>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 opacity-100 transition">
+                                                            <button onClick={() => handleEditClick(exam)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl transition border border-transparent hover:border-indigo-200" title="แก้ไข"><Edit2 size={18} /></button>
+                                                            <button onClick={() => handleToggleVisibility(exam)} className={`p-2.5 rounded-xl transition border border-transparent ${exam.isHidden ? 'bg-slate-100 text-slate-400 hover:bg-slate-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-200'}`} title={exam.isHidden ? "แสดง" : "ซ่อน"}>{exam.isHidden ? "👁️‍🗨️" : "👁️"}</button>
+                                                            <button onClick={() => handleDelete(exam.id)} className="p-2.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-xl transition border border-transparent hover:border-rose-200 hover:shadow-sm" title="ลบ"><Trash2 size={18} /></button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-12 bg-white/60 rounded-3xl border-2 border-dashed border-cyan-200/50 backdrop-blur-sm">
+                                                <div className="text-4xl mb-3 opacity-50">✨</div>
+                                                <p className="text-cyan-600 font-bold mb-1">ยังไม่มีข้อสอบในคอร์สนี้</p>
+                                                <p className="text-xs text-cyan-400 opacity-80">กดปุ่ม <span className="underline">ข้อสอบ (Exam)</span> ด้านบนเพื่อสร้างใหม่</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+
+                                {/* 📚 ZONE 2: Curriculum */}
+                                <div className="space-y-6 relative pl-4 md:pl-8 border-l-2 border-slate-100">
+                                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-200 ring-4 ring-white"></div>
+                                    <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs mb-6">บทเรียนหลัก (Curriculum)</h3>
+
+                                    {groupedLessons.map((group, index) => (
+                                        <LessonGroup
+                                            key={index}
+                                            group={group}
+                                            handleEdit={handleEditClick}
+                                            handleDelete={handleDelete}
+                                            handleToggleVisibility={handleToggleVisibility}
+                                            handleMoveLesson={handleMoveLesson}
+                                        />
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Bulk Import & Delete All */}

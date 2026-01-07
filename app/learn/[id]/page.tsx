@@ -7,8 +7,9 @@ import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
 import Certificate from "@/app/components/Certificate";
 import "katex/dist/katex.min.css";
-import { InlineMath } from "react-katex";
+import { InlineMath, BlockMath } from "react-katex";
 import { ExamSystem } from "@/components/exam/ExamSystem";
+import { QuestionCard } from "@/components/exam/QuestionCard";
 
 // Interface
 interface Lesson {
@@ -39,17 +40,266 @@ const HtmlIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 2
 const FlashcardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M19.5 22.5a3 3 0 003-3v-9a3 3 0 00-3-3h-9a3 3 0 00-3 3v9a3 3 0 003 3h9z" /><path d="M4.5 19.5a3 3 0 003-3v-9a3 3 0 00-3-3h-9a3 3 0 00-3 3v9a3 3 0 003 3h9z" transform="rotate(180 12 12) translate(12 12)" opacity="0.5" /></svg>;
 
 // ✅ Helper to render LaTeX mixed with text
+// 🧠 Smart Content Renderer (Improved Layout)
+const renderSmartContent = (text: string) => {
+    if (!text) return "";
+    const paragraphs = text.split(/\n|(?:\s*\*\*\*\s*)/g);
+    return paragraphs.map((paragraph, pIndex) => {
+        if (!paragraph.trim()) return <br key={pIndex} />;
+        let processed = paragraph.replace(/(\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}(?:\s*\\times\s*[\d\w\.]+)?)/g, (match) => `$${match}$`);
+        const parts = processed.split(/(\$[^$]+\$)/g);
+        return (
+            <div key={pIndex} className="mb-2 leading-loose break-words text-slate-700 font-medium">
+                {parts.map((part, index) => {
+                    if (part.startsWith('$') && part.endsWith('$')) {
+                        try {
+                            const math = part.slice(1, -1);
+                            // Use BlockMath for environments like aligned, matrix, cases, etc.
+                            if (math.includes('\\begin')) {
+                                return <div key={index} className="overflow-x-auto my-2"><BlockMath math={math} /></div>;
+                            }
+                            return <InlineMath key={index} math={math} />;
+                        } catch (e) { return <span key={index} className="text-red-500">{part}</span>; }
+                    }
+                    const subParts = part.split(/(\*\*[^*]+\*\*|---|___)/g);
+                    return (
+                        <span key={index}>
+                            {subParts.map((subPart, subIdx) => {
+                                if (subPart.startsWith('**') && subPart.endsWith('**')) return <strong key={subIdx} className="text-rose-600 font-bold">{subPart.slice(2, -2)}</strong>;
+                                if (subPart === '---' || subPart === '___') return <div key={subIdx} className="my-4 h-px bg-slate-200 border-b border-dashed border-slate-300 w-full"></div>;
+                                if (subPart.trim().startsWith('* ') && subPart.length > 2) return <div key={subIdx} className="pl-4 border-l-2 border-indigo-100 my-1">{subPart.replace('* ', '')}</div>;
+                                return subPart;
+                            })}
+                        </span>
+                    );
+                })}
+            </div>
+        );
+    });
+};
+// ✅ Helper to render LaTeX mixed with text & Markdown
 const renderWithLatex = (text: string) => {
     if (!text) return "";
-    // Split by $...$
-    const parts = text.split(/(\$[^$]+\$)/g);
+
+    // 1. Auto-detect implicit LaTeX (e.g. \frac{...}{...}) and wrap in $
+    // Matches \frac{...}{...} with up to 1 level of nested braces, and optional following \times 100
+    let processed = text.replace(/(\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}(?:\s*\\times\s*[\d\w\.]+)?)/g, (match) => {
+        return `$${match}$`;
+    });
+
+    // 2. Split by $...$ for LaTeX
+    const parts = processed.split(/(\$[^$]+\$)/g);
+
     return parts.map((part, index) => {
         if (part.startsWith('$') && part.endsWith('$')) {
             // Remove $ and render LaTeX
-            return <InlineMath key={index} math={part.slice(1, -1)} />;
+            try {
+                return <InlineMath key={index} math={part.slice(1, -1)} />;
+            } catch (e) {
+                return <span key={index} className="text-red-500">{part}</span>;
+            }
         }
-        return <span key={index}>{part}</span>;
+
+        // 3. Handle Markdown-style Formatting in text parts
+        // Split by **bold**
+        const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
+
+        return (
+            <span key={index}>
+                {boldParts.map((subPart, subIdx) => {
+                    if (subPart.startsWith('**') && subPart.endsWith('**')) {
+                        return <strong key={subIdx} className="text-rose-600 font-bold">{subPart.slice(2, -2)}</strong>;
+                    }
+                    // Handle "---" divider
+                    if (subPart.includes('---')) {
+                        return (
+                            <span key={subIdx}>
+                                {subPart.split('---').map((s, i, arr) => (
+                                    <span key={i}>
+                                        {s}
+                                        {i < arr.length - 1 && <div className="my-4 h-px bg-slate-200 border-b border-dashed border-slate-300 w-full"></div>}
+                                    </span>
+                                ))}
+                            </span>
+                        )
+                    }
+                    return subPart;
+                })}
+            </span>
+        );
     });
+};
+
+const tryParseQuestions = (content: string) => {
+    try {
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].question) {
+            return parsed;
+        }
+    } catch { return null; }
+    return null;
+};
+
+// 🎓 New Exam Runner System
+const ExamRunner = ({ questions, onComplete }: { questions: any[], onComplete: () => void }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [answers, setAnswers] = useState<Record<number, number>>({});
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [score, setScore] = useState(0);
+    const [revealed, setRevealed] = useState<Record<number, boolean>>({}); // ✅ Track revealed questions
+    const [isNavigatorOpen, setIsNavigatorOpen] = useState(false); // (Legacy state kept for safety)
+
+    // 📜 Auto-scroll (Story Path Effect)
+    useEffect(() => {
+        const el = document.getElementById(`story-node-${currentIndex}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, [currentIndex]);
+
+    const currentQ = questions[currentIndex];
+    const isAnswered = answers[currentIndex] !== undefined;
+    const isRevealed = revealed[currentIndex] || isSubmitted; // Show if individually revealed OR exam submitted
+
+    const handleSelect = (idx: number) => {
+        if (isSubmitted || isRevealed) return; // Lock if submitted or revealed
+        setAnswers({ ...answers, [currentIndex]: idx });
+    };
+
+    const toggleReveal = () => {
+        setRevealed(prev => ({ ...prev, [currentIndex]: true }));
+    };
+
+    const handleSubmit = () => {
+        if (!confirm("ยืนยันส่งคำตอบหรือไม่?")) return;
+        let s = 0;
+        questions.forEach((q, i) => {
+            if (answers[i] === (q.answerIndex || 0)) s++;
+        });
+        setScore(s);
+        setIsSubmitted(true);
+        onComplete();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    return (
+        <div className="w-full min-h-full flex flex-col items-center py-8 px-4 bg-slate-50">
+            <div className="w-full max-w-4xl space-y-6">
+
+                {/* 🧭 Top Navigation Bar (Progress & Map Toggle) */}
+                {/* 🧩 Widget: Floating Map Trigger */}
+                {/* 🗺️ Top Exam Map (Always Visible) */}
+                <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 animate-in fade-in slide-in-from-top-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-black text-slate-700 flex items-center gap-2">
+                            🗺️ แผนที่ข้อสอบ <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-lg font-bold">ทั้งหมด {questions.length} ข้อ</span>
+                        </h3>
+                        <div className="text-xs font-bold text-slate-400">
+                            ข้อที่ {currentIndex + 1}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-5 md:grid-cols-10 xl:grid-cols-[repeat(15,minmax(0,1fr))] gap-2">
+                        {questions.map((_, idx) => {
+                            const isCurrent = idx === currentIndex;
+                            const isDone = answers[idx] !== undefined;
+                            const isCorrect = isSubmitted && isDone && answers[idx] === (questions[idx].answerIndex ?? questions[idx].correctAnswer ?? 0);
+                            const isWrong = isSubmitted && isDone && !isCorrect;
+
+                            let btnStyle = "bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 border border-transparent"; // Default
+
+                            if (isCurrent) btnStyle = "bg-yellow-400 text-yellow-900 font-black shadow-lg shadow-yellow-200 scale-110 z-10 ring-2 ring-white"; // Active
+                            else if (isCorrect) btnStyle = "bg-emerald-100 text-emerald-600 font-bold border-emerald-200";
+                            else if (isWrong) btnStyle = "bg-rose-100 text-rose-600 font-bold border-rose-200";
+                            else if (isDone) btnStyle = "bg-indigo-50 text-indigo-600 font-bold border-indigo-100";
+
+                            return (
+                                <button
+                                    key={idx}
+                                    onClick={() => setCurrentIndex(idx)}
+                                    className={`aspect-square rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-200 ${btnStyle}`}
+                                >
+                                    {idx + 1}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+
+
+
+                {/* Score Header (Shown after submit) */}
+                {isSubmitted && (
+                    <div className="bg-white rounded-3xl p-8 border-2 border-emerald-100 shadow-xl flex flex-col items-center gap-4 animate-in zoom-in slide-in-from-top-4">
+                        <div className="text-6xl">🏆</div>
+                        <h2 className="text-3xl font-black text-slate-800">ผลการทดสอบ</h2>
+                        <div className="flex items-end gap-2 text-emerald-600">
+                            <span className="text-6xl font-black">{score}</span>
+                            <span className="text-2xl font-bold mb-2">/ {questions.length} คะแนน</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* 📝 Question Card (Powered by Exam Hub Engine) */}
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <QuestionCard
+                        question={{
+                            id: currentIndex,
+                            question: currentQ.question,
+                            options: currentQ.options,
+                            correctIndex: currentQ.answerIndex ?? currentQ.correctAnswer ?? 0,
+                            explanation: currentQ.explanation,
+                            image: currentQ.image
+                        }}
+                        questionNumber={currentIndex + 1}
+                        totalQuestions={questions.length}
+                        selectedOption={answers[currentIndex] ?? null}
+                        onSelectOption={handleSelect}
+                        isSubmitted={isSubmitted || isRevealed}
+                    />
+                </div>
+
+                {/* Footer Controls */}
+                <div className="flex flex-col-reverse md:flex-row justify-between items-center gap-4 pt-6 pb-20">
+                    <button
+                        onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                        disabled={currentIndex === 0}
+                        className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent transition flex items-center gap-2 w-full md:w-auto justify-center"
+                    >
+                        <span>←</span> ข้อก่อนหน้า
+                    </button>
+
+                    {/* 💡 Peek Button (Restored) */}
+                    {!isRevealed && !isSubmitted && (
+                        <button
+                            onClick={toggleReveal}
+                            className="px-6 py-3 rounded-xl font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition flex items-center gap-2 w-full md:w-auto justify-center"
+                        >
+                            <span>💡 ดูเฉลยข้อนี้</span>
+                        </button>
+                    )}
+
+                    {currentIndex === questions.length - 1 ? (
+                        !isSubmitted && (
+                            <button
+                                onClick={handleSubmit}
+                                className="px-8 py-3 rounded-xl font-bold bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-200 hover:scale-105 transition"
+                            >
+                                ✨ ส่งคำตอบทั้งหมด
+                            </button>
+                        )
+                    ) : (
+                        <button
+                            onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
+                            className="px-6 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg transition flex items-center gap-2"
+                        >
+                            ข้อต่อไป <span>→</span>
+                        </button>
+                    )}
+                </div>
+
+            </div>
+        </div>
+    );
 };
 
 const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }) => {
@@ -148,8 +398,11 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
 };
 
 
+
+
 export default function CoursePlayer() {
     const { id } = useParams();
+    // ... (start of component)
     const searchParams = useSearchParams();
     const lessonIdParam = searchParams.get('lessonId');
     const courseId = typeof id === 'string' ? id : "";
@@ -360,13 +613,13 @@ export default function CoursePlayer() {
 
     // ✅ Separate Exam Lessons (For Prominent Display)
     const examLessons = useMemo(() => {
-        return visibleLessons.filter(l => l.type === 'html' && (l.htmlCode?.trim().startsWith('[') || l.htmlCode?.trim().startsWith('{')));
+        return visibleLessons.filter(l => l.type === 'html');
     }, [visibleLessons]);
 
     // ✅ Group lessons by header (Exclude Exams from main list)
     const groupedLessons = useMemo(() => {
         // Filter out exams
-        const regularLessons = visibleLessons.filter(l => !(l.type === 'html' && (l.htmlCode?.trim().startsWith('[') || l.htmlCode?.trim().startsWith('{'))));
+        const regularLessons = visibleLessons.filter(l => l.type !== 'html');
 
         const headers = regularLessons.filter(l => l.type === 'header');
         const groups = headers.map(header => ({ header, items: [] as Lesson[] }));
@@ -443,166 +696,180 @@ export default function CoursePlayer() {
             {/* Sidebar (Responsive) */}
             <aside className={`
                 w-80 bg-white border-r border-gray-200 flex-shrink-0 h-full
-                fixed inset-y-0 left-0 z-50 
-                overflow-y-auto lg:overflow-hidden
-                md:relative md:z-20 lg:flex lg:flex-col
+                fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden
+                md:relative md:z-20 
                 transition-transform duration-300 ease-in-out shadow-xl md:shadow-sm
                 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
             `}>
-                <div className="p-5 border-b border-gray-100 bg-white z-10 flex flex-col items-center lg:flex-shrink-0">
+                <div className="p-5 pb-4 border-b border-gray-100 bg-white z-20 flex flex-col items-center flex-shrink-0 shadow-sm relative">
 
                     {/* ปุ่มการ์ดย้อนกลับ */}
-                    <Link href="/my-courses" className="w-full flex items-center justify-center gap-2 bg-white border-2 border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 px-4 py-3 rounded-2xl font-bold transition-all mb-6 shadow-sm group transform hover:-translate-y-0.5">
+                    <Link href="/my-courses" className="w-full flex items-center justify-center gap-2 bg-white border-2 border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 px-4 py-3 rounded-2xl font-bold transition-all mb-4 shadow-sm group transform hover:-translate-y-0.5">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform text-indigo-400 group-hover:text-indigo-600"><path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" /></svg>
                         <span>กลับหน้ารวมคอร์ส</span>
                     </Link>
 
-                    <div className="w-4/5 aspect-video rounded-xl overflow-hidden shadow-lg bg-gray-100 mb-4">
+                    <div className="w-4/5 aspect-video rounded-xl overflow-hidden shadow-lg bg-gray-100 mb-3 border border-gray-100">
                         {course.image ?
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={course.image} alt="Cover" className="w-full h-full object-cover" /> :
                             <div className="w-full h-full flex items-center justify-center text-2xl">📚</div>}
                     </div>
-                    <h2 className="font-bold text-gray-800 text-center px-2 text-sm">{course?.title}</h2>
-                    {user && (
-                        <div className="mt-3 w-full px-2">
-                            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden shadow-inner">
-                                <div className="h-full bg-green-400 transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+                    <h2 className="font-bold text-gray-800 text-center px-2 text-sm leading-snug line-clamp-2">{course?.title}</h2>
+                </div>
+
+                {/* SCROLLABLE BODY START */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
+                    <div className="px-5 pt-4 pb-2 space-y-5">
+                        {user && (
+                            <div className="mt-3 w-full px-2">
+                                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden shadow-inner">
+                                    <div className="h-full bg-green-400 transition-all duration-500" style={{ width: `${progressPercent}%` }}></div>
+                                </div>
+                                <p className="text-[10px] text-gray-500 text-right mt-1 font-bold">{progressPercent}% COMPLETED</p>
                             </div>
-                            <p className="text-[10px] text-gray-500 text-right mt-1 font-bold">{progressPercent}% COMPLETED</p>
-                        </div>
-                    )}
+                        )}
 
-                    {/* ✅ Google Drive Link Button */}
-                    {course?.docUrl && (isEnrolled || isAdmin) && (
-                        <a
-                            href={course.docUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-4 w-[90%] flex items-center justify-center gap-2 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 hover:border-blue-200 px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm group"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 group-hover:scale-110 transition-transform">
-                                <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" />
-                                <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
-                            </svg>
-                            เอกสารประกอบการเรียน
-                        </a>
-                    )}
+                        {/* ✅ Google Drive Link Button */}
+                        {course?.docUrl && (isEnrolled || isAdmin) && (
+                            <a
+                                href={course.docUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-4 w-[90%] flex items-center justify-center gap-2 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 hover:border-blue-200 px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm group"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 group-hover:scale-110 transition-transform">
+                                    <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" />
+                                    <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z" />
+                                </svg>
+                                เอกสารประกอบการเรียน
+                            </a>
+                        )}
 
-                    {/* ✅ SPECIAL EXAM SECTION (MOVED HERE) */}
-                    {examLessons.length > 0 && (
+                        {/* ✅ SPECIAL EXAM SECTION (Pastel Theme) */}
                         <div className="mt-6 w-full animate-in slide-in-from-left-4 fade-in duration-500">
-                            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl p-4 shadow-lg shadow-indigo-200 text-white relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-10 -mt-10 blur-2xl group-hover:scale-150 transition-all duration-700"></div>
+                            <div className="bg-gradient-to-br from-violet-100 via-indigo-100 to-cyan-100 rounded-2xl p-5 shadow-lg shadow-indigo-100 border border-indigo-50 text-indigo-900 relative overflow-hidden group">
 
-                                <h3 className="font-bold text-sm mb-3 flex items-center gap-2 relative z-10 text-indigo-50 border-b border-indigo-500/50 pb-2">
-                                    <span className="text-xl">🔥</span> ตะลุยโจทย์ (Exams)
+                                {/* Decorative Background Elements */}
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-white/40 rounded-full -mr-6 -mt-6 blur-xl"></div>
+                                <div className="absolute bottom-0 left-0 w-20 h-20 bg-fuchsia-200/20 rounded-full -ml-6 -mb-6 blur-xl"></div>
+
+                                <h3 className="font-bold text-sm mb-3 flex items-center gap-2 relative z-10 text-indigo-800 border-b border-indigo-200/60 pb-2">
+                                    <span className="text-xl drop-shadow-sm">⚡️</span> <span className="tracking-wide">ตะลุยโจทย์ (Exams)</span>
                                 </h3>
 
                                 <div className="space-y-2 relative z-10 max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
-                                    {examLessons.map((exam: Lesson) => {
-                                        const isActive = activeLesson?.id === exam.id;
-                                        const isUnlocked = isLessonUnlocked(exam);
-                                        return (
-                                            <button
-                                                key={exam.id}
-                                                onClick={() => {
-                                                    if (isUnlocked) {
-                                                        changeLesson(exam);
-                                                        setIsMobileMenuOpen(false);
-                                                    }
-                                                }}
-                                                disabled={!isUnlocked}
-                                                className={`w-full text-left text-xs font-bold py-2.5 px-3 rounded-xl transition-all flex items-center justify-between group/btn
+                                    {examLessons.length > 0 ? (
+                                        examLessons.map((exam: Lesson) => {
+                                            const isActive = activeLesson?.id === exam.id;
+                                            const isUnlocked = isLessonUnlocked(exam);
+                                            return (
+                                                <button
+                                                    key={exam.id}
+                                                    onClick={() => {
+                                                        if (isUnlocked) {
+                                                            changeLesson(exam);
+                                                            setIsMobileMenuOpen(false);
+                                                        }
+                                                    }}
+                                                    disabled={!isUnlocked}
+                                                    className={`w-full text-left text-xs font-bold py-3 px-3.5 rounded-xl transition-all flex items-center justify-between group/btn border
                                                     ${isActive
-                                                        ? 'bg-white text-indigo-700 shadow-md'
-                                                        : 'bg-indigo-700/50 hover:bg-indigo-700 text-indigo-100 hover:text-white border border-indigo-600'}
+                                                            ? 'bg-white text-indigo-700 shadow-md border-indigo-100 ring-2 ring-indigo-50'
+                                                            : 'bg-white/40 hover:bg-white text-slate-600 hover:text-indigo-600 border-indigo-50/50 hover:shadow-sm'}
                                                     ${!isUnlocked ? 'opacity-50 cursor-not-allowed grayscale' : ''}
                                                 `}
-                                            >
-                                                <span className="truncate flex-1">{exam.title}</span>
-                                                {isActive && <span className="text-indigo-500 animate-pulse">●</span>}
-                                                {!isUnlocked && <span>🔒</span>}
-                                            </button>
-                                        );
-                                    })}
+                                                >
+                                                    <span className="truncate flex-1">{exam.title}</span>
+                                                    {isActive && <span className="text-indigo-500 animate-pulse text-[10px]">●</span>}
+                                                    {!isUnlocked && <span className="text-[10px]">🔒</span>}
+                                                </button>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="text-center py-6 bg-white/30 rounded-xl border border-white/50 border-dashed backdrop-blur-sm">
+                                            <p className="text-xs text-indigo-400 font-medium">✨ ยังไม่มีชุดข้อสอบ</p>
+                                            <p className="text-[10px] text-indigo-300 mt-1">(รอติดตามเร็วๆ นี้)</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
-                    )}
-                </div>
+                    </div>
 
-                <div className="lg:flex-1 lg:overflow-y-auto custom-scrollbar pb-20 lg:pb-0">
-                    {groupedLessons.map((group: any) => {
-                        const isOpen = openSections.includes(group.header.id);
-                        return (
-                            <div key={group.header.id} className="border-b border-gray-50">
-                                <div className={`w-full flex items-center justify-between p-4 bg-white hover:bg-gray-50 transition border-b border-gray-50 ${activeLesson?.id === group.header.id ? 'bg-indigo-50/50' : ''}`}>
-                                    <button
-                                        onClick={() => {
-                                            changeLesson(group.header);
-                                            if (!isOpen) toggleSection(group.header.id);
-                                        }}
-                                        className={`text-base md:text-lg font-black tracking-tight truncate pr-2 flex-1 text-left ${activeLesson?.id === group.header.id ? 'text-indigo-600' : 'text-slate-800'}`}
-                                    >
-                                        {group.header.title}
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleSection(group.header.id);
-                                        }}
-                                        className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition"
-                                    >
-                                        <span className={`block transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
-                                    </button>
-                                </div>
+                    {/* Lesson Lists inside Scrollable Area */}
+                    <div className="pb-20 lg:pb-0 border-t border-gray-100 mt-6 pt-2">
+                        {groupedLessons.map((group: any) => {
+                            const isOpen = openSections.includes(group.header.id);
+                            return (
+                                <div key={group.header.id} className="border-b border-gray-50">
+                                    <div className={`w-full flex items-center justify-between p-4 bg-white hover:bg-gray-50 transition border-b border-gray-50 ${activeLesson?.id === group.header.id ? 'bg-indigo-50/50' : ''}`}>
+                                        <button
+                                            onClick={() => {
+                                                changeLesson(group.header);
+                                                if (!isOpen) toggleSection(group.header.id);
+                                            }}
+                                            className={`text-base md:text-lg font-black tracking-tight truncate pr-2 flex-1 text-left ${activeLesson?.id === group.header.id ? 'text-indigo-600' : 'text-slate-800'}`}
+                                        >
+                                            {group.header.title}
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleSection(group.header.id);
+                                            }}
+                                            className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition"
+                                        >
+                                            <span className={`block transform transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+                                        </button>
+                                    </div>
 
-                                <div className={`grid transition-[grid-template-rows] duration-500 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-                                    <div className="overflow-hidden">
-                                        <div className="bg-gray-50/50">
-                                            {group.items.map((lesson: Lesson) => {
-                                                const isUnlocked = isLessonUnlocked(lesson);
-                                                const isActive = activeLesson?.id === lesson.id;
-                                                const isCompleted = completedLessons.includes(lesson.id);
-                                                return (
-                                                    <button
-                                                        key={lesson.id}
-                                                        onClick={() => {
-                                                            if (isUnlocked) {
-                                                                changeLesson(lesson);
-                                                                setIsMobileMenuOpen(false); // Close menu on selection
-                                                            }
-                                                        }}
-                                                        disabled={!isUnlocked}
-                                                        className={`w-full flex items-center gap-3 py-3 px-6 text-left border-l-4 transition hover:bg-gray-100
+                                    <div className={`grid transition-[grid-template-rows] duration-500 ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                                        <div className="overflow-hidden">
+                                            <div className="bg-gray-50/50">
+                                                {group.items.map((lesson: Lesson) => {
+                                                    const isUnlocked = isLessonUnlocked(lesson);
+                                                    const isActive = activeLesson?.id === lesson.id;
+                                                    const isCompleted = completedLessons.includes(lesson.id);
+                                                    return (
+                                                        <button
+                                                            key={lesson.id}
+                                                            onClick={() => {
+                                                                if (isUnlocked) {
+                                                                    changeLesson(lesson);
+                                                                    setIsMobileMenuOpen(false); // Close menu on selection
+                                                                }
+                                                            }}
+                                                            disabled={!isUnlocked}
+                                                            className={`w-full flex items-center gap-3 py-3 px-6 text-left border-l-4 transition hover:bg-gray-100
                                                     ${isActive ? 'border-green-500 bg-white shadow-sm' : 'border-transparent'}
                                                     ${!isUnlocked ? 'opacity-50 cursor-not-allowed' : ''}
                                                 `}
-                                                    >
-                                                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-all ${isCompleted ? 'bg-green-500 border-green-500' : 'border-gray-300 bg-white'} ${lesson.type === 'exercise' ? 'rounded-none' : ''}`}>
-                                                            {isCompleted && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className={`text-sm truncate ${isActive ? 'text-gray-800 font-bold' : 'text-gray-600'}`}>
-                                                                {lesson.title}
-                                                                {lesson.isHidden && <span className="text-[10px] text-gray-400 ml-2 font-normal">(Hidden)</span>}
-                                                            </p>
-                                                            <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
-                                                                {lesson.type === 'quiz' ? <QuestionIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : lesson.type === 'flashcard' ? <FlashcardIcon /> : <PlayIcon />}
-                                                                <span>{lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'exercise' ? 'Exercise' : lesson.type === 'html' ? 'สรุป' : lesson.type === 'flashcard' ? 'Flashcard' : 'Reading'}</span>
+                                                        >
+                                                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-all ${isCompleted ? 'bg-green-500 border-green-500' : 'border-gray-300 bg-white'} ${lesson.type === 'exercise' ? 'rounded-none' : ''}`}>
+                                                                {isCompleted && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
                                                             </div>
-                                                        </div>
-                                                        {!isUnlocked && <span className="ml-auto text-xs">🔒</span>}
-                                                    </button>
-                                                );
-                                            })}
+                                                            <div className="min-w-0">
+                                                                <p className={`text-sm truncate ${isActive ? 'text-gray-800 font-bold' : 'text-gray-600'}`}>
+                                                                    {lesson.title}
+                                                                    {lesson.isHidden && <span className="text-[10px] text-gray-400 ml-2 font-normal">(Hidden)</span>}
+                                                                </p>
+                                                                <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5">
+                                                                    {lesson.type === 'quiz' ? <QuestionIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : lesson.type === 'flashcard' ? <FlashcardIcon /> : <PlayIcon />}
+                                                                    <span>{lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'exercise' ? 'Exercise' : lesson.type === 'html' ? 'สรุป' : lesson.type === 'flashcard' ? 'Flashcard' : 'Reading'}</span>
+                                                                </div>
+                                                            </div>
+                                                            {!isUnlocked && <span className="ml-auto text-xs">🔒</span>}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
             </aside>
 
@@ -645,7 +912,7 @@ export default function CoursePlayer() {
                             <span>รับใบประกาศนียบัตร</span>
                         </button>
 
-                        {user && canWatchCurrent && !isHeaderMode && (
+                        {user && canWatchCurrent && !isHeaderMode && !(activeLesson?.type === 'html' && (activeLesson.htmlCode?.trim().startsWith('[') || activeLesson.htmlCode?.trim().startsWith('{'))) && (
                             <button onClick={handleNextLesson} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 px-3 md:px-5 py-2 md:py-2.5 rounded-full font-bold transition-all shadow-sm hover:shadow-md group text-sm md:text-base">
                                 {completedLessons.includes(activeLesson?.id || "") ? <><span className="hidden md:inline">เรียนจบแล้ว</span> <CheckIcon /></> : <><span className="hidden md:inline">บันทึกความคืบหน้าและไปตอนต่อไป</span> <span className="group-hover:translate-x-1 transition">→</span></>}
                             </button>
@@ -654,35 +921,7 @@ export default function CoursePlayer() {
                 </header>
 
                 <div className="flex-1 overflow-y-auto bg-[#F9FAFB] relative">
-                    {/* Summary Button (Floating) */}
-                    {canWatchCurrent && !isHeaderMode && activeLesson?.type !== 'quiz' && (
-                        <button
-                            onClick={() => setIsNotesOpen(!isNotesOpen)}
-                            className={`absolute top-6 right-6 z-30 flex items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all shadow-lg backdrop-blur-md border
-                            ${activeLesson?.type === 'video'
-                                    ? 'bg-white/10 border-white/20 text-white hover:bg-white/20'
-                                    : 'bg-white/60 border-white/40 text-slate-700 hover:bg-white/80'}
-                        `}
-                        >
-                            <span>📝</span>
-                            <span>สรุปเนื้อหา</span>
-                        </button>
-                    )}
 
-                    {/* Notes Drawer */}
-                    <div className={`absolute top-0 right-0 h-full w-full md:w-[400px] bg-white/80 backdrop-blur-2xl border-l border-white/40 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${isNotesOpen ? 'translate-x-0' : 'translate-x-full'} overflow-y-auto`}>
-                        <div className="p-6 border-b border-white/30 flex justify-between items-center bg-white/20 backdrop-blur-sm sticky top-0 z-10">
-                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">📝 สรุปเนื้อหา</h3>
-                            <button onClick={() => setIsNotesOpen(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-                        <div className="p-6 text-slate-700 leading-loose whitespace-pre-wrap text-sm font-medium">
-                            {activeLesson?.content || <div className="text-center text-slate-500 italic py-10">ไม่มีบันทึกย่อสำหรับบทเรียนนี้</div>}
-                        </div>
-                    </div>
 
                     {isHeaderMode ? (
                         <div className="h-full flex items-center justify-center p-10">
@@ -749,70 +988,14 @@ export default function CoursePlayer() {
                             </div>
                         ) : activeLesson?.type === 'html' ? (
                             (() => {
-                                const isJsonExam = activeLesson.htmlCode?.trim().startsWith('[') || activeLesson.htmlCode?.trim().startsWith('{');
-                                if (isJsonExam) {
-                                    let parsed: any[] = [];
-                                    try {
-                                        const raw = JSON.parse(activeLesson.htmlCode || '[]');
-                                        if (Array.isArray(raw)) {
-                                            // Handle nested arrays (e.g. [[Q1], [Q2]] or [[Q1, Q2]])
-                                            parsed = raw.flat();
-                                        } else if (typeof raw === 'object' && raw.questions) {
-                                            // Handle object wrapper { questions: [...] }
-                                            parsed = raw.questions;
-                                        }
-
-                                        // 2. Normalize Data
-                                        parsed = parsed.map((q: any) => {
-                                            let ans = q.correctIndex;
-                                            if (ans === undefined || ans === null) ans = q.correctAnswer;
-
-                                            // Handle string numbers
-                                            if (typeof ans === 'string') ans = parseInt(ans, 10);
-
-                                            // Handle Options (robust check)
-                                            let opts = q.options || q.choices || [];
-                                            if (typeof opts === 'string') {
-                                                try {
-                                                    // Try parsing if it looks like JSON array
-                                                    if (opts.trim().startsWith('[')) {
-                                                        opts = JSON.parse(opts);
-                                                    }
-                                                } catch (e) {
-                                                    opts = [];
-                                                }
-                                            }
-
-                                            return {
-                                                ...q,
-                                                id: q.id || Math.random(),
-                                                options: Array.isArray(opts) ? opts : [], // Ensure array
-                                                correctIndex: ans, // ExamSystem needs this
-                                                correctAnswer: ans // For back-compat safety
-                                            };
-                                        });
-
-                                    } catch (e) {
-                                        console.error("Exam Parse Error", e);
-                                        return <div className="p-10 text-center text-rose-500">ข้อมูลแบบทดสอบผิดพลาด (Invalid JSON)</div>;
-                                    }
-
-                                    return (
-                                        <div className="w-full bg-white min-h-screen pb-20">
-                                            <ExamSystem
-                                                examData={parsed}
-                                                examTitle={activeLesson.title}
-                                                onComplete={() => markAsComplete(activeLesson.id)}
-                                            />
-
-
-                                        </div>
-                                    );
+                                const examQuestions = tryParseQuestions(activeLesson.content || "");
+                                if (examQuestions) {
+                                    return <ExamRunner questions={examQuestions} onComplete={() => markAsComplete(activeLesson.id)} />;
                                 }
                                 return (
                                     <div className="w-full min-h-full bg-white">
                                         <iframe
-                                            srcDoc={activeLesson.htmlCode || ""}
+                                            srcDoc={activeLesson.htmlCode || activeLesson.content || ""}
                                             className="w-full min-h-[calc(100dvh-5rem)] border-0"
                                             title="Lesson Content"
                                             sandbox="allow-scripts allow-same-origin"

@@ -515,6 +515,71 @@ export default function ExamEditorPage() {
                                                     <FileJsonIcon size={12} className="text-slate-600" />
                                                 </div>
                                             </div>
+
+                                            {/* Smart Image Uploader for this block */}
+                                            {(() => {
+                                                try {
+                                                    const parsed = JSON.parse(block);
+                                                    return (
+                                                        <div className="p-3 bg-[#252526] border-t border-[#3d3d3d] flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                {parsed.image ? (
+                                                                    <div className="relative group w-10 h-10 rounded bg-black border border-slate-700 overflow-hidden">
+                                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                        <img src={parsed.image} alt="preview" className="w-full h-full object-contain" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="w-10 h-10 rounded bg-[#333] border border-[#444] flex items-center justify-center text-slate-500">
+                                                                        <ImageIcon size={14} />
+                                                                    </div>
+                                                                )}
+
+                                                                <div>
+                                                                    <label className="cursor-pointer px-3 py-1.5 bg-[#3d3d3d] hover:bg-[#4d4d4d] text-slate-300 text-xs rounded border border-[#555] flex items-center gap-2 transition-all group">
+                                                                        <UploadCloud size={14} className="text-amber-500 group-hover:scale-110 transition-transform" />
+                                                                        <span className="font-bold">{parsed.image ? "เปลี่ยนรูปภาพ" : "แนบรูปภาพ"}</span>
+                                                                        <input
+                                                                            type="file"
+                                                                            className="hidden"
+                                                                            accept="image/*"
+                                                                            onChange={async (e) => {
+                                                                                const file = e.target.files?.[0];
+                                                                                if (!file) return;
+                                                                                try {
+                                                                                    const filename = `exam-q-images/${Date.now()}_${idx}_${file.name}`;
+                                                                                    const storageRef = ref(storage, filename);
+                                                                                    const snapshot = await uploadBytes(storageRef, file);
+                                                                                    const url = await getDownloadURL(snapshot.ref);
+
+                                                                                    const newObj = { ...parsed, image: url };
+                                                                                    updateSmartBlock(idx, JSON.stringify(newObj, null, 2));
+                                                                                } catch (err) {
+                                                                                    console.error(err);
+                                                                                    alert("อัปโหลดไม่สำเร็จ");
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            {parsed.image && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const newObj = { ...parsed };
+                                                                        delete newObj.image;
+                                                                        updateSmartBlock(idx, JSON.stringify(newObj, null, 2));
+                                                                    }}
+                                                                    className="text-rose-400 hover:text-rose-300 text-xs flex items-center gap-1 bg-rose-950/20 px-2 py-1 rounded border border-rose-900/30 transition-colors"
+                                                                >
+                                                                    <Trash2 size={12} /> ลบรูป
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                } catch (e) {
+                                                    return null; // Invalid JSON, don't show uploader
+                                                }
+                                            })()}
                                         </div>
                                     ))}
 

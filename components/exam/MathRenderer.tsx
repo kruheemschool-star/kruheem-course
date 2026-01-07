@@ -58,10 +58,38 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className = ""
                     return <InlineMath key={index} math={math} />;
                 }
 
-                // Normal Text
-                // แปลง Newline เป็น <br />
+                // Normal Text (with Markdown Support)
                 return (
-                    <span key={index} dangerouslySetInnerHTML={{ __html: part.replace(/\n/g, '<br />') }} />
+                    <span
+                        key={index}
+                        dangerouslySetInnerHTML={{
+                            __html: part
+                                // 1. Escape HTML (Basic prevention) - Optional but good practice
+                                // .replace(/</g, "&lt;").replace(/>/g, "&gt;") 
+                                // (Skipped to allow intended HTML/BR)
+
+                                // 2. Headers (### Text)
+                                .replace(/^### (.*$)/gm, '<h3 class="text-lg font-bold text-indigo-900 mt-4 mb-2">$1</h3>')
+                                .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-indigo-900 mt-5 mb-2 border-b border-indigo-100 pb-1">$1</h2>')
+
+                                // 3. Bold (**Text**)
+                                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-indigo-900 bg-indigo-50 px-1 rounded">$1</strong>')
+
+                                // 4. Italic (*Text*)
+                                .replace(/\*(.*?)\*/g, '<em class="italic text-slate-500">$1</em>')
+
+                                // 5. Lists (- Text or * Text at start of line)
+                                .replace(/^[\-\*] (.*$)/gm, '<div class="flex items-start gap-2 my-1 pl-2"><span class="text-indigo-500 font-bold">•</span><span>$1</span></div>')
+
+                                // 6. Horizontal Rule (---)
+                                .replace(/^---$/gm, '<hr class="my-6 border-t-2 border-dashed border-slate-200" />')
+
+                                // 7. Line Breaks (Convert remaining newlines to <br>)
+                                // Note: We handle headers/lists which need block-like behavior, 
+                                // but broadly converting \n to <br> works for general text.
+                                .replace(/\n/g, '<br />')
+                        }}
+                    />
                 );
             })}
         </span>
