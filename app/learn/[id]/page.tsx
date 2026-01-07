@@ -146,6 +146,211 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
     );
 };
 
+// ✅ Exam Player Component (Auto-detected from JSON)
+const LessonExamPlayer = ({ questionsJson, onComplete, lessonTitle }: { questionsJson: string, onComplete: () => void, lessonTitle: string }) => {
+    const [questions, setQuestions] = useState<any[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: number }>({});
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [score, setScore] = useState(0);
+    const [showExplanation, setShowExplanation] = useState(false);
+
+    useEffect(() => {
+        try {
+            const parsed = JSON.parse(questionsJson);
+            if (Array.isArray(parsed)) setQuestions(parsed);
+        } catch (e) {
+            console.error("Invalid Exam JSON");
+        }
+    }, [questionsJson]);
+
+    if (questions.length === 0) return <div className="p-10 text-center text-slate-400">Loading Exam...</div>;
+
+    const currentQ = questions[currentIndex];
+    const isLast = currentIndex === questions.length - 1;
+    const answeredCount = Object.keys(selectedAnswers).length;
+
+    const handleOptionSelect = (optIndex: number) => {
+        if (isSubmitted) return;
+        setSelectedAnswers(prev => ({ ...prev, [currentIndex]: optIndex }));
+    };
+
+    const submitExam = () => {
+        if (!confirm("ยืนยันการส่งคำตอบ?")) return;
+        let s = 0;
+        questions.forEach((q, idx) => {
+            if (selectedAnswers[idx] === q.correctAnswer) s++;
+        });
+        setScore(s);
+        setIsSubmitted(true);
+        onComplete();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    if (isSubmitted) {
+        return (
+            <div className="w-full max-w-4xl mx-auto p-6 md:p-10">
+                <div className="bg-white rounded-[2rem] shadow-xl border border-indigo-100 overflow-hidden text-center p-12 mb-8 animate-in zoom-in duration-300">
+                    <div className="w-24 h-24 bg-gradient-to-br from-yellow-300 to-orange-500 rounded-full flex items-center justify-center text-5xl shadow-lg shadow-orange-200 mx-auto mb-6">
+                        🏆
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-2">สรุปผลการทดสอบ</h2>
+                    <p className="text-slate-500 mb-6">คุณทำข้อสอบเสร็จเรียบร้อยแล้ว!</p>
+
+                    <div className="inline-block px-8 py-4 bg-slate-50 rounded-2xl border border-slate-200">
+                        <span className="text-xl font-bold text-slate-600">คะแนนของคุณ</span>
+                        <div className="text-6xl font-black text-indigo-600 leading-tight mt-1">{score} <span className="text-2xl text-slate-400">/ {questions.length}</span></div>
+                    </div>
+
+                    <div className="mt-8 flex justify-center gap-4">
+                        <button
+                            onClick={() => {
+                                setIsSubmitted(false);
+                                setSelectedAnswers({});
+                                setCurrentIndex(0);
+                                setScore(0);
+                                setShowExplanation(false);
+                            }}
+                            className="px-6 py-3 rounded-xl font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 transition"
+                        >
+                            🔄 ทำอีกครั้ง
+                        </button>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    <h3 className="text-2xl font-bold text-slate-800 px-2">💡 เฉลยละเอียด</h3>
+                    {questions.map((q, idx) => {
+                        const userAns = selectedAnswers[idx];
+                        const isCorrect = userAns === q.correctAnswer;
+                        return (
+                            <div key={idx} className={`bg-white rounded-2xl shadow-sm border p-6 ${isCorrect ? 'border-emerald-200 bg-emerald-50/30' : 'border-rose-200 bg-rose-50/30'}`}>
+                                <div className="flex items-start gap-4 mb-4">
+                                    <span className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg font-bold text-white ${isCorrect ? 'bg-emerald-500' : 'bg-rose-500'}`}>
+                                        {idx + 1}
+                                    </span>
+                                    <div className="font-bold text-slate-800 text-lg">{renderWithLatex(q.question)}</div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-12 mb-4">
+                                    {q.options.map((opt: string, optIdx: number) => (
+                                        <div key={optIdx} className={`p-3 rounded-xl text-sm font-medium border flex items-center justify-between
+                                            ${optIdx === q.correctAnswer ? 'bg-emerald-100 border-emerald-500 text-emerald-800' :
+                                                optIdx === userAns ? 'bg-rose-100 border-rose-500 text-rose-800' : 'bg-white border-slate-100 text-slate-500'}
+                                        `}>
+                                            <span>{renderWithLatex(opt)}</span>
+                                            {optIdx === q.correctAnswer && <span className="text-emerald-600">✓</span>}
+                                            {optIdx === userAns && optIdx !== q.correctAnswer && <span className="text-rose-600">✗</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                                {(q.explanation || q.image) && (
+                                    <div className="mt-4 ml-12 p-4 bg-white rounded-xl border border-slate-200 text-sm text-slate-600">
+                                        <div className="font-bold text-slate-400 uppercase text-xs mb-1">เฉลย / คำอธิบาย</div>
+                                        {q.image && <img src={q.image} className="max-h-40 rounded-lg mb-2" />}
+                                        {renderWithLatex(q.explanation || "- ไม่มีคำอธิบาย -")}
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="w-full min-h-screen bg-slate-50 flex flex-col items-center py-8 px-4">
+            <div className="w-full max-w-4xl">
+                {/* Header Progress */}
+                <div className="flex items-center justify-between mb-6 px-2">
+                    <h2 className="font-bold text-xl text-slate-700 truncate max-w-md">{lessonTitle}</h2>
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-slate-400">Question {currentIndex + 1}/{questions.length}</span>
+                        <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500 transition-all duration-300" style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}></div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Question Card */}
+                <div className="bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden relative min-h-[500px] flex flex-col">
+                    <div className="p-8 md:p-12 flex-grow">
+                        {currentQ.image && (
+                            <div className="mb-6 rounded-2xl overflow-hidden shadow-sm border border-slate-100 bg-slate-50 flex justify-center">
+                                <img src={currentQ.image} className="max-h-[300px] object-contain" />
+                            </div>
+                        )}
+                        <h3 className="text-xl md:text-2xl font-bold text-slate-800 leading-loose mb-8">
+                            {renderWithLatex(currentQ.question)}
+                        </h3>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            {currentQ.options.map((opt: string, idx: number) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleOptionSelect(idx)}
+                                    className={`w-full p-4 md:p-5 rounded-2xl border-2 text-left transition-all duration-200 group flex items-start gap-4
+                                        ${selectedAnswers[currentIndex] === idx
+                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-900 shadow-md transform scale-[1.01]'
+                                            : 'border-slate-100 hover:border-indigo-300 hover:bg-slate-50 text-slate-600'}
+                                    `}
+                                >
+                                    <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center mt-1 transition-colors
+                                        ${selectedAnswers[currentIndex] === idx ? 'border-indigo-500 bg-indigo-500' : 'border-slate-300 group-hover:border-indigo-400'}
+                                    `}>
+                                        {selectedAnswers[currentIndex] === idx && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                                    </div>
+                                    <span className="text-base md:text-lg font-medium">{renderWithLatex(opt)}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Footer Nav */}
+                    <div className="bg-slate-50 p-4 md:p-6 border-t border-slate-100 flex justify-between items-center">
+                        <button
+                            onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                            disabled={currentIndex === 0}
+                            className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent transition"
+                        >
+                            ← ข้อก่อนหน้า
+                        </button>
+
+                        {!isLast ? (
+                            <button
+                                onClick={() => setCurrentIndex(currentIndex + 1)}
+                                className="px-8 py-3 rounded-xl font-bold bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 hover:shadow-indigo-200 transition"
+                            >
+                                ข้อต่อไป →
+                            </button>
+                        ) : (
+                            <button
+                                onClick={submitExam}
+                                className="px-8 py-3 rounded-xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-emerald-200 hover:-translate-y-1 transition flex items-center gap-2"
+                            >
+                                ✨ ส่งคำตอบ
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Navigator Dots */}
+                <div className="mt-8 flex flex-wrap justify-center gap-2">
+                    {questions.map((_, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => setCurrentIndex(idx)}
+                            className={`w-3 h-3 rounded-full transition-all ${idx === currentIndex ? 'bg-indigo-600 scale-125' :
+                                    selectedAnswers[idx] !== undefined ? 'bg-indigo-300' : 'bg-slate-200 hover:bg-slate-300'
+                                }`}
+                        />
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function CoursePlayer() {
     const { id } = useParams();
     const searchParams = useSearchParams();
@@ -696,14 +901,28 @@ export default function CoursePlayer() {
                                 </div>
                             </div>
                         ) : activeLesson?.type === 'html' ? (
-                            <div className="w-full min-h-full bg-white">
-                                <iframe
-                                    srcDoc={activeLesson.htmlCode || ""}
-                                    className="w-full min-h-[calc(100dvh-5rem)] border-0"
-                                    title="Lesson Content"
-                                    sandbox="allow-scripts allow-same-origin"
-                                />
-                            </div>
+                            (() => {
+                                const isJsonExam = activeLesson.htmlCode?.trim().startsWith('[') && activeLesson.htmlCode?.trim().endsWith(']');
+                                if (isJsonExam) {
+                                    return (
+                                        <LessonExamPlayer
+                                            questionsJson={activeLesson.htmlCode || '[]'}
+                                            lessonTitle={activeLesson.title}
+                                            onComplete={() => markAsComplete(activeLesson.id)}
+                                        />
+                                    );
+                                }
+                                return (
+                                    <div className="w-full min-h-full bg-white">
+                                        <iframe
+                                            srcDoc={activeLesson.htmlCode || ""}
+                                            className="w-full min-h-[calc(100dvh-5rem)] border-0"
+                                            title="Lesson Content"
+                                            sandbox="allow-scripts allow-same-origin"
+                                        />
+                                    </div>
+                                );
+                            })()
                         ) : activeLesson?.type === 'flashcard' ? (
                             <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
                                 <div className="w-full max-w-4xl">

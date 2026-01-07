@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import "katex/dist/katex.min.css";
 import { InlineMath } from "react-katex";
+import { Plus, Trash2, FileJson, Blocks, AlertCircle, Image as ImageIcon } from 'lucide-react';
 
 
 // --- Icons (Updated for Clarity) ---
@@ -224,7 +225,39 @@ export default function ManageLessonsPage() {
     const [pdfUrl, setPdfUrl] = useState("");
 
     // ✅ HTML Code State
+    // ✅ HTML Code State
     const [htmlCode, setHtmlCode] = useState("");
+    const [smartExamBlocks, setSmartExamBlocks] = useState<string[]>([]);
+
+    // Auto-Sync Smart Blocks to JSON String (htmlCode)
+    const updateSmartBlock = (index: number, val: string) => {
+        const newBlocks = [...smartExamBlocks];
+        newBlocks[index] = val;
+        setSmartExamBlocks(newBlocks);
+        setHtmlCode(`[\n${newBlocks.join(',\n')}\n]`);
+    };
+
+    const addSmartQuestion = () => {
+        const template = {
+            question: "",
+            options: ["", "", "", ""],
+            correctAnswer: 0,
+            explanation: ""
+        };
+        const newBlocks = [...smartExamBlocks, JSON.stringify(template, null, 2)];
+        setSmartExamBlocks(newBlocks);
+        setHtmlCode(`[\n${newBlocks.join(',\n')}\n]`);
+    };
+
+    const deleteSmartQuestion = (index: number) => {
+        if (!confirm("ลบข้อนี้?")) return;
+        const newBlocks = [...smartExamBlocks];
+        newBlocks.splice(index, 1);
+        setSmartExamBlocks(newBlocks);
+        setHtmlCode(`[\n${newBlocks.join(',\n')}\n]`);
+    };
+
+
 
     // ✅ Flashcard State
     const [flashcardData, setFlashcardData] = useState<{ front: string, back: string }[]>([]);
@@ -292,6 +325,28 @@ export default function ManageLessonsPage() {
     useEffect(() => {
         fetchCourseInfo();
     }, [fetchCourseInfo]);
+
+    // Parse JSON to Blocks when entering Edit Mode/Init (Moved here to access editId)
+    useEffect(() => {
+        if (addType === 'html') {
+            try {
+                const trimmed = htmlCode.trim();
+                // Basic check if it looks like JSON array
+                if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                    const parsed = JSON.parse(trimmed);
+                    if (Array.isArray(parsed)) {
+                        setSmartExamBlocks(parsed.map(q => JSON.stringify(q, null, 2)));
+                        return;
+                    }
+                }
+            } catch (e) {
+                // Not valid JSON or Empty -> Don't overwrite smartBlocks if just switching tabs empty
+                // If text is present but invalid JSON, we might want to default to empty blocks or handle legacy
+            }
+            if (!htmlCode.trim()) setSmartExamBlocks([]);
+        }
+    }, [addType, editId, htmlCode]); // Added htmlCode to deps for correctness, though mainly triggered by editId/addType switch
+
 
     const availableHeaders = lessons.filter(l => l.type === 'header');
     const groupedLessons = (() => {
@@ -751,8 +806,8 @@ export default function ManageLessonsPage() {
                                     <button type="button" onClick={() => setAddType('quiz')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'quiz' ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><QuizIcon /> <span className="hidden sm:inline">คำถาม</span></button>
                                     {/* ✅ ปุ่ม Exercise ใหม่ */}
                                     <button type="button" onClick={() => setAddType('exercise')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'exercise' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><ExerciseIcon /> <span className="hidden sm:inline">แบบฝึกหัด</span></button>
-                                    {/* ✅ ปุ่ม HTML ใหม่ */}
-                                    <button type="button" onClick={() => setAddType('html')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'html' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><HtmlIcon /> <span className="hidden sm:inline">สรุป (HTML)</span></button>
+                                    {/* ✅ ปุ่ม HTML ใหม่ -> เปลี่ยนเป็น Exam System */}
+                                    <button type="button" onClick={() => setAddType('html')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'html' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><Blocks size={18} /> <span className="hidden sm:inline">ข้อสอบ (Exam)</span></button>
                                     {/* ✅ ปุ่ม Flashcard ใหม่ */}
                                     <button type="button" onClick={() => setAddType('flashcard')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'flashcard' ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><FlashcardIcon /> <span className="hidden sm:inline">Flashcard</span></button>
                                 </div>
@@ -760,7 +815,7 @@ export default function ManageLessonsPage() {
                                 <div className="flex justify-between items-center mb-6 px-2">
                                     <h3 className={`font-bold text-xl flex items-center gap-3 ${addType === 'video' ? 'text-blue-600' : addType === 'quiz' ? 'text-purple-600' : addType === 'text' ? 'text-pink-600' : addType === 'exercise' ? 'text-emerald-600' : addType === 'html' ? 'text-cyan-600' : addType === 'flashcard' ? 'text-yellow-600' : 'text-orange-600'}`}>
                                         <div className={`w-3 h-3 rounded-full ${addType === 'video' ? 'bg-blue-500' : addType === 'quiz' ? 'bg-purple-500' : addType === 'text' ? 'bg-pink-500' : addType === 'exercise' ? 'bg-emerald-500' : addType === 'html' ? 'bg-cyan-500' : addType === 'flashcard' ? 'bg-yellow-500' : 'bg-orange-500'}`}></div>
-                                        {editId ? '✏️ แก้ไขข้อมูล' : (addType === 'video' ? 'เพิ่มวิดีโอใหม่' : addType === 'quiz' ? 'สร้างคำถาม (Quiz)' : addType === 'text' ? 'เพิ่มบทความ/ชีท' : addType === 'exercise' ? 'เพิ่มแบบฝึกหัด (PDF Link)' : addType === 'html' ? 'เพิ่มส่วนสรุป (HTML)' : addType === 'flashcard' ? 'เพิ่ม Flashcard' : 'เพิ่มหัวข้อบทเรียน')}
+                                        {editId ? '✏️ แก้ไขข้อมูล' : (addType === 'video' ? 'เพิ่มวิดีโอใหม่' : addType === 'quiz' ? 'สร้างคำถาม (Quiz)' : addType === 'text' ? 'เพิ่มบทความ/ชีท' : addType === 'exercise' ? 'เพิ่มแบบฝึกหัด (PDF Link)' : addType === 'html' ? 'สร้างชุดข้อสอบ (Exam System)' : addType === 'flashcard' ? 'เพิ่ม Flashcard' : 'เพิ่มหัวข้อบทเรียน')}
                                     </h3>
                                     <div className="flex gap-2">
                                         {editId && <button onClick={handleCancelEdit} className="text-sm font-bold text-rose-400 hover:text-rose-600 underline transition bg-rose-50 px-3 py-1 rounded-lg">ยกเลิก</button>}
@@ -916,15 +971,57 @@ export default function ManageLessonsPage() {
 
                                     {addType === 'html' && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                            <div className="bg-cyan-50 p-6 rounded-2xl border-2 border-cyan-100">
-                                                <label className="block text-xs font-bold text-cyan-600 uppercase tracking-wider mb-2">💻 HTML Code / Embed Code</label>
-                                                <textarea
-                                                    placeholder="วางโค้ด HTML หรือ Iframe ที่นี่..."
-                                                    className="w-full p-4 bg-white border-2 border-cyan-200 rounded-xl outline-none focus:border-cyan-500 transition text-slate-700 font-mono text-sm min-h-[200px]"
-                                                    value={htmlCode}
-                                                    onChange={(e) => setHtmlCode(e.target.value)}
-                                                />
-                                                <p className="text-xs text-cyan-500 mt-2">* รองรับ Iframe, Script, และ HTML Tags ทั่วไป</p>
+                                            <div className="bg-slate-50 p-6 rounded-2xl border-2 border-cyan-100">
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <label className="block text-xs font-bold text-cyan-600 uppercase tracking-wider">🧩 Exam Editor (JSON System)</label>
+                                                    <div className="text-[10px] bg-cyan-100 text-cyan-700 px-2 py-1 rounded">
+                                                        รองรับ One-Question-Per-Block
+                                                    </div>
+                                                </div>
+
+                                                {/* Smart Editor Area */}
+                                                <div className="space-y-4">
+                                                    {smartExamBlocks.length === 0 && !htmlCode.trim() && (
+                                                        <div className="text-center py-8 border-2 border-dashed border-slate-300 rounded-xl">
+                                                            <Blocks className="mx-auto text-slate-300 mb-2" size={32} />
+                                                            <p className="text-slate-400 text-sm">ยังไม่มีข้อสอบ</p>
+                                                            <p className="text-slate-400 text-xs mt-1">กดปุ่มด้านล่างเพื่อเพิ่มข้อแรก</p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Fallback for Legacy HTML: If htmlCode has content but not JSON array */}
+                                                    {htmlCode.trim() && !htmlCode.trim().startsWith('[') && (
+                                                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-200 mb-4">
+                                                            <h4 className="flex items-center gap-2 text-orange-700 font-bold text-sm mb-2"><AlertCircle size={16} /> ตรวจพบ HTML เดิม</h4>
+                                                            <textarea
+                                                                value={htmlCode}
+                                                                onChange={(e) => setHtmlCode(e.target.value)}
+                                                                className="w-full p-2 text-xs font-mono bg-white border border-orange-200 rounded"
+                                                                rows={5}
+                                                            />
+                                                            <p className="text-xs text-orange-500 mt-2">ระบบตรวจพบว่าเป็น HTML ไม่ใช่ JSON ข้อสอบ. คุณสามารถลบแล้วสร้างใหม่เป็นข้อสอบได้ หรือใช้งานแบบเดิม.</p>
+                                                        </div>
+                                                    )}
+
+                                                    {smartExamBlocks.map((block, idx) => (
+                                                        <div key={idx} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden group hover:border-cyan-300 transition-colors">
+                                                            <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex items-center justify-between">
+                                                                <span className="text-xs font-bold text-slate-500">ข้อที่ {idx + 1}</span>
+                                                                <button type="button" onClick={() => deleteSmartQuestion(idx)} className="text-slate-400 hover:text-rose-500 transition-colors"><Trash2 size={14} /></button>
+                                                            </div>
+                                                            <textarea
+                                                                value={block}
+                                                                onChange={(e) => updateSmartBlock(idx, e.target.value)}
+                                                                className="w-full h-40 p-4 text-sm font-mono text-slate-700 outline-none resize-y"
+                                                                spellCheck="false"
+                                                            />
+                                                        </div>
+                                                    ))}
+
+                                                    <button type="button" onClick={addSmartQuestion} className="w-full py-3 border-2 border-dashed border-cyan-300 bg-cyan-50 hover:bg-cyan-100 text-cyan-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors">
+                                                        <Plus size={18} /> เพิ่มข้อสอบใหม่
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
                                                 <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>

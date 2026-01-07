@@ -1,10 +1,15 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, increment } from "firebase/firestore";
 
 export default function VisitorTracker() {
+    const hasRun = useRef(false);
+
     useEffect(() => {
+        if (hasRun.current) return;
+        hasRun.current = true;
+
         const recordVisit = async () => {
             // Use 'Asia/Bangkok' time to ensure consistency with the user's timezone
             const now = new Date();

@@ -301,6 +301,16 @@ export default function AdminDashboard() {
                             <p className="text-sm text-rose-800/60 mt-1 relative z-10">อนุมัติสลิปโอนเงิน</p>
                         </Link>
 
+                        {/* Exam Management Link (New) */}
+                        <Link href="/admin/exams" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-purple-100 to-fuchsia-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">📝</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-purple-900/80 group-hover:text-purple-900 relative z-10">คลังข้อสอบ</h3>
+                            <p className="text-sm text-purple-800/60 mt-1 relative z-10">เพิ่ม/ลบ ชุดข้อสอบ</p>
+                        </Link>
+
                         {/* 2. ทะเบียนนักเรียน (Sky Gradient) */}
                         <Link href="/admin/students" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-sky-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
                             <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
@@ -381,6 +391,8 @@ export default function AdminDashboard() {
                             <h3 className="font-bold text-xl text-purple-900/80 group-hover:text-purple-900 relative z-10">จัดการรีวิว</h3>
                             <p className="text-sm text-purple-800/60 mt-1 relative z-10">ซ่อน/ลบ รีวิวที่ไม่เหมาะสม</p>
                         </Link>
+
+
 
 
 

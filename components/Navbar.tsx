@@ -14,7 +14,8 @@ import {
     Minus,
     X,
     Divide,
-    HelpCircle
+    HelpCircle,
+    Target,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -77,39 +78,45 @@ export default function Navbar() {
                 </div>
             </Link>
 
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-1 xl:gap-2">
                 <ModeToggle />
-                <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden md:block mx-1"></div>
-                <div className="hidden md:flex items-center gap-1">
-                    <Link href="/reviews" className="font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-2 px-3 py-2 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
-                        <Sparkles size={20} />
-                        <span className="hidden lg:inline">รีวิว</span>
+                <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden lg:block mx-1"></div>
+                <div className="hidden lg:flex items-center gap-1">
+                    <Link href="/reviews" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
+                        <Sparkles size={16} />
+                        <span>รีวิว</span>
                     </Link>
-                    <Link href="/how-to-apply" className="font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-2 px-3 py-2 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
-                        <HelpCircle size={20} />
-                        <span className="hidden lg:inline">วิธีสมัครเรียน</span>
+
+                    <Link href="/exam" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20">
+                        <BookOpen size={16} />
+                        <span>คลังข้อสอบ</span>
+                    </Link>
+
+                    <Link href="/how-to-apply" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
+                        <HelpCircle size={16} />
+                        <span>วิธีสมัคร</span>
                     </Link>
                 </div>
 
                 <button
                     onClick={handlePaymentClick}
-                    className="hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm text-slate-700 dark:text-slate-200 bg-white/40 dark:bg-slate-800/40 border border-white/60 dark:border-slate-700 hover:bg-white/60 dark:hover:bg-slate-800/60 hover:border-white transition-all duration-300 hover:text-amber-700 dark:hover:text-amber-400 active:scale-95 hover:-translate-y-1"
+                    className="hidden lg:flex items-center gap-1.5 px-4 py-1.5 rounded-full font-semibold text-sm text-slate-700 dark:text-slate-200 bg-white/40 dark:bg-slate-800/40 border border-white/60 dark:border-slate-700 hover:bg-white/60 dark:hover:bg-slate-800/60 hover:border-white transition-all duration-300 hover:text-amber-700 dark:hover:text-amber-400 active:scale-95 hover:-translate-y-0.5"
                 >
-                    <CreditCard size={18} />
-                    <span>สั่งซื้อและแจ้งโอน</span>
+                    <CreditCard size={16} />
+                    <span>แจ้งโอน</span>
                 </button>
 
                 {user ? (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         {/* User Profile Badge */}
-                        <div className="hidden md:flex items-center gap-3 pl-2 pr-4 py-1.5 bg-white/50 border border-white/60 rounded-full backdrop-blur-sm hover:-translate-y-1 transition-transform duration-300">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm shadow-sm overflow-hidden">
+                        <div className="hidden xl:flex items-center gap-2 pl-1 pr-3 py-1 bg-white/50 border border-white/60 rounded-full backdrop-blur-sm hover:-translate-y-0.5 transition-transform duration-300">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs shadow-sm overflow-hidden">
                                 {userProfile?.avatar ? (
                                     userProfile.avatar.startsWith("http") ? (
                                         /* eslint-disable-next-line @next/next/no-img-element */
                                         <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
                                     ) : (
-                                        <span className="text-xl leading-none">{userProfile.avatar}</span>
+                                        <span className="text-lg leading-none">{userProfile.avatar}</span>
                                     )
                                 ) : user.photoURL ? (
                                     /* eslint-disable-next-line @next/next/no-img-element */
@@ -119,39 +126,39 @@ export default function Navbar() {
                                 )}
                             </div>
                             <div className="flex flex-col leading-none">
-                                <span className="text-xs font-bold text-slate-800 max-w-[100px] truncate">
+                                <span className="text-xs font-bold text-slate-800 max-w-[80px] truncate mb-0.5">
                                     {userProfile?.displayName || user.displayName || "นักเรียน"}
                                 </span>
-                                <span className="text-[10px] font-medium text-slate-500 max-w-[100px] truncate">
+                                <span className="text-[10px] font-medium text-slate-500 max-w-[80px] truncate">
                                     {user.email}
                                 </span>
                             </div>
                         </div>
 
                         {isAdmin && (
-                            <Link href="/admin" className="flex items-center gap-2 px-3 md:px-5 py-2 md:py-2.5 rounded-full font-bold text-sm text-slate-600 bg-slate-100 hover:bg-indigo-100 hover:text-indigo-600 transition-all hover:-translate-y-1 relative" title="ระบบจัดการ (Admin)">
-                                <Settings size={18} />
-                                <span className="hidden md:inline">Admin</span>
+                            <Link href="/admin" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs text-slate-600 bg-slate-100 hover:bg-indigo-100 hover:text-indigo-600 transition-all hover:-translate-y-0.5 relative" title="ระบบจัดการ (Admin)">
+                                <Settings size={16} />
+                                <span className="hidden xl:inline">Admin</span>
                                 {pendingCount > 0 && (
-                                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white animate-pulse">
+                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white animate-pulse">
                                         {pendingCount}
                                     </span>
                                 )}
                             </Link>
                         )}
 
-                        <Link href="/my-courses" className="hidden md:flex items-center gap-2 px-8 py-2.5 rounded-full font-bold text-sm text-emerald-800 bg-[#D9E9CF] hover:bg-[#C8DDBB] transition-all duration-300 active:scale-95 shadow-sm hover:-translate-y-1">
-                            <BookOpen size={18} />
+                        <Link href="/my-courses" className="hidden lg:flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-xs text-emerald-800 bg-[#D9E9CF] hover:bg-[#C8DDBB] transition-all duration-300 active:scale-95 shadow-sm hover:-translate-y-0.5">
+                            <BookOpen size={16} />
                             <span>คอร์สของฉัน</span>
                         </Link>
 
-                        <button onClick={logOut} className="w-10 h-10 flex items-center justify-center rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 transition-all hover:-translate-y-1" title="ออกจากระบบ">
-                            <LogOut size={20} />
+                        <button onClick={logOut} className="w-8 h-8 flex items-center justify-center rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 transition-all hover:-translate-y-0.5" title="ออกจากระบบ">
+                            <LogOut size={16} />
                         </button>
                     </div>
                 ) : (
-                    <button onClick={handleLogin} className="flex items-center gap-2 px-6 py-2.5 rounded-full font-bold text-sm text-white bg-indigo-500 shadow-lg shadow-indigo-200 transition-all duration-300 hover:bg-indigo-600 hover:scale-105 active:scale-95">
-                        <LogIn size={18} />
+                    <button onClick={handleLogin} className="flex items-center gap-1.5 px-5 py-2 rounded-full font-bold text-xs text-white bg-indigo-500 shadow-md shadow-indigo-200 transition-all duration-300 hover:bg-indigo-600 hover:scale-105 active:scale-95">
+                        <LogIn size={16} />
                         <span className="hidden sm:inline">เข้าสู่ระบบ</span>
                         <span className="sm:hidden">Login</span>
                     </button>

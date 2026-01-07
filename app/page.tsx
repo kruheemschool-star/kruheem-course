@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, getDoc, setDoc, increment } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import {
   BookOpen,
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+
 
 const BannerImage = ({ url, isActive, index }: { url: string, isActive: boolean, index: number }) => {
   const [loaded, setLoaded] = useState(false);
@@ -60,26 +61,7 @@ export default function HomePage() {
   const [badgeText, setBadgeText] = useState("คอร์สยอดนิยม");
   const [badgeIcon, setBadgeIcon] = useState("Star");
 
-  // Track Daily Visits
-  useEffect(() => {
-    const trackVisit = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const visitedKey = `visited_${today}`;
 
-      if (!sessionStorage.getItem(visitedKey)) {
-        sessionStorage.setItem(visitedKey, 'true');
-        try {
-          const statsRef = doc(db, "stats", "daily_visits");
-          await setDoc(statsRef, {
-            [today]: increment(1)
-          }, { merge: true });
-        } catch (error) {
-          console.error("Error tracking visit:", error);
-        }
-      }
-    };
-    trackVisit();
-  }, []);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -430,6 +412,38 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* Exam Highlight Section */}
+        <section className="py-20 px-6 relative z-10">
+          <div className="max-w-6xl mx-auto">
+            <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 to-slate-800 rounded-[3rem] p-10 md:p-16 text-center text-white shadow-2xl">
+              {/* Background Decoration */}
+              <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
+
+              <div className="relative z-10 max-w-3xl mx-auto">
+                <div className="inline-block p-4 rounded-2xl bg-white/10 backdrop-blur-md mb-6 border border-white/20 shadow-lg transform -rotate-2 hover:rotate-0 transition-transform duration-300">
+                  <Trophy size={48} className="text-amber-400 drop-shadow-md" />
+                </div>
+
+                <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight leading-tight">
+                  ประลองความรู้กับ <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">คลังข้อสอบออนไลน์</span>
+                </h2>
+                <p className="text-lg text-slate-300 mb-10 leading-relaxed">
+                  ฝึกฝนทักษะคณิตศาสตร์ผ่านโจทย์หลากหลายรูปแบบ พร้อมระบบตรวจคำตอบทันทีและเฉลยละเอียด <br className="hidden md:block" />
+                  ยิ่งทำยิ่งเก่ง ยิ่งยาวยิ่งแม่น! ทดลองทำฟรีได้เลยวันนี้
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <Link href="/exam" className="px-10 py-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg shadow-lg shadow-amber-500/30 transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95 flex items-center justify-center gap-3">
+                    <span>เริ่มทำข้อสอบ</span>
+                    <ArrowRight size={20} />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Courses Grid */}
         <main id="courses" className="max-w-[1400px] mx-auto px-6 pb-32 w-full">
           {loading ? (
@@ -504,6 +518,8 @@ export default function HomePage() {
             </div>
           )}
         </main>
+
+
 
         <Footer />
       </div >
