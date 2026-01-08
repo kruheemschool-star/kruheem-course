@@ -14,6 +14,8 @@ export const metadata: Metadata = {
     keywords: ["ข้อสอบคณิตศาสตร์", "คลังข้อสอบ", "แบบฝึกหัดคณิต", "ข้อสอบ O-NET", "ข้อสอบ A-Level"],
 };
 
+export const dynamic = "force-dynamic";
+
 // 1. Fetch Data on Server (No "use client")
 async function getExams() {
     try {
