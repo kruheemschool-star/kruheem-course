@@ -23,7 +23,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     onSelectOption,
     isSubmitted
 }) => {
-    const isCorrect = selectedOption === question.correctIndex;
+    const isCorrect = selectedOption === Number(question.correctIndex);
 
     return (
         <div className="w-full max-w-4xl mx-auto bg-white rounded-[2rem] shadow-xl shadow-stone-200/50 overflow-hidden border border-stone-100 transition-all duration-300">
@@ -87,13 +87,15 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                             let containerClass = "relative p-4 md:p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 group flex items-start gap-4 hover:shadow-md";
                             let indicatorClass = "w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all";
 
+                            const actualCorrectIndex = Number(question.correctIndex);
+
                             if (isSubmitted) {
                                 // เฉลยแล้ว
-                                if (index === question.correctIndex) {
+                                if (index === actualCorrectIndex) {
                                     // ข้อที่ถูก (สีเขียวเสมอ)
                                     containerClass += " bg-emerald-50 border-emerald-400 shadow-sm";
                                     indicatorClass += " bg-emerald-500 border-emerald-500 text-white";
-                                } else if (index === selectedOption && index !== question.correctIndex) {
+                                } else if (index === selectedOption && index !== actualCorrectIndex) {
                                     // ข้อที่เลือกผิด (สีแดง)
                                     containerClass += " bg-rose-50 border-rose-300";
                                     indicatorClass += " bg-rose-500 border-rose-500 text-white";
@@ -127,7 +129,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                     </div>
 
                                     {/* Feedback Icons on Result */}
-                                    {isSubmitted && index === question.correctIndex && (
+                                    {isSubmitted && index === actualCorrectIndex && (
                                         <div className="absolute top-4 right-4 text-emerald-500 animate-in zoom-in spin-in-180 duration-500">
                                             <CheckCircle2 size={24} fill="currentColor" className="text-white" />
                                         </div>

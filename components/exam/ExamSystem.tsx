@@ -64,7 +64,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         if (onComplete) {
             let score = 0;
             examData.forEach((q, index) => {
-                if (answers[index] === q.correctIndex) score++;
+                if (answers[index] === Number(q.correctIndex)) score++;
             });
             onComplete(score, totalQuestions);
         }
@@ -80,7 +80,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     const calculateScore = () => {
         let score = 0;
         examData.forEach((q, index) => {
-            if (answers[index] === q.correctIndex) score++;
+            if (answers[index] === Number(q.correctIndex)) score++;
         });
         return score;
     };
@@ -150,7 +150,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                         let btnClass = "bg-slate-50 text-slate-400 hover:bg-slate-100"; // Default
                         if (isAnswered) btnClass = "bg-blue-100 text-blue-600 font-bold border-blue-200";
                         if (isChecked) {
-                            if (answers[idx] === examData[idx].correctIndex) btnClass = "bg-green-100 text-green-600 font-bold border-green-200";
+                            if (answers[idx] === Number(examData[idx].correctIndex)) btnClass = "bg-green-100 text-green-600 font-bold border-green-200";
                             else btnClass = "bg-red-100 text-red-600 font-bold border-red-200";
                         }
                         if (isCurrent) btnClass += " ring-2 ring-amber-400 ring-offset-2 z-10";
