@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 // 1. Fetch Data on Server (No "use client")
 async function getExams() {
     try {
-        const q = query(collection(db, "exams"), orderBy("createdAt", "desc"));
+        const q = query(collection(db, "exams"), orderBy("createdAt", "asc"));
         const snapshot = await getDocs(q);
 
         if (!snapshot.empty) {

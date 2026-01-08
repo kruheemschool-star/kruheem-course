@@ -94,73 +94,130 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
             <main className="container mx-auto px-6 max-w-7xl">
                 {filteredExams.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                        {filteredExams.map((exam) => (
-                            <Link href={`/exam/${exam.id}`} key={exam.id} className="group relative flex flex-col bg-white rounded-xl shadow-sm hover:shadow-xl hover:shadow-amber-500/20 transition-all duration-300 overflow-hidden aspect-[3/4] hover:-translate-y-2">
+                        {filteredExams.map((exam, index) => {
+                            // 1. Define Unique Color Themes (Match with Admin)
+                            const themes = {
+                                'Amber': { name: 'Amber', color: 'text-amber-400', bg: 'bg-amber-500', border: 'hover:border-amber-400', shadow: 'hover:shadow-amber-500/30' },
+                                'Rose': { name: 'Rose', color: 'text-rose-400', bg: 'bg-rose-500', border: 'hover:border-rose-400', shadow: 'hover:shadow-rose-500/30' },
+                                'Violet': { name: 'Violet', color: 'text-violet-400', bg: 'bg-violet-500', border: 'hover:border-violet-400', shadow: 'hover:shadow-violet-500/30' },
+                                'Emerald': { name: 'Emerald', color: 'text-emerald-400', bg: 'bg-emerald-500', border: 'hover:border-emerald-400', shadow: 'hover:shadow-emerald-500/30' },
+                                'Sky': { name: 'Sky', color: 'text-sky-400', bg: 'bg-sky-500', border: 'hover:border-sky-400', shadow: 'hover:shadow-sky-500/30' },
+                                'Red': { name: 'Red', color: 'text-red-400', bg: 'bg-red-500', border: 'hover:border-red-400', shadow: 'hover:shadow-red-500/30' },
+                                'Indigo': { name: 'Indigo', color: 'text-indigo-400', bg: 'bg-indigo-500', border: 'hover:border-indigo-400', shadow: 'hover:shadow-indigo-500/30' },
+                                'Pink': { name: 'Pink', color: 'text-pink-400', bg: 'bg-pink-500', border: 'hover:border-pink-400', shadow: 'hover:shadow-pink-500/30' },
+                                'Teal': { name: 'Teal', color: 'text-teal-400', bg: 'bg-teal-500', border: 'hover:border-teal-400', shadow: 'hover:shadow-teal-500/30' },
+                                'Cyan': { name: 'Cyan', color: 'text-cyan-400', bg: 'bg-cyan-500', border: 'hover:border-cyan-400', shadow: 'hover:shadow-cyan-500/30' },
+                                'Fuchsia': { name: 'Fuchsia', color: 'text-fuchsia-400', bg: 'bg-fuchsia-500', border: 'hover:border-fuchsia-400', shadow: 'hover:shadow-fuchsia-500/30' },
+                                'Lime': { name: 'Lime', color: 'text-lime-400', bg: 'bg-lime-500', border: 'hover:border-lime-400', shadow: 'hover:shadow-lime-500/30' },
+                                'Orange': { name: 'Orange', color: 'text-orange-400', bg: 'bg-orange-500', border: 'hover:border-orange-400', shadow: 'hover:shadow-orange-500/30' },
+                                'Blue': { name: 'Blue', color: 'text-blue-400', bg: 'bg-blue-500', border: 'hover:border-blue-400', shadow: 'hover:shadow-blue-500/30' },
+                                'Green': { name: 'Green', color: 'text-green-400', bg: 'bg-green-500', border: 'hover:border-green-400', shadow: 'hover:shadow-green-500/30' },
+                            };
 
-                                {/* Logo Badge (Top Left) */}
-                                <div className="absolute top-3 left-3 z-20 drop-shadow-lg">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src="/logo.png"
-                                        alt="Math School Logo"
-                                        className="w-12 h-12 object-contain filter drop-shadow-lg"
-                                    />
-                                </div>
+                            // Fallback list for index-based selection
+                            const themeList = Object.values(themes);
 
-                                {/* Cover Image Area */}
-                                <div className="absolute inset-0 bg-slate-100">
-                                    {exam.coverImage ? (
-                                        /* eslint-disable-next-line @next/next/no-img-element */
-                                        <img src={exam.coverImage} alt={exam.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                    ) : (
-                                        <div className={`w-full h-full bg-gradient-to-br ${exam.category === 'ม.ต้น' ? 'from-blue-500 to-indigo-600' :
-                                            exam.category === 'ประถม' ? 'from-pink-400 to-rose-500' :
-                                                exam.category === 'สอบเข้า' ? 'from-amber-400 to-orange-500' :
-                                                    'from-slate-700 to-slate-900'
-                                            } flex items-center justify-center p-6 text-center group-hover:scale-110 transition-transform duration-700`}>
-                                            <div>
-                                                <div className="text-5xl mb-2 opacity-50">📝</div>
-                                                <h3 className="text-white font-bold leading-tight drop-shadow-md line-clamp-3">
-                                                    {exam.title}
-                                                </h3>
+                            // Select Theme: Prioritize Manual Selection -> Fallback to Modulus Index
+                            // @ts-ignore
+                            let theme = themes[exam.themeColor];
+                            if (!theme) {
+                                theme = themeList[index % themeList.length];
+                            }
+
+                            // Process Title for Manual Line Breaks (<br>)
+                            const dispTitle = (exam.title || "").replace(/<br\s*\/?>/gi, '\n');
+
+                            return (
+                                <Link
+                                    href={`/exam/${exam.id}`}
+                                    key={exam.id}
+                                    className={`group relative flex flex-col bg-slate-900 rounded-2xl overflow-hidden aspect-[3/4] transition-all duration-500 hover:-translate-y-3 hover:scale-[1.02] border border-transparent ${theme.border} ${theme.shadow} shadow-xl`}
+                                >
+
+                                    {/* Logo Badge (Top Left) */}
+                                    <div className="absolute top-4 left-4 z-30 drop-shadow-lg opacity-80 group-hover:opacity-100 transition-opacity">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src="/logo.png"
+                                            alt="Math School Logo"
+                                            className="w-10 h-10 object-contain filter drop-shadow-md"
+                                        />
+                                    </div>
+
+                                    {/* Cover Image Area */}
+                                    <div className="absolute inset-0 z-0 bg-slate-800 overflow-hidden">
+                                        {exam.coverImage ? (
+                                            /* eslint-disable-next-line @next/next/no-img-element */
+                                            <img
+                                                src={exam.coverImage}
+                                                alt={exam.title}
+                                                className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110 group-hover:blur-sm"
+                                            />
+                                        ) : (
+                                            <div className={`w-full h-full bg-slate-800 flex items-center justify-center p-6 text-center transition-all duration-700 group-hover:scale-110 group-hover:blur-sm`}>
+                                                <div>
+                                                    <div className="text-6xl mb-4 opacity-30 grayscale group-hover:grayscale-0 transition-all duration-500">
+                                                        📚
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Standard Gradient Overlay (Always visible initially) */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent opacity-90 group-hover:opacity-0 transition-opacity duration-500"></div>
+                                    </div>
+
+
+                                    {/* Glassmorphism Overlay (Appears on Hover) */}
+                                    <div className="absolute inset-0 z-10 bg-black/40 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-6">
+                                        {/* This area is the "Glass" background that makes text readable */}
+                                    </div>
+
+
+                                    {/* Content Layer */}
+                                    <div className="absolute bottom-0 left-0 right-0 p-6 z-20 flex flex-col justify-end h-full">
+
+                                        {/* Top Meta (Level & Time) - Moves up slightly on hover */}
+                                        <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 delay-75 mb-auto pt-16 opacity-0 group-hover:opacity-100">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-xs font-black px-3 py-1 rounded-full bg-white text-slate-900 uppercase tracking-widest shadow-lg`}>
+                                                    {exam.level}
+                                                </span>
                                             </div>
                                         </div>
-                                    )}
 
-                                    {/* Gradient Overlay (Always visible at bottom) */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-90"></div>
-                                </div>
+                                        {/* Main Title Area */}
+                                        <div className="transform translate-y-2 group-hover:translate-y-0 transition-all duration-500">
+                                            {/* Category Badge (Visible initially, fades out or moves on hover) */}
+                                            <div className="mb-3 opacity-100 group-hover:opacity-0 transition-opacity duration-300 absolute -top-8 left-0">
+                                                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider border border-slate-600 px-2 py-0.5 rounded">
+                                                    {exam.level}
+                                                </span>
+                                            </div>
 
-                                {/* Content Overlay */}
-                                <div className="absolute bottom-0 left-0 right-0 p-4 text-white z-10 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-xs font-bold px-2.5 py-1 rounded bg-white/20 backdrop-blur-md border border-white/10 uppercase tracking-wider">
-                                            {exam.level}
-                                        </span>
-                                        {/* Optional: Check if questionCount exists */}
-                                        {(exam.questionCount || 0) > 0 && (
-                                            <span className="text-xs text-slate-300 flex items-center gap-1">
-                                                <Clock size={12} /> {exam.timeLimit || 0} น.
-                                            </span>
-                                        )}
-                                    </div>
-                                    <h3 className="font-black text-3xl leading-none mb-3 line-clamp-3 text-white drop-shadow-lg group-hover:text-amber-400 transition-colors">
-                                        {exam.title}
-                                    </h3>
-                                    <p className="text-sm text-slate-300 line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
-                                        {exam.description}
-                                    </p>
+                                            <h3 className={`font-black text-4xl md:text-5xl leading-[0.9] mb-4 line-clamp-3 ${theme.color} drop-shadow-2xl tracking-tighter transition-colors duration-300 whitespace-pre-line`}>
+                                                {dispTitle}
+                                            </h3>
 
-                                    {/* Play Button (Appears on Hover) */}
-                                    <div className="mt-4 flex items-center gap-2 text-sm font-bold text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-y-4 group-hover:translate-y-0">
-                                        <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center">
-                                            <ArrowRight size={16} />
+                                            {/* Description & Action */}
+                                            <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500 ease-out">
+                                                <div className="overflow-hidden">
+                                                    <p className="text-base text-slate-100/90 font-medium leading-relaxed mb-5 line-clamp-3 drop-shadow-md">
+                                                        {exam.description}
+                                                    </p>
+                                                    <div className={`flex items-center gap-3 text-base font-bold ${theme.color}`}>
+                                                        <span>เริ่มทำข้อสอบ</span>
+                                                        <div className={`w-8 h-8 rounded-full ${theme.bg} text-white flex items-center justify-center shadow-lg transform group-hover:translate-x-2 transition-transform duration-300`}>
+                                                            <ArrowRight size={16} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                        เริ่มทำข้อสอบ
                                     </div>
-                                </div>
-                            </Link>
-                        ))}
+                                </Link>
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="text-center py-20 bg-white rounded-[3rem] border border-slate-100">

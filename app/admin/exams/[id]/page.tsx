@@ -183,6 +183,7 @@ export default function ExamEditorPage() {
     const [level, setLevel] = useState("ม.1");
     const [timeLimit, setTimeLimit] = useState(30);
     const [difficulty, setDifficulty] = useState("Medium");
+    const [themeColor, setThemeColor] = useState("Amber");
 
     // JSON Content
     const [jsonContent, setJsonContent] = useState("");
@@ -202,6 +203,7 @@ export default function ExamEditorPage() {
                     setLevel(data.level || "");
                     setTimeLimit(data.timeLimit || 30);
                     setDifficulty(data.difficulty || "Medium");
+                    setThemeColor(data.themeColor || "Amber");
 
                     // Convert questions array back to JSON string for editing
                     const questions = data.questions || [];
@@ -273,6 +275,7 @@ export default function ExamEditorPage() {
                 level,
                 timeLimit: Number(timeLimit),
                 difficulty,
+                themeColor,
                 questions: parsedQuestions,
                 questionCount: parsedQuestions.length,
                 updatedAt: serverTimestamp()
@@ -300,7 +303,7 @@ export default function ExamEditorPage() {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [jsonContent, title, description, coverImage, category, level, timeLimit, difficulty]); // Deps need to be current for handleSave closure if not using refs (React state closure trap), strictly relying on state in handleSave
+    }, [jsonContent, title, description, coverImage, category, level, timeLimit, difficulty, themeColor]); // Deps need to be current for handleSave closure if not using refs (React state closure trap), strictly relying on state in handleSave
 
     // Toast State (Local helper)
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
@@ -333,12 +336,13 @@ export default function ExamEditorPage() {
                             {/* ... Title Input ... */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-500 mb-2">ชื่อชุดข้อสอบ</label>
-                                <input
-                                    type="text"
+                                <textarea
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                                    rows={2}
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none resize-none"
                                 />
+                                <p className="text-[10px] text-slate-400 mt-1.5 ml-1">Tip: กด Enter เพื่อขึ้นบรรทัดใหม่ได้เลย (แสดงผลตามจริง)</p>
                             </div>
 
                             {/* Cover Image Upload */}
@@ -441,6 +445,39 @@ export default function ExamEditorPage() {
                                         <option value="Hard">ยาก</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            {/* Theme Color Selector */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-500 mb-2">สีประจำชุด (Theme Color)</label>
+                                <div className="grid grid-cols-5 gap-2">
+                                    {[
+                                        { name: 'Amber', class: 'bg-amber-500', rings: 'ring-amber-500' },
+                                        { name: 'Rose', class: 'bg-rose-500', rings: 'ring-rose-500' },
+                                        { name: 'Violet', class: 'bg-violet-500', rings: 'ring-violet-500' },
+                                        { name: 'Emerald', class: 'bg-emerald-500', rings: 'ring-emerald-500' },
+                                        { name: 'Sky', class: 'bg-sky-500', rings: 'ring-sky-500' },
+                                        { name: 'Red', class: 'bg-red-500', rings: 'ring-red-500' },
+                                        { name: 'Indigo', class: 'bg-indigo-500', rings: 'ring-indigo-500' },
+                                        { name: 'Pink', class: 'bg-pink-500', rings: 'ring-pink-500' },
+                                        { name: 'Teal', class: 'bg-teal-500', rings: 'ring-teal-500' },
+                                        { name: 'Cyan', class: 'bg-cyan-500', rings: 'ring-cyan-500' },
+                                        { name: 'Fuchsia', class: 'bg-fuchsia-500', rings: 'ring-fuchsia-500' },
+                                        { name: 'Lime', class: 'bg-lime-500', rings: 'ring-lime-500' },
+                                        { name: 'Orange', class: 'bg-orange-500', rings: 'ring-orange-500' },
+                                        { name: 'Blue', class: 'bg-blue-500', rings: 'ring-blue-500' },
+                                        { name: 'Green', class: 'bg-green-500', rings: 'ring-green-500' },
+                                    ].map((t) => (
+                                        <button
+                                            key={t.name}
+                                            onClick={() => setThemeColor(t.name)}
+                                            className={`h-10 rounded-xl transition-all duration-200 ${t.class} ${themeColor === t.name ? `ring-4 ring-offset-2 ${t.rings} scale-105 shadow-lg` : 'opacity-60 hover:opacity-100 hover:scale-105'
+                                                }`}
+                                            title={t.name}
+                                        />
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-2 text-right">เลือกสีที่ต้องการ (ส่งผลต่อกรอบและการ์ดข้อสอบ)</p>
                             </div>
 
                         </div>
@@ -794,32 +831,31 @@ export default function ExamEditorPage() {
                 )}
             </div>
 
-            {/* Floating Save Bar */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200 shadow-lg z-50 flex items-center justify-between transition-transform transform translate-y-0">
-                <div className="container mx-auto max-w-5xl flex items-center justify-between">
-                    <span className="text-xs text-slate-400 font-mono hidden sm:inline-block">
-                        Pro Tip: กด Cmd+S หรือ Ctrl+S เพื่อบันทึกทันที
-                    </span>
-                    <div className="flex items-center gap-4 ml-auto">
-                        {loading || saving ? (
-                            <span className="text-xs text-slate-400 animate-pulse">
-                                {saving ? "กำลังบันทึก..." : "กำลังซิงค์..."}
-                            </span>
-                        ) : null}
-
-                        <button
-                            onClick={() => handleSave()}
-                            disabled={saving}
-                            className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold transition-all shadow-lg transform active:scale-95 ${saving
-                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-orange-500/30'
-                                }`}
-                        >
-                            <Save size={20} />
-                            {saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}
-                        </button>
-                    </div>
-                </div>
+            {/* Floating Save Button */}
+            <div className="fixed bottom-8 right-8 z-50 flex items-center gap-4">
+                <button
+                    onClick={() => handleSave()}
+                    disabled={saving}
+                    className={`
+                        h-14 px-8 rounded-full shadow-2xl flex items-center gap-3 transition-all duration-300 transform hover:-translate-y-1 active:scale-95
+                        ${saving
+                            ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+                            : "bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:shadow-orange-500/40 ring-4 ring-white/20"
+                        }
+                    `}
+                >
+                    {saving ? (
+                        <>
+                            <Loader2 className="animate-spin" size={24} />
+                            <span className="font-bold">กำลังบันทึก...</span>
+                        </>
+                    ) : (
+                        <>
+                            <Save size={24} />
+                            <span className="font-bold text-lg">บันทึก</span>
+                        </>
+                    )}
+                </button>
             </div>
 
             {/* Toast Notification */}
