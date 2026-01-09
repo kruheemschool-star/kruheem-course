@@ -12,110 +12,88 @@ interface ExamSystemProps {
     onComplete?: (score: number, total: number) => void;
 }
 
-// Helper to resolve the correct index safely from various formats
-const getCorrectIndex = (q: any): number => {
-    // 1. Try explicit correctIndex
-    let val = q.correctIndex;
-
-    // 2. Fallback to 'answer' field if exists (legacy/typo)
-    if (val === undefined || val === null || val === "") {
-        val = q.answer;
-    }
-
-    // 3. Try parsing as number
-    const numVal = Number(val);
-
-    // Case A: It's a valid 0-based index? (0 to length-1)
-    if (!isNaN(numVal) && numVal >= 0 && numVal < (q.options?.length || 4)) {
-        return numVal;
-    }
-
-    // Case B: It matches an option TEXT directly? (Content Validator)
-    // e.g. correctIndex = "90" and options includes "90"
-    if (q.options && Array.isArray(q.options)) {
-        const strVal = String(val).trim();
-        const foundIdx = q.options.findIndex((opt: string) =>
-            opt.trim() === strVal ||
-            // Flexible match: Remove LaTeX markers or spaces
-            opt.replace(/\$/g, '').trim() === strVal
-        );
-        if (foundIdx !== -1) return foundIdx;
-    }
-
-    // Case C: 1-based index detector (Desperate fallback)
-    // Or if it's 1-4 and we haven't matched yet?
-    // Let's assume standard is 0-based. If user put "4" for 4 options, they likely meant index 3.
-    if (!isNaN(numVal) && numVal === (q.options?.length || 4)) {
-        return numVal - 1;
-    }
-
-    return -1; // Fail
-};
+// Helper removed: getCorrectIndex (Logic cleanup)
 
 export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, initialQuestionIndex = 0, onComplete }) => {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
     const [answers, setAnswers] = useState<Record<number, number>>({});
-    const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({}); // ข้อที่กดตรวจแล้ว
-    const [isFinished, setIsFinished] = useState(false);
-    const [showGrid, setShowGrid] = useState(false); // Mobile toggle for grid
+    const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({});
+    const [isFinished, setIsFinished] = useState(false); // Restore finish state
+    const [showGrid, setShowGrid] = useState(false);
 
-    // Sanitize Data ONCE on load to fix all indices
+    // Sanitize Data: Smart Normalization
+    // Detect if data is 1-based (Human) or 0-based (Tech)
     const sanitizedExamData = React.useMemo(() => {
-        return examData.map(q => ({
+        // First pass: Parse all to numbers
+        let rawIndices: number[] = [];
+        const parsed = examData.map(q => {
+            const val = q.correctIndex;
+            // Parse strictly
+            if (val === undefined || val === null || val === "") return { ...q, correctIndex: -1 };
+            const num = Number(val);
+            if (!isNaN(num)) rawIndices.push(num);
+            return { ...q, correctIndex: isNaN(num) ? -1 : num };
+        });
+
+        // Heuristic: If we have indices, check existence of 0
+        const hasZero = rawIndices.includes(0);
+        const allPositive = rawIndices.every(i => i > 0);
+
+        // Decision: If NO zero exists and ALL are positive, assume 1-based.
+        // e.g. [1, 2, 3, 4] -> Shift to [0, 1, 2, 3]
+        // e.g. [0, 1, 2, 3] -> Keep as is
+        const shouldShift = !hasZero && allPositive && rawIndices.length > 0;
+
+        return parsed.map(q => ({
             ...q,
-            correctIndex: getCorrectIndex(q)
+            correctIndex: (q.correctIndex !== -1 && shouldShift) ? q.correctIndex - 1 : q.correctIndex
         }));
     }, [examData]);
 
     const currentQuestion = sanitizedExamData[currentQuestionIndex];
     const totalQuestions = sanitizedExamData.length;
 
+    // ... (Keep handleSelectOption, handleCheckAnswer, handlePrev, handleNext)
+
     const handleSelectOption = (optionIndex: number) => {
-        if (checkedQuestions[currentQuestionIndex]) return; // ห้ามแก้ถ้าตรวจแล้ว
+        if (checkedQuestions[currentQuestionIndex]) return;
         setAnswers({ ...answers, [currentQuestionIndex]: optionIndex });
     };
 
     const handleCheckAnswer = () => {
-        // Allow checking even if no answer selected (Peek Mode)
         setCheckedQuestions({ ...checkedQuestions, [currentQuestionIndex]: true });
     };
 
-    const handleNext = () => {
-        if (currentQuestionIndex < totalQuestions - 1) {
-            setCurrentQuestionIndex(prev => prev + 1);
-        }
+    const handlePrev = () => {
+        if (currentQuestionIndex > 0) setCurrentQuestionIndex(prev => prev - 1);
     };
 
-    const handlePrev = () => {
-        if (currentQuestionIndex > 0) {
-            setCurrentQuestionIndex(prev => prev - 1);
-        }
+    const handleNext = () => {
+        if (currentQuestionIndex < totalQuestions - 1) setCurrentQuestionIndex(prev => prev + 1);
     };
 
     const handleFinishExam = () => {
         const unansweredCount = totalQuestions - Object.keys(answers).length;
         if (unansweredCount > 0) {
-            if (!confirm(`คุณยังทำข้อสอบไม่ครบ ${unansweredCount} ข้อ\nต้องการส่งคำตอบเลยหรือไม่?`)) {
-                return;
-            }
+            if (!confirm(`คุณยังทำข้อสอบไม่ครบ ${unansweredCount} ข้อ\nต้องการส่งคำตอบเลยหรือไม่?`)) return;
         } else if (!confirm("ยืนยันการส่งคำตอบ?")) {
             return;
         }
 
-        // Mark all as checked to show explanations
+        // Calculate Score with NEW Clean Logic
+        let score = 0;
+        sanitizedExamData.forEach((q, index) => {
+            if (answers[index] === q.correctIndex) score++;
+        });
+
+        // Reveal all answers
         const allChecked: Record<number, boolean> = {};
         for (let i = 0; i < totalQuestions; i++) allChecked[i] = true;
         setCheckedQuestions(allChecked);
+
         setIsFinished(true);
 
-        // Notify parent
-        if (onComplete) {
-            let score = 0;
-            sanitizedExamData.forEach((q, index) => {
-                if (answers[index] === q.correctIndex) score++;
-            });
-            onComplete(score, totalQuestions);
-        }
+        if (onComplete) onComplete(score, totalQuestions);
     };
 
     const handleRestart = () => {
@@ -125,46 +103,17 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         setIsFinished(false);
     };
 
-    const calculateScore = () => {
-        let score = 0;
-        sanitizedExamData.forEach((q, index) => {
-            if (answers[index] === q.correctIndex) score++;
-        });
-        return score;
-    };
-
     if (isFinished) {
-        const score = calculateScore();
-        const percent = Math.round((score / totalQuestions) * 100);
-
         return (
             <div className="max-w-4xl mx-auto py-12 px-6">
                 <div className="bg-white rounded-[3rem] shadow-xl p-12 text-center border border-stone-100 relative overflow-hidden">
                     <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-amber-50 to-transparent -z-10"></div>
-
                     <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 text-white shadow-lg animate-bounce">
                         <Trophy size={48} />
                     </div>
-
-                    <h2 className="text-4xl font-black text-slate-800 mb-2">สรุปผลการทดสอบ</h2>
+                    <h2 className="text-4xl font-black text-slate-800 mb-2">สิ้นสุดการฝึกฝน</h2>
                     <p className="text-stone-500 mb-8 font-medium">ชุดข้อสอบ: {examTitle}</p>
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6 max-w-2xl mx-auto mb-12">
-                        <div className="p-6 bg-stone-50 rounded-2xl border border-stone-100">
-                            <p className="text-stone-400 text-sm font-bold uppercase">คะแนนที่ได้</p>
-                            <p className="text-4xl font-black text-slate-800 mt-2">{score}/{totalQuestions}</p>
-                        </div>
-                        <div className="p-6 bg-stone-50 rounded-2xl border border-stone-100">
-                            <p className="text-stone-400 text-sm font-bold uppercase">เปอร์เซ็นต์</p>
-                            <p className={`text-4xl font-black mt-2 ${percent >= 50 ? 'text-green-500' : 'text-amber-500'}`}>{percent}%</p>
-                        </div>
-                        <div className="p-6 bg-stone-50 rounded-2xl border border-stone-100 col-span-2 md:col-span-1">
-                            <p className="text-stone-400 text-sm font-bold uppercase">ผลประเมิน</p>
-                            <p className="text-xl font-bold text-slate-800 mt-3">
-                                {percent >= 80 ? 'ยอดเยี่ยม! 🌟' : percent >= 50 ? 'ผ่านเกณฑ์ 👍' : 'พยายามเพิ่มอีกนิด ✌️'}
-                            </p>
-                        </div>
-                    </div>
+                    <p className="text-xl text-stone-600 mb-12">คุณได้ทำแบบฝึกหัดเสร็จสิ้นแล้ว 🎉</p>
 
                     <div className="flex justify-center gap-4">
                         <button
@@ -180,6 +129,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         );
     }
 
+    // ... (rest) ...
+
     return (
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 font-sans flex flex-col lg:flex-row gap-8 items-start">
 
@@ -193,14 +144,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                     {Array.from({ length: totalQuestions }).map((_, idx) => {
                         const isAnswered = answers[idx] !== undefined;
                         const isCurrent = currentQuestionIndex === idx;
-                        const isChecked = checkedQuestions[idx];
+                        const isChecked = checkedQuestions[idx]; // Check if the question has been reviewed/checked
 
                         let btnClass = "bg-slate-50 text-slate-400 hover:bg-slate-100"; // Default
                         if (isAnswered) btnClass = "bg-blue-100 text-blue-600 font-bold border-blue-200";
-                        if (isChecked) {
-                            if (answers[idx] === sanitizedExamData[idx].correctIndex) btnClass = "bg-green-100 text-green-600 font-bold border-green-200";
-                            else btnClass = "bg-red-100 text-red-600 font-bold border-red-200";
-                        }
+                        if (isChecked) btnClass = "bg-amber-100 text-amber-600 font-bold border-amber-200"; // Just indicate reviewed status
                         if (isCurrent) btnClass += " ring-2 ring-amber-400 ring-offset-2 z-10";
 
                         return (
@@ -213,14 +161,6 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                             </button>
                         );
                     })}
-                </div>
-                <div className="mt-8 pt-6 border-t border-slate-100">
-                    <button
-                        onClick={handleFinishExam}
-                        className="w-full py-3 rounded-xl bg-slate-800 text-white font-bold hover:bg-slate-900 shadow-lg shadow-slate-200 transition-all flex items-center justify-center gap-2"
-                    >
-                        <CheckCircle size={18} /> ส่งกระดาษคำตอบ
-                    </button>
                 </div>
             </div>
 
@@ -301,7 +241,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                     </button>
 
                     <div className="flex gap-3">
-                        {/* Check Answer (Optional Hybrid Mode) */}
+                        {/* Check Answer Button (Restored) */}
                         {!checkedQuestions[currentQuestionIndex] && (
                             <button
                                 onClick={handleCheckAnswer}
@@ -327,10 +267,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                         ) : (
                             <button
                                 onClick={handleFinishExam}
-                                className="px-6 sm:px-8 py-3 rounded-full font-bold text-white bg-indigo-600 shadow-lg hover:bg-indigo-700 hover:shadow-indigo-200 hover:-translate-y-1 transition-all transform active:scale-95 flex items-center gap-2"
+                                className="px-6 sm:px-8 py-3 rounded-full font-bold text-white bg-green-600 shadow-lg hover:bg-green-700 hover:shadow-xl hover:-translate-y-1 transition-all transform active:scale-95 flex items-center gap-2"
                             >
-                                ส่งคำตอบ
                                 <CheckCircle size={20} />
+                                <span className="hidden sm:inline">ส่งคำตอบ</span>
+                                <span className="sm:hidden">ส่ง</span>
                             </button>
                         )}
                     </div>

@@ -157,13 +157,7 @@ export default async function ExamRoomPage(props: Props) {
     };
 
     return (
-        <div className="min-h-screen bg-[#FDFCF8] flex flex-col">
-            {/* Inject JSON-LD */}
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-            />
-
+        <div className="min-h-screen bg-[#FDFCF8] flex flex-col" suppressHydrationWarning>
             <div className="bg-white border-b border-slate-100 py-4 px-6 fixed top-0 w-full z-10 shadow-sm flex items-center justify-between">
                 <Link href="/exam" className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold transition-colors">
                     <ArrowLeft size={20} />
@@ -202,6 +196,12 @@ export default async function ExamRoomPage(props: Props) {
                     </div>
                 </div>
             </div>
+
+            {/* Inject JSON-LD at the end to prevent hydration mismatch */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
         </div>
     );
 }

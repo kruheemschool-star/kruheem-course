@@ -23,7 +23,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     onSelectOption,
     isSubmitted
 }) => {
-    const isCorrect = selectedOption === Number(question.correctIndex);
+    // const isCorrect = selectedOption === question.correctIndex; // Unused for badge now
 
     return (
         <div className="w-full max-w-4xl mx-auto bg-white rounded-[2rem] shadow-xl shadow-stone-200/50 overflow-hidden border border-stone-100 transition-all duration-300">
@@ -39,23 +39,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     </span>
                 </div>
 
-                {/* Status Badge */}
-                {isSubmitted && (
-                    <div className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-2 shadow-sm ${isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                        {isCorrect ? (
-                            <>
-                                <CheckCircle2 size={16} />
-                                <span>ถูกต้อง</span>
-                            </>
-                        ) : (
-                            <>
-                                <XCircle size={16} />
-                                <span>ผิด</span>
-                            </>
-                        )}
-                    </div>
-                )}
+                {/* Status Badge Removed - Practice Mode View Only */}
             </div>
 
             {/* Question Body */}
@@ -87,21 +71,21 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                             let containerClass = "relative p-4 md:p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 group flex items-start gap-4 hover:shadow-md";
                             let indicatorClass = "w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all";
 
-                            const actualCorrectIndex = Number(question.correctIndex);
+                            const actualCorrectIndex = question.correctIndex;
 
                             if (isSubmitted) {
-                                // เฉลยแล้ว
+                                // เฉลยแล้ว (Show Solution Mode)
                                 if (index === actualCorrectIndex) {
-                                    // ข้อที่ถูก (สีเขียวเสมอ)
+                                    // ข้อที่ถูก (สีเขียวเสมอ) - Reveal Correct Answer
                                     containerClass += " bg-emerald-50 border-emerald-400 shadow-sm";
                                     indicatorClass += " bg-emerald-500 border-emerald-500 text-white";
-                                } else if (index === selectedOption && index !== actualCorrectIndex) {
-                                    // ข้อที่เลือกผิด (สีแดง)
-                                    containerClass += " bg-rose-50 border-rose-300";
-                                    indicatorClass += " bg-rose-500 border-rose-500 text-white";
+                                } else if (index === selectedOption) {
+                                    // ข้อที่เลือก (ให้คงสถานะเลือกไว้ แต่ไม่แดง) - Neutral Selected
+                                    containerClass += " bg-amber-50 border-amber-400 opacity-70";
+                                    indicatorClass += " bg-amber-500 border-amber-500 text-white";
                                 } else {
                                     // ข้ออื่นๆ
-                                    containerClass += " opacity-50 border-stone-100 grayscale";
+                                    containerClass += " opacity-40 border-stone-100 grayscale";
                                     indicatorClass += " border-stone-200 text-stone-400";
                                 }
                             } else {

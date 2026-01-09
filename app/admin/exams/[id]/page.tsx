@@ -255,11 +255,14 @@ export default function ExamEditorPage() {
                 parsedQuestions = JSON.parse(jsonContent);
                 if (!Array.isArray(parsedQuestions)) throw new Error("Root must be an array");
 
-                // Fix: Sanitize nested arrays if accidentally created
-                // Firebase Firestore limitation on specific nested array structures or just logic error
-                if (parsedQuestions.some((q: any) => Array.isArray(q))) {
-                    parsedQuestions = parsedQuestions.flat();
-                }
+                // Fix: Sanitize Data Structure & Types
+                // Ensure correctIndex is a number and options is an array
+                parsedQuestions = parsedQuestions.flat().map((q: any) => ({
+                    ...q,
+                    correctIndex: isNaN(Number(q.correctIndex)) ? 0 : Number(q.correctIndex),
+                    options: Array.isArray(q.options) ? q.options : [],
+                    // Optional: remove legacy 'answer' field if you want to normalize fully, but keeping it is safer for now.
+                }));
             } catch (err) {
                 alert("รูปแบบ JSON ไม่ถูกต้อง กรุณาตรวจสอบ Syntax");
                 setSaving(false);
