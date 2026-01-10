@@ -991,70 +991,69 @@ export default function CoursePlayer() {
                                     }
                                 }
 
-                                // 2. Render Smart Blocks
+                                // 2. Render Smart Blocks (Obsidian x Notion Style)
                                 if (isSmart) {
                                     return (
-                                        <div className="w-full min-h-full py-10 px-4 bg-slate-50">
-                                            <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                        <div className="w-full min-h-full py-10 px-4 md:px-8 bg-white">
+                                            <div className="max-w-3xl mx-auto space-y-8 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                                 {/* Cover Image */}
                                                 {activeLesson.image && (
-                                                    <div className="rounded-3xl overflow-hidden shadow-lg border-4 border-white mb-8">
-                                                        <img src={activeLesson.image} className="w-full object-cover max-h-[400px]" alt="Cover" />
+                                                    <div className="rounded-2xl overflow-hidden mb-10 shadow-sm border border-slate-100">
+                                                        <img src={activeLesson.image} className="w-full object-cover max-h-[350px]" alt="Cover" />
                                                     </div>
                                                 )}
 
                                                 {/* Blocks Loop */}
                                                 {blocks.map((block, idx) => (
-                                                    <div key={idx} className="transition-all hover:translate-x-1">
+                                                    <div key={idx} className="group">
                                                         {block.type === 'header' && (
-                                                            <h3 className="text-2xl md:text-3xl font-black text-slate-800 mt-8 mb-4 border-l-8 border-indigo-500 pl-4 leading-tight">{block.content}</h3>
+                                                            <h3 className="text-3xl font-bold text-slate-900 mt-12 mb-6 tracking-tight leading-snug">
+                                                                {block.content}
+                                                            </h3>
                                                         )}
 
                                                         {block.type === 'definition' && (
-                                                            <div className="bg-white rounded-2xl p-6 border-l-4 border-emerald-500 shadow-sm">
-                                                                <div className="flex items-center gap-2 mb-3">
-                                                                    <span className="bg-emerald-100 text-emerald-700 p-1.5 rounded-lg text-xl">📖</span>
-                                                                    <span className="text-sm font-bold text-emerald-600 uppercase tracking-wider">{block.title || "นิยาม (Definition)"}</span>
+                                                            <div className="my-6 pl-5 border-l-4 border-emerald-400 bg-emerald-50/50 py-4 pr-4 rounded-r-lg">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <span className="text-emerald-600 font-bold text-sm uppercase tracking-wide">
+                                                                        💡 {block.title || "นิยาม / Definition"}
+                                                                    </span>
                                                                 </div>
-                                                                <div className="text-slate-700 text-lg leading-relaxed font-medium">
+                                                                <div className="text-slate-700 text-lg leading-loose font-normal">
                                                                     {renderWithLatex(block.content)}
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {block.type === 'formula' && (
-                                                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-8 border border-amber-100 shadow-md text-center relative overflow-hidden group">
-                                                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                                                    <svg className="w-24 h-24 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" /></svg>
-                                                                </div>
-                                                                <span className="inline-block px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold mb-4">
-                                                                    {block.title || "สูตร (Formula)"}
+                                                            <div className="my-8 p-6 rounded-xl border border-amber-200 bg-amber-50/30 flex flex-col items-center text-center">
+                                                                <span className="text-amber-600 font-bold text-xs uppercase tracking-widest mb-4 px-2 py-1 bg-amber-100/50 rounded-md">
+                                                                    {block.title || "สูตร / Formula"}
                                                                 </span>
-                                                                <div className="text-2xl md:text-3xl font-bold text-slate-800">
+                                                                <div className="text-2xl md:text-3xl font-medium text-slate-800 leading-relaxed">
                                                                     {renderWithLatex(block.content)}
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {block.type === 'example' && (
-                                                            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative">
-                                                                <div className="absolute top-4 right-4 text-slate-200 text-5xl font-black opacity-20 pointer-events-none">Ex</div>
-                                                                <h4 className="font-bold text-slate-500 uppercase text-xs mb-3 flex items-center gap-2">
-                                                                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                                                                    {block.title || "ตัวอย่าง (Example)"}
+                                                            <div className="my-6 pl-6 border-l-2 border-slate-300 py-2">
+                                                                <h4 className="font-bold text-slate-500 text-xs uppercase mb-3 flex items-center gap-2 tracking-wide">
+                                                                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                                                    {block.title || "ตัวอย่าง / Example"}
                                                                 </h4>
-                                                                <div className="text-slate-600 font-mono text-base bg-slate-50 p-4 rounded-xl leading-relaxed whitespace-pre-wrap">
+                                                                <div className="text-slate-700 text-lg leading-loose whitespace-pre-wrap font-normal">
                                                                     {renderWithLatex(block.content)}
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {block.type === 'note' && (
-                                                            <div className="bg-rose-50 rounded-xl p-5 border border-rose-100 flex gap-4 items-start shadow-sm">
-                                                                <div className="text-3xl shrink-0">⚠️</div>
-                                                                <div>
-                                                                    <h4 className="font-bold text-rose-700 text-sm mb-1 uppercase">ข้อควรระวัง / Note</h4>
-                                                                    <div className="text-rose-900 font-medium leading-relaxed">
+                                                            <div className="my-6 flex gap-4 p-5 rounded-lg border border-rose-100 bg-rose-50/50">
+                                                                <div className="text-xl shrink-0">⚠️</div>
+                                                                <div className="flex-1">
+                                                                    <h4 className="font-bold text-rose-700 text-xs uppercase mb-1 tracking-wide">Note</h4>
+                                                                    <div className="text-rose-900 text-lg font-normal leading-loose">
                                                                         {renderWithLatex(block.content)}
                                                                     </div>
                                                                 </div>
