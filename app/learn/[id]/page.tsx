@@ -971,7 +971,12 @@ export default function CoursePlayer() {
                                 let blocks: any[] = [];
                                 let isSmart = false;
                                 let isJsonError = false;
-                                const content = activeLesson.content?.trim() || "";
+                                let content = activeLesson.content?.trim() || "";
+
+                                // 🧹 Auto-Clean AI Artifacts
+                                // Remove [cite_start] and [cite: ...] patterns that often break JSON
+                                content = content.replace(/\[cite_start\]/g, "")
+                                    .replace(/\[cite:[^\]]*\]/g, "");
 
                                 try {
                                     // Strict JSON check
