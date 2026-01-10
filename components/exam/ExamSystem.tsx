@@ -27,7 +27,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         // First pass: Parse all to numbers
         let rawIndices: number[] = [];
         const parsed = examData.map(q => {
-            const val = q.correctIndex as any;
+            const val = q.correctIndex;
             // Parse strictly
             if (val === undefined || val === null || val === "") return { ...q, correctIndex: -1 };
             const num = Number(val);

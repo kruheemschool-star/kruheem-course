@@ -81,19 +81,10 @@ const renderSmartContent = (text: string) => {
 const renderWithLatex = (text: string) => {
     if (!text) return "";
 
-    // 0. Clean up unwanted tags (like [cite: ...])
-    text = text.replace(/\[cite:.*?\]/g, "").trim();
-
-    // 1. Pre-process text
-    // Replace $$...$$ with $...$ for consistency in this simpler renderer
-    // We use a non-greedy match (.*?) to capture everything inside, including spaces
-    let processed = text.replace(/\$\$(.*?)\$\$/g, (match, content) => `$${content.trim()}$`);
-
-    // Auto-detect implicit LaTeX (e.g. \frac{...}{...}) and wrap in $ if not already wrapped
+    // 1. Auto-detect implicit LaTeX (e.g. \frac{...}{...}) and wrap in $
     // Matches \frac{...}{...} with up to 1 level of nested braces, and optional following \times 100
-    processed = processed.replace(/(\\\\frac\\{(?:[^{}]|\\{[^{}]*\\})*\\}\\{(?:[^{}]|\\{[^{}]*\\})*\\}(?:\\s*\\\\times\\s*[\\d\\w\\.]+)?)/g, (match) => {
-        // Only wrap if not already inside $...$ (simple check)
-        return match.includes('$') ? match : `$${match}$`;
+    let processed = text.replace(/(\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}(?:\s*\\times\s*[\d\w\.]+)?)/g, (match) => {
+        return `$${match}$`;
     });
 
     // 2. Split by $...$ for LaTeX
@@ -119,14 +110,20 @@ const renderWithLatex = (text: string) => {
                     if (subPart.startsWith('**') && subPart.endsWith('**')) {
                         return <strong key={subIdx} className="text-rose-600 font-bold">{subPart.slice(2, -2)}</strong>;
                     }
-
-                    // Handle newlines efficiently
-                    return subPart.split('\n').map((line, lineIdx, arr) => (
-                        <span key={lineIdx}>
-                            {line}
-                            {lineIdx < arr.length - 1 && <br />}
-                        </span>
-                    ));
+                    // Handle "---" divider
+                    if (subPart.includes('---')) {
+                        return (
+                            <span key={subIdx}>
+                                {subPart.split('---').map((s, i, arr) => (
+                                    <span key={i}>
+                                        {s}
+                                        {i < arr.length - 1 && <div className="my-4 h-px bg-slate-200 border-b border-dashed border-slate-300 w-full"></div>}
+                                    </span>
+                                ))}
+                            </span>
+                        )
+                    }
+                    return subPart;
                 })}
             </span>
         );
@@ -305,7 +302,7 @@ const ExamRunner = ({ questions, onComplete }: { questions: any[], onComplete: (
     );
 };
 
-const FlashcardPlayer = ({ cards }: { cards: any[] }) => {
+const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
 
@@ -326,11 +323,6 @@ const FlashcardPlayer = ({ cards }: { cards: any[] }) => {
     const handleFlip = () => {
         setIsFlipped(!isFlipped);
     };
-
-    const currentCard = cards[currentIndex];
-    // 🧠 Adaptive Content: Support both Flashcard (front/back) and Exam (question/answer) formats
-    const frontContent = currentCard?.front || currentCard?.question || "";
-    const backContent = currentCard?.back || currentCard?.answer || "";
 
     return (
         <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
@@ -356,8 +348,8 @@ const FlashcardPlayer = ({ cards }: { cards: any[] }) => {
                     {/* Front Side */}
                     <div className="absolute w-full h-full backface-hidden bg-white rounded-[2rem] shadow-xl border-2 border-slate-100 flex flex-col items-center justify-center p-10 text-center hover:shadow-2xl hover:border-yellow-200 transition-all">
                         <span className="absolute top-6 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
-                        <h3 className="text-lg md:text-2xl font-medium text-slate-800 leading-relaxed overflow-y-auto max-h-full custom-scrollbar">
-                            {renderWithLatex(frontContent)}
+                        <h3 className="text-2xl md:text-4xl font-bold text-slate-800 leading-relaxed">
+                            {renderWithLatex(cards[currentIndex].front)}
                         </h3>
                         <p className="absolute bottom-6 text-slate-400 text-sm animate-pulse">Click to flip ↻</p>
                     </div>
@@ -365,8 +357,8 @@ const FlashcardPlayer = ({ cards }: { cards: any[] }) => {
                     {/* Back Side */}
                     <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[2rem] shadow-xl border-2 border-yellow-200 flex flex-col items-center justify-center p-10 text-center">
                         <span className="absolute top-6 left-6 text-xs font-bold text-yellow-600 uppercase tracking-widest">Answer</span>
-                        <h3 className="text-lg md:text-2xl font-medium text-yellow-800 leading-relaxed overflow-y-auto max-h-full custom-scrollbar">
-                            {renderWithLatex(backContent)}
+                        <h3 className="text-2xl md:text-4xl font-bold text-yellow-800 leading-relaxed">
+                            {renderWithLatex(cards[currentIndex].back)}
                         </h3>
                     </div>
                 </div>
@@ -974,12 +966,141 @@ export default function CoursePlayer() {
                                 </div>
                             </div>
                         ) : activeLesson?.type === 'text' ? (
-                            <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
-                                <div className="w-full max-w-4xl bg-white rounded-[2rem] shadow-xl border border-slate-200 p-8 md:p-14">
-                                    {activeLesson.image && <img src={activeLesson.image} className="w-full mb-8 rounded-2xl shadow-md" />}
-                                    <div className="prose prose-lg max-w-none text-slate-600 leading-loose whitespace-pre-wrap font-medium">{activeLesson.content}</div>
-                                </div>
-                            </div>
+                            (() => {
+                                // 1. Try to parse as Smart Blocks
+                                let blocks: any[] = [];
+                                let isSmart = false;
+                                let isJsonError = false;
+                                const content = activeLesson.content?.trim() || "";
+
+                                try {
+                                    // Strict JSON check
+                                    if (content.startsWith('[') && content.endsWith(']')) {
+                                        blocks = JSON.parse(content);
+                                        isSmart = Array.isArray(blocks);
+                                    } else {
+                                        // If it's not wrapped in [], but contains block keywords, it's likely a Copy-Paste error
+                                        if (content.includes('"type":') && content.includes('"content":')) {
+                                            isJsonError = true;
+                                        }
+                                    }
+                                } catch (e) {
+                                    // Syntax error
+                                    if (content.includes('"type":')) {
+                                        isJsonError = true;
+                                    }
+                                }
+
+                                // 2. Render Smart Blocks
+                                if (isSmart) {
+                                    return (
+                                        <div className="w-full min-h-full py-10 px-4 bg-slate-50">
+                                            <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                                {/* Cover Image */}
+                                                {activeLesson.image && (
+                                                    <div className="rounded-3xl overflow-hidden shadow-lg border-4 border-white mb-8">
+                                                        <img src={activeLesson.image} className="w-full object-cover max-h-[400px]" alt="Cover" />
+                                                    </div>
+                                                )}
+
+                                                {/* Blocks Loop */}
+                                                {blocks.map((block, idx) => (
+                                                    <div key={idx} className="transition-all hover:translate-x-1">
+                                                        {block.type === 'header' && (
+                                                            <h3 className="text-2xl md:text-3xl font-black text-slate-800 mt-8 mb-4 border-l-8 border-indigo-500 pl-4 leading-tight">{block.content}</h3>
+                                                        )}
+
+                                                        {block.type === 'definition' && (
+                                                            <div className="bg-white rounded-2xl p-6 border-l-4 border-emerald-500 shadow-sm">
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <span className="bg-emerald-100 text-emerald-700 p-1.5 rounded-lg text-xl">📖</span>
+                                                                    <span className="text-sm font-bold text-emerald-600 uppercase tracking-wider">{block.title || "นิยาม (Definition)"}</span>
+                                                                </div>
+                                                                <div className="text-slate-700 text-lg leading-relaxed font-medium">
+                                                                    {renderWithLatex(block.content)}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {block.type === 'formula' && (
+                                                            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-8 border border-amber-100 shadow-md text-center relative overflow-hidden group">
+                                                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                                                    <svg className="w-24 h-24 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" /></svg>
+                                                                </div>
+                                                                <span className="inline-block px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold mb-4">
+                                                                    {block.title || "สูตร (Formula)"}
+                                                                </span>
+                                                                <div className="text-2xl md:text-3xl font-bold text-slate-800">
+                                                                    {renderWithLatex(block.content)}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {block.type === 'example' && (
+                                                            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative">
+                                                                <div className="absolute top-4 right-4 text-slate-200 text-5xl font-black opacity-20 pointer-events-none">Ex</div>
+                                                                <h4 className="font-bold text-slate-500 uppercase text-xs mb-3 flex items-center gap-2">
+                                                                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                                                                    {block.title || "ตัวอย่าง (Example)"}
+                                                                </h4>
+                                                                <div className="text-slate-600 font-mono text-base bg-slate-50 p-4 rounded-xl leading-relaxed whitespace-pre-wrap">
+                                                                    {renderWithLatex(block.content)}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {block.type === 'note' && (
+                                                            <div className="bg-rose-50 rounded-xl p-5 border border-rose-100 flex gap-4 items-start shadow-sm">
+                                                                <div className="text-3xl shrink-0">⚠️</div>
+                                                                <div>
+                                                                    <h4 className="font-bold text-rose-700 text-sm mb-1 uppercase">ข้อควรระวัง / Note</h4>
+                                                                    <div className="text-rose-900 font-medium leading-relaxed">
+                                                                        {renderWithLatex(block.content)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                // 3. Handle JSON Error (Prevent showing raw code)
+                                if (isJsonError) {
+                                    return (
+                                        <div className="w-full min-h-screen flex flex-col items-center justify-center p-8 bg-slate-50">
+                                            <div className="max-w-lg bg-white p-8 rounded-3xl shadow-xl text-center border-2 border-slate-100">
+                                                <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">🛠️</div>
+                                                <h3 className="text-2xl font-black text-slate-800 mb-2">ไม่สามารถแสดงผลเนื้อหาได้</h3>
+                                                <p className="text-slate-500 mb-6">
+                                                    พบข้อผิดพลาดในโครงสร้างข้อมูล (JSON Syntax Error) <br />
+                                                    อาจเกิดจากการคัดลอกข้อมูลมาไม่ครบถ้วน
+                                                </p>
+                                                <div className="bg-slate-100 p-4 rounded-xl text-left text-xs font-mono text-slate-500 overflow-x-auto mb-6 border border-slate-200">
+                                                    {content.slice(0, 100)}...
+                                                </div>
+                                                <span className="inline-block px-4 py-2 bg-rose-50 text-rose-600 rounded-lg text-sm font-bold">
+                                                    กรุณาติดต่อผู้ดูแลระบบเพื่อแก้ไข
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                // 4. Fallback: Normal Text Article
+                                return (
+                                    <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
+                                        <div className="w-full max-w-4xl bg-white rounded-[2rem] shadow-xl border border-slate-200 p-8 md:p-14">
+                                            {activeLesson.image && <img src={activeLesson.image} className="w-full mb-8 rounded-2xl shadow-md" />}
+                                            <div className="prose prose-lg max-w-none text-slate-600 leading-loose whitespace-pre-wrap font-medium">
+                                                {renderWithLatex(activeLesson.content || "")}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()
                         ) : activeLesson?.type === 'exercise' ? (
                             <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
                                 <div className="w-full max-w-4xl bg-white rounded-[2rem] shadow-xl border border-slate-200 p-12 text-center">

@@ -49,7 +49,7 @@ export default async function ExamHubPage() {
     const exams = await getExams();
 
     return (
-        <main className="min-h-screen bg-[#FDFCF8] font-sans flex flex-col">
+        <div className="min-h-screen bg-[#FDFCF8] font-sans flex flex-col">
             <Navbar />
 
             {/* 3. Pass Data to Client Component for Interactivity */}
@@ -107,6 +107,6 @@ export default async function ExamHubPage() {
             </div>
 
             <Footer />
-        </main>
+        </div>
     );
 }

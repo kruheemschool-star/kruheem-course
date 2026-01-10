@@ -6,7 +6,7 @@ import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Link from "next/link";
-import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks, Download, FileUp } from "lucide-react";
+import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks } from "lucide-react";
 import ImageUploadHelper from "@/components/admin/ImageUploadHelper";
 
 export default function ExamEditorPage() {
@@ -53,9 +53,7 @@ export default function ExamEditorPage() {
 
     const addSmartQuestion = () => {
         // Create an empty object string to allow easy pasting
-        // We add a comment to show which question number this is
-        const nextId = smartBlocks.length + 1;
-        const emptyBlock = `// ข้อที่ ${nextId}\n`;
+        const emptyBlock = "{}";
         const newBlocks = [...smartBlocks, emptyBlock];
         setSmartBlocks(newBlocks);
         setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
@@ -67,13 +65,6 @@ export default function ExamEditorPage() {
         newBlocks.splice(index, 1);
         setSmartBlocks(newBlocks);
         setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
-    };
-
-    const handleClearAll = () => {
-        if (!confirm("⚠️ คุณแน่ใจหรือไม่ที่จะลบโจทย์ 'ทั้งหมด'?\nการกระทำนี้ไม่สามารถย้อนกลับได้!")) return;
-        setSmartBlocks([]);
-        setJsonContent("[]");
-        showToast("ลบโจทย์ทั้งหมดเรียบร้อยแล้ว", "success");
     };
 
     // ... (state)
@@ -278,30 +269,6 @@ export default function ExamEditorPage() {
                 return;
             }
 
-            // 1. Generate Search Index (Keyword Array)
-            const searchTerms = new Set<string>();
-
-            // Add Title & Description
-            (title + " " + (description || "")).split(/\s+/).forEach(word => {
-                if (word.length > 1) searchTerms.add(word.toLowerCase());
-            });
-
-            // Add Questions Content & Keywords
-            parsedQuestions.forEach((q: any) => {
-                const qText = q.question || "";
-                const qKey = q.keywords || "";
-                const content = qText + " " + qKey;
-
-                content.split(/\s+/).forEach(word => {
-                    // Filter out common symbols, keep meaningful words
-                    const cleanWord = word.replace(/[^\w\u0E00-\u0E7F]/g, "").toLowerCase();
-                    if (cleanWord.length > 1) searchTerms.add(cleanWord);
-                });
-            });
-
-            // Convert Set to Array
-            const searchKeywords = Array.from(searchTerms);
-
             const docRef = doc(db, "exams", id as string);
             await updateDoc(docRef, {
                 title,
@@ -314,7 +281,6 @@ export default function ExamEditorPage() {
                 themeColor,
                 questions: parsedQuestions,
                 questionCount: parsedQuestions.length,
-                searchKeywords: searchKeywords, // New Search Index Field
                 updatedAt: serverTimestamp()
             });
 
@@ -342,107 +308,6 @@ export default function ExamEditorPage() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [jsonContent, title, description, coverImage, category, level, timeLimit, difficulty, themeColor]); // Deps need to be current for handleSave closure if not using refs (React state closure trap), strictly relying on state in handleSave
 
-    // --- Export / Import System ---
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleExport = () => {
-        try {
-            // 1. Get current Questions
-            let questions = [];
-            try {
-                questions = JSON.parse(jsonContent);
-            } catch (e) {
-                alert("⚠️ ไม่สามารถ Export ได้เนื่องจาก JSON ข้อสอบไม่ถูกต้อง กรุณาแก้ไขก่อน");
-                return;
-            }
-
-            // 2. Build Blueprint
-            const blueprint = {
-                metadata: {
-                    title,
-                    description,
-                    category,
-                    level,
-                    timeLimit,
-                    difficulty,
-                    themeColor,
-                    coverImage,
-                    exportedAt: new Date().toISOString(),
-                    version: "1.0"
-                },
-                questions
-            };
-
-            // 3. Download File
-            const dataStr = JSON.stringify(blueprint, null, 2);
-            const blob = new Blob([dataStr], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `exam-blueprint-${Date.now()}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast("Export ไฟล์เรียบร้อยแล้ว!", "success");
-
-        } catch (e) {
-            console.error(e);
-            alert("เกิดข้อผิดพลาดในการ Export");
-        }
-    };
-
-    const handleImportClick = () => {
-        if (!confirm("⚠️ การนำเข้าไฟล์จะทับข้อมูลปัจจุบันทั้งหมด แน่ใจหรือไม่?")) return;
-        fileInputRef.current?.click();
-    };
-
-    const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const content = event.target?.result as string;
-                const blueprint = JSON.parse(content);
-
-                // Validation
-                if (!blueprint.questions || !Array.isArray(blueprint.questions)) {
-                    throw new Error("ไฟล์ไม่ถูกต้อง: ไม่พบข้อมูล questions");
-                }
-
-                // Restore Metadata (Optional chaining for backward compatibility)
-                if (blueprint.metadata) {
-                    const m = blueprint.metadata;
-                    if (m.title) setTitle(m.title);
-                    if (m.description) setDescription(m.description);
-                    if (m.category) setCategory(m.category);
-                    if (m.level) setLevel(m.level);
-                    if (m.timeLimit) setTimeLimit(m.timeLimit);
-                    if (m.difficulty) setDifficulty(m.difficulty);
-                    if (m.themeColor) setThemeColor(m.themeColor);
-                    if (m.coverImage) setCoverImage(m.coverImage);
-                }
-
-                // Restore Questions
-                const qStr = JSON.stringify(blueprint.questions, null, 2);
-                setJsonContent(qStr);
-
-                // Sync Smart Blocks
-                setSmartBlocks(blueprint.questions.map((q: any) => JSON.stringify(q, null, 2)));
-
-                showToast("Import ข้อมูลเรียบร้อยแล้ว!", "success");
-
-            } catch (err: any) {
-                console.error(err);
-                alert(`Import ล้มเหลว: ${err.message}`);
-            }
-            // Reset input
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        };
-        reader.readAsText(file);
-    };
-
     // Toast State (Local helper)
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
     const showToast = (msg: string, type: 'success' | 'error') => {
@@ -461,30 +326,7 @@ export default function ExamEditorPage() {
                         </Link>
                         <h1 className="text-xl font-bold">แก้ไขชุดข้อสอบ</h1>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept=".json"
-                            onChange={handleImportFile}
-                        />
-                        <button
-                            onClick={handleImportClick}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-bold transition-colors border border-slate-600"
-                            title="Import from JSON File"
-                        >
-                            <FileUp size={14} /> Import
-                        </button>
-                        <button
-                            onClick={handleExport}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-bold transition-colors border border-slate-600"
-                            title="Export to JSON File"
-                        >
-                            <Download size={14} /> Export
-                        </button>
-                        {loading && <span className="text-slate-400 ml-2">Loading...</span>}
-                    </div>
+                    {loading && <span className="text-slate-400">Loading...</span>}
                 </div>
 
                 {loading ? (
@@ -613,28 +455,21 @@ export default function ExamEditorPage() {
                                 <label className="block text-sm font-bold text-slate-500 mb-2">สีประจำชุด (Theme Color)</label>
                                 <div className="grid grid-cols-5 gap-2">
                                     {[
-                                        // Primary Colors & Basics
-                                        { name: 'Red', class: 'bg-red-500', rings: 'ring-red-500' },
-                                        { name: 'Yellow', class: 'bg-yellow-400', rings: 'ring-yellow-400' },
-                                        { name: 'Blue', class: 'bg-blue-600', rings: 'ring-blue-600' },
-                                        { name: 'White', class: 'bg-white border border-slate-200', rings: 'ring-slate-200' },
-                                        { name: 'Black', class: 'bg-slate-900', rings: 'ring-slate-900' },
-
-                                        // Special & Metallic
-                                        { name: 'Gold', class: 'bg-[#FFD700] bg-[linear-gradient(45deg,#FFD700,#FDB931,#FFD700)]', rings: 'ring-yellow-500' },
-
-                                        // Gradients
-                                        { name: 'Sunrise', class: 'bg-gradient-to-br from-orange-400 to-rose-500', rings: 'ring-orange-500' },
-                                        { name: 'Ocean', class: 'bg-gradient-to-br from-cyan-400 to-blue-600', rings: 'ring-cyan-500' },
-                                        { name: 'Forest', class: 'bg-gradient-to-br from-emerald-400 to-green-600', rings: 'ring-emerald-500' },
-                                        { name: 'Twilight', class: 'bg-gradient-to-br from-violet-500 to-purple-600', rings: 'ring-purple-500' },
-
-                                        // Others
-                                        { name: 'Orange', class: 'bg-orange-500', rings: 'ring-orange-500' },
-                                        { name: 'Green', class: 'bg-green-500', rings: 'ring-green-500' },
+                                        { name: 'Amber', class: 'bg-amber-500', rings: 'ring-amber-500' },
+                                        { name: 'Rose', class: 'bg-rose-500', rings: 'ring-rose-500' },
+                                        { name: 'Violet', class: 'bg-violet-500', rings: 'ring-violet-500' },
+                                        { name: 'Emerald', class: 'bg-emerald-500', rings: 'ring-emerald-500' },
                                         { name: 'Sky', class: 'bg-sky-500', rings: 'ring-sky-500' },
+                                        { name: 'Red', class: 'bg-red-500', rings: 'ring-red-500' },
+                                        { name: 'Indigo', class: 'bg-indigo-500', rings: 'ring-indigo-500' },
                                         { name: 'Pink', class: 'bg-pink-500', rings: 'ring-pink-500' },
                                         { name: 'Teal', class: 'bg-teal-500', rings: 'ring-teal-500' },
+                                        { name: 'Cyan', class: 'bg-cyan-500', rings: 'ring-cyan-500' },
+                                        { name: 'Fuchsia', class: 'bg-fuchsia-500', rings: 'ring-fuchsia-500' },
+                                        { name: 'Lime', class: 'bg-lime-500', rings: 'ring-lime-500' },
+                                        { name: 'Orange', class: 'bg-orange-500', rings: 'ring-orange-500' },
+                                        { name: 'Blue', class: 'bg-blue-500', rings: 'ring-blue-500' },
+                                        { name: 'Green', class: 'bg-green-500', rings: 'ring-green-500' },
                                     ].map((t) => (
                                         <button
                                             key={t.name}
@@ -789,27 +624,13 @@ export default function ExamEditorPage() {
                                     ))}
 
                                     {/* Add Button */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {smartBlocks.length > 0 ? (
-                                            <button
-                                                onClick={handleClearAll}
-                                                className="w-full py-4 rounded-xl border-2 border-dashed border-[#3d3d3d] hover:border-rose-500/50 hover:bg-rose-500/5 text-slate-400 hover:text-rose-400 transition-all flex flex-col items-center justify-center gap-2 font-bold order-2 md:order-1"
-                                            >
-                                                <Trash2 size={24} />
-                                                ลบทั้งหมด ({smartBlocks.length} ข้อ)
-                                            </button>
-                                        ) : (
-                                            <div className="hidden md:block"></div> /* Spacer to keep Add on right if using simple grid, or we can use flex/other tricks. But standard grid with empty div works to push next item to slot 2 if we want strict right alignment. */
-                                        )}
-
-                                        <button
-                                            onClick={addSmartQuestion}
-                                            className="w-full py-4 rounded-xl border-2 border-dashed border-[#3d3d3d] hover:border-emerald-500/50 hover:bg-emerald-500/5 text-slate-400 hover:text-emerald-400 transition-all flex flex-col items-center justify-center gap-2 font-bold order-1 md:order-2"
-                                        >
-                                            <Plus size={24} />
-                                            <span>เพิ่มข้อที่ {smartBlocks.length + 1} (Paste Code)</span>
-                                        </button>
-                                    </div>
+                                    <button
+                                        onClick={addSmartQuestion}
+                                        className="w-full py-4 rounded-xl border-2 border-dashed border-[#3d3d3d] hover:border-emerald-500/50 hover:bg-emerald-500/5 text-slate-400 hover:text-emerald-400 transition-all flex flex-col items-center justify-center gap-2 font-bold"
+                                    >
+                                        <Plus size={24} />
+                                        เพิ่มข้อสอบใหม่
+                                    </button>
 
                                     <div className="h-10"></div>
                                 </div>

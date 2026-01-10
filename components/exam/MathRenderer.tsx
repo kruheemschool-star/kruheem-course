@@ -64,9 +64,6 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className = ""
                         key={index}
                         dangerouslySetInnerHTML={{
                             __html: part
-                                // 0. Clean up [cite: ...] artifacts
-                                .replace(/\[cite:\s*[\d,\s]+\]/gi, '')
-
                                 // 1. Escape HTML (Basic prevention) - Optional but good practice
                                 // .replace(/</g, "&lt;").replace(/>/g, "&gt;") 
                                 // (Skipped to allow intended HTML/BR)
