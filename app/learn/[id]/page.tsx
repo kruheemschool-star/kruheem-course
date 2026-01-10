@@ -973,10 +973,15 @@ export default function CoursePlayer() {
                                 let isJsonError = false;
                                 let content = activeLesson.content?.trim() || "";
 
-                                // 🧹 Auto-Clean AI Artifacts
-                                // Remove [cite_start] and [cite: ...] patterns that often break JSON
-                                content = content.replace(/\[cite_start\]/g, "")
-                                    .replace(/\[cite:[^\]]*\]/g, "");
+                                // 🧹 Auto-Clean AI Artifacts (Aggressive Mode v2.0)
+                                if (content) {
+                                    // 1. Remove [cite...] tags globally (even outside strings)
+                                    content = content.replace(/\[cite_start\]/g, "");
+                                    content = content.replace(/\[cite:[^\]]*\]/g, "");
+
+                                    // 2. Remove trailing commas (common JSON error) -> like: "key": "value", }
+                                    content = content.replace(/,(\s*[\}\]])/g, "$1");
+                                }
 
                                 try {
                                     // Strict JSON check
@@ -985,13 +990,14 @@ export default function CoursePlayer() {
                                         isSmart = Array.isArray(blocks);
                                     } else {
                                         // If it's not wrapped in [], but contains block keywords, it's likely a Copy-Paste error
-                                        if (content.includes('"type":') && content.includes('"content":')) {
+                                        if (content.includes('"type":')) {
                                             isJsonError = true;
                                         }
                                     }
                                 } catch (e) {
                                     // Syntax error
                                     if (content.includes('"type":')) {
+                                        console.error("JSON Parse Error after cleaning:", e);
                                         isJsonError = true;
                                     }
                                 }
