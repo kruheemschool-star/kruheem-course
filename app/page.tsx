@@ -415,26 +415,23 @@ export default function HomePage() {
         {/* Exam Highlight Section */}
         <section className="py-20 px-6 relative z-10">
           <div className="max-w-6xl mx-auto">
-            <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 to-slate-800 rounded-[3rem] p-10 md:p-16 text-center text-white shadow-2xl">
-              {/* Background Decoration */}
-              <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-              <div className="absolute bottom-0 left-0 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
+            <div className="relative overflow-hidden bg-white/20 backdrop-blur-xl border border-white/30 rounded-[3rem] p-10 md:p-16 text-center text-slate-800 shadow-xl">
 
               <div className="relative z-10 max-w-3xl mx-auto">
-                <div className="inline-block p-4 rounded-2xl bg-white/10 backdrop-blur-md mb-6 border border-white/20 shadow-lg transform -rotate-2 hover:rotate-0 transition-transform duration-300">
-                  <Trophy size={48} className="text-amber-400 drop-shadow-md" />
+                <div className="inline-block p-4 rounded-2xl bg-white/50 backdrop-blur-md mb-6 border border-white/40 shadow-sm transform -rotate-2 hover:rotate-0 transition-transform duration-300">
+                  <Trophy size={48} className="text-amber-500 drop-shadow-sm" />
                 </div>
 
-                <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight leading-tight">
-                  ประลองความรู้กับ <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">คลังข้อสอบออนไลน์</span>
+                <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight leading-tight text-slate-800">
+                  ประลองความรู้กับ <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600">คลังข้อสอบออนไลน์</span>
                 </h2>
-                <p className="text-lg text-slate-300 mb-10 leading-relaxed">
+                <p className="text-lg text-slate-600 mb-10 leading-relaxed font-medium">
                   ฝึกฝนทักษะคณิตศาสตร์ผ่านโจทย์หลากหลายรูปแบบ พร้อมระบบตรวจคำตอบทันทีและเฉลยละเอียด <br className="hidden md:block" />
                   ยิ่งทำยิ่งเก่ง ยิ่งยาวยิ่งแม่น! ทดลองทำฟรีได้เลยวันนี้
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/exam" className="px-10 py-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg shadow-lg shadow-amber-500/30 transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95 flex items-center justify-center gap-3">
+                  <Link href="/exam" className="px-10 py-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-lg shadow-lg shadow-amber-500/30 transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95 flex items-center justify-center gap-3">
                     <span>เริ่มทำข้อสอบ</span>
                     <ArrowRight size={20} />
                   </Link>

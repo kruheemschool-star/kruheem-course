@@ -81,10 +81,19 @@ const renderSmartContent = (text: string) => {
 const renderWithLatex = (text: string) => {
     if (!text) return "";
 
-    // 1. Auto-detect implicit LaTeX (e.g. \frac{...}{...}) and wrap in $
+    // 0. Clean up unwanted tags (like [cite: ...])
+    text = text.replace(/\[cite:.*?\]/g, "").trim();
+
+    // 1. Pre-process text
+    // Replace $$...$$ with $...$ for consistency in this simpler renderer
+    // We use a non-greedy match (.*?) to capture everything inside, including spaces
+    let processed = text.replace(/\$\$(.*?)\$\$/g, (match, content) => `$${content.trim()}$`);
+
+    // Auto-detect implicit LaTeX (e.g. \frac{...}{...}) and wrap in $ if not already wrapped
     // Matches \frac{...}{...} with up to 1 level of nested braces, and optional following \times 100
-    let processed = text.replace(/(\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}(?:\s*\\times\s*[\d\w\.]+)?)/g, (match) => {
-        return `$${match}$`;
+    processed = processed.replace(/(\\\\frac\\{(?:[^{}]|\\{[^{}]*\\})*\\}\\{(?:[^{}]|\\{[^{}]*\\})*\\}(?:\\s*\\\\times\\s*[\\d\\w\\.]+)?)/g, (match) => {
+        // Only wrap if not already inside $...$ (simple check)
+        return match.includes('$') ? match : `$${match}$`;
     });
 
     // 2. Split by $...$ for LaTeX
@@ -110,20 +119,14 @@ const renderWithLatex = (text: string) => {
                     if (subPart.startsWith('**') && subPart.endsWith('**')) {
                         return <strong key={subIdx} className="text-rose-600 font-bold">{subPart.slice(2, -2)}</strong>;
                     }
-                    // Handle "---" divider
-                    if (subPart.includes('---')) {
-                        return (
-                            <span key={subIdx}>
-                                {subPart.split('---').map((s, i, arr) => (
-                                    <span key={i}>
-                                        {s}
-                                        {i < arr.length - 1 && <div className="my-4 h-px bg-slate-200 border-b border-dashed border-slate-300 w-full"></div>}
-                                    </span>
-                                ))}
-                            </span>
-                        )
-                    }
-                    return subPart;
+
+                    // Handle newlines efficiently
+                    return subPart.split('\n').map((line, lineIdx, arr) => (
+                        <span key={lineIdx}>
+                            {line}
+                            {lineIdx < arr.length - 1 && <br />}
+                        </span>
+                    ));
                 })}
             </span>
         );
@@ -302,7 +305,7 @@ const ExamRunner = ({ questions, onComplete }: { questions: any[], onComplete: (
     );
 };
 
-const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }) => {
+const FlashcardPlayer = ({ cards }: { cards: any[] }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
 
@@ -323,6 +326,11 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
     const handleFlip = () => {
         setIsFlipped(!isFlipped);
     };
+
+    const currentCard = cards[currentIndex];
+    // 🧠 Adaptive Content: Support both Flashcard (front/back) and Exam (question/answer) formats
+    const frontContent = currentCard?.front || currentCard?.question || "";
+    const backContent = currentCard?.back || currentCard?.answer || "";
 
     return (
         <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
@@ -348,8 +356,8 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
                     {/* Front Side */}
                     <div className="absolute w-full h-full backface-hidden bg-white rounded-[2rem] shadow-xl border-2 border-slate-100 flex flex-col items-center justify-center p-10 text-center hover:shadow-2xl hover:border-yellow-200 transition-all">
                         <span className="absolute top-6 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
-                        <h3 className="text-2xl md:text-4xl font-bold text-slate-800 leading-relaxed">
-                            {renderWithLatex(cards[currentIndex].front)}
+                        <h3 className="text-lg md:text-2xl font-medium text-slate-800 leading-relaxed overflow-y-auto max-h-full custom-scrollbar">
+                            {renderWithLatex(frontContent)}
                         </h3>
                         <p className="absolute bottom-6 text-slate-400 text-sm animate-pulse">Click to flip ↻</p>
                     </div>
@@ -357,8 +365,8 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
                     {/* Back Side */}
                     <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[2rem] shadow-xl border-2 border-yellow-200 flex flex-col items-center justify-center p-10 text-center">
                         <span className="absolute top-6 left-6 text-xs font-bold text-yellow-600 uppercase tracking-widest">Answer</span>
-                        <h3 className="text-2xl md:text-4xl font-bold text-yellow-800 leading-relaxed">
-                            {renderWithLatex(cards[currentIndex].back)}
+                        <h3 className="text-lg md:text-2xl font-medium text-yellow-800 leading-relaxed overflow-y-auto max-h-full custom-scrollbar">
+                            {renderWithLatex(backContent)}
                         </h3>
                     </div>
                 </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, getDoc, query, orderBy, writeBatch, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -61,7 +61,7 @@ const tryParseJson = (str: string) => {
 
 // ✨ Component แสดงกลุ่มบทเรียน
 const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, handleMoveLesson }: { group: any, handleEdit: any, handleDelete: any, handleToggleVisibility: any, handleMoveLesson: any }) => {
-    const [isOpen, setIsOpen] = useState(true);
+    const [isOpen, setIsOpen] = useState(false);
 
     return (
         <div className={`rounded-[1.5rem] border-2 shadow-sm overflow-hidden mb-4 transition-colors ${!group.header ? 'bg-amber-50 border-amber-200 border-dashed' : 'bg-white border-indigo-50'}`}>
@@ -251,6 +251,9 @@ export default function ManageLessonsPage() {
     // ✅ HTML Code State
     const [htmlCode, setHtmlCode] = useState("");
     const [smartExamBlocks, setSmartExamBlocks] = useState<string[]>([]);
+
+    // ✅ File Import Ref
+    const importFileRef = useRef<HTMLInputElement>(null);
 
     // Auto-Sync Smart Blocks to JSON String (htmlCode)
     const updateSmartBlock = (index: number, val: string) => {
@@ -524,112 +527,27 @@ export default function ManageLessonsPage() {
         if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
     };
 
-    const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    // ✅ Flashcard JSON State
+    const [flashcardJson, setFlashcardJson] = useState('[\n  {\n    "front": "ตัวอย่างคำถาม (รองรับ $x^2$)",\n    "back": "ตัวอย่างคำตอบ"\n  }\n]');
+    const [flashcardPreview, setFlashcardPreview] = useState<any[]>([]);
 
-        const text = await file.text();
-        const lines = text.split(/\r?\n/); // Handle both \n and \r\n
-        const parsedData: { front: string, back: string }[] = [];
-
-        for (let line of lines) {
-            if (!line.trim()) continue;
-
-            // ✅ Robust CSV Parser: Handles commas inside quotes (e.g., "89,542")
-            const parts: string[] = [];
-            let current = '';
-            let inQuote = false;
-
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                if (char === '"') {
-                    inQuote = !inQuote;
-                }
-
-                if (char === ',' && !inQuote) {
-                    parts.push(current);
-                    current = '';
-                } else {
-                    current += char;
-                }
+    useEffect(() => {
+        try {
+            const parsed = JSON.parse(flashcardJson);
+            if (Array.isArray(parsed)) {
+                setFlashcardPreview(parsed);
             }
-            parts.push(current);
-
-            if (parts.length >= 2) {
-                // Clean up quotes from the extracted parts
-                const clean = (str: string) => {
-                    let s = str.trim();
-                    if (s.startsWith('"') && s.endsWith('"')) {
-                        s = s.slice(1, -1);
-                    }
-                    return s.replace(/""/g, '"');
-                };
-
-                // ✅ Improved Logic: If multiple parts found, assume the LAST part is the Back, 
-                // and everything before it is the Front (joined by comma).
-                // This handles "Question with 89,542, Answer" correctly.
-
-                const back = clean(parts[parts.length - 1]);
-                const frontParts = parts.slice(0, parts.length - 1);
-                // We join with comma because the split removed them. 
-                // Note: If the original had quotes, this simple join might be slightly off if mixed, 
-                // but for the user's case of "Text, Number, Answer", it works perfectly.
-                // ✅ Remove commas as requested by user to avoid formatting issues
-                const front = clean(frontParts.join(',')).replace(/,/g, '');
-
-                if (front && back) {
-                    parsedData.push({ front, back });
-                }
-            }
+        } catch (e) {
+            // Live preview error - suppress or handle gracefully
         }
-        setFlashcardData(parsedData);
-        showToast(`✅ โหลดข้อมูลสำเร็จ ${parsedData.length} ใบ`);
-    };
+    }, [flashcardJson]);
 
-    const handleTextPaste = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const text = e.target.value;
-        if (!text.trim()) {
-            setFlashcardData([]);
-            return;
+    // Initialize/Reset Flashcard JSON when editing
+    useEffect(() => {
+        if (addType === 'flashcard' && !editId) {
+            setFlashcardJson('[\n  {\n    "front": "",\n    "back": ""\n  }\n]');
         }
-
-        const lines = text.split(/\r?\n/);
-        const parsedData: { front: string, back: string }[] = [];
-
-        // Detect delimiter: Check first line for Tab
-        let delimiter = ',';
-        const firstLine = lines.find(l => l.trim().length > 0);
-        if (firstLine) {
-            const tabCount = (firstLine.match(/\t/g) || []).length;
-            if (tabCount > 0) delimiter = '\t';
-        }
-
-        for (let line of lines) {
-            if (!line.trim()) continue;
-
-            let parts: string[] = [];
-            if (delimiter === '\t') {
-                parts = line.split('\t');
-            } else {
-                // Comma: Use simple split
-                parts = line.split(',');
-            }
-
-            if (parts.length >= 2) {
-                const clean = (str: string) => str.trim().replace(/^"|"$/g, '').replace(/""/g, '"');
-
-                const back = clean(parts[parts.length - 1]);
-                const frontParts = parts.slice(0, parts.length - 1);
-                // ✅ Remove commas as requested by user
-                const front = clean(frontParts.join(delimiter === '\t' ? ' ' : ',')).replace(/,/g, '');
-
-                if (front && back) {
-                    parsedData.push({ front, back });
-                }
-            }
-        }
-        setFlashcardData(parsedData);
-    };
+    }, [addType, editId]);
 
     const handleQuizOptionChange = (index: number, value: string) => {
         const newOptions = [...quizOptions];
@@ -675,7 +593,7 @@ export default function ManageLessonsPage() {
             setLessonContent(lesson.content || "");
             setIsFree(lesson.isFree || false);
         } else if (lesson.type === 'flashcard') {
-            setFlashcardData(lesson.flashcardData || []);
+            setFlashcardJson(JSON.stringify(lesson.flashcardData || [], null, 2));
             setLessonContent(lesson.content || "");
         } else {
             setCurrentImageUrl(lesson.image || "");
@@ -698,7 +616,6 @@ export default function ManageLessonsPage() {
         if (!lessonTitle) return showToast("กรุณาใส่ชื่อ/หัวข้อ", "error");
         if (addType !== 'header' && addType !== 'html' && !selectedHeaderId) return showToast("⚠️ กรุณาเลือก 'บทเรียนหลัก'", "error");
         if (addType === 'quiz' && quizOptions.some(opt => opt.trim() === "")) return showToast("กรุณาใส่ตัวเลือกให้ครบ", "error");
-        if (addType === 'flashcard' && flashcardData.length === 0) return showToast("กรุณาอัปโหลดไฟล์ CSV หรือเพิ่มข้อมูล Flashcard", "error");
 
         setSubmitting(true);
         try {
@@ -734,8 +651,14 @@ export default function ManageLessonsPage() {
                 dataToSave.content = lessonContent;
                 dataToSave.isFree = isFree;
             } else if (addType === 'flashcard') {
-                dataToSave.flashcardData = flashcardData;
-                dataToSave.content = lessonContent;
+                try {
+                    const parsed = JSON.parse(flashcardJson);
+                    if (!Array.isArray(parsed)) throw new Error("JSON must be an array");
+                    dataToSave.flashcardData = parsed;
+                    dataToSave.content = lessonContent;
+                } catch (e) {
+                    return showToast("❌ JSON ไม่ถูกต้อง", "error");
+                }
             }
 
             if (editId) {
@@ -1006,56 +929,135 @@ export default function ManageLessonsPage() {
 
                                     {addType === 'flashcard' && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                            <div className="flex gap-4 mb-2">
-                                                <button type="button" onClick={() => setPasteMode(false)} className={`flex-1 py-2 rounded-xl font-bold transition ${!pasteMode ? 'bg-yellow-500 text-white shadow-md' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>📂 อัปโหลดไฟล์ CSV</button>
-                                                <button type="button" onClick={() => setPasteMode(true)} className={`flex-1 py-2 rounded-xl font-bold transition ${pasteMode ? 'bg-yellow-500 text-white shadow-md' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>📝 วางข้อมูล (Copy & Paste)</button>
+                                            {/* Toolbar */}
+                                            <div className="flex flex-wrap gap-2 mb-2 p-2 bg-yellow-50 rounded-xl border border-yellow-100 items-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        try {
+                                                            const clean = JSON.stringify(JSON.parse(flashcardJson), null, 2);
+                                                            setFlashcardJson(clean);
+                                                        } catch (e) { showToast("JSON Syntax Error", "error"); }
+                                                    }}
+                                                    className="px-3 py-1.5 text-xs font-bold bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200"
+                                                >
+                                                    ✨ จัดรูปแบบ (Format)
+                                                </button>
+
+                                                {/* 🧠 Smart Convert Button (Show only if Exam format detected) */}
+                                                {(() => {
+                                                    try {
+                                                        // Check if content looks like array of exam objects { question: ... }
+                                                        // We use regex check first to avoid parsing huge json on every render if possible, 
+                                                        // but parsing is safer.
+                                                        const parsed = JSON.parse(flashcardJson);
+                                                        if (Array.isArray(parsed) && parsed.length > 0 && (parsed[0].question || parsed[0].id)) {
+                                                            return (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        if (!confirm("พบโครงสร้าง 'ข้อสอบ' (Exam) \nคุณต้องการแปลงเป็น 'Flashcard' (หน้า-หลัง) อัตโนมัติหรือไม่?")) return;
+
+                                                                        const converted = parsed.map((item: any) => {
+                                                                            // Smart Mapping Logic
+                                                                            let backContent = item.answer || item.explanation || "";
+
+                                                                            // If generic content found in other fields, try to use them (e.g. choice)
+                                                                            if (!backContent && item.options && item.correctIndex !== undefined) {
+                                                                                backContent = `ตอบ: ${item.options[item.correctIndex]}`;
+                                                                            }
+
+                                                                            // Clean up typical garbage (like [cite: ...])
+                                                                            const cleanText = (t: string) => t ? t.replace(/\[cite:.*?\]/g, "").trim() : "";
+
+                                                                            return {
+                                                                                front: cleanText(item.question || item.front || "คำถาม"),
+                                                                                back: cleanText(backContent || item.back || "เฉลย")
+                                                                            };
+                                                                        });
+
+                                                                        setFlashcardJson(JSON.stringify(converted, null, 2));
+                                                                        showToast(`✅ แปลงข้อมูลสำเร็จ ${converted.length} ใบ`);
+                                                                    }}
+                                                                    className="px-3 py-1.5 text-xs font-bold bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 shadow-sm animate-pulse flex items-center gap-1"
+                                                                >
+                                                                    ⚡️ แปลงเป็น Flashcard ({parsed.length})
+                                                                </button>
+                                                            );
+                                                        }
+                                                    } catch (e) { return null; }
+                                                })()}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        try {
+                                                            const current = JSON.parse(flashcardJson);
+                                                            if (Array.isArray(current)) {
+                                                                const updated = [...current, { front: "", back: "" }];
+                                                                setFlashcardJson(JSON.stringify(updated, null, 2));
+                                                            }
+                                                        } catch (e) { /* ignore */ }
+                                                    }}
+                                                    className="px-3 py-1.5 text-xs font-bold bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200"
+                                                >
+                                                    ➕ เพิ่มการ์ด (+1)
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFlashcardJson('[\n  {\n    "front": "",\n    "back": ""\n  }\n]')}
+                                                    className="px-3 py-1.5 text-xs font-bold bg-white border border-yellow-200 text-yellow-600 rounded-lg hover:bg-yellow-50"
+                                                >
+                                                    🗑️ ล้างค่า
+                                                </button>
+                                                <div className="text-xs text-yellow-500 flex items-center ml-auto">
+                                                    * รองรับสมการ LaTeX $...$
+                                                </div>
                                             </div>
 
-                                            {!pasteMode ? (
-                                                <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100">
-                                                    <label className="block text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">📂 อัปโหลดไฟล์ CSV (Front,Back)</label>
-                                                    <input
-                                                        type="file"
-                                                        accept=".csv"
-                                                        onChange={handleCsvUpload}
-                                                        className="w-full p-3 bg-white border-2 border-yellow-200 rounded-xl outline-none focus:border-yellow-500 transition text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200"
-                                                    />
-                                                    <p className="text-xs text-yellow-500 mt-2">* รูปแบบไฟล์: บรรทัดละ 1 คู่ (คำถาม,คำตอบ)</p>
-                                                </div>
-                                            ) : (
-                                                <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100">
-                                                    <label className="block text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">📝 วางข้อมูลจาก Excel / Sheets</label>
+                                            <div className="grid md:grid-cols-2 gap-4 h-[500px]">
+                                                {/* Editor */}
+                                                <div className="flex flex-col h-full">
+                                                    <label className="text-xs font-bold text-slate-500 mb-1">📝 JSON Code Editor</label>
                                                     <textarea
-                                                        placeholder={`ตัวอย่าง:\nคำถาม 1\tคำตอบ 1\nคำถาม 2\tคำตอบ 2`}
-                                                        onChange={handleTextPaste}
-                                                        className="w-full p-4 bg-white border-2 border-yellow-200 rounded-xl outline-none focus:border-yellow-500 transition text-slate-700 min-h-[150px] font-mono text-sm"
+                                                        className="flex-grow w-full bg-slate-800 text-yellow-300 font-mono text-xs p-4 rounded-xl outline-none resize-none leading-relaxed custom-scrollbar"
+                                                        value={flashcardJson}
+                                                        onChange={(e) => setFlashcardJson(e.target.value)}
+                                                        spellCheck={false}
                                                     />
-                                                    <p className="text-xs text-yellow-500 mt-2">* รองรับการก๊อปปี้จาก Excel (คั่นด้วย Tab) หรือ CSV (คั่นด้วย Comma)</p>
                                                 </div>
-                                            )}
 
-                                            {flashcardData.length > 0 && (
-                                                <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm max-h-60 overflow-y-auto">
-                                                    <h4 className="font-bold text-slate-700 mb-3 sticky top-0 bg-white pb-2 border-b">📋 ตัวอย่างข้อมูล ({flashcardData.length} ใบ)</h4>
-                                                    <table className="w-full text-sm text-left">
-                                                        <thead className="text-xs text-slate-400 uppercase bg-slate-50">
-                                                            <tr>
-                                                                <th className="px-3 py-2 rounded-l-lg">ด้านหน้า (Front)</th>
-                                                                <th className="px-3 py-2 rounded-r-lg">ด้านหลัง (Back)</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {flashcardData.map((card, idx) => (
-                                                                <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50">
-                                                                    <td className="px-3 py-2 font-medium text-slate-700">{renderWithLatex(card.front)}</td>
-                                                                    <td className="px-3 py-2 text-slate-500">{renderWithLatex(card.back)}</td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                {/* Preview */}
+                                                <div className="flex flex-col h-full bg-yellow-50/50 rounded-xl border-2 border-yellow-100 overflow-hidden">
+                                                    <div className="p-3 bg-yellow-100/50 border-b border-yellow-200 font-bold text-yellow-800 text-xs flex justify-between items-center">
+                                                        <span>👁️ Live Preview ({flashcardPreview.length} ใบ)</span>
+                                                    </div>
+                                                    <div className="flex-grow overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                                                        {flashcardPreview.map((card, idx) => (
+                                                            <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-yellow-100 flex flex-col gap-2">
+                                                                <div className="text-sm font-bold text-slate-700 pb-2 border-b border-slate-100">
+                                                                    <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] mr-2">#{idx + 1} Front</span>
+                                                                    {renderWithLatex(card.front || card.question || "")}
+                                                                </div>
+                                                                <div className="text-sm text-slate-600">
+                                                                    <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[10px] mr-2">Back</span>
+                                                                    {renderWithLatex(card.back || card.answer || "")}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        {flashcardPreview.length === 0 && (
+                                                            <div className="text-center text-slate-400 py-10 text-xs">ยังไม่มีข้อมูลการ์ด</div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
-                                            <textarea placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..." className="w-full p-4 bg-yellow-50 border-2 border-yellow-100 rounded-2xl outline-none min-h-[100px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                            </div>
+
+                                            <textarea
+                                                placeholder="📝 คำอธิบายเพิ่มเติม (ถ้ามี)..."
+                                                className="w-full p-4 bg-yellow-50 border-2 border-yellow-100 rounded-2xl outline-none min-h-[100px]"
+                                                value={lessonContent}
+                                                onChange={(e) => setLessonContent(e.target.value)}
+                                            />
                                         </div>
                                     )}
 
@@ -1083,9 +1085,74 @@ export default function ManageLessonsPage() {
                                                 </div>
 
                                                 {!isRawMode && (
-                                                    <button type="button" onClick={() => setIsAddingQuestion(!isAddingQuestion)} className="bg-cyan-100 hover:bg-cyan-200 text-cyan-700 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1 border border-cyan-200">
-                                                        {isAddingQuestion ? '❌ ยกเลิก' : '➕ เพิ่มข้อ (Paste Code)'}
-                                                    </button>
+                                                    <div className="flex gap-2">
+                                                        {/* Hidden Input for Import */}
+                                                        <input
+                                                            type="file"
+                                                            accept=".json"
+                                                            ref={importFileRef}
+                                                            className="hidden"
+                                                            onChange={(e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (!file) return;
+                                                                const reader = new FileReader();
+                                                                reader.onload = (event) => {
+                                                                    try {
+                                                                        const json = JSON.parse(event.target?.result as string);
+                                                                        if (Array.isArray(json)) {
+                                                                            if (confirm("⚠️ การนำเข้าไฟล์จะ 'ล้างข้อมูลเก่า' และแทนที่ด้วยข้อมูลใหม่ทั้งหมด ยืนยันหรือไม่?")) {
+                                                                                updateExamContent(json);
+                                                                                showToast(`✅ นำเข้าข้อมูลสำเร็จ ${json.length} ข้อ`);
+                                                                            }
+                                                                        } else {
+                                                                            showToast("❌ ไฟล์ไม่ถูกต้อง (ต้องเป็น Array)", "error");
+                                                                        }
+                                                                    } catch (err) {
+                                                                        showToast("❌ อ่านไฟล์ล้มเหลว", "error");
+                                                                    }
+                                                                    // Reset input
+                                                                    if (importFileRef.current) importFileRef.current.value = "";
+                                                                };
+                                                                reader.readAsText(file);
+                                                            }}
+                                                        />
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => importFileRef.current?.click()}
+                                                            className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1 border border-slate-200"
+                                                            title="Import JSON File"
+                                                        >
+                                                            📤 Import
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const dataStr = JSON.stringify(examQuestions, null, 2);
+                                                                    const blob = new Blob([dataStr], { type: "application/json" });
+                                                                    const url = URL.createObjectURL(blob);
+                                                                    const link = document.createElement('a');
+                                                                    link.href = url;
+                                                                    link.download = `exam-export-${Date.now()}.json`;
+                                                                    document.body.appendChild(link);
+                                                                    link.click();
+                                                                    document.body.removeChild(link);
+                                                                    showToast("✅ Download Completed!");
+                                                                } catch (e) {
+                                                                    showToast("Export Error", "error");
+                                                                }
+                                                            }}
+                                                            className="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1 border border-slate-200"
+                                                            title="Download Full Code"
+                                                        >
+                                                            📥 Export
+                                                        </button>
+                                                        <button type="button" onClick={() => setIsAddingQuestion(!isAddingQuestion)} className="bg-cyan-100 hover:bg-cyan-200 text-cyan-700 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1 border border-cyan-200">
+                                                            {isAddingQuestion ? '❌ ยกเลิก' : '➕ เพิ่มข้อ (Paste Code)'}
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
 
