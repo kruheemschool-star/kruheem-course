@@ -874,20 +874,137 @@ export default function ManageLessonsPage() {
                                     )}
 
                                     {addType === 'text' && (
-                                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                            <div className="bg-pink-50 p-4 rounded-2xl border-2 border-pink-100 border-dashed">
-                                                <label className="text-xs font-bold text-pink-400 uppercase tracking-wider mb-2 block">🖼️ รูปภาพปกบทความ (Cover Image)</label>
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                                            {/* 🖼️ Cover Image Section */}
+                                            <div className="bg-pink-50 p-4 rounded-3xl border-2 border-pink-100 border-dashed">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <label className="text-xs font-bold text-pink-400 uppercase tracking-wider">🖼️ รูปภาพปก (Cover Image) - (ไม่จำเป็นต้องใส่)</label>
+                                                </div>
                                                 <div className="relative group">
                                                     <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="article-image-upload" />
-                                                    <label htmlFor="article-image-upload" className="w-full h-32 bg-white border-2 border-dashed border-pink-300 rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-pink-100 hover:border-pink-400 transition text-pink-400 font-bold shadow-sm">
-                                                        <span className="text-2xl bg-pink-100 p-2 rounded-full">📷</span>
-                                                        <span>คลิกเพิ่มรูปภาพ</span>
-                                                        <span className="text-xs text-pink-300 font-normal mt-1">ขนาดแนะนำ 1920 x 1080 px (16:9)</span>
+                                                    <label htmlFor="article-image-upload" className="w-full h-24 bg-white border-2 border-dashed border-pink-300 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-pink-100 hover:border-pink-400 transition text-pink-400 font-bold shadow-sm">
+                                                        <span className="text-xl bg-pink-100 p-1.5 rounded-full">📷</span>
+                                                        <span className="text-xs">คลิกเพิ่มรูปภาพ</span>
                                                     </label>
                                                 </div>
-                                                {imagePreview && <div className="mt-4 rounded-xl overflow-hidden h-40 w-full bg-slate-200 border-2 border-white shadow-md"><img src={imagePreview} alt="Preview" className="h-full w-full object-cover" /></div>}
+                                                {imagePreview && <div className="mt-4 rounded-2xl overflow-hidden h-40 w-full bg-slate-200 border-4 border-white shadow-md"><img src={imagePreview} alt="Preview" className="h-full w-full object-cover" /></div>}
                                             </div>
-                                            <textarea placeholder="เขียนเนื้อหาบทเรียน..." className="w-full p-6 bg-pink-50 border-2 border-pink-100 rounded-2xl outline-none min-h-[200px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+
+                                            {/* 🛠️ Smart Summary Editor Toolbar */}
+                                            <div className="flex flex-wrap gap-2 p-2 bg-slate-100 rounded-xl border border-slate-200">
+                                                <span className="text-xs font-bold text-slate-500 mr-2 self-center">Insert Block:</span>
+                                                {[
+                                                    { label: "Header 📌", snippet: '{\n    "type": "header",\n    "content": "หัวข้อเรื่อง"\n  }' },
+                                                    { label: "Definition 📖", snippet: '{\n    "type": "definition",\n    "title": "นิยาม",\n    "content": "เนื้อหา..."\n  }' },
+                                                    { label: "Formula 📐", snippet: '{\n    "type": "formula",\n    "title": "สูตร",\n    "content": "$$ a^2 + b^2 = c^2 $$"\n  }' },
+                                                    { label: "Example 💡", snippet: '{\n    "type": "example",\n    "title": "ตัวอย่าง",\n    "content": "จงหาค่า..."\n  }' },
+                                                    { label: "Note ⚠️", snippet: '{\n    "type": "note",\n    "content": "ข้อควรระวัง..."\n  }' }
+                                                ].map((btn, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            try {
+                                                                // Smart Insert: Try to append to array if valid JSON array
+                                                                let current = JSON.parse(lessonContent || "[]");
+                                                                if (!Array.isArray(current)) current = [];
+                                                                current.push(JSON.parse(btn.snippet));
+                                                                setLessonContent(JSON.stringify(current, null, 2));
+                                                            } catch (e) {
+                                                                // Fallback: Just append string if invalid
+                                                                setLessonContent((prev) => (prev ? prev + ",\n" : "[\n") + btn.snippet + (prev ? "" : "\n]"));
+                                                            }
+                                                        }}
+                                                        className="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 text-[10px] font-bold rounded-lg hover:bg-slate-50 hover:text-indigo-600 transition shadow-sm"
+                                                    >
+                                                        {btn.label}
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        try {
+                                                            const parsed = JSON.parse(lessonContent);
+                                                            setLessonContent(JSON.stringify(parsed, null, 2));
+                                                            showToast("✅ จัดรูปแบบแล้ว");
+                                                        } catch (e) { showToast("❌ JSON ไม่ถูกต้อง", "error"); }
+                                                    }}
+                                                    className="ml-auto px-3 py-1.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-lg hover:bg-indigo-200"
+                                                >
+                                                    ✨ Format JSON
+                                                </button>
+                                            </div>
+
+                                            {/* 📝 Editor & Preview Grid */}
+                                            <div className="grid md:grid-cols-2 gap-4 h-[600px]">
+                                                {/* Left: Code Editor */}
+                                                <div className="flex flex-col h-full">
+                                                    <label className="text-xs font-bold text-slate-500 mb-1">💻 JSON Source</label>
+                                                    <textarea
+                                                        placeholder={`[\n  {\n    "type": "header",\n    "content": "..."\n  }\n]`}
+                                                        className="flex-grow w-full p-4 bg-slate-900 text-cyan-300 font-mono text-xs rounded-2xl outline-none resize-none leading-relaxed custom-scrollbar shadow-inner"
+                                                        value={lessonContent}
+                                                        onChange={(e) => setLessonContent(e.target.value)}
+                                                        spellCheck={false}
+                                                    />
+                                                </div>
+
+                                                {/* Right: Live Preview */}
+                                                <div className="flex flex-col h-full bg-white rounded-2xl border-2 border-slate-100 overflow-hidden shadow-sm">
+                                                    <div className="p-3 bg-slate-50 border-b border-slate-100 font-bold text-slate-500 text-xs flex justify-between items-center">
+                                                        <span>📱 Live Preview</span>
+                                                    </div>
+                                                    <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white">
+                                                        {(() => {
+                                                            try {
+                                                                const blocks = JSON.parse(lessonContent);
+                                                                if (!Array.isArray(blocks)) throw new Error();
+                                                                return blocks.map((block: any, idx: number) => (
+                                                                    <div key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                                                        {block.type === 'header' && <h3 className="text-xl font-black text-slate-800 border-l-4 border-indigo-500 pl-3">{block.content}</h3>}
+
+                                                                        {block.type === 'definition' && (
+                                                                            <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                                                                                <p className="text-xs font-bold text-emerald-600 uppercase mb-1">{block.title || "นิยาม"}</p>
+                                                                                <div className="text-slate-700">{renderWithLatex(block.content)}</div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {block.type === 'formula' && (
+                                                                            <div className="bg-amber-50 rounded-xl p-5 border border-amber-100 text-center shadow-sm">
+                                                                                <p className="text-xs font-bold text-amber-500 uppercase mb-2 tracking-widest">{block.title || "สูตร"}</p>
+                                                                                <div className="text-xl font-medium text-amber-900">{renderWithLatex(block.content)}</div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {block.type === 'example' && (
+                                                                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                                                                <p className="text-xs font-bold text-slate-500 uppercase mb-2">{block.title || "ตัวอย่าง"}</p>
+                                                                                <div className="text-slate-600 font-mono text-sm whitespace-pre-wrap">{renderWithLatex(block.content)}</div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {block.type === 'note' && (
+                                                                            <div className="bg-rose-50 rounded-lg p-3 border border-rose-100 flex gap-2 items-start text-sm text-rose-700">
+                                                                                <span>⚠️</span>
+                                                                                <div>{renderWithLatex(block.content)}</div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ));
+                                                            } catch (e) {
+                                                                return (
+                                                                    <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2">
+                                                                        <span className="text-4xl">📝</span>
+                                                                        <span className="text-xs">เริ่มพิมพ์หรือกดปุ่มด้านบนเพื่อเพิ่มเนื้อหา</span>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
                                                 <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
                                                 <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้อ่านฟรี (Free Read) 📖</label>
