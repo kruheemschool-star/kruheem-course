@@ -29,7 +29,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         const parsed = examData.map(q => {
             const val = q.correctIndex;
             // Parse strictly
-            if (val === undefined || val === null || val === "") return { ...q, correctIndex: -1 };
+            if (val === undefined || val === null || (val as any) === "") return { ...q, correctIndex: -1 };
             const num = Number(val);
             if (!isNaN(num)) rawIndices.push(num);
             return { ...q, correctIndex: isNaN(num) ? -1 : num };
