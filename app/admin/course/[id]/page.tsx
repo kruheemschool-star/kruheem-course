@@ -915,7 +915,7 @@ export default function ManageLessonsPage() {
                                 <div className="grid grid-cols-5 gap-2 p-2 bg-slate-100 rounded-3xl mb-8 overflow-x-auto">
                                     <button type="button" onClick={() => setAddType('header')} disabled={!!editId && addType !== 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'header' ? 'bg-orange-400 text-white shadow-lg shadow-orange-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType !== 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><HeaderIcon /> <span className="hidden sm:inline">ชื่อบท</span></button>
                                     <button type="button" onClick={() => setAddType('video')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'video' ? 'bg-blue-500 text-white shadow-lg shadow-blue-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><VideoIcon /> <span className="hidden sm:inline">วิดีโอ</span></button>
-                                    <button type="button" onClick={() => setAddType('text')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'text' ? 'bg-pink-500 text-white shadow-lg shadow-pink-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><TextIcon /> <span className="hidden sm:inline">บทความ</span></button>
+                                    <button type="button" onClick={() => setAddType('text')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'text' ? 'bg-pink-500 text-white shadow-lg shadow-pink-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><TextIcon /> <span className="hidden sm:inline">สรุปเนื้อหา</span></button>
                                     <button type="button" onClick={() => setAddType('quiz')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'quiz' ? 'bg-purple-500 text-white shadow-lg shadow-purple-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><QuizIcon /> <span className="hidden sm:inline">คำถาม</span></button>
                                     {/* ✅ ปุ่ม Exercise ใหม่ */}
                                     <button type="button" onClick={() => setAddType('exercise')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'exercise' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><ExerciseIcon /> <span className="hidden sm:inline">แบบฝึกหัด</span></button>
@@ -928,7 +928,7 @@ export default function ManageLessonsPage() {
                                 <div className="flex justify-between items-center mb-6 px-2">
                                     <h3 className={`font-bold text-xl flex items-center gap-3 ${addType === 'video' ? 'text-blue-600' : addType === 'quiz' ? 'text-purple-600' : addType === 'text' ? 'text-pink-600' : addType === 'exercise' ? 'text-emerald-600' : addType === 'flashcard' ? 'text-yellow-600' : 'text-orange-600'}`}>
                                         <div className={`w-3 h-3 rounded-full ${addType === 'video' ? 'bg-blue-500' : addType === 'quiz' ? 'bg-purple-500' : addType === 'text' ? 'bg-pink-500' : addType === 'exercise' ? 'bg-emerald-500' : addType === 'flashcard' ? 'bg-yellow-500' : 'bg-orange-500'}`}></div>
-                                        {editId ? '✏️ แก้ไขข้อมูล' : (addType === 'video' ? 'เพิ่มวิดีโอใหม่' : addType === 'quiz' ? 'สร้างคำถาม (Quiz)' : addType === 'text' ? 'เพิ่มบทความ/ชีท' : addType === 'exercise' ? 'เพิ่มแบบฝึกหัด (PDF Link)' : addType === 'flashcard' ? 'เพิ่ม Flashcard' : 'เพิ่มหัวข้อบทเรียน')}
+                                        {editId ? '✏️ แก้ไขข้อมูล' : (addType === 'video' ? 'เพิ่มวิดีโอใหม่' : addType === 'quiz' ? 'สร้างคำถาม (Quiz)' : addType === 'text' ? 'เพิ่มสรุปเนื้อหา (Smart Content)' : addType === 'exercise' ? 'เพิ่มแบบฝึกหัด (PDF Link)' : addType === 'flashcard' ? 'เพิ่ม Flashcard' : 'เพิ่มหัวข้อบทเรียน')}
                                     </h3>
                                     <div className="flex gap-2">
                                         {editId && <button onClick={handleCancelEdit} className="text-sm font-bold text-rose-400 hover:text-rose-600 underline transition bg-rose-50 px-3 py-1 rounded-lg">ยกเลิก</button>}
@@ -973,7 +973,45 @@ export default function ManageLessonsPage() {
                                                 </div>
                                                 {imagePreview && <div className="mt-4 rounded-xl overflow-hidden h-40 w-full bg-slate-200 border-2 border-white shadow-md"><img src={imagePreview} alt="Preview" className="h-full w-full object-cover" /></div>}
                                             </div>
-                                            <textarea placeholder="เขียนเนื้อหาบทเรียน..." className="w-full p-6 bg-pink-50 border-2 border-pink-100 rounded-2xl outline-none min-h-[200px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+
+                                            <div className="relative group">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <div className="text-[10px] text-pink-400 font-bold opacity-80 pl-1">JSON / Markdown Supported</div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            try {
+                                                                // 1. Remove [cite_start] artifacts globally
+                                                                let cleaned = lessonContent.replace(/\[cite_start\]/g, "");
+                                                                // 2. Remove [cite: ...] tags
+                                                                cleaned = cleaned.replace(/\[cite:\s*[^\]]+\]/g, "");
+                                                                // 3. Remove "Based on..." preambles
+                                                                cleaned = cleaned.replace(/^Based on the provided[\s\S]*?\[/, "[");
+                                                                // 4. Try to parse and pretty print
+                                                                const parsed = JSON.parse(cleaned);
+                                                                setLessonContent(JSON.stringify(parsed, null, 2));
+                                                                showToast("✨ ล้างโค้ดและจัดรูปแบบเรียบร้อย!");
+                                                            } catch (e) {
+                                                                // Fallback: Just simple replace if JSON parse fails
+                                                                let cleaned = lessonContent.replace(/\[cite_start\]/g, "").replace(/\[cite:\s*[^\]]+\]/g, "");
+                                                                setLessonContent(cleaned);
+                                                                showToast("⚠️ ล้างโค้ดบางส่วนแล้ว (JSON ยังไม่สมบูรณ์)", "error");
+                                                            }
+                                                        }}
+                                                        className="text-[10px] bg-pink-100 text-pink-600 px-2 py-1 rounded-lg font-bold hover:bg-pink-200 transition flex items-center gap-1"
+                                                    >
+                                                        ✨ ล้างโค้ด (Clean Code)
+                                                    </button>
+                                                </div>
+                                                <textarea
+                                                    placeholder={`เขียนเนื้อหาบทเรียน หรือวาง JSON Code ที่นี่...\n\nตัวอย่าง JSON:\n[\n  { "type": "header", "content": "หัวข้อเรื่อง" },\n  { "type": "definition", "title": "นิยาม", "content": "เนื้อหา..." }\n]`}
+                                                    className="w-full p-6 bg-slate-50 border-2 border-pink-100 focus:border-pink-400 rounded-2xl outline-none min-h-[300px] font-mono text-sm text-slate-700 leading-relaxed"
+                                                    value={lessonContent}
+                                                    onChange={(e) => setLessonContent(e.target.value)}
+                                                    spellCheck={false}
+                                                />
+                                            </div>
+
                                             <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
                                                 <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
                                                 <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้อ่านฟรี (Free Read) 📖</label>

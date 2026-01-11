@@ -78,52 +78,79 @@ const renderSmartContent = (text: string) => {
     });
 };
 // ✅ Helper to render LaTeX mixed with text & Markdown
+// ✅ Helper to render LaTeX mixed with text & Markdown
 const renderWithLatex = (text: string) => {
     if (!text) return "";
 
-    // 1. Auto-detect implicit LaTeX (e.g. \frac{...}{...}) and wrap in $
-    // Matches \frac{...}{...} with up to 1 level of nested braces, and optional following \times 100
-    let processed = text.replace(/(\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}(?:\s*\\times\s*[\d\w\.]+)?)/g, (match) => {
-        return `$${match}$`;
-    });
-
-    // 2. Split by $...$ for LaTeX
-    const parts = processed.split(/(\$[^$]+\$)/g);
+    // 1. Split by explicit LaTeX: $...$ or $$...$$ or \[...\]
+    const parts = text.split(/(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[\s\S]+?\$|\\begin\{equation\}[\s\S]+?\\end\{equation\})/g);
 
     return parts.map((part, index) => {
-        if (part.startsWith('$') && part.endsWith('$')) {
-            // Remove $ and render LaTeX
-            try {
-                return <InlineMath key={index} math={part.slice(1, -1)} />;
-            } catch (e) {
-                return <span key={index} className="text-red-500">{part}</span>;
+        let isDisplay = part.startsWith('$$') || part.startsWith('\\[');
+        let isMath = isDisplay || (part.startsWith('$') && part.endsWith('$'));
+        let content = part;
+
+        if (isMath) {
+            // Strip delimiters
+            const inner = part.replace(/^(\$\$|\\\[|\$)|(\$\$|\\\]|\$)$/g, '');
+
+            const hasThai = /[\u0E00-\u0E7F]/.test(inner);
+            const hasNewlines = inner.includes('\n');
+
+            // Unwrap if Thai (almost always text) OR (Inline math AND Newlines)
+            if (hasThai || (!isDisplay && hasNewlines)) {
+                if (!inner.match(/^\\begin\{/)) {
+                    isMath = false;
+                    content = inner;
+                } else { content = inner; }
+            } else {
+                content = inner;
             }
         }
 
-        // 3. Handle Markdown-style Formatting in text parts
-        // Split by **bold**
-        const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
+        if (isMath) {
+            try { return <InlineMath key={index} math={content} />; }
+            catch (e) { return <span key={index} className="text-red-500">{part}</span>; }
+        }
+
+        // TEXT PROCESSING: Look for implicit Latex commands (\times, \div, \frac, ^)
+        // Regex to find things that look like LaTeX commands or simple math expressions
+        // 1. \frac{...}{...}
+        // 2. \times, \div, \pm, \le, \ge, \neq
+        // 3. Simple power: ^\d+ or ^{...}
+        const implicitRegex = /(\\[a-zA-Z]+(?:\{(?:[^{}]|\{[^{}]*\})*\})*|\^\{?[a-zA-Z0-9\+\-\.]+\}?|_[a-zA-Z0-9]+)/g;
+
+        const subParts = content.split(implicitRegex);
 
         return (
             <span key={index}>
-                {boldParts.map((subPart, subIdx) => {
-                    if (subPart.startsWith('**') && subPart.endsWith('**')) {
-                        return <strong key={subIdx} className="text-rose-600 font-bold">{subPart.slice(2, -2)}</strong>;
+                {subParts.map((sub, subIdx) => {
+                    // Check if it matches our implicit math pattern
+                    if (sub.match(/^(\\|\^|_)/)) {
+                        try { return <InlineMath key={`${index}-${subIdx}`} math={sub} />; }
+                        catch (e) { return sub; }
                     }
-                    // Handle "---" divider
-                    if (subPart.includes('---')) {
-                        return (
-                            <span key={subIdx}>
-                                {subPart.split('---').map((s, i, arr) => (
-                                    <span key={i}>
-                                        {s}
-                                        {i < arr.length - 1 && <div className="my-4 h-px bg-slate-200 border-b border-dashed border-slate-300 w-full"></div>}
-                                    </span>
-                                ))}
-                            </span>
-                        )
-                    }
-                    return subPart;
+
+                    // Otherwise, Handle Markdown (**bold**, ---)
+                    const boldParts = sub.split(/(\*\*[^*]+\*\*)/g);
+                    return (
+                        <span key={`${index}-${subIdx}`}>
+                            {boldParts.map((bPart, bIdx) => {
+                                if (bPart.startsWith('**') && bPart.endsWith('**')) {
+                                    return <strong key={bIdx} className="text-indigo-600 font-bold">{bPart.slice(2, -2)}</strong>;
+                                }
+                                if (bPart.includes('---')) {
+                                    return bPart.split('---').map((s, i, arr) => (
+                                        <span key={i}>
+                                            {s}
+                                            {i < arr.length - 1 && <div className="my-6 h-px bg-slate-200 border-b border-dashed border-slate-300 w-full"></div>}
+                                        </span>
+                                    ));
+                                }
+                                return bPart;
+                            })}
+                        </span>
+                    );
                 })}
             </span>
         );
@@ -1025,57 +1052,51 @@ export default function CoursePlayer() {
                                                     </div>
                                                 )}
 
-                                                {/* Blocks Loop */}
+                                                {/* Blocks Loop - Notion Style Redesign */}
                                                 {blocks.map((block, idx) => (
-                                                    <div key={idx} className="group">
+                                                    <div key={idx} className="group mb-6">
                                                         {block.type === 'header' && (
-                                                            <h3 className="text-3xl font-bold text-slate-900 mt-12 mb-6 tracking-tight leading-snug">
+                                                            <h3 className="text-3xl font-bold text-slate-800 mt-10 mb-6 tracking-tight flex items-center gap-3 border-l-4 border-indigo-500 pl-4">
                                                                 {block.content}
                                                             </h3>
                                                         )}
 
                                                         {block.type === 'definition' && (
-                                                            <div className="my-6 pl-5 border-l-4 border-emerald-400 bg-emerald-50/50 py-4 pr-4 rounded-r-lg">
-                                                                <div className="flex items-center gap-2 mb-2">
-                                                                    <span className="text-emerald-600 font-bold text-sm uppercase tracking-wide">
-                                                                        💡 {block.title || "นิยาม / Definition"}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="text-slate-700 text-lg leading-loose font-normal">
-                                                                    {renderWithLatex(block.content)}
+                                                            <div className="flex gap-5 p-6 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm text-slate-800">
+                                                                <div className="text-2xl select-none pt-1">💡</div>
+                                                                <div className="flex-1 space-y-2">
+                                                                    {block.title && <div className="font-bold text-slate-900 text-lg mb-2">{block.title}</div>}
+                                                                    <div className="text-lg leading-loose text-slate-700 font-medium whitespace-pre-wrap">
+                                                                        {renderWithLatex(block.content)}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {block.type === 'formula' && (
-                                                            <div className="my-8 p-6 rounded-xl border border-amber-200 bg-amber-50/30 flex flex-col items-center text-center">
-                                                                <span className="text-amber-600 font-bold text-xs uppercase tracking-widest mb-4 px-2 py-1 bg-amber-100/50 rounded-md">
-                                                                    {block.title || "สูตร / Formula"}
-                                                                </span>
-                                                                <div className="text-2xl md:text-3xl font-medium text-slate-800 leading-relaxed">
+                                                            <div className="my-6 py-6 px-6 bg-indigo-50/30 rounded-3xl border border-indigo-100 flex flex-col items-center text-center">
+                                                                {block.title && <div className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-4 border-b-2 border-indigo-100 pb-2 px-4">{block.title}</div>}
+                                                                <div className="text-lg text-slate-800 font-medium leading-loose whitespace-pre-wrap">
                                                                     {renderWithLatex(block.content)}
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {block.type === 'example' && (
-                                                            <div className="my-6 pl-6 border-l-2 border-slate-300 py-2">
-                                                                <h4 className="font-bold text-slate-500 text-xs uppercase mb-3 flex items-center gap-2 tracking-wide">
-                                                                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                                                                    {block.title || "ตัวอย่าง / Example"}
-                                                                </h4>
-                                                                <div className="text-slate-700 text-lg leading-loose whitespace-pre-wrap font-normal">
+                                                            <div className="my-6 pl-6 border-l-4 border-slate-300 py-2">
+                                                                {block.title && <div className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-3">{block.title}</div>}
+                                                                <div className="text-slate-700 text-lg leading-loose font-medium whitespace-pre-wrap">
                                                                     {renderWithLatex(block.content)}
                                                                 </div>
                                                             </div>
                                                         )}
 
                                                         {block.type === 'note' && (
-                                                            <div className="my-6 flex gap-4 p-5 rounded-lg border border-rose-100 bg-rose-50/50">
-                                                                <div className="text-xl shrink-0">⚠️</div>
-                                                                <div className="flex-1">
-                                                                    <h4 className="font-bold text-rose-700 text-xs uppercase mb-1 tracking-wide">Note</h4>
-                                                                    <div className="text-rose-900 text-lg font-normal leading-loose">
+                                                            <div className="flex gap-5 p-6 rounded-2xl bg-rose-50 border border-rose-100/50 shadow-sm text-slate-800">
+                                                                <div className="text-2xl select-none pt-1">⚠️</div>
+                                                                <div className="flex-1 space-y-2">
+                                                                    <div className="font-bold text-rose-700 text-lg mb-2">Note</div>
+                                                                    <div className="text-lg leading-loose text-rose-900/80 font-medium whitespace-pre-wrap">
                                                                         {renderWithLatex(block.content)}
                                                                     </div>
                                                                 </div>
