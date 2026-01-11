@@ -28,12 +28,14 @@ async function getExams() {
                 const data = doc.data();
                 return {
                     id: doc.id,
-                    ...data,
-                    // Fix: Convert Firestore Timestamp to plain string/number if necessary,
-                    // but for basic display, Next.js can pass simple objects.
-                    // If you have Timestamp fields like 'createdAt', better transform them:
+                    title: data.title || "",
+                    description: data.description || "",
+                    level: data.level || "",
+                    category: data.category || "General",
+                    themeColor: data.themeColor || "Blue",
+                    coverImage: data.coverImage || "",
+                    tags: data.tags || [],
                     createdAt: data.createdAt?.toDate?.().toISOString() || null,
-                    updatedAt: data.updatedAt?.toDate?.().toISOString() || null
                 };
             });
         }
