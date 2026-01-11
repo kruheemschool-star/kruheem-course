@@ -973,36 +973,47 @@ export default function CoursePlayer() {
                                 let isJsonError = false;
                                 let content = activeLesson.content?.trim() || "";
 
-                                // 🧹 Auto-Clean AI Artifacts (Aggressive Mode v2.0)
+                                // 🧹 Auto-Clean AI Artifacts (Enhanced)
                                 if (content) {
-                                    // 1. Remove [cite...] tags globally (even outside strings)
+                                    // Remove Markdown Code Blocks (```json ... ```)
+                                    content = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+
+                                    // Remove [cite] artifacts
                                     content = content.replace(/\[cite_start\]/g, "");
+                                    content = content.replace(/\[cite_end\]/g, "");
                                     content = content.replace(/\[cite:[^\]]*\]/g, "");
 
-                                    // 2. Remove trailing commas (common JSON error) -> like: "key": "value", }
+                                    // Remove "Based on..." text that sometimes appears before JSON
+                                    content = content.replace(/^Based on the provided[\s\S]*?\[/, "[");
+
+                                    // Try to find the JSON array enclosure
+                                    const start = content.indexOf('[');
+                                    const end = content.lastIndexOf(']');
+                                    if (start !== -1 && end !== -1 && end > start) {
+                                        content = content.substring(start, end + 1);
+                                    }
+
+                                    // Remove trailing commas
                                     content = content.replace(/,(\s*[\}\]])/g, "$1");
                                 }
 
                                 try {
-                                    // Strict JSON check
                                     if (content.startsWith('[') && content.endsWith(']')) {
                                         blocks = JSON.parse(content);
                                         isSmart = Array.isArray(blocks);
-                                    } else {
-                                        // If it's not wrapped in [], but contains block keywords, it's likely a Copy-Paste error
-                                        if (content.includes('"type":')) {
-                                            isJsonError = true;
-                                        }
                                     }
                                 } catch (e) {
-                                    // Syntax error
+                                    // Only show error if it REALLY looks like it should be JSON
                                     if (content.includes('"type":')) {
-                                        console.error("JSON Parse Error after cleaning:", e);
-                                        isJsonError = true;
+                                        console.warn("Smart Content Parse Error:", e);
+                                        // We don't set isJsonError = true immediately to allow fallback to text
+                                        // But if the user really wants blocks, we might want to know.
+                                        // For now, let's fall back to text if parse fails, 
+                                        // BUT if it looks like a mess, we might want to just show the cleaned text.
                                     }
                                 }
 
-                                // 2. Render Smart Blocks (Obsidian x Notion Style)
+                                // 2. Render Smart Blocks
                                 if (isSmart) {
                                     return (
                                         <div className="w-full min-h-full py-10 px-4 md:px-8 bg-white">
@@ -1077,35 +1088,16 @@ export default function CoursePlayer() {
                                     );
                                 }
 
-                                // 3. Handle JSON Error (Prevent showing raw code)
-                                if (isJsonError) {
-                                    return (
-                                        <div className="w-full min-h-screen flex flex-col items-center justify-center p-8 bg-slate-50">
-                                            <div className="max-w-lg bg-white p-8 rounded-3xl shadow-xl text-center border-2 border-slate-100">
-                                                <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">🛠️</div>
-                                                <h3 className="text-2xl font-black text-slate-800 mb-2">ไม่สามารถแสดงผลเนื้อหาได้</h3>
-                                                <p className="text-slate-500 mb-6">
-                                                    พบข้อผิดพลาดในโครงสร้างข้อมูล (JSON Syntax Error) <br />
-                                                    อาจเกิดจากการคัดลอกข้อมูลมาไม่ครบถ้วน
-                                                </p>
-                                                <div className="bg-slate-100 p-4 rounded-xl text-left text-xs font-mono text-slate-500 overflow-x-auto mb-6 border border-slate-200">
-                                                    {content.slice(0, 100)}...
-                                                </div>
-                                                <span className="inline-block px-4 py-2 bg-rose-50 text-rose-600 rounded-lg text-sm font-bold">
-                                                    กรุณาติดต่อผู้ดูแลระบบเพื่อแก้ไข
-                                                </span>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
-                                // 4. Fallback: Normal Text Article
+                                // 3. Fallback: Normal Text Article (Use CLEANED parse-attempted content if possible, to avoid raw JSON display)
+                                // If parsing failed but it looks like JSON info, we might want to try to render specific parts or just show the cleaned text.
                                 return (
                                     <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
                                         <div className="w-full max-w-4xl bg-white rounded-[2rem] shadow-xl border border-slate-200 p-8 md:p-14">
-                                            {activeLesson.image && <img src={activeLesson.image} className="w-full mb-8 rounded-2xl shadow-md" />}
+                                            {activeLesson.image && <img src={activeLesson.image} className="w-full mb-8 rounded-2xl shadow-md" alt="Lesson" />}
                                             <div className="prose prose-lg max-w-none text-slate-600 leading-loose whitespace-pre-wrap font-medium">
-                                                {renderWithLatex(activeLesson.content || "")}
+                                                {/* If it looks heavily like raw JSON, maybe warn the user, but for now just render the Original Content to be safe, 
+                                                    OR render the cleaned text so at least tags are gone. Let's try cleaned first. */}
+                                                {renderWithLatex(content || activeLesson.content || "")}
                                             </div>
                                         </div>
                                     </div>
