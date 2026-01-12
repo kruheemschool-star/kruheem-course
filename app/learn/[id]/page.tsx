@@ -115,16 +115,17 @@ const renderWithLatex = (text: string) => {
 
         // TEXT PROCESSING: Look for implicit Latex commands (\times, \div, \frac, ^)
         // Regex to find things that look like LaTeX commands or simple math expressions
-        // 1. \frac{...}{...}
-        // 2. \times, \div, \pm, \le, \ge, \neq
-        // 3. Simple power: ^\d+ or ^{...}
-        const implicitRegex = /(\\[a-zA-Z]+(?:\{(?:[^{}]|\{[^{}]*\})*\})*|\^\{?[a-zA-Z0-9\+\-\.]+\}?|_[a-zA-Z0-9]+)/g;
+        // 1. \frac{...}{...} or \command{...}
+        // 2. \times, \div, \pm, \le, \ge, \neq, \circ
+        // 3. Simple power/subscript: ^\d+, ^{...}, _\d+, _{...}
+        const implicitRegex = /(\\[a-zA-Z]+(?:\{(?:[^{}]|\{[^{}]*\})*\})*|[\^_]\{?[a-zA-Z0-9\+\-\.\\\s]+\}?)/g;
 
         const subParts = content.split(implicitRegex);
 
         return (
             <span key={index}>
                 {subParts.map((sub, subIdx) => {
+                    if (!sub) return null;
                     // Check if it matches our implicit math pattern
                     if (sub.match(/^(\\|\^|_)/)) {
                         try { return <InlineMath key={`${index}-${subIdx}`} math={sub} />; }
@@ -329,7 +330,7 @@ const ExamRunner = ({ questions, onComplete }: { questions: any[], onComplete: (
     );
 };
 
-const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }) => {
+const FlashcardPlayer = ({ cards }: { cards: any[] }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
 
@@ -350,6 +351,11 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
     const handleFlip = () => {
         setIsFlipped(!isFlipped);
     };
+
+    const currentCard = cards[currentIndex] || {};
+    // ✅ Support multiple field names for robustness
+    const frontContent = currentCard.front || currentCard.question || currentCard.term || "No Content";
+    const backContent = currentCard.back || currentCard.answer || currentCard.definition || "No Content";
 
     return (
         <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
@@ -375,8 +381,8 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
                     {/* Front Side */}
                     <div className="absolute w-full h-full backface-hidden bg-white rounded-[2rem] shadow-xl border-2 border-slate-100 flex flex-col items-center justify-center p-10 text-center hover:shadow-2xl hover:border-yellow-200 transition-all">
                         <span className="absolute top-6 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
-                        <h3 className="text-2xl md:text-4xl font-bold text-slate-800 leading-relaxed">
-                            {renderWithLatex(cards[currentIndex].front)}
+                        <h3 className="text-2xl md:text-4xl font-bold text-slate-800 leading-relaxed select-none">
+                            {renderWithLatex(String(frontContent))}
                         </h3>
                         <p className="absolute bottom-6 text-slate-400 text-sm animate-pulse">Click to flip ↻</p>
                     </div>
@@ -384,8 +390,8 @@ const FlashcardPlayer = ({ cards }: { cards: { front: string, back: string }[] }
                     {/* Back Side */}
                     <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[2rem] shadow-xl border-2 border-yellow-200 flex flex-col items-center justify-center p-10 text-center">
                         <span className="absolute top-6 left-6 text-xs font-bold text-yellow-600 uppercase tracking-widest">Answer</span>
-                        <h3 className="text-2xl md:text-4xl font-bold text-yellow-800 leading-relaxed">
-                            {renderWithLatex(cards[currentIndex].back)}
+                        <h3 className="text-2xl md:text-4xl font-bold text-yellow-800 leading-relaxed select-none">
+                            {renderWithLatex(String(backContent))}
                         </h3>
                     </div>
                 </div>
@@ -1040,85 +1046,147 @@ export default function CoursePlayer() {
                                     }
                                 }
 
-                                // 2. Render Smart Blocks
+                                // 2. Render Smart Blocks (Notion Style)
+                                const renderNotionStyleContent = (text: string) => {
+                                    if (!text) return "";
+
+                                    // Split by newlines to handle lists and spacing
+                                    const lines = text.split('\n');
+                                    const nodes: React.ReactNode[] = [];
+
+                                    let currentList: React.ReactNode[] = [];
+                                    let inList = false;
+
+                                    lines.forEach((line, i) => {
+                                        const trimmed = line.trim();
+
+                                        // List Item
+                                        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                                            const content = trimmed.substring(2);
+                                            currentList.push(
+                                                <li key={`${i}-li`} className="text-slate-700 leading-7 font-medium ml-4 pl-1 marker:text-slate-400">
+                                                    {renderWithLatex(content)}
+                                                </li>
+                                            );
+                                            inList = true;
+                                        } else {
+                                            // Flush List
+                                            if (inList) {
+                                                nodes.push(<ul key={`${i}-ul`} className="list-disc list-outside mb-4 space-y-1 ml-4">{currentList}</ul>);
+                                                currentList = [];
+                                                inList = false;
+                                            }
+
+                                            // Empty line
+                                            if (!trimmed) {
+                                                nodes.push(<div key={i} className="h-4"></div>);
+                                                return;
+                                            }
+
+                                            // Quote
+                                            if (trimmed.startsWith('> ') || trimmed.startsWith('| ')) {
+                                                nodes.push(
+                                                    <div key={i} className="border-l-[3px] border-slate-300 pl-4 py-1 my-2 text-slate-700 italic">
+                                                        {renderWithLatex(trimmed.substring(2))}
+                                                    </div>
+                                                );
+                                                return;
+                                            }
+
+                                            // Normal Text
+                                            nodes.push(
+                                                <div key={i} className="text-slate-700 leading-7 font-medium mb-1 min-h-[1.5em]">
+                                                    {renderWithLatex(line)}
+                                                </div>
+                                            );
+                                        }
+                                    });
+
+                                    // Flush remaining list
+                                    if (inList) {
+                                        nodes.push(<ul key="last-ul" className="list-disc list-outside mb-4 space-y-1 ml-4">{currentList}</ul>);
+                                    }
+
+                                    return <div className="notion-content">{nodes}</div>;
+                                };
+
                                 if (isSmart) {
                                     return (
-                                        <div className="w-full min-h-full py-10 px-4 md:px-8 bg-white">
-                                            <div className="max-w-3xl mx-auto space-y-8 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                        <div className="w-full min-h-full py-8 px-4 md:px-8 bg-white/50">
+                                            <div className="max-w-3xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                                 {/* Cover Image */}
                                                 {activeLesson.image && (
-                                                    <div className="rounded-2xl overflow-hidden mb-10 shadow-sm border border-slate-100">
-                                                        <img src={activeLesson.image} className="w-full object-cover max-h-[350px]" alt="Cover" />
+                                                    <div className="rounded-xl overflow-hidden mb-10 shadow-sm">
+                                                        <img src={activeLesson.image} className="w-full object-cover max-h-[300px]" alt="Cover" />
                                                     </div>
                                                 )}
 
-                                                {/* Blocks Loop - Notion Style Redesign */}
-                                                {blocks.map((block, idx) => (
-                                                    <div key={idx} className="group mb-6">
-                                                        {block.type === 'header' && (
-                                                            <h3 className="text-3xl font-bold text-slate-800 mt-10 mb-6 tracking-tight flex items-center gap-3 border-l-4 border-indigo-500 pl-4">
-                                                                {block.content}
-                                                            </h3>
-                                                        )}
+                                                {/* Notion Style Blocks */}
+                                                <div className="bg-white p-8 md:p-12 rounded-xl border border-slate-100 shadow-sm min-h-[500px]">
+                                                    {blocks.map((block, idx) => (
+                                                        <div key={idx} className="mb-6">
+                                                            {block.type === 'header' && (
+                                                                <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mt-10 mb-6 flex items-center gap-3">
+                                                                    {block.content}
+                                                                </h3>
+                                                            )}
 
-                                                        {block.type === 'definition' && (
-                                                            <div className="flex gap-5 p-6 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm text-slate-800">
-                                                                <div className="text-2xl select-none pt-1">💡</div>
-                                                                <div className="flex-1 space-y-2">
-                                                                    {block.title && <div className="font-bold text-slate-900 text-lg mb-2">{block.title}</div>}
-                                                                    <div className="text-lg leading-loose text-slate-700 font-medium whitespace-pre-wrap">
+                                                            {block.type === 'definition' && (
+                                                                <div className="my-6 p-5 bg-gray-50 rounded-lg flex gap-4 text-slate-800 border border-transparent hover:border-gray-200 transition-colors">
+                                                                    <div className="text-2xl select-none">💡</div>
+                                                                    <div className="flex-1 space-y-1">
+                                                                        {block.title && <div className="font-bold text-slate-900 text-lg mb-1">{block.title}</div>}
+                                                                        <div className="text-slate-700 leading-relaxed font-medium">
+                                                                            {renderNotionStyleContent(block.content)}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {block.type === 'formula' && (
+                                                                <div className="my-6 py-8 px-8 bg-slate-50/50 rounded-lg border border-slate-100 flex flex-col items-center text-center">
+                                                                    {block.title && <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-1 px-3">{block.title}</div>}
+                                                                    <div className="text-2xl text-slate-800 font-medium leading-loose">
                                                                         {renderWithLatex(block.content)}
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        )}
+                                                            )}
 
-                                                        {block.type === 'formula' && (
-                                                            <div className="my-6 py-6 px-6 bg-indigo-50/30 rounded-3xl border border-indigo-100 flex flex-col items-center text-center">
-                                                                {block.title && <div className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-4 border-b-2 border-indigo-100 pb-2 px-4">{block.title}</div>}
-                                                                <div className="text-lg text-slate-800 font-medium leading-loose whitespace-pre-wrap">
-                                                                    {renderWithLatex(block.content)}
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {block.type === 'example' && (
-                                                            <div className="my-6 pl-6 border-l-4 border-slate-300 py-2">
-                                                                {block.title && <div className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-3">{block.title}</div>}
-                                                                <div className="text-slate-700 text-lg leading-loose font-medium whitespace-pre-wrap">
-                                                                    {renderWithLatex(block.content)}
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {block.type === 'note' && (
-                                                            <div className="flex gap-5 p-6 rounded-2xl bg-rose-50 border border-rose-100/50 shadow-sm text-slate-800">
-                                                                <div className="text-2xl select-none pt-1">⚠️</div>
-                                                                <div className="flex-1 space-y-2">
-                                                                    <div className="font-bold text-rose-700 text-lg mb-2">Note</div>
-                                                                    <div className="text-lg leading-loose text-rose-900/80 font-medium whitespace-pre-wrap">
-                                                                        {renderWithLatex(block.content)}
+                                                            {block.type === 'example' && (
+                                                                <div className="my-6 pl-5 border-l-[3px] border-slate-200 py-1">
+                                                                    {block.title && <div className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-2">{block.title}</div>}
+                                                                    <div className="text-slate-700 text-base leading-loose font-medium">
+                                                                        {renderNotionStyleContent(block.content)}
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
+                                                            )}
+
+                                                            {block.type === 'note' && (
+                                                                <div className="my-6 p-5 bg-orange-50/50 rounded-lg flex gap-4 text-slate-800">
+                                                                    <div className="text-2xl select-none">⚠️</div>
+                                                                    <div className="flex-1 space-y-1">
+                                                                        <div className="font-bold text-orange-800 text-lg mb-1">Note</div>
+                                                                        <div className="text-slate-700 leading-relaxed font-medium">
+                                                                            {renderNotionStyleContent(block.content)}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     );
                                 }
 
-                                // 3. Fallback: Normal Text Article (Use CLEANED parse-attempted content if possible, to avoid raw JSON display)
-                                // If parsing failed but it looks like JSON info, we might want to try to render specific parts or just show the cleaned text.
+                                // 3. Fallback: Normal Text Article
                                 return (
-                                    <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
-                                        <div className="w-full max-w-4xl bg-white rounded-[2rem] shadow-xl border border-slate-200 p-8 md:p-14">
-                                            {activeLesson.image && <img src={activeLesson.image} className="w-full mb-8 rounded-2xl shadow-md" alt="Lesson" />}
-                                            <div className="prose prose-lg max-w-none text-slate-600 leading-loose whitespace-pre-wrap font-medium">
-                                                {/* If it looks heavily like raw JSON, maybe warn the user, but for now just render the Original Content to be safe, 
-                                                    OR render the cleaned text so at least tags are gone. Let's try cleaned first. */}
-                                                {renderWithLatex(content || activeLesson.content || "")}
+                                    <div className="w-full min-h-full flex flex-col items-center justify-center py-8 px-4 bg-slate-50">
+                                        <div className="w-full max-w-4xl bg-white rounded-xl shadow-sm border border-slate-100 p-8 md:p-14 min-h-[60vh]">
+                                            {activeLesson.image && <img src={activeLesson.image} className="w-full mb-8 rounded-lg" alt="Lesson" />}
+                                            <div className="prose prose-lg max-w-none text-slate-700 leading-relaxed font-medium">
+                                                {renderNotionStyleContent(content || activeLesson.content || "")}
                                             </div>
                                         </div>
                                     </div>

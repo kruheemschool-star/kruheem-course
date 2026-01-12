@@ -4,8 +4,12 @@ import { db } from "@/lib/firebase";
 import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
 import { ArrowLeft, MessageCircle, Clock, User, Send, X, Phone, Smartphone, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 export default function AdminChatPage() {
+    const searchParams = useSearchParams();
+    const targetedChatId = searchParams.get('chatId');
+
     const [chats, setChats] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedChat, setSelectedChat] = useState<any | null>(null);
@@ -41,6 +45,14 @@ export default function AdminChatPage() {
             setChats(chatList);
             setLoading(false);
 
+            // ✅ Auto-select chat from URL if available
+            if (targetedChatId) {
+                const target = chatList.find(c => c.id === targetedChatId);
+                if (target) {
+                    setSelectedChat(target);
+                }
+            }
+
             // Check for unread messages to play sound
             // In a real app, track previous state to only play on NEW unread
         }, (error) => {
@@ -49,7 +61,7 @@ export default function AdminChatPage() {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, []);
+    }, [targetedChatId]);
 
     // 2. Fetch Messages for Selected Chat
     useEffect(() => {

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp } from "firebase/firestore";
 import Link from "next/link";
 
 
@@ -216,6 +216,35 @@ export default function AdminEnrollmentsPage() {
                                             >
                                                 ✕ ปฏิเสธ
                                             </button>
+
+                                            {/* 💬 Message Button */}
+                                            <button
+                                                onClick={async () => {
+                                                    if (!item.userId) return alert("ไม่พบข้อมูล User ID");
+                                                    try {
+                                                        // Ensure chat exists
+                                                        await setDoc(doc(db, "chats", item.userId), {
+                                                            userId: item.userId,
+                                                            userName: item.userName || "Student",
+                                                            userEmail: item.userEmail,
+                                                            userTel: item.userTel || "",
+                                                            lineId: item.lineId || "",
+                                                            lastUpdated: serverTimestamp(),
+                                                            // Preserve existing fields if any, but ensure these are set
+                                                        }, { merge: true });
+
+                                                        // Redirect using window.location to force refresh if needed, or router
+                                                        window.location.href = `/admin/chat?chatId=${item.userId}`;
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        alert("เกิดข้อผิดพลาดในการเปิดแชท");
+                                                    }
+                                                }}
+                                                className="flex-1 py-3 rounded-xl border-2 border-indigo-100 text-indigo-600 font-bold hover:bg-indigo-50 transition flex items-center justify-center gap-2"
+                                            >
+                                                💬 ทักแชท
+                                            </button>
+
                                             <button
                                                 onClick={() => handleApprove(item.id)}
                                                 className="flex-[2] py-3 rounded-xl bg-[#00C853] hover:bg-[#00b54b] text-white font-bold shadow-lg shadow-green-200 transition flex items-center justify-center gap-2 transform hover:-translate-y-1"

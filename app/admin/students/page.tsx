@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import Link from "next/link";
 
 
@@ -395,6 +395,34 @@ export default function AdminStudentsPage() {
                                             ) : item.status === 'pending' ? <span className="text-xs font-bold bg-orange-100 text-orange-600 px-3 py-1 rounded-full border border-orange-200 animate-pulse">⏳ รอตรวจสอบ</span> : item.status === 'suspended' ? <span className="text-xs font-bold bg-slate-200 text-slate-600 px-3 py-1 rounded-full border border-slate-300">⏸ พักการเรียน</span> : <span className="text-xs font-bold bg-rose-100 text-rose-600 px-3 py-1 rounded-full border border-rose-200">❌ ยกเลิก</span>}
                                         </td>
                                         <td className="p-5 text-right flex justify-end gap-2">
+                                            {/* 💬 Message Button */}
+                                            <button
+                                                onClick={async () => {
+                                                    if (!item.userId) return alert("ไม่พบข้อมูล User ID");
+                                                    try {
+                                                        // Ensure chat exists
+                                                        await setDoc(doc(db, "chats", item.userId), {
+                                                            userId: item.userId,
+                                                            userName: item.userName || "Student",
+                                                            userEmail: item.userEmail,
+                                                            userTel: item.userTel || "",
+                                                            lineId: item.lineId || "",
+                                                            lastUpdated: serverTimestamp(),
+                                                        }, { merge: true });
+
+                                                        window.location.href = `/admin/chat?chatId=${item.userId}`;
+                                                    } catch (err) {
+                                                        console.error(err);
+                                                        alert("เกิดข้อผิดพลาดในการเปิดแชท");
+                                                    }
+                                                }}
+                                                className="text-indigo-400 hover:text-indigo-600 transition p-2 hover:bg-indigo-50 rounded-full border border-transparent hover:border-indigo-100 cursor-pointer relative z-10"
+                                                title="ส่งข้อความ"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                                                </svg>
+                                            </button>
                                             <button onClick={() => handleEdit(item)} className="text-amber-400 hover:text-amber-600 transition p-2 hover:bg-amber-50 rounded-full border border-transparent hover:border-amber-100"><EditIcon /></button>
                                             <button onClick={() => handleDelete(item.id)} className="text-rose-300 hover:text-rose-600 transition p-2 hover:bg-rose-50 rounded-full border border-transparent hover:border-rose-100"><TrashIcon /></button>
                                         </td>
