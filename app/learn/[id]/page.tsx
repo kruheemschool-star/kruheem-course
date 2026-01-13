@@ -82,8 +82,11 @@ const renderSmartContent = (text: string) => {
 const renderWithLatex = (text: string) => {
     if (!text) return "";
 
+    // 🧹 Clean up citation artifacts (e.g. [cite: 7, 8])
+    const cleanText = text.replace(/\[cite:\s*[^\]]+\]/gi, '');
+
     // 1. Split by explicit LaTeX: $...$ or $$...$$ or \[...\]
-    const parts = text.split(/(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[\s\S]+?\$|\\begin\{equation\}[\s\S]+?\\end\{equation\})/g);
+    const parts = cleanText.split(/(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[\s\S]+?\$|\\begin\{equation\}[\s\S]+?\\end\{equation\})/g);
 
     return parts.map((part, index) => {
         let isDisplay = part.startsWith('$$') || part.startsWith('\\[');
