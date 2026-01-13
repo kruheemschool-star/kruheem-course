@@ -283,7 +283,7 @@ export default function ManageLessonsPage() {
 
 
     // ✅ Flashcard State
-    const [flashcardData, setFlashcardData] = useState<{ front: string, back: string }[]>([]);
+    const [flashcardData, setFlashcardData] = useState<any[]>([]);
     const [pasteMode, setPasteMode] = useState(false);
 
     // ⚡️ Exam System State
@@ -524,111 +524,41 @@ export default function ManageLessonsPage() {
         if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
     };
 
-    const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
 
-        const text = await file.text();
-        const lines = text.split(/\r?\n/); // Handle both \n and \r\n
-        const parsedData: { front: string, back: string }[] = [];
+    const [flashcardJson, setFlashcardJson] = useState("");
 
-        for (let line of lines) {
-            if (!line.trim()) continue;
+    const [jsonError, setJsonError] = useState<string | null>(null);
 
-            // ✅ Robust CSV Parser: Handles commas inside quotes (e.g., "89,542")
-            const parts: string[] = [];
-            let current = '';
-            let inQuote = false;
+    const handleFlashcardJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        const rawStr = e.target.value;
+        setFlashcardJson(rawStr);
 
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                if (char === '"') {
-                    inQuote = !inQuote;
-                }
+        // 🛡️ Auto-clean common artifacts (e.g. from AI citations)
+        // Remove [cite_start], [cite_end], [cite:...] and markdown blocks
+        const cleanStr = rawStr
+            .replace(/\[cite(_start|_end)?(:.*?)?\]/gi, '')
+            .replace(/```json/gi, '')
+            .replace(/```/g, '')
+            .trim();
 
-                if (char === ',' && !inQuote) {
-                    parts.push(current);
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-            parts.push(current);
-
-            if (parts.length >= 2) {
-                // Clean up quotes from the extracted parts
-                const clean = (str: string) => {
-                    let s = str.trim();
-                    if (s.startsWith('"') && s.endsWith('"')) {
-                        s = s.slice(1, -1);
-                    }
-                    return s.replace(/""/g, '"');
-                };
-
-                // ✅ Improved Logic: If multiple parts found, assume the LAST part is the Back, 
-                // and everything before it is the Front (joined by comma).
-                // This handles "Question with 89,542, Answer" correctly.
-
-                const back = clean(parts[parts.length - 1]);
-                const frontParts = parts.slice(0, parts.length - 1);
-                // We join with comma because the split removed them. 
-                // Note: If the original had quotes, this simple join might be slightly off if mixed, 
-                // but for the user's case of "Text, Number, Answer", it works perfectly.
-                // ✅ Remove commas as requested by user to avoid formatting issues
-                const front = clean(frontParts.join(',')).replace(/,/g, '');
-
-                if (front && back) {
-                    parsedData.push({ front, back });
-                }
-            }
-        }
-        setFlashcardData(parsedData);
-        showToast(`✅ โหลดข้อมูลสำเร็จ ${parsedData.length} ใบ`);
-    };
-
-    const handleTextPaste = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const text = e.target.value;
-        if (!text.trim()) {
-            setFlashcardData([]);
-            return;
-        }
-
-        const lines = text.split(/\r?\n/);
-        const parsedData: { front: string, back: string }[] = [];
-
-        // Detect delimiter: Check first line for Tab
-        let delimiter = ',';
-        const firstLine = lines.find(l => l.trim().length > 0);
-        if (firstLine) {
-            const tabCount = (firstLine.match(/\t/g) || []).length;
-            if (tabCount > 0) delimiter = '\t';
-        }
-
-        for (let line of lines) {
-            if (!line.trim()) continue;
-
-            let parts: string[] = [];
-            if (delimiter === '\t') {
-                parts = line.split('\t');
+        try {
+            const parsed = JSON.parse(cleanStr);
+            if (Array.isArray(parsed)) {
+                setFlashcardData(parsed);
+                setJsonError(null);
             } else {
-                // Comma: Use simple split
-                parts = line.split(',');
+                setFlashcardData([]);
+                setJsonError("Format ไม่ถูกต้อง: ต้องเป็น Array [...]");
             }
-
-            if (parts.length >= 2) {
-                const clean = (str: string) => str.trim().replace(/^"|"$/g, '').replace(/""/g, '"');
-
-                const back = clean(parts[parts.length - 1]);
-                const frontParts = parts.slice(0, parts.length - 1);
-                // ✅ Remove commas as requested by user
-                const front = clean(frontParts.join(delimiter === '\t' ? ' ' : ',')).replace(/,/g, '');
-
-                if (front && back) {
-                    parsedData.push({ front, back });
-                }
+        } catch (err) {
+            setFlashcardData([]);
+            // Don't show error immediately while typing empty
+            if (cleanStr.length > 5) {
+                setJsonError("Invalid JSON: กำลังรอรูปแบบที่ถูกต้อง...");
+            } else {
+                setJsonError(null);
             }
         }
-        setFlashcardData(parsedData);
     };
 
     const handleQuizOptionChange = (index: number, value: string) => {
@@ -675,7 +605,9 @@ export default function ManageLessonsPage() {
             setLessonContent(lesson.content || "");
             setIsFree(lesson.isFree || false);
         } else if (lesson.type === 'flashcard') {
-            setFlashcardData(lesson.flashcardData || []);
+            const data = lesson.flashcardData || [];
+            setFlashcardData(data);
+            setFlashcardJson(JSON.stringify(data, null, 2));
             setLessonContent(lesson.content || "");
         } else {
             setCurrentImageUrl(lesson.image || "");
@@ -686,7 +618,7 @@ export default function ManageLessonsPage() {
 
     const handleCancelEdit = () => {
         setEditId(null); setLessonTitle(""); setVideoUrl(""); setLessonContent(""); setIsFree(false); setSelectedHeaderId(""); setPdfUrl("");
-        setAddType('header'); setImageFile(null); setImagePreview(""); setCurrentImageUrl(""); setQuizOptions(["", "", "", ""]); setCorrectAnswer(0); setHtmlCode(""); setFlashcardData([]); setPasteMode(false);
+        setAddType('header'); setImageFile(null); setImagePreview(""); setCurrentImageUrl(""); setQuizOptions(["", "", "", ""]); setCorrectAnswer(0); setHtmlCode(""); setFlashcardData([]); setFlashcardJson("");
     };
 
 
@@ -698,7 +630,7 @@ export default function ManageLessonsPage() {
         if (!lessonTitle) return showToast("กรุณาใส่ชื่อ/หัวข้อ", "error");
         if (addType !== 'header' && addType !== 'html' && !selectedHeaderId) return showToast("⚠️ กรุณาเลือก 'บทเรียนหลัก'", "error");
         if (addType === 'quiz' && quizOptions.some(opt => opt.trim() === "")) return showToast("กรุณาใส่ตัวเลือกให้ครบ", "error");
-        if (addType === 'flashcard' && flashcardData.length === 0) return showToast("กรุณาอัปโหลดไฟล์ CSV หรือเพิ่มข้อมูล Flashcard", "error");
+        if (addType === 'flashcard' && flashcardData.length === 0) return showToast("กรุณาระบุข้อมูล JSON Flashcard", "error");
 
         // ✅ Validate JSON for Smart Lesson
         if (addType === 'text' && lessonContent.trim().includes('"type":')) {
@@ -1053,49 +985,43 @@ export default function ManageLessonsPage() {
 
                                     {addType === 'flashcard' && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                            <div className="flex gap-4 mb-2">
-                                                <button type="button" onClick={() => setPasteMode(false)} className={`flex-1 py-2 rounded-xl font-bold transition ${!pasteMode ? 'bg-yellow-500 text-white shadow-md' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>📂 อัปโหลดไฟล์ CSV</button>
-                                                <button type="button" onClick={() => setPasteMode(true)} className={`flex-1 py-2 rounded-xl font-bold transition ${pasteMode ? 'bg-yellow-500 text-white shadow-md' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>📝 วางข้อมูล (Copy & Paste)</button>
+                                            <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100">
+                                                <label className="block text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">📝 วางข้อมูล JSON (Format: Array of Objects)</label>
+                                                <textarea
+                                                    placeholder={`[\n  {\n    "id": 1,\n    "topic": "ชื่อหัวข้อ",\n    "question": "คำถาม $$...$$",\n    "answer": "คำตอบ"\n  }\n]`}
+                                                    value={flashcardJson}
+                                                    onChange={handleFlashcardJsonChange}
+                                                    className={`w-full p-4 bg-white border-2 rounded-xl outline-none transition text-slate-700 min-h-[200px] font-mono text-sm ${jsonError ? 'border-red-300 focus:border-red-500' : 'border-yellow-200 focus:border-yellow-500'}`}
+                                                />
+                                                <div className="flex justify-between items-start mt-2">
+                                                    <p className="text-xs text-yellow-500">* รองรับมาตรฐาน JSON และ LaTeX ($$ ... $$)</p>
+                                                    {flashcardJson && (
+                                                        <p className={`text-xs font-bold ${jsonError ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                            {jsonError ? `⚠️ ${jsonError}` : `✅ พบข้อมูล ${flashcardData.length} รายการ`}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
 
-                                            {!pasteMode ? (
-                                                <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100">
-                                                    <label className="block text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">📂 อัปโหลดไฟล์ CSV (Front,Back)</label>
-                                                    <input
-                                                        type="file"
-                                                        accept=".csv"
-                                                        onChange={handleCsvUpload}
-                                                        className="w-full p-3 bg-white border-2 border-yellow-200 rounded-xl outline-none focus:border-yellow-500 transition text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200"
-                                                    />
-                                                    <p className="text-xs text-yellow-500 mt-2">* รูปแบบไฟล์: บรรทัดละ 1 คู่ (คำถาม,คำตอบ)</p>
-                                                </div>
-                                            ) : (
-                                                <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100">
-                                                    <label className="block text-xs font-bold text-yellow-600 uppercase tracking-wider mb-2">📝 วางข้อมูลจาก Excel / Sheets</label>
-                                                    <textarea
-                                                        placeholder={`ตัวอย่าง:\nคำถาม 1\tคำตอบ 1\nคำถาม 2\tคำตอบ 2`}
-                                                        onChange={handleTextPaste}
-                                                        className="w-full p-4 bg-white border-2 border-yellow-200 rounded-xl outline-none focus:border-yellow-500 transition text-slate-700 min-h-[150px] font-mono text-sm"
-                                                    />
-                                                    <p className="text-xs text-yellow-500 mt-2">* รองรับการก๊อปปี้จาก Excel (คั่นด้วย Tab) หรือ CSV (คั่นด้วย Comma)</p>
-                                                </div>
-                                            )}
-
                                             {flashcardData.length > 0 && (
-                                                <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm max-h-60 overflow-y-auto">
+                                                <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm max-h-80 overflow-y-auto">
                                                     <h4 className="font-bold text-slate-700 mb-3 sticky top-0 bg-white pb-2 border-b">📋 ตัวอย่างข้อมูล ({flashcardData.length} ใบ)</h4>
                                                     <table className="w-full text-sm text-left">
-                                                        <thead className="text-xs text-slate-400 uppercase bg-slate-50">
+                                                        <thead className="text-xs text-slate-400 uppercase bg-slate-50 sticky top-8">
                                                             <tr>
-                                                                <th className="px-3 py-2 rounded-l-lg">ด้านหน้า (Front)</th>
-                                                                <th className="px-3 py-2 rounded-r-lg">ด้านหลัง (Back)</th>
+                                                                <th className="px-3 py-2 w-10">ID</th>
+                                                                <th className="px-3 py-2 w-24">Topic</th>
+                                                                <th className="px-3 py-2">Question</th>
+                                                                <th className="px-3 py-2">Answer</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             {flashcardData.map((card, idx) => (
-                                                                <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50">
-                                                                    <td className="px-3 py-2 font-medium text-slate-700">{renderWithLatex(card.front)}</td>
-                                                                    <td className="px-3 py-2 text-slate-500">{renderWithLatex(card.back)}</td>
+                                                                <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50 align-top">
+                                                                    <td className="px-3 py-2 text-slate-400 font-mono text-xs">{card.id}</td>
+                                                                    <td className="px-3 py-2 text-slate-600 font-bold text-xs">{card.topic}</td>
+                                                                    <td className="px-3 py-2 font-medium text-slate-700">{renderWithLatex(card.question || card.front)}</td>
+                                                                    <td className="px-3 py-2 text-slate-500">{renderWithLatex(card.answer || card.back)}</td>
                                                                 </tr>
                                                             ))}
                                                         </tbody>

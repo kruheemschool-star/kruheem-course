@@ -27,7 +27,7 @@ interface Lesson {
     headerId?: string;
     isHidden?: boolean;
     order?: number;
-    flashcardData?: { front: string, back: string }[];
+    flashcardData?: any[];
 }
 
 // --- Icons ---
@@ -382,20 +382,35 @@ const FlashcardPlayer = ({ cards }: { cards: any[] }) => {
                 <div className={`relative w-full h-full duration-500 transform-style-3d transition-transform ${isFlipped ? 'rotate-y-180' : ''}`}>
 
                     {/* Front Side */}
-                    <div className="absolute w-full h-full backface-hidden bg-white rounded-[2rem] shadow-xl border-2 border-slate-100 flex flex-col items-center justify-center p-10 text-center hover:shadow-2xl hover:border-yellow-200 transition-all">
-                        <span className="absolute top-6 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Question</span>
-                        <h3 className="text-2xl md:text-4xl font-bold text-slate-800 leading-relaxed select-none">
-                            {renderWithLatex(String(frontContent))}
-                        </h3>
-                        <p className="absolute bottom-6 text-slate-400 text-sm animate-pulse">Click to flip ↻</p>
+                    <div className="absolute w-full h-full backface-hidden bg-white rounded-[2rem] shadow-xl border-2 border-slate-100 flex flex-col p-6 hover:shadow-2xl hover:border-yellow-200 transition-all overflow-hidden">
+                        <span className="absolute top-6 left-6 text-xs font-bold text-slate-400 uppercase tracking-widest z-10">Question</span>
+                        {currentCard.topic && (
+                            <span className="absolute top-6 right-6 text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full z-10 max-w-[50%] truncate">{currentCard.topic}</span>
+                        )}
+                        <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto scrollbar-hide w-full h-full pt-6 pb-8 flashcard-content">
+                            <h3 className="text-2xl md:text-3xl font-medium text-slate-800 leading-relaxed select-none w-full text-center">
+                                {renderWithLatex(String(frontContent))}
+                            </h3>
+                        </div>
+                        <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-2 text-slate-300 animate-pulse z-10 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Click or Tap to Flip</span>
+                        </div>
                     </div>
 
                     {/* Back Side */}
-                    <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[2rem] shadow-xl border-2 border-yellow-200 flex flex-col items-center justify-center p-10 text-center">
-                        <span className="absolute top-6 left-6 text-xs font-bold text-yellow-600 uppercase tracking-widest">Answer</span>
-                        <h3 className="text-2xl md:text-4xl font-bold text-yellow-800 leading-relaxed select-none">
-                            {renderWithLatex(String(backContent))}
-                        </h3>
+                    <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-[2rem] shadow-xl border-2 border-yellow-200 flex flex-col p-6 text-center overflow-hidden">
+                        <span className="absolute top-6 left-6 text-xs font-bold text-yellow-600 uppercase tracking-widest z-10">Answer</span>
+                        <div className="flex-1 flex flex-col items-center justify-center overflow-y-auto scrollbar-hide w-full h-full pt-6 pb-4 flashcard-content">
+                            <h3 className="text-2xl md:text-3xl font-medium text-yellow-800 leading-relaxed select-none w-full text-center">
+                                {renderWithLatex(String(backContent))}
+                            </h3>
+                        </div>
+                        {currentCard.topic && (
+                            <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-yellow-100/50 text-yellow-800 text-[10px] font-bold px-3 py-1 rounded-full">{currentCard.topic}</div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -428,6 +443,8 @@ const FlashcardPlayer = ({ cards }: { cards: any[] }) => {
                 .transform-style-3d { transform-style: preserve-3d; }
                 .backface-hidden { backface-visibility: hidden; }
                 .rotate-y-180 { transform: rotateY(180deg); }
+                /* Balance Math Size */
+                .flashcard-content .katex { font-size: 1.2em !important; }
             `}</style>
         </div>
     );
