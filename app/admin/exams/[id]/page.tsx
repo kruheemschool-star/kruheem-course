@@ -341,6 +341,24 @@ export default function ExamEditorPage() {
                     options: Array.isArray(q.options) ? q.options : [],
                     // Optional: remove legacy 'answer' field if you want to normalize fully, but keeping it is safer for now.
                 }));
+
+                // Logical Validation: Check if correctIndex is within bounds
+                const invalidIndices: number[] = [];
+                parsedQuestions.forEach((q: any, idx: number) => {
+                    // Check only if there are options (assuming Multiple Choice)
+                    if (q.options && q.options.length > 0) {
+                        if (q.correctIndex < 0 || q.correctIndex >= q.options.length) {
+                            invalidIndices.push(idx + 1);
+                        }
+                    }
+                });
+
+                if (invalidIndices.length > 0) {
+                    alert(`⚠️ พบข้อผิดพลาดทางตรรกะ:\nข้อที่ ${invalidIndices.join(", ")} มีการระบุคำตอบ (correctIndex) ไม่ตรงกับจำนวนตัวเลือก\n\nกรุณาแก้ไขก่อนบันทึก`);
+                    setSaving(false);
+                    return;
+                }
+
             } catch (err) {
                 alert("รูปแบบ JSON ไม่ถูกต้อง กรุณาตรวจสอบ Syntax");
                 setSaving(false);

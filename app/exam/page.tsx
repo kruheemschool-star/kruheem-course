@@ -26,6 +26,21 @@ async function getExams() {
             // Serialize data (convert Date objects to strings/numbers if needed for props)
             return snapshot.docs.map(doc => {
                 const data = doc.data();
+
+                // Parse questions if available
+                let questions: any[] = [];
+                if (data.questions) {
+                    if (typeof data.questions === 'string') {
+                        try {
+                            questions = JSON.parse(data.questions);
+                        } catch (e) {
+                            questions = [];
+                        }
+                    } else {
+                        questions = data.questions;
+                    }
+                }
+
                 return {
                     id: doc.id,
                     title: data.title || "",
@@ -35,6 +50,7 @@ async function getExams() {
                     themeColor: data.themeColor || "Blue",
                     coverImage: data.coverImage || "",
                     tags: data.tags || [],
+                    questions: questions, // Include questions for search
                     createdAt: data.createdAt?.toDate?.().toISOString() || null,
                 };
             });

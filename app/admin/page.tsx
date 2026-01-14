@@ -21,6 +21,31 @@ export default function AdminDashboard() {
     const [totalVisits, setTotalVisits] = useState(0);
     const [trafficTimeRange, setTrafficTimeRange] = useState<'week' | 'month' | 'year'>('week');
 
+    // Helper function to format online duration
+    const formatOnlineDuration = (startTime: Date | null): string => {
+        if (!startTime) return 'เพิ่งเข้าชมเมื่อสักครู่';
+
+        const now = new Date();
+        const diffMs = now.getTime() - startTime.getTime();
+
+        // Handle negative values (clock skew)
+        if (diffMs < 0) return 'เพิ่งเข้าชมเมื่อสักครู่';
+
+        const totalMinutes = Math.floor(diffMs / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+
+        if (hours === 0 && minutes === 0) {
+            return 'เพิ่งเข้าชมเมื่อสักครู่';
+        } else if (hours === 0) {
+            return `ออนไลน์มา ${minutes} นาที`;
+        } else if (minutes === 0) {
+            return `ออนไลน์มา ${hours} ชั่วโมง`;
+        } else {
+            return `ออนไลน์มา ${hours} ชม. ${minutes} น.`;
+        }
+    };
+
     useEffect(() => {
         fetchData();
         // Refresh online status every minute
@@ -455,19 +480,20 @@ export default function AdminDashboard() {
                                                 </span>
                                             </div>
                                             <p className="text-xs text-stone-500 truncate">{user.currentActivity}</p>
-                                            <p className="text-[10px] text-stone-400 mt-1">
-                                                {(() => {
-                                                    if (user.sessionStart?.toDate) {
-                                                        const start = user.sessionStart.toDate();
-                                                        const diff = Math.floor((new Date().getTime() - start.getTime()) / 60000); // Minutes
-                                                        // Ensure non-negative and handle edge cases
-                                                        const mins = diff < 0 ? 0 : diff;
-                                                        return `อยู่ในเว็บไซต์นาน ${mins} นาที`;
-                                                    } else {
-                                                        return 'เพิ่งเข้าชมเมื่อสักครู่';
-                                                    }
-                                                })()}
-                                            </p>
+                                            <div className="flex items-center gap-1.5 mt-1.5">
+                                                <span className="text-green-500">⏱️</span>
+                                                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${(() => {
+                                                        const startTime = user.sessionStart?.toDate?.() || null;
+                                                        if (!startTime) return 'bg-stone-100 text-stone-400';
+                                                        const mins = Math.floor((new Date().getTime() - startTime.getTime()) / 60000);
+                                                        if (mins >= 60) return 'bg-green-100 text-green-700';
+                                                        if (mins >= 30) return 'bg-emerald-100 text-emerald-600';
+                                                        return 'bg-lime-100 text-lime-600';
+                                                    })()
+                                                    }`}>
+                                                    {formatOnlineDuration(user.sessionStart?.toDate?.() || null)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

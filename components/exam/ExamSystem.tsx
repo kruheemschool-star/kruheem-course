@@ -12,6 +12,24 @@ interface ExamSystemProps {
     onComplete?: (score: number, total: number) => void;
 }
 
+// Grade Calculation Helper
+interface FinalScore {
+    score: number;
+    total: number;
+    percent: number;
+    grade: string;
+    label: string;
+    gradeColor: string;
+    bgColor: string;
+}
+
+const getGradeFromPercent = (percent: number): { grade: string; label: string; gradeColor: string; bgColor: string } => {
+    if (percent >= 80) return { grade: 'A', label: 'ยอดเยี่ยม! 🏆', gradeColor: 'text-emerald-600', bgColor: 'bg-emerald-500' };
+    if (percent >= 60) return { grade: 'B', label: 'ดี 👍', gradeColor: 'text-blue-600', bgColor: 'bg-blue-500' };
+    if (percent >= 40) return { grade: 'C', label: 'พอใช้ 📚', gradeColor: 'text-amber-600', bgColor: 'bg-amber-500' };
+    return { grade: 'D', label: 'ต้องปรับปรุง 💪', gradeColor: 'text-rose-600', bgColor: 'bg-rose-500' };
+};
+
 // Helper removed: getCorrectIndex (Logic cleanup)
 
 export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, initialQuestionIndex = 0, onComplete }) => {
@@ -20,16 +38,21 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({});
     const [isFinished, setIsFinished] = useState(false); // Restore finish state
     const [showGrid, setShowGrid] = useState(false);
+    const [finalScore, setFinalScore] = useState<FinalScore | null>(null);
 
     // Sanitize Data: Smart Normalization
-    // Detect if data is 1-based (Human) or 0-based (Tech)
+    // Prioritize answerIndex over correctIndex, then detect 1-based vs 0-based
     const sanitizedExamData = React.useMemo(() => {
-        // First pass: Parse all to numbers
+        // First pass: Use answerIndex if available, otherwise correctIndex
         let rawIndices: number[] = [];
-        const parsed = examData.map(q => {
-            const val = q.correctIndex;
+        const parsed = examData.map((q: any) => {
+            // 🔧 FIX: Prefer answerIndex if it exists and is valid
+            const val = q.answerIndex !== undefined && q.answerIndex !== null
+                ? q.answerIndex
+                : q.correctIndex;
+
             // Parse strictly
-            if (val === undefined || val === null || (val as any) === "") return { ...q, correctIndex: -1 };
+            if (val === undefined || val === null || val === "") return { ...q, correctIndex: -1 };
             const num = Number(val);
             if (!isNaN(num)) rawIndices.push(num);
             return { ...q, correctIndex: isNaN(num) ? -1 : num };
@@ -86,6 +109,16 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
             if (answers[index] === q.correctIndex) score++;
         });
 
+        // Calculate Grade
+        const percent = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
+        const gradeInfo = getGradeFromPercent(percent);
+        setFinalScore({
+            score,
+            total: totalQuestions,
+            percent,
+            ...gradeInfo
+        });
+
         // Reveal all answers
         const allChecked: Record<number, boolean> = {};
         for (let i = 0; i < totalQuestions; i++) allChecked[i] = true;
@@ -96,33 +129,145 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         if (onComplete) onComplete(score, totalQuestions);
     };
 
+    // Find first wrong answer for review
+    const handleReviewWrongAnswers = () => {
+        const wrongIndex = sanitizedExamData.findIndex((q, idx) =>
+            answers[idx] !== undefined && answers[idx] !== q.correctIndex
+        );
+        if (wrongIndex !== -1) {
+            setCurrentQuestionIndex(wrongIndex);
+            setIsFinished(false);
+        }
+    };
+
     const handleRestart = () => {
         setCurrentQuestionIndex(0);
         setAnswers({});
         setCheckedQuestions({});
         setIsFinished(false);
+        setFinalScore(null);
     };
 
-    if (isFinished) {
+    if (isFinished && finalScore) {
+        const wrongCount = totalQuestions - finalScore.score;
+
         return (
             <div className="max-w-4xl mx-auto py-12 px-6">
-                <div className="bg-white rounded-[3rem] shadow-xl p-12 text-center border border-stone-100 relative overflow-hidden">
-                    <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-amber-50 to-transparent -z-10"></div>
-                    <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 text-white shadow-lg animate-bounce">
+                <div className="bg-white rounded-[3rem] shadow-xl p-8 md:p-12 border border-stone-100 relative overflow-hidden">
+                    {/* Background Gradient based on Grade */}
+                    <div className={`absolute top-0 inset-x-0 h-60 bg-gradient-to-b ${finalScore.bgColor} opacity-10 -z-10`}></div>
+
+                    {/* Trophy/Icon */}
+                    <div className={`w-24 h-24 ${finalScore.bgColor} rounded-full flex items-center justify-center mx-auto mb-6 text-white shadow-lg`}>
                         <Trophy size={48} />
                     </div>
-                    <h2 className="text-4xl font-black text-slate-800 mb-2">สิ้นสุดการฝึกฝน</h2>
-                    <p className="text-stone-500 mb-8 font-medium">ชุดข้อสอบ: {examTitle}</p>
-                    <p className="text-xl text-stone-600 mb-12">คุณได้ทำแบบฝึกหัดเสร็จสิ้นแล้ว 🎉</p>
 
-                    <div className="flex justify-center gap-4">
+                    {/* Title */}
+                    <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-2 text-center">ผลการทดสอบ</h2>
+                    <p className="text-stone-500 mb-8 font-medium text-center">ชุดข้อสอบ: {examTitle}</p>
+
+                    {/* Score Display - Center */}
+                    <div className="flex flex-col items-center mb-10">
+                        {/* Circular Progress */}
+                        <div className="relative w-48 h-48 mb-6">
+                            <svg className="w-48 h-48 transform -rotate-90" viewBox="0 0 100 100">
+                                {/* Background Circle */}
+                                <circle
+                                    cx="50" cy="50" r="45"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="8"
+                                    className="text-slate-100"
+                                />
+                                {/* Progress Circle */}
+                                <circle
+                                    cx="50" cy="50" r="45"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="8"
+                                    strokeLinecap="round"
+                                    strokeDasharray={`${finalScore.percent * 2.83} 283`}
+                                    className={finalScore.gradeColor.replace('text-', 'text-').replace('600', '500')}
+                                    style={{ transition: 'stroke-dasharray 1s ease-out' }}
+                                />
+                            </svg>
+                            {/* Center Text */}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className={`text-5xl font-black ${finalScore.gradeColor}`}>{finalScore.percent}%</span>
+                                <span className="text-stone-400 text-sm font-bold">{finalScore.score}/{finalScore.total} ข้อ</span>
+                            </div>
+                        </div>
+
+                        {/* Grade Badge */}
+                        <div className={`px-8 py-3 rounded-2xl ${finalScore.bgColor} text-white font-black text-2xl shadow-lg mb-4`}>
+                            Grade {finalScore.grade}
+                        </div>
+                        <p className={`text-xl font-bold ${finalScore.gradeColor}`}>{finalScore.label}</p>
+                    </div>
+
+                    {/* Stats Row */}
+                    <div className="grid grid-cols-3 gap-4 mb-10 text-center">
+                        <div className="bg-emerald-50 rounded-2xl p-4">
+                            <div className="text-3xl font-black text-emerald-600">{finalScore.score}</div>
+                            <div className="text-emerald-600 text-sm font-medium">ตอบถูก ✓</div>
+                        </div>
+                        <div className="bg-rose-50 rounded-2xl p-4">
+                            <div className="text-3xl font-black text-rose-600">{wrongCount}</div>
+                            <div className="text-rose-600 text-sm font-medium">ตอบผิด ✗</div>
+                        </div>
+                        <div className="bg-slate-50 rounded-2xl p-4">
+                            <div className="text-3xl font-black text-slate-600">{totalQuestions}</div>
+                            <div className="text-slate-500 text-sm font-medium">ข้อทั้งหมด</div>
+                        </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row justify-center gap-4">
+                        {wrongCount > 0 && (
+                            <button
+                                onClick={handleReviewWrongAnswers}
+                                className="px-8 py-4 rounded-full bg-rose-100 text-rose-600 font-bold hover:bg-rose-200 transition-colors flex items-center justify-center gap-2"
+                            >
+                                📝 ดูข้อที่ผิด ({wrongCount} ข้อ)
+                            </button>
+                        )}
                         <button
                             onClick={handleRestart}
-                            className="px-8 py-4 rounded-full bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors flex items-center gap-2"
+                            className="px-8 py-4 rounded-full bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
                         >
                             <RotateCcw size={20} />
                             ทำข้อสอบใหม่
                         </button>
+                    </div>
+                </div>
+
+                {/* Question Map with Results */}
+                <div className="mt-8 bg-white rounded-3xl shadow-sm p-6 border border-slate-100">
+                    <h3 className="font-bold text-slate-700 mb-4">แผนที่ข้อสอบ - ผลลัพธ์</h3>
+                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                        {sanitizedExamData.map((q, idx) => {
+                            const userAnswer = answers[idx];
+                            const isCorrect = userAnswer === q.correctIndex;
+                            const isUnanswered = userAnswer === undefined;
+
+                            let btnClass = "bg-slate-100 text-slate-400 border-slate-200"; // Unanswered
+                            if (!isUnanswered) {
+                                btnClass = isCorrect
+                                    ? "bg-emerald-100 text-emerald-600 border-emerald-300"
+                                    : "bg-rose-100 text-rose-600 border-rose-300";
+                            }
+
+                            return (
+                                <button
+                                    key={idx}
+                                    onClick={() => { setCurrentQuestionIndex(idx); setIsFinished(false); }}
+                                    className={`aspect-square rounded-lg text-sm font-bold flex items-center justify-center border transition-all hover:scale-105 ${btnClass}`}
+                                    title={isUnanswered ? "ไม่ได้ตอบ" : isCorrect ? "ถูก" : "ผิด"}
+                                >
+                                    {isUnanswered ? idx + 1 : isCorrect ? "✓" : "✗"}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -141,14 +286,31 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                     <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">{currentQuestionIndex + 1}/{totalQuestions}</span>
                 </h3>
                 <div className="grid grid-cols-5 gap-2">
-                    {Array.from({ length: totalQuestions }).map((_, idx) => {
+                    {sanitizedExamData.map((q, idx) => {
                         const isAnswered = answers[idx] !== undefined;
                         const isCurrent = currentQuestionIndex === idx;
-                        const isChecked = checkedQuestions[idx]; // Check if the question has been reviewed/checked
+                        const isChecked = checkedQuestions[idx];
+                        const isCorrect = isChecked && answers[idx] === q.correctIndex;
+                        const isWrong = isChecked && answers[idx] !== q.correctIndex && isAnswered;
 
-                        let btnClass = "bg-slate-50 text-slate-400 hover:bg-slate-100"; // Default
-                        if (isAnswered) btnClass = "bg-blue-100 text-blue-600 font-bold border-blue-200";
-                        if (isChecked) btnClass = "bg-amber-100 text-amber-600 font-bold border-amber-200"; // Just indicate reviewed status
+                        let btnClass = "bg-slate-50 text-slate-400 hover:bg-slate-100 border-transparent"; // Default
+                        let content: React.ReactNode = idx + 1;
+
+                        if (isChecked) {
+                            if (isCorrect) {
+                                btnClass = "bg-emerald-100 text-emerald-600 font-bold border-emerald-300";
+                                content = "✓";
+                            } else if (isWrong) {
+                                btnClass = "bg-rose-100 text-rose-600 font-bold border-rose-300";
+                                content = "✗";
+                            } else {
+                                // Checked but no answer (viewed only)
+                                btnClass = "bg-amber-100 text-amber-600 font-bold border-amber-200";
+                            }
+                        } else if (isAnswered) {
+                            btnClass = "bg-blue-100 text-blue-600 font-bold border-blue-200";
+                        }
+
                         if (isCurrent) btnClass += " ring-2 ring-amber-400 ring-offset-2 z-10";
 
                         return (
@@ -157,7 +319,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                 onClick={() => setCurrentQuestionIndex(idx)}
                                 className={`aspect-square rounded-lg text-sm flex items-center justify-center transition-all border ${btnClass}`}
                             >
-                                {idx + 1}
+                                {content}
                             </button>
                         );
                     })}

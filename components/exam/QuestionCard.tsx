@@ -23,7 +23,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     onSelectOption,
     isSubmitted
 }) => {
-    // const isCorrect = selectedOption === question.correctIndex; // Unused for badge now
+    // Calculate result for badge
+    const isCorrect = selectedOption === question.correctIndex;
+    const hasAnswered = selectedOption !== null;
 
     return (
         <div className="w-full max-w-4xl mx-auto bg-white rounded-[2rem] shadow-xl shadow-stone-200/50 overflow-hidden border border-stone-100 transition-all duration-300">
@@ -39,7 +41,31 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     </span>
                 </div>
 
-                {/* Status Badge Removed - Practice Mode View Only */}
+                {/* Result Badge - Show when submitted */}
+                {isSubmitted && hasAnswered && (
+                    <div className={`px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 animate-in slide-in-from-right duration-300 ${isCorrect
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            : 'bg-rose-100 text-rose-700 border border-rose-200'
+                        }`}>
+                        {isCorrect ? (
+                            <>
+                                <CheckCircle2 size={18} />
+                                <span>ตอบถูก!</span>
+                            </>
+                        ) : (
+                            <>
+                                <XCircle size={18} />
+                                <span>ตอบผิด</span>
+                            </>
+                        )}
+                    </div>
+                )}
+                {isSubmitted && !hasAnswered && (
+                    <div className="px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 bg-slate-100 text-slate-500 border border-slate-200">
+                        <HelpCircle size={18} />
+                        <span>ไม่ได้ตอบ</span>
+                    </div>
+                )}
             </div>
 
             {/* Question Body */}
@@ -72,17 +98,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                             let indicatorClass = "w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all";
 
                             const actualCorrectIndex = question.correctIndex;
+                            const isCorrectOption = index === actualCorrectIndex;
+                            const isSelectedOption = index === selectedOption;
+                            const isWrongSelection = isSelectedOption && !isCorrectOption;
 
                             if (isSubmitted) {
                                 // เฉลยแล้ว (Show Solution Mode)
-                                if (index === actualCorrectIndex) {
-                                    // ข้อที่ถูก (สีเขียวเสมอ) - Reveal Correct Answer
+                                if (isCorrectOption) {
+                                    // ข้อที่ถูก (สีเขียวเสมอ) - Always show correct answer in green
                                     containerClass += " bg-emerald-50 border-emerald-400 shadow-sm";
                                     indicatorClass += " bg-emerald-500 border-emerald-500 text-white";
-                                } else if (index === selectedOption) {
-                                    // ข้อที่เลือก (ให้คงสถานะเลือกไว้ แต่ไม่แดง) - Neutral Selected
-                                    containerClass += " bg-amber-50 border-amber-400 opacity-70";
-                                    indicatorClass += " bg-amber-500 border-amber-500 text-white";
+                                } else if (isWrongSelection) {
+                                    // ข้อที่เลือกแต่ผิด - Show in RED
+                                    containerClass += " bg-rose-50 border-rose-400 shadow-sm";
+                                    indicatorClass += " bg-rose-500 border-rose-500 text-white";
                                 } else {
                                     // ข้ออื่นๆ
                                     containerClass += " opacity-40 border-stone-100 grayscale";
@@ -90,7 +119,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                 }
                             } else {
                                 // ยังไม่เฉลย (ให้เลือก)
-                                if (index === selectedOption) {
+                                if (isSelectedOption) {
                                     containerClass += " bg-amber-50 border-amber-400 shadow-md transform scale-[1.01]";
                                     indicatorClass += " bg-amber-500 border-amber-500 text-white";
                                 } else {
@@ -109,13 +138,18 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                         {index + 1}
                                     </div>
                                     <div className="text-stone-700 font-medium pt-1 text-lg w-full break-words min-w-0">
-                                        <MathRenderer text={option.replace(/^\s*\d+[\.\)]\s*/, '')} />
+                                        <MathRenderer text={option.replace(/^\s*\d+[\.\\)]\s*/, '')} />
                                     </div>
 
                                     {/* Feedback Icons on Result */}
-                                    {isSubmitted && index === actualCorrectIndex && (
-                                        <div className="absolute top-4 right-4 text-emerald-500 animate-in zoom-in spin-in-180 duration-500">
-                                            <CheckCircle2 size={24} fill="currentColor" className="text-white" />
+                                    {isSubmitted && isCorrectOption && (
+                                        <div className="absolute top-4 right-4 text-emerald-500 animate-in zoom-in duration-300">
+                                            <CheckCircle2 size={24} />
+                                        </div>
+                                    )}
+                                    {isSubmitted && isWrongSelection && (
+                                        <div className="absolute top-4 right-4 text-rose-500 animate-in zoom-in duration-300">
+                                            <XCircle size={24} />
                                         </div>
                                     )}
                                 </div>

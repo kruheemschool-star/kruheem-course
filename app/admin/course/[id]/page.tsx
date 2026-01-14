@@ -1,14 +1,19 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, getDoc, query, orderBy, writeBatch, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import "katex/dist/katex.min.css";
-import { InlineMath } from "react-katex";
+import { InlineMath, BlockMath } from "react-katex";
 import { Plus, Trash2, FileJson, Blocks, AlertCircle, Image as ImageIcon, Copy, Edit2 } from 'lucide-react';
 
+// 🎨 Global CSS for consistent KaTeX styling
+const katexGlobalStyles = `
+  .katex { font-size: 1.1em !important; font-family: 'KaTeX_Main', 'Times New Roman', serif; }
+  .katex .mord.text { font-family: inherit; }
+`;
 
 // --- Icons (Updated for Clarity) ---
 const HeaderIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 013.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 013.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 01-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875zM12.75 12a.75.75 0 00-1.5 0V15H8.25a.75.75 0 000 1.5H11.25v3a.75.75 0 001.5 0V16.5h3a.75.75 0 000-1.5H12.75V12z" clipRule="evenodd" /><path d="M14.25 5.25a5.23 5.23 0 00-1.279-3.434 9.768 9.768 0 016.963 6.963A5.23 5.23 0 0016.5 7.5h-1.875a.375.375 0 01-.375-.375V5.25z" /></svg>;
@@ -35,19 +40,91 @@ const EyeSlashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
 const ArrowUpIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06l-6.22-6.22V21a.75.75 0 01-1.5 0V4.81l-6.22 6.22a.75.75 0 11-1.06-1.06l7.5-7.5z" clipRule="evenodd" /></svg>;
 const ArrowDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v16.19l6.22-6.22a.75.75 0 111.06 1.06l-7.5 7.5a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 111.06-1.06l6.22 6.22V3a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>;
 
-// ✅ Helper to render LaTeX mixed with text
-const renderWithLatex = (text: string) => {
+// ✅ Enhanced Helper to render LaTeX mixed with text & Markdown
+const renderWithLatex = (text: string): React.ReactNode => {
     if (!text) return "";
-    // Split by $...$
-    const parts = text.split(/(\$[^$]+\$)/g);
+
+    // 🧹 Clean up citation artifacts (e.g. [cite: 7, 8])
+    const cleanText = text.replace(/\[cite:\s*[^\]]+\]/gi, '');
+
+    // 1. Split by explicit LaTeX: $...$ or $$...$$ or \[...\]
+    const parts = cleanText.split(/(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[\s\S]+?\$|\\begin\{equation\}[\s\S]+?\\end\{equation\})/g);
+
     return parts.map((part, index) => {
-        if (part.startsWith('$') && part.endsWith('$')) {
-            // Remove $ and render LaTeX
-            return <InlineMath key={index} math={part.slice(1, -1)} />;
+        let isDisplay = part.startsWith('$$') || part.startsWith('\\[');
+        let isMath = isDisplay || (part.startsWith('$') && part.endsWith('$'));
+        let content = part;
+
+        if (isMath) {
+            // Strip delimiters
+            const inner = part.replace(/^(\$\$|\\\[|\$)|(\$\$|\\\]|\$)$/g, '');
+
+            const hasThai = /[\u0E00-\u0E7F]/.test(inner);
+            const hasNewlines = inner.includes('\n');
+
+            // Unwrap if Thai (almost always text) OR (Inline math AND Newlines)
+            if (hasThai || (!isDisplay && hasNewlines)) {
+                if (!inner.match(/^\\begin\{/)) {
+                    isMath = false;
+                    content = inner;
+                } else { content = inner; }
+            } else {
+                content = inner;
+            }
         }
-        return <span key={index}>{part}</span>;
+
+        if (isMath) {
+            try {
+                // Use BlockMath for display math, InlineMath for inline
+                if (isDisplay || content.includes('\\begin')) {
+                    return <div key={index} className="overflow-x-auto my-2"><BlockMath math={content} /></div>;
+                }
+                return <InlineMath key={index} math={content} />;
+            }
+            catch (e) { return <span key={index} className="text-red-500">{part}</span>; }
+        }
+
+        // TEXT PROCESSING: Look for implicit Latex commands (\\times, \\div, \\frac, ^)
+        const implicitRegex = /(\\[a-zA-Z]+(?:\{(?:[^{}]|\{[^{}]*\})*\})*|[\^_]\{?[a-zA-Z0-9\+\-\.\\]+\}?)/g;
+
+        const subParts = content.split(implicitRegex);
+
+        return (
+            <span key={index}>
+                {subParts.map((sub, subIdx) => {
+                    if (!sub) return null;
+                    // Check if it matches our implicit math pattern
+                    if (sub.match(/^(\\|\^|_)/)) {
+                        try { return <InlineMath key={`${index}-${subIdx}`} math={sub} />; }
+                        catch (e) { return sub; }
+                    }
+
+                    // Otherwise, Handle Markdown (**bold**, ---)
+                    const boldParts = sub.split(/(\*\*[^*]+\*\*)/g);
+                    return (
+                        <span key={`${index}-${subIdx}`}>
+                            {boldParts.map((bPart, bIdx) => {
+                                if (bPart.startsWith('**') && bPart.endsWith('**')) {
+                                    return <strong key={bIdx} className="text-indigo-600 font-bold">{bPart.slice(2, -2)}</strong>;
+                                }
+                                if (bPart.includes('---')) {
+                                    return bPart.split('---').map((s, i, arr) => (
+                                        <span key={i}>
+                                            {s}
+                                            {i < arr.length - 1 && <div className="my-6 h-px bg-slate-200 border-b border-dashed border-slate-300 w-full"></div>}
+                                        </span>
+                                    ));
+                                }
+                                return bPart;
+                            })}
+                        </span>
+                    );
+                })}
+            </span>
+        );
     });
 };
+
 
 // ✅ Helper to validate JSON string
 const tryParseJson = (str: string) => {
@@ -321,9 +398,38 @@ export default function ManageLessonsPage() {
 
     const handleAddSingleQuestion = () => {
         try {
-            const cleanJson = newQuestionJson.trim();
+            let cleanJson = newQuestionJson.trim();
             if (!cleanJson) return;
-            const parsed = JSON.parse(cleanJson);
+
+            // 🛡️ Auto-clean common artifacts (e.g. from AI citations, markdown blocks)
+            cleanJson = cleanJson
+                // Remove AI citation markers [cite_start], [cite_end], [cite:...]
+                .replace(/\[cite(_start|_end)?(:.*?)?\]/gi, '')
+                // Remove markdown code block markers
+                .replace(/```json\s*/gi, '')
+                .replace(/```typescript\s*/gi, '')
+                .replace(/```javascript\s*/gi, '')
+                .replace(/```\s*/g, '')
+                // Remove trailing commas before } or ]
+                .replace(/,\s*}/g, '}')
+                .replace(/,\s*]/g, ']')
+                // Fix unquoted keys (best effort)
+                .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3')
+                .trim();
+
+            // Try to parse
+            let parsed: any;
+            try {
+                parsed = JSON.parse(cleanJson);
+            } catch (parseError) {
+                // Try additional fixes: single quotes to double quotes
+                try {
+                    const fixedQuotes = cleanJson.replace(/'/g, '"');
+                    parsed = JSON.parse(fixedQuotes);
+                } catch (e2) {
+                    throw parseError; // Throw original error if still fails
+                }
+            }
 
             // Handle both Single Object and Array of Objects
             const newItems = Array.isArray(parsed) ? parsed : [parsed];
@@ -348,6 +454,7 @@ export default function ManageLessonsPage() {
             showToast("❌ JSON ไม่ถูกต้อง: " + (e as Error).message, "error");
         }
     };
+
 
     const handleDeleteQuestion = (index: number) => {
         if (!confirm("ลบข้อนี้?")) return;
@@ -890,6 +997,8 @@ export default function ManageLessonsPage() {
     return (
 
         <div className="min-h-screen bg-[#EEF2FF] p-6 md:p-10 font-sans text-slate-700 relative">
+            {/* Global KaTeX Styles */}
+            <style dangerouslySetInnerHTML={{ __html: katexGlobalStyles }} />
             {toast && (
                 <div className={`fixed bottom-5 right-5 px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 animate-bounce z-50 border-l-8 ${toast.type === 'success' ? 'bg-white text-teal-700 border-teal-400' : 'bg-white text-rose-600 border-rose-400'}`}>
                     <span className="text-2xl">{toast.type === 'success' ? '🎉' : '🚨'}</span><p className="font-bold text-lg">{toast.msg}</p>

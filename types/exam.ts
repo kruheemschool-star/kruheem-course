@@ -3,7 +3,8 @@ export interface ExamQuestion {
     question: string; // รองรับ LaTeX ในรูปแบบ \( ... \) หรือ $ ... $
     image?: string; // URL ของรูปประกอบโจทย์ (Optional)
     options: string[]; // 4 ตัวเลือก
-    correctIndex: number; // 0-3
+    correctIndex: number; // 0-3 (Legacy field, may be incorrect)
+    answerIndex?: number; // 0-3 (Preferred field if available)
     explanation: string; // เฉลยละเอียด รองรับ LaTeX
     tags?: string[]; // คำค้นหา / หัวข้อเรื่อง
 }
