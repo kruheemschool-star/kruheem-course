@@ -14,30 +14,31 @@ export const metadata: Metadata = {
     keywords: ["ข้อสอบคณิตศาสตร์", "คลังข้อสอบ", "แบบฝึกหัดคณิต", "ข้อสอบ O-NET", "ข้อสอบ A-Level"],
 };
 
-export const dynamic = "force-dynamic";
+// Cache for 5 minutes (300 seconds)
+export const revalidate = 300;
 
-// 1. Fetch Data on Server (No "use client")
+// 1. Fetch Data on Server (Metadata only - fast load)
 async function getExams() {
     try {
         const q = query(collection(db, "exams"), orderBy("createdAt", "asc"));
         const snapshot = await getDocs(q);
 
         if (!snapshot.empty) {
-            // Serialize data (convert Date objects to strings/numbers if needed for props)
             return snapshot.docs.map(doc => {
                 const data = doc.data();
 
-                // Parse questions if available
-                let questions: any[] = [];
+                // Count questions without sending full data
+                let questionCount = 0;
                 if (data.questions) {
                     if (typeof data.questions === 'string') {
                         try {
-                            questions = JSON.parse(data.questions);
+                            const parsed = JSON.parse(data.questions);
+                            questionCount = Array.isArray(parsed) ? parsed.length : 0;
                         } catch (e) {
-                            questions = [];
+                            questionCount = 0;
                         }
-                    } else {
-                        questions = data.questions;
+                    } else if (Array.isArray(data.questions)) {
+                        questionCount = data.questions.length;
                     }
                 }
 
@@ -50,7 +51,7 @@ async function getExams() {
                     themeColor: data.themeColor || "Blue",
                     coverImage: data.coverImage || "",
                     tags: data.tags || [],
-                    questions: questions, // Include questions for search
+                    questionCount, // Only send count, not full questions
                     createdAt: data.createdAt?.toDate?.().toISOString() || null,
                 };
             });

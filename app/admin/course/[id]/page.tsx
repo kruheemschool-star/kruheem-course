@@ -1389,7 +1389,8 @@ export default function ManageLessonsPage() {
                                                 </div>
                                             ) : (
                                                 <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-1 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                                                    {examQuestions.length > 0 ? examQuestions.map((q, idx) => {
+                                                    {examQuestions.length > 0 ? [...examQuestions].reverse().map((q, reversedIdx) => {
+                                                        const idx = examQuestions.length - 1 - reversedIdx; // Get original index
                                                         const isEditing = editingQIndex === idx;
 
                                                         if (isEditing) {

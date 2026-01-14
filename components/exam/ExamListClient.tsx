@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb } from "lucide-react";
+import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb, Loader2 } from "lucide-react";
 
 interface ExamListClientProps {
     initialExams: any[];
@@ -21,6 +21,11 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
 
+    // Lazy load search state
+    const [searchData, setSearchData] = useState<any[] | null>(null);
+    const [isLoadingSearch, setIsLoadingSearch] = useState(false);
+    const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
+
     const categories = ["ทั้งหมด", "ประถม", "ม.ต้น", "ม.ปลาย", "สอบเข้า"];
 
     // Helper: Strip LaTeX and clean text for display
@@ -34,16 +39,53 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
             .substring(0, 80);
     };
 
-    // Advanced Search: Search in questions, options, explanation, tags
-    const searchResults = useMemo((): SearchMatch[] => {
-        if (!searchQuery.trim()) return [];
+    // Lazy load questions data when user starts searching
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setSearchResults([]);
+            return;
+        }
 
-        const queryLower = searchQuery.toLowerCase().trim();
+        // Debounce: wait 300ms before fetching
+        const timeout = setTimeout(async () => {
+            // If we haven't loaded search data yet, fetch it
+            if (!searchData) {
+                setIsLoadingSearch(true);
+                try {
+                    const res = await fetch('/api/exam-search');
+                    const data = await res.json();
+                    setSearchData(data.exams || []);
+                    // Perform search after loading
+                    performSearch(data.exams || [], searchQuery, selectedCategory);
+                } catch (error) {
+                    console.error('Error loading search data:', error);
+                    // Fallback: search in initialExams (metadata only)
+                    performSearch(initialExams, searchQuery, selectedCategory);
+                } finally {
+                    setIsLoadingSearch(false);
+                }
+            } else {
+                // Already have data, just search
+                performSearch(searchData, searchQuery, selectedCategory);
+            }
+        }, 300);
+
+        return () => clearTimeout(timeout);
+    }, [searchQuery, selectedCategory, searchData, initialExams]);
+
+    // Perform search on data
+    const performSearch = (exams: any[], query: string, category: string) => {
+        if (!query.trim()) {
+            setSearchResults([]);
+            return;
+        }
+
+        const queryLower = query.toLowerCase().trim();
         const results: SearchMatch[] = [];
 
-        initialExams.forEach(exam => {
-            // Filter by category first
-            if (selectedCategory !== "ทั้งหมด" && exam.category !== selectedCategory) {
+        exams.forEach(exam => {
+            // Filter by category
+            if (category !== "ทั้งหมด" && exam.category !== category) {
                 return;
             }
 
@@ -56,9 +98,9 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                 String(t).toLowerCase().includes(queryLower)
             );
 
-            // Search in each question
+            // Search in each question (if available)
             if (exam.questions && Array.isArray(exam.questions)) {
-                exam.questions.forEach((q: any, index: number) => {
+                exam.questions.forEach((q: any) => {
                     const questionText = String(q.question || "").toLowerCase();
                     const explanationText = String(q.explanation || "").toLowerCase();
                     const optionsText = (q.options || []).map((o: string) => String(o).toLowerCase()).join(" ");
@@ -70,16 +112,13 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                         optionsText.includes(queryLower) ||
                         questionTags.includes(queryLower)
                     ) {
-                        // Create a preview of the match
                         let preview = cleanText(q.question || "");
                         if (!preview) preview = cleanText((q.options || [])[0] || "");
-
-                        questionMatches.push({ index: index + 1, preview });
+                        questionMatches.push({ index: q.index || questionMatches.length + 1, preview });
                     }
                 });
             }
 
-            // If there are any matches, add to results
             if (titleMatch || descMatch || tagsMatch || questionMatches.length > 0) {
                 results.push({
                     examId: exam.id,
@@ -92,8 +131,8 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
             }
         });
 
-        return results;
-    }, [initialExams, searchQuery, selectedCategory]);
+        setSearchResults(results);
+    };
 
     // Regular filtering for non-search mode
     const filteredExams = useMemo(() => {
@@ -271,14 +310,18 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                             <div className="flex items-center justify-between flex-wrap gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
-                                        <Search size={24} />
+                                        {isLoadingSearch ? (
+                                            <Loader2 size={24} className="animate-spin" />
+                                        ) : (
+                                            <Search size={24} />
+                                        )}
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-slate-800">
-                                            ผลการค้นหา: "{searchQuery}"
+                                            {isLoadingSearch ? 'กำลังค้นหา...' : `ผลการค้นหา: "${searchQuery}"`}
                                         </h3>
                                         <p className="text-slate-500 text-sm">
-                                            พบ {searchResults.length} ชุดข้อสอบ
+                                            {isLoadingSearch ? 'กำลังโหลดข้อมูลข้อสอบ...' : `พบ ${searchResults.length} ชุดข้อสอบ`}
                                             {totalQuestionMatches > 0 && `, ${totalQuestionMatches} ข้อที่ตรงกัน`}
                                         </p>
                                     </div>
@@ -387,7 +430,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                 <div className="text-5xl mb-4">🔍</div>
                                 <h3 className="text-xl font-bold text-slate-600 mb-2">ไม่พบ "{searchQuery}"</h3>
                                 <p className="text-slate-400 mb-6">ลองค้นหาด้วยคำอื่นดูนะครับ</p>
-                                
+
                                 {/* Suggested Keywords */}
                                 <div className="max-w-md mx-auto mb-6">
                                     <div className="flex items-center justify-center gap-2 text-slate-500 text-sm mb-3">
@@ -406,7 +449,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                         ))}
                                     </div>
                                 </div>
-                                
+
                                 <button
                                     onClick={() => { setSelectedCategory("ทั้งหมด"); setSearchQuery(""); }}
                                     className="px-6 py-2 rounded-full bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
