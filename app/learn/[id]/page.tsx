@@ -966,8 +966,11 @@ export default function CoursePlayer() {
                         </button>
 
                         {user && canWatchCurrent && !isHeaderMode && !(activeLesson?.type === 'html' && (activeLesson.htmlCode?.trim().startsWith('[') || activeLesson.htmlCode?.trim().startsWith('{'))) && (
-                            <button onClick={handleNextLesson} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 px-3 md:px-5 py-2 md:py-2.5 rounded-full font-bold transition-all shadow-sm hover:shadow-md group text-sm md:text-base">
-                                {completedLessons.includes(activeLesson?.id || "") ? <><span className="hidden md:inline">เรียนจบแล้ว</span> <CheckIcon /></> : <><span className="hidden md:inline">บันทึกความคืบหน้าและไปตอนต่อไป</span> <span className="group-hover:translate-x-1 transition">→</span></>}
+                            <button onClick={handleNextLesson} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 px-3 md:px-5 py-2 md:py-2 rounded-full font-bold transition-all shadow-sm hover:shadow-md group">
+                                {completedLessons.includes(activeLesson?.id || "") ?
+                                    <><span className="text-[10px] md:text-xs">เรียนจบแล้ว</span> <CheckIcon /></> :
+                                    <><span className="text-[10px] md:text-xs leading-tight text-center">บันทึกความคืบหน้า<br className="md:hidden" />และไปตอนต่อไป</span> <span className="group-hover:translate-x-1 transition">→</span></>
+                                }
                             </button>
                         )}
                     </div>
@@ -1066,63 +1069,104 @@ export default function CoursePlayer() {
                                     }
                                 }
 
-                                // 2. Render Smart Blocks (Notion Style)
+                                // Helper to guess emoji based on header text
+                                const getEmojiForHeader = (text: string) => {
+                                    const lower = text.toLowerCase();
+                                    if (lower.includes('สูตร') || lower.includes('formula') || lower.includes('สมการ')) return '📐 ';
+                                    if (lower.includes('ตัวอย่าง') || lower.includes('example') || lower.includes('โจทย์')) return '📝 ';
+                                    if (lower.includes('สรุป') || lower.includes('summary') || lower.includes('concept')) return '🧠 ';
+                                    if (lower.includes('เทคนิค') || lower.includes('trick') || lower.includes('tip')) return '⚡️ ';
+                                    if (lower.includes('นิยาม') || lower.includes('definition') || lower.includes('ความหมาย')) return '📖 ';
+                                    if (lower.includes('ข้อควรระวัง') || lower.includes('warning') || lower.includes('caution')) return '⚠️ ';
+                                    if (lower.includes('วิธีทำ') || lower.includes('solution')) return '✍️ ';
+                                    return ''; // Default: no emoji if no match
+                                };
+
+                                // 2. Render Smart Blocks (Notion Style) - Enhanced for Multi-line LaTeX
                                 const renderNotionStyleContent = (text: string) => {
                                     if (!text) return "";
 
-                                    // Split by newlines to handle lists and spacing
-                                    const lines = text.split('\n');
                                     const nodes: React.ReactNode[] = [];
+
+                                    // 1. Split by Display Math ($$...$$) to protect them from line splitting
+                                    const parts = text.split(/(\$\$[\s\S]*?\$\$)/g);
 
                                     let currentList: React.ReactNode[] = [];
                                     let inList = false;
 
-                                    lines.forEach((line, i) => {
-                                        const trimmed = line.trim();
-
-                                        // List Item
-                                        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                                            const content = trimmed.substring(2);
-                                            currentList.push(
-                                                <li key={`${i}-li`} className="text-slate-700 leading-7 font-medium ml-4 pl-1 marker:text-slate-400">
-                                                    {renderWithLatex(content)}
-                                                </li>
-                                            );
-                                            inList = true;
-                                        } else {
-                                            // Flush List
+                                    parts.forEach((part, partIndex) => {
+                                        // A. Handle Display Math Block (Pass through directly)
+                                        if (part.startsWith('$$') && part.endsWith('$$')) {
+                                            // Flush any pending list
                                             if (inList) {
-                                                nodes.push(<ul key={`${i}-ul`} className="list-disc list-outside mb-4 space-y-1 ml-4">{currentList}</ul>);
+                                                nodes.push(<ul key={`ul-math-${partIndex}`} className="list-disc list-outside mb-4 space-y-1 ml-4">{currentList}</ul>);
                                                 currentList = [];
                                                 inList = false;
                                             }
 
-                                            // Empty line
-                                            if (!trimmed) {
-                                                nodes.push(<div key={i} className="h-4"></div>);
-                                                return;
-                                            }
-
-                                            // Quote
-                                            if (trimmed.startsWith('> ') || trimmed.startsWith('| ')) {
-                                                nodes.push(
-                                                    <div key={i} className="border-l-[3px] border-slate-300 pl-4 py-1 my-2 text-slate-700 italic">
-                                                        {renderWithLatex(trimmed.substring(2))}
-                                                    </div>
-                                                );
-                                                return;
-                                            }
-
-                                            // Normal Text
+                                            // Render the math block
                                             nodes.push(
-                                                <div key={i} className="text-slate-700 leading-7 font-medium mb-1 min-h-[1.5em]">
-                                                    {renderWithLatex(line)}
+                                                <div key={`math-${partIndex}`} className="my-4 text-center overflow-x-auto">
+                                                    {renderWithLatex(part)}
                                                 </div>
                                             );
+                                            return;
                                         }
+
+                                        // B. Handle Normal Text (Process line by line)
+                                        const lines = part.split('\n');
+                                        lines.forEach((line, i) => {
+                                            const trimmed = line.trim();
+                                            if (!trimmed && i < lines.length - 1) { // Skip empty lines only if not last
+                                                // Check if we need to flush list (e.g. empty line breaks list)
+                                                if (inList && !trimmed) {
+                                                    // Optional: Decide if empty line breaks list. 
+                                                    // For now, let's essentially ignore empty lines inside text segments 
+                                                    // unless we want paragraph spacing.
+                                                    nodes.push(<div key={`space-${partIndex}-${i}`} className="h-4"></div>);
+                                                }
+                                                return;
+                                            }
+                                            if (!trimmed) return;
+
+                                            // List Item
+                                            if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                                                const content = trimmed.substring(2);
+                                                currentList.push(
+                                                    <li key={`${partIndex}-${i}-li`} className="text-slate-800 text-lg leading-8 font-medium ml-4 pl-1 marker:text-slate-400">
+                                                        {renderWithLatex(content)}
+                                                    </li>
+                                                );
+                                                inList = true;
+                                            } else {
+                                                // Flush List
+                                                if (inList) {
+                                                    nodes.push(<ul key={`${partIndex}-${i}-ul`} className="list-disc list-outside mb-4 space-y-1 ml-4">{currentList}</ul>);
+                                                    currentList = [];
+                                                    inList = false;
+                                                }
+
+                                                // Quote
+                                                if (trimmed.startsWith('> ') || trimmed.startsWith('| ')) {
+                                                    nodes.push(
+                                                        <div key={`${partIndex}-${i}`} className="border-l-[3px] border-slate-300 pl-4 py-1 my-2 text-slate-700 italic">
+                                                            {renderWithLatex(trimmed.substring(2))}
+                                                        </div>
+                                                    );
+                                                    return;
+                                                }
+
+                                                // Normal Text
+                                                nodes.push(
+                                                    <div key={`${partIndex}-${i}`} className="text-slate-800 text-lg leading-8 font-medium mb-2 min-h-[1.5em] break-words">
+                                                        {renderWithLatex(line)}
+                                                    </div>
+                                                );
+                                            }
+                                        });
                                     });
 
-                                    // Flush remaining list
+                                    // Flush remaining list at the very end
                                     if (inList) {
                                         nodes.push(<ul key="last-ul" className="list-disc list-outside mb-4 space-y-1 ml-4">{currentList}</ul>);
                                     }
@@ -1146,47 +1190,62 @@ export default function CoursePlayer() {
                                                     {blocks.map((block, idx) => (
                                                         <div key={idx} className="mb-6">
                                                             {block.type === 'header' && (
-                                                                <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mt-10 mb-6 flex items-center gap-3">
-                                                                    {block.content}
-                                                                </h3>
+                                                                <div className="mt-12 mb-6">
+                                                                    <h3 className="text-2xl md:text-3xl font-extrabold text-slate-800 bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent flex items-center gap-3 border-l-4 border-indigo-500 pl-4 py-1">
+                                                                        <span>{getEmojiForHeader(block.content)}</span>
+                                                                        {block.content}
+                                                                    </h3>
+                                                                </div>
                                                             )}
 
                                                             {block.type === 'definition' && (
-                                                                <div className="my-6 p-5 bg-gray-50 rounded-lg flex gap-4 text-slate-800 border border-transparent hover:border-gray-200 transition-colors">
-                                                                    <div className="text-2xl select-none">💡</div>
-                                                                    <div className="flex-1 space-y-1">
-                                                                        {block.title && <div className="font-bold text-slate-900 text-lg mb-1">{block.title}</div>}
-                                                                        <div className="text-slate-700 leading-relaxed font-medium">
-                                                                            {renderNotionStyleContent(block.content)}
+                                                                <div className="my-8 group">
+                                                                    <div className="flex gap-4 items-baseline">
+                                                                        <div className="text-2xl select-none opacity-80 group-hover:opacity-100 transition-opacity">
+                                                                            {block.title && getEmojiForHeader(block.title) ? getEmojiForHeader(block.title) : '💡'}
+                                                                        </div>
+                                                                        <div className="flex-1">
+                                                                            {block.title && <div className="font-bold text-slate-900 text-xl mb-2">{block.title}</div>}
+                                                                            <div className="text-slate-800 text-lg leading-relaxed font-medium">
+                                                                                {renderNotionStyleContent(block.content)}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                             )}
 
                                                             {block.type === 'formula' && (
-                                                                <div className="my-6 py-8 px-8 bg-slate-50/50 rounded-lg border border-slate-100 flex flex-col items-center text-center">
-                                                                    {block.title && <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-1 px-3">{block.title}</div>}
-                                                                    <div className="text-2xl text-slate-800 font-medium leading-loose">
+                                                                <div className="my-10 py-6 px-4 bg-slate-50/50 rounded-none border-y-2 border-slate-100/50 text-center relative overflow-hidden">
+                                                                    {/* Background Decorative Element */}
+                                                                    <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-50/30 rounded-full -mr-10 -mt-10 blur-xl"></div>
+
+                                                                    {block.title && (
+                                                                        <div className="text-sm font-bold text-indigo-500 uppercase tracking-widest mb-4 inline-flex items-center gap-2 px-4 py-1.5 bg-white rounded-full border border-indigo-100 shadow-sm">
+                                                                            <span>{getEmojiForHeader(block.title) || '📐'}</span>
+                                                                            {block.title}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="text-xl md:text-2xl text-slate-900 font-medium leading-loose">
                                                                         {renderWithLatex(block.content)}
                                                                     </div>
                                                                 </div>
                                                             )}
 
                                                             {block.type === 'example' && (
-                                                                <div className="my-6 pl-5 border-l-[3px] border-slate-200 py-1">
-                                                                    {block.title && <div className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-2">{block.title}</div>}
-                                                                    <div className="text-slate-700 text-base leading-loose font-medium">
+                                                                <div className="my-8 pl-6 border-l-2 border-slate-200 py-1 hover:border-slate-400 transition-colors">
+                                                                    {block.title && <div className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">{block.title}</div>}
+                                                                    <div className="text-slate-700 text-lg leading-relaxed font-medium italic">
                                                                         {renderNotionStyleContent(block.content)}
                                                                     </div>
                                                                 </div>
                                                             )}
 
                                                             {block.type === 'note' && (
-                                                                <div className="my-6 p-5 bg-orange-50/50 rounded-lg flex gap-4 text-slate-800">
-                                                                    <div className="text-2xl select-none">⚠️</div>
+                                                                <div className="my-8 p-6 bg-orange-50/30 border-l-4 border-orange-200 rounded-r-xl flex gap-4 text-slate-800">
+                                                                    <div className="text-xl select-none text-orange-400">⚠️</div>
                                                                     <div className="flex-1 space-y-1">
-                                                                        <div className="font-bold text-orange-800 text-lg mb-1">Note</div>
-                                                                        <div className="text-slate-700 leading-relaxed font-medium">
+                                                                        <div className="font-bold text-orange-800 text-base tracking-wide uppercase mb-1">ข้อควรระวัง</div>
+                                                                        <div className="text-slate-800 text-lg leading-relaxed font-medium">
                                                                             {renderNotionStyleContent(block.content)}
                                                                         </div>
                                                                     </div>
@@ -1292,6 +1351,6 @@ export default function CoursePlayer() {
                     )}
                 </div>
             </main>
-        </div>
+        </div >
     );
 }

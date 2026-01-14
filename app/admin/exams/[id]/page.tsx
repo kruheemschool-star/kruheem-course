@@ -171,11 +171,89 @@ export default function ExamEditorPage() {
         }
     };
 
+    const handleAIClean = () => {
+        // 1. First, try to fix basic JSON syntax issues using Level 1 logic from handleFixJSON
+        let processed = jsonContent;
+
+        // Smart Quotes & invisible chars
+        processed = processed
+            .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+            .replace(/[\u2018\u2019]/g, "'")
+            .replace(/[\t]/g, "  ")
+            // eslint-disable-next-line no-control-regex
+            .replace(/[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "");
+
+        // Struct fixes
+        processed = processed.replace(/,(\s*[}\]])/g, '$1');
+        processed = processed.replace(/([{,]\s*)([a-zA-Z0-9_]+?)\s*:/g, '$1"$2":');
+
+        try {
+            const parsed = JSON.parse(processed);
+
+            // 2. Now deep clean LaTeX in content
+            const deepClean = (obj: any): any => {
+                if (typeof obj === 'string') {
+                    // Apply LaTeX Fixer
+                    let s = obj;
+
+                    // Fix Typos (Same dictionary as MathRenderer)
+                    const commonTypos: Record<string, string> = {
+                        '\\farc': '\\frac', '\\frca': '\\frac', '\\tims': '\\times',
+                        '\\itmes': '\\times', '\\alpah': '\\alpha', '\\thetaa': '\\theta',
+                        '\\lamda': '\\lambda', '\\sigmaa': '\\sigma', '\\right\\)': '\\right)'
+                    };
+                    Object.keys(commonTypos).forEach(typo => {
+                        // Escape special regex characters
+                        const escapedTypo = typo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regex = new RegExp(escapedTypo, 'g');
+                        s = s.replace(regex, commonTypos[typo]);
+                    });
+
+                    // Balance Braces {}
+                    const openBraces = (s.match(/\{/g) || []).length;
+                    const closeBraces = (s.match(/\}/g) || []).length;
+                    if (openBraces > closeBraces) s += '}'.repeat(openBraces - closeBraces);
+
+                    // Balance \left \right
+                    const leftCount = (s.match(/\\left/g) || []).length;
+                    const rightCount = (s.match(/\\right/g) || []).length;
+                    if (leftCount > rightCount) s += '\\right.'.repeat(leftCount - rightCount);
+
+                    return s;
+                } else if (Array.isArray(obj)) {
+                    return obj.map(deepClean);
+                } else if (obj && typeof obj === 'object') {
+                    const newObj: any = {};
+                    for (const key in obj) {
+                        newObj[key] = deepClean(obj[key]);
+                    }
+                    return newObj;
+                }
+                return obj;
+            };
+
+            const cleanedData = deepClean(parsed);
+            setJsonContent(JSON.stringify(cleanedData, null, 2));
+
+            // Update smart editor blocks too if active
+            if (Array.isArray(cleanedData)) {
+                setSmartBlocks(cleanedData.map((q: any) => JSON.stringify(q, null, 2)));
+            }
+
+            alert("✨ AI Clean เรียบร้อย! แก้ไขโครงสร้างและสมการให้ถูกต้องแล้ว");
+            setJsonError(null);
+
+        } catch (e: any) {
+            alert("❌ ไม่สามารถประมวลผลได้: JSON ต้นฉบับเสียหายเกินกว่าจะซ่อมได้อัตโนมัติ กรุณาใช้ปุ่ม 'ตรวจสอบ JSON' เพื่อดูจุดผิด");
+        }
+    };
+
     // ... (render)
 
-
-
     // Form States
+    // ...
+
+
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [coverImage, setCoverImage] = useState("");
@@ -641,6 +719,12 @@ export default function ExamEditorPage() {
                                             <FileJsonIcon /> questions.json
                                         </span>
                                         <div className="flex items-center gap-3">
+                                            <button
+                                                onClick={handleAIClean}
+                                                className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 hover:text-amber-200 transition-colors border border-amber-500/30 font-bold"
+                                            >
+                                                <span>✨</span> AI Clean
+                                            </button>
                                             <button
                                                 onClick={handleFixJSON}
                                                 className="text-xs flex items-center gap-1 px-3 py-1.5 rounded bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 hover:text-indigo-200 transition-colors border border-indigo-500/30"

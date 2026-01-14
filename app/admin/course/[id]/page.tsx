@@ -625,6 +625,89 @@ export default function ManageLessonsPage() {
 
     // ... (existing code)
 
+    // ✨ AI Clean: Auto-fix JSON & LaTeX for Course Lessons
+    const handleAIClean = () => {
+        try {
+            // Use lessonContent as the source
+            let contentToClean = lessonContent;
+
+            // If empty, try to derive from existing examQuestions if available
+            if (!contentToClean && examQuestions.length > 0) {
+                contentToClean = JSON.stringify(examQuestions);
+            }
+
+            if (!contentToClean) return showToast("ไม่มีเนื้อหาให้ตรวจสอบ", "error");
+
+            let parsed: any;
+            try {
+                parsed = JSON.parse(contentToClean);
+            } catch (e) {
+                // Try Basic JSON Fixes
+                try {
+                    const fixed = contentToClean
+                        .replace(/,\s*}/g, '}') // Remove trailing commas
+                        .replace(/,\s*]/g, ']')
+                        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":') // Quote keys
+                        .replace(/'/g, '"');
+                    parsed = JSON.parse(fixed);
+                } catch (err) {
+                    return showToast("⚠️ JSON เสียหาย (Syntax Error) กรุณาตรวจสอบวงเล็บหรือลูกน้ำ", "error");
+                }
+            }
+
+            // Deep Clean Logic (Reusable)
+            const deepClean = (obj: any): any => {
+                if (typeof obj === 'string') {
+                    let s = obj;
+                    // Fix Typos
+                    const commonTypos: Record<string, string> = {
+                        '\\farc': '\\frac', '\\frca': '\\frac', '\\tims': '\\times',
+                        '\\itmes': '\\times', '\\alpah': '\\alpha', '\\thetaa': '\\theta',
+                        '\\lamda': '\\lambda', '\\sigmaa': '\\sigma', '\\right\\)': '\\right)'
+                    };
+                    Object.keys(commonTypos).forEach(typo => {
+                        const escapedTypo = typo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regex = new RegExp(escapedTypo, 'g');
+                        s = s.replace(regex, commonTypos[typo]);
+                    });
+
+                    // Balance Braces {}
+                    const openBraces = (s.match(/\{/g) || []).length;
+                    const closeBraces = (s.match(/\}/g) || []).length;
+                    if (openBraces > closeBraces) s += '}'.repeat(openBraces - closeBraces);
+
+                    // Balance \left \right
+                    const leftCount = (s.match(/\\left/g) || []).length;
+                    const rightCount = (s.match(/\\right/g) || []).length;
+                    if (leftCount > rightCount) s += '\\right.'.repeat(leftCount - rightCount);
+
+                    return s;
+                } else if (Array.isArray(obj)) {
+                    return obj.map(deepClean);
+                } else if (obj && typeof obj === 'object') {
+                    const newObj: any = {};
+                    for (const key in obj) {
+                        newObj[key] = deepClean(obj[key]);
+                    }
+                    return newObj;
+                }
+                return obj;
+            };
+
+            const cleanedData = deepClean(parsed);
+
+            // Update both Raw String and Visual State
+            const prettyJson = JSON.stringify(cleanedData, null, 2);
+            setLessonContent(prettyJson);
+            setExamQuestions(cleanedData);
+
+            showToast("✨ AI Clean เรียบร้อย! (ซ่อม LaTeX + จัด Format)");
+
+        } catch (e: any) {
+            showToast("Error: " + e.message, "error");
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!lessonTitle) return showToast("กรุณาใส่ชื่อ/หัวข้อ", "error");
@@ -1050,9 +1133,19 @@ export default function ManageLessonsPage() {
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
                                             {/* Toolbar */}
                                             <div className="flex justify-between items-center mb-2">
-                                                <div className="flex bg-cyan-50 p-1 rounded-xl border border-cyan-100">
-                                                    <button type="button" onClick={() => setIsRawMode(false)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${!isRawMode ? 'bg-cyan-500 text-white shadow-sm' : 'text-cyan-600 hover:bg-cyan-100'}`}>🃏 Smart Cards</button>
-                                                    <button type="button" onClick={() => setIsRawMode(true)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${isRawMode ? 'bg-cyan-500 text-white shadow-sm' : 'text-cyan-600 hover:bg-cyan-100'}`}>📝 Raw Code (Advanced)</button>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex bg-cyan-50 p-1 rounded-xl border border-cyan-100">
+                                                        <button type="button" onClick={() => setIsRawMode(false)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${!isRawMode ? 'bg-cyan-500 text-white shadow-sm' : 'text-cyan-600 hover:bg-cyan-100'}`}>🃏 Smart Cards</button>
+                                                        <button type="button" onClick={() => setIsRawMode(true)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${isRawMode ? 'bg-cyan-500 text-white shadow-sm' : 'text-cyan-600 hover:bg-cyan-100'}`}>📝 Raw (Advanced)</button>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleAIClean}
+                                                        className="px-3 py-2 rounded-xl text-xs font-bold bg-amber-100 text-amber-600 hover:bg-amber-200 border border-amber-200 transition flex items-center gap-1 shadow-sm"
+                                                        title="ซ่อมแซม LaTeX และจัด Format JSON อัตโนมัติ"
+                                                    >
+                                                        <span>✨</span> AI Clean
+                                                    </button>
                                                 </div>
 
                                                 {!isRawMode && (
