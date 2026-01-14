@@ -8,6 +8,7 @@ import Link from "next/link";
 import "katex/dist/katex.min.css";
 import { InlineMath, BlockMath } from "react-katex";
 import { Plus, Trash2, FileJson, Blocks, AlertCircle, Image as ImageIcon, Copy, Edit2 } from 'lucide-react';
+import JSON5 from 'json5';
 
 // 🎨 Global CSS for consistent KaTeX styling
 const katexGlobalStyles = `
@@ -398,11 +399,11 @@ export default function ManageLessonsPage() {
 
     const handleAddSingleQuestion = () => {
         try {
-            let cleanJson = newQuestionJson.trim();
-            if (!cleanJson) return;
+            let rawJson = newQuestionJson.trim();
+            if (!rawJson) return;
 
-            // 🛡️ Auto-clean common artifacts (e.g. from AI citations, markdown blocks)
-            cleanJson = cleanJson
+            // ========== Phase 1: Pre-Clean Artifacts ==========
+            let cleanJson = rawJson
                 // Remove AI citation markers [cite_start], [cite_end], [cite:...]
                 .replace(/\[cite(_start|_end)?(:.*?)?\]/gi, '')
                 // Remove markdown code block markers
@@ -410,34 +411,125 @@ export default function ManageLessonsPage() {
                 .replace(/```typescript\s*/gi, '')
                 .replace(/```javascript\s*/gi, '')
                 .replace(/```\s*/g, '')
-                // Remove trailing commas before } or ]
-                .replace(/,\s*}/g, '}')
-                .replace(/,\s*]/g, ']')
-                // Fix unquoted keys (best effort)
-                .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3')
                 .trim();
 
-            // Try to parse
-            let parsed: any;
-            try {
-                parsed = JSON.parse(cleanJson);
-            } catch (parseError) {
-                // Try additional fixes: single quotes to double quotes
+            // ========== Phase 2: Smart Auto-Fix ==========
+            const autoFix = (json: string): string => {
+                let fixed = json;
+
+                // 2.1 Fix trailing commas before } or ]
+                fixed = fixed.replace(/,\s*}/g, '}');
+                fixed = fixed.replace(/,\s*]/g, ']');
+
+                // 2.2 Fix unquoted keys: {key: value} -> {"key": value}
+                fixed = fixed.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3');
+
+                // 2.3 Fix single quotes to double quotes (careful with apostrophes inside strings)
+                // Simple heuristic: replace 'value' patterns
+                fixed = fixed.replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, '"$1"');
+
+                // 2.4 Fix missing commas between objects/arrays: }{ -> },{  or ][ -> ],[
+                fixed = fixed.replace(/}\s*{/g, '},{');
+                fixed = fixed.replace(/]\s*\[/g, '],[');
+
+                // 2.5 Balance brackets (add missing ones at end)
+                const openBraces = (fixed.match(/{/g) || []).length;
+                const closeBraces = (fixed.match(/}/g) || []).length;
+                const openBrackets = (fixed.match(/\[/g) || []).length;
+                const closeBrackets = (fixed.match(/]/g) || []).length;
+
+                // Add missing closing braces/brackets
+                if (openBraces > closeBraces) {
+                    fixed += '}'.repeat(openBraces - closeBraces);
+                }
+                if (openBrackets > closeBrackets) {
+                    fixed += ']'.repeat(openBrackets - closeBrackets);
+                }
+
+                return fixed;
+            };
+
+            // ========== Phase 3: Multi-Strategy Parse ==========
+            let parsed: any = null;
+            let parseError: Error | null = null;
+            const strategies = [
+                { name: 'JSON5 (original)', fn: () => JSON5.parse(cleanJson) },
+                { name: 'JSON5 (auto-fixed)', fn: () => JSON5.parse(autoFix(cleanJson)) },
+                { name: 'Standard JSON (auto-fixed)', fn: () => JSON.parse(autoFix(cleanJson)) },
+            ];
+
+            for (const strategy of strategies) {
                 try {
-                    const fixedQuotes = cleanJson.replace(/'/g, '"');
-                    parsed = JSON.parse(fixedQuotes);
-                } catch (e2) {
-                    throw parseError; // Throw original error if still fails
+                    parsed = strategy.fn();
+                    break; // Success!
+                } catch (e) {
+                    parseError = e as Error;
                 }
             }
 
-            // Handle both Single Object and Array of Objects
+            // ========== Phase 4: Better Error Reporting ==========
+            if (!parsed) {
+                // Find the approximate error location
+                let errorLine = 1;
+                let errorColumn = 1;
+                let errorHint = '';
+
+                const errMsg = parseError?.message || '';
+
+                // Extract position from error message (JSON5 and JSON both report position)
+                const posMatch = errMsg.match(/position\s+(\d+)/i) || errMsg.match(/at\s+(\d+)/i);
+                if (posMatch) {
+                    const pos = parseInt(posMatch[1]);
+                    const lines = cleanJson.substring(0, pos).split('\n');
+                    errorLine = lines.length;
+                    errorColumn = lines[lines.length - 1].length + 1;
+                }
+
+                // Common error hints
+                if (errMsg.includes('Unexpected token')) {
+                    errorHint = 'อาจมีอักขระที่ไม่ถูกต้อง หรือขาด comma (,) ระหว่าง properties';
+                } else if (errMsg.includes('Expected')) {
+                    errorHint = 'อาจขาดวงเล็บ {} หรือ [] หรือเครื่องหมาย " รอบ string';
+                } else if (errMsg.includes('Unexpected end')) {
+                    errorHint = 'JSON ไม่สมบูรณ์ - ขาด } หรือ ] ปิดท้าย';
+                }
+
+                const detailedError = `
+❌ ไม่สามารถ parse JSON ได้
+
+📍 ตำแหน่งที่ผิดพลาด: บรรทัด ${errorLine}, ตัวอักษรที่ ${errorColumn}
+
+💡 คำแนะนำ: ${errorHint || 'ตรวจสอบ syntax ของ JSON'}
+
+🔧 ลองกดปุ่ม "AI Clean" เพื่อแก้ไขอัตโนมัติ
+
+📝 Error: ${errMsg.substring(0, 100)}
+                `.trim();
+
+                showToast(detailedError, "error");
+                return;
+            }
+
+            // ========== Phase 5: Process and Save ==========
             const newItems = Array.isArray(parsed) ? parsed : [parsed];
+
+            // Validate basic structure
+            const validItems = newItems.filter(item => {
+                if (!item.question && !item.options) {
+                    return false;
+                }
+                return true;
+            });
+
+            if (validItems.length === 0) {
+                showToast("❌ ไม่พบข้อสอบที่ถูกต้อง\nต้องมี field: question และ options", "error");
+                return;
+            }
 
             // Auto-assign ID if missing (max + 1)
             let maxId = examQuestions.reduce((max, q) => Math.max(max, q.id || 0), 0);
 
-            const processedItems = newItems.map(item => {
+            const processedItems = validItems.map(item => {
                 if (!item.id) {
                     maxId++;
                     return { ...item, id: maxId };
@@ -449,9 +541,15 @@ export default function ManageLessonsPage() {
             updateExamContent(updated);
             setNewQuestionJson("");
             setIsAddingQuestion(false);
-            showToast(`✅ เพิ่ม ${processedItems.length} ข้อเรียบร้อย!`);
+
+            const skipped = newItems.length - validItems.length;
+            let message = `✅ เพิ่ม ${processedItems.length} ข้อเรียบร้อย!`;
+            if (skipped > 0) {
+                message += ` (ข้าม ${skipped} ข้อที่ไม่ถูกต้อง)`;
+            }
+            showToast(message);
         } catch (e) {
-            showToast("❌ JSON ไม่ถูกต้อง: " + (e as Error).message, "error");
+            showToast("❌ เกิดข้อผิดพลาด: " + (e as Error).message, "error");
         }
     };
 
