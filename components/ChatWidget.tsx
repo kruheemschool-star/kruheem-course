@@ -8,9 +8,10 @@ import { signInAnonymously } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 import { usePathname } from "next/navigation";
+import AdminChatInbox from "./AdminChatInbox";
 
 export default function ChatWidget() {
-    const { user, loading } = useUserAuth();
+    const { user, loading, isAdmin } = useUserAuth();
     const pathname = usePathname();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<any[]>([]);
@@ -187,6 +188,9 @@ export default function ChatWidget() {
     };
 
     if (isHidden) return null;
+
+    // Admin users see the Admin Inbox instead
+    if (isAdmin) return <AdminChatInbox />;
 
     return (
         <>

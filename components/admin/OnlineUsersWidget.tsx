@@ -13,18 +13,38 @@ interface OnlineUser {
 interface OnlineUsersWidgetProps {
     onlineUsers: OnlineUser[];
     formatOnlineDuration: (date: Date | null) => string;
+    todayVisitors?: number;
 }
 
-export default function OnlineUsersWidget({ onlineUsers, formatOnlineDuration }: OnlineUsersWidgetProps) {
+export default function OnlineUsersWidget({ onlineUsers, formatOnlineDuration, todayVisitors = 0 }: OnlineUsersWidgetProps) {
+    const memberCount = onlineUsers.filter(u => u.isMember).length;
+    const guestCount = onlineUsers.filter(u => !u.isMember).length;
+
     return (
         <div id="online-users-section" className="mt-8 bg-white rounded-3xl p-8 shadow-sm border border-green-100 animate-in fade-in slide-in-from-bottom-4 scroll-mt-24">
-            <h3 className="font-bold text-xl text-stone-800 mb-6 flex items-center gap-2">
+            <h3 className="font-bold text-xl text-stone-800 mb-4 flex items-center gap-2">
                 <span className="relative flex h-3 w-3">
                     <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${onlineUsers.length > 0 ? 'bg-green-400' : 'bg-gray-400'} opacity-75`}></span>
                     <span className={`relative inline-flex rounded-full h-3 w-3 ${onlineUsers.length > 0 ? 'bg-green-500' : 'bg-gray-500'}`}></span>
                 </span>
-                นักเรียนที่กำลังออนไลน์ ({onlineUsers.length} คน)
+                ผู้ใช้งานออนไลน์
             </h3>
+
+            {/* Summary Stats */}
+            <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-indigo-50 rounded-2xl p-4 text-center border border-indigo-100">
+                    <p className="text-2xl font-black text-indigo-600">{memberCount}</p>
+                    <p className="text-xs text-indigo-500 font-medium">นักเรียน</p>
+                </div>
+                <div className="bg-amber-50 rounded-2xl p-4 text-center border border-amber-100">
+                    <p className="text-2xl font-black text-amber-600">{guestCount}</p>
+                    <p className="text-xs text-amber-500 font-medium">ผู้เยี่ยมชม</p>
+                </div>
+                <div className="bg-emerald-50 rounded-2xl p-4 text-center border border-emerald-100">
+                    <p className="text-2xl font-black text-emerald-600">{todayVisitors}</p>
+                    <p className="text-xs text-emerald-500 font-medium">เข้าชมวันนี้</p>
+                </div>
+            </div>
 
             {onlineUsers.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -63,7 +83,7 @@ export default function OnlineUsersWidget({ onlineUsers, formatOnlineDuration }:
             ) : (
                 <div className="text-center py-10 text-stone-400 italic bg-stone-50 rounded-2xl border border-stone-100">
                     <span className="text-4xl block mb-2">😴</span>
-                    ยังไม่มีนักเรียนออนไลน์ในขณะนี้
+                    ยังไม่มีผู้ใช้งานออนไลน์ในขณะนี้
                 </div>
             )}
         </div>

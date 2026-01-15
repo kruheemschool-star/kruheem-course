@@ -99,7 +99,11 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* 3. Online Users */}
-                <OnlineUsersWidget onlineUsers={onlineUsers} formatOnlineDuration={formatOnlineDuration} />
+                <OnlineUsersWidget
+                    onlineUsers={onlineUsers}
+                    formatOnlineDuration={formatOnlineDuration}
+                    todayVisitors={dailyVisits[new Date().toISOString().split('T')[0]] || 0}
+                />
 
                 {/* 4. Stats & Analytics */}
                 <div id="report-section" className="">

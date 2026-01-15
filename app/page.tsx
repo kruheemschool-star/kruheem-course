@@ -281,6 +281,65 @@ export default function HomePage() {
           </div>
         </header>
 
+        {/* Content Cards Section */}
+        <section className="py-12 px-6 relative z-10">
+          <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-6">
+
+            {/* Exam Card - Softer Glassmorphism */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 text-center shadow-lg border border-amber-100/50 dark:border-amber-800/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-500 group">
+              {/* Background Decoration */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-amber-200/30 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-amber-300/40 transition-colors duration-500"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-200/30 rounded-full blur-3xl -ml-12 -mb-12 pointer-events-none"></div>
+
+              <div className="relative z-10">
+                <div className="inline-block p-4 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-md mb-5 border border-amber-200/50 shadow-sm">
+                  <Trophy size={40} className="text-amber-500" />
+                </div>
+
+                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-4 tracking-tight leading-tight">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-500">คลังข้อสอบออนไลน์</span>
+                </h2>
+                <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+                  ฝึกฝนทักษะคณิตศาสตร์ผ่านโจทย์หลากหลายรูปแบบ<br className="hidden md:block" />
+                  พร้อมระบบตรวจคำตอบทันทีและเฉลยละเอียด
+                </p>
+
+                <Link href="/exam" className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-base shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300">
+                  <span>เริ่มทำข้อสอบ</span>
+                  <ArrowRight size={18} />
+                </Link>
+              </div>
+            </div>
+
+            {/* Summary Content Card */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-teal-50/80 to-cyan-50/80 dark:from-teal-900/20 dark:to-cyan-900/20 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 text-center shadow-lg border border-teal-100/50 dark:border-teal-800/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-500 group">
+              {/* Background Decoration */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-teal-200/30 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-teal-300/40 transition-colors duration-500"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-200/30 rounded-full blur-3xl -ml-12 -mb-12 pointer-events-none"></div>
+
+              <div className="relative z-10">
+                <div className="inline-block p-4 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-md mb-5 border border-teal-200/50 shadow-sm">
+                  <BookOpen size={40} className="text-teal-500" />
+                </div>
+
+                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-4 tracking-tight leading-tight">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-500">สรุปเนื้อหา</span>
+                </h2>
+                <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+                  อ่านสรุปเนื้อหาคณิตศาสตร์แบบกระชับ เข้าใจง่าย<br className="hidden md:block" />
+                  พร้อมสูตรสำคัญและตัวอย่างที่ช่วยให้จำได้แม่นยำ
+                </p>
+
+                <Link href="/summary" className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-base shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300">
+                  <span>อ่านสรุปเนื้อหา</span>
+                  <ArrowRight size={18} />
+                </Link>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
         {/* Story Section */}
         <section className="py-16 px-6 relative z-10">
           <div className="max-w-4xl mx-auto">
@@ -417,37 +476,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Exam Highlight Section */}
-        <section className="py-20 px-6 relative z-10">
-          <div className="max-w-6xl mx-auto">
-            <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 to-slate-800 rounded-[3rem] p-10 md:p-16 text-center text-white shadow-2xl">
-              {/* Background Decoration */}
-              <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-              <div className="absolute bottom-0 left-0 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
 
-              <div className="relative z-10 max-w-3xl mx-auto">
-                <div className="inline-block p-4 rounded-2xl bg-white/10 backdrop-blur-md mb-6 border border-white/20 shadow-lg transform -rotate-2 hover:rotate-0 transition-transform duration-300">
-                  <Trophy size={48} className="text-amber-400 drop-shadow-md" />
-                </div>
-
-                <h2 className="text-3xl md:text-5xl font-black mb-6 tracking-tight leading-tight">
-                  ประลองความรู้กับ <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">คลังข้อสอบออนไลน์</span>
-                </h2>
-                <p className="text-lg text-slate-300 mb-10 leading-relaxed">
-                  ฝึกฝนทักษะคณิตศาสตร์ผ่านโจทย์หลากหลายรูปแบบ พร้อมระบบตรวจคำตอบทันทีและเฉลยละเอียด <br className="hidden md:block" />
-                  ยิ่งทำยิ่งเก่ง ยิ่งยาวยิ่งแม่น! ทดลองทำฟรีได้เลยวันนี้
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/exam" className="px-10 py-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg shadow-lg shadow-amber-500/30 transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95 flex items-center justify-center gap-3">
-                    <span>เริ่มทำข้อสอบ</span>
-                    <ArrowRight size={20} />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
         {/* Courses Grid */}
         <main id="courses" className="max-w-[1400px] mx-auto px-6 pb-32 w-full">
