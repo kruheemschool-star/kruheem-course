@@ -1,181 +1,35 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, orderBy, doc, getDoc } from "firebase/firestore";
+import { useState } from "react";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
-import TrafficChart from "./components/TrafficChart";
+import { useAdminStats } from "@/hooks/useAdminStats";
 
+// Components
+import StatsOverview from "@/components/admin/StatsOverview";
+import MenuGrid from "@/components/admin/MenuGrid";
+import ActionCenter from "@/components/admin/ActionCenter";
+import OnlineUsersWidget from "@/components/admin/OnlineUsersWidget";
+import TrafficAnalytics from "@/components/admin/TrafficAnalytics";
+import RecentActivityWidget from "@/components/admin/RecentActivityWidget";
 
 export default function AdminDashboard() {
     const { user, logOut } = useUserAuth();
-    const [loading, setLoading] = useState(true);
-
-    // State ข้อมูล
-    const [enrollments, setEnrollments] = useState<any[]>([]);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-    const [pendingCount, setPendingCount] = useState(0);
-    const [ticketsCount, setTicketsCount] = useState(0);
-    const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
-    const [dailyVisits, setDailyVisits] = useState<Record<string, number>>({});
-    const [totalVisits, setTotalVisits] = useState(0);
-    const [trafficTimeRange, setTrafficTimeRange] = useState<'week' | 'month' | 'year'>('week');
 
-    // New Analytics States
-    const [deviceStats, setDeviceStats] = useState({ mobile: 0, tablet: 0, desktop: 0 });
-    const [sourceStats, setSourceStats] = useState<Record<string, number>>({});
-    const [pageViewStats, setPageViewStats] = useState<Record<string, number>>({});
-
-    // Helper function to format online duration
-    const formatOnlineDuration = (startTime: Date | null): string => {
-        if (!startTime) return 'เพิ่งเข้าชมเมื่อสักครู่';
-
-        const now = new Date();
-        const diffMs = now.getTime() - startTime.getTime();
-
-        // Handle negative values (clock skew)
-        if (diffMs < 0) return 'เพิ่งเข้าชมเมื่อสักครู่';
-
-        const totalMinutes = Math.floor(diffMs / 60000);
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-
-        if (hours === 0 && minutes === 0) {
-            return 'เพิ่งเข้าชมเมื่อสักครู่';
-        } else if (hours === 0) {
-            return `ออนไลน์มา ${minutes} นาที`;
-        } else if (minutes === 0) {
-            return `ออนไลน์มา ${hours} ชั่วโมง`;
-        } else {
-            return `ออนไลน์มา ${hours} ชม. ${minutes} น.`;
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
-        // Refresh online status every minute
-        const interval = setInterval(fetchData, 60000);
-        return () => clearInterval(interval);
-    }, []);
-
-    const fetchData = async () => {
-        try {
-            const qApproved = query(collection(db, "enrollments"), where("status", "==", "approved"));
-            const snapApproved = await getDocs(qApproved);
-            const approvedData: any[] = snapApproved.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setEnrollments(approvedData);
-
-            const qPending = query(collection(db, "enrollments"), where("status", "==", "pending"));
-            const snapPending = await getDocs(qPending);
-            setPendingCount(snapPending.size);
-
-            const qTickets = query(collection(db, "support_tickets"), where("status", "==", "pending"));
-            const snapTickets = await getDocs(qTickets);
-            setTicketsCount(snapTickets.size);
-
-            // Fetch Daily Visits + Device + Source Stats
-            const statsDoc = await getDoc(doc(db, "stats", "daily_visits"));
-            if (statsDoc.exists()) {
-                const data = statsDoc.data();
-                setDailyVisits(data as Record<string, number>);
-                setTotalVisits(data.total_visits || 0);
-
-                // Extract device stats
-                setDeviceStats({
-                    mobile: data.device_mobile || 0,
-                    tablet: data.device_tablet || 0,
-                    desktop: data.device_desktop || 0,
-                });
-
-                // Extract source stats
-                const sources: Record<string, number> = {};
-                ['google', 'facebook', 'line', 'instagram', 'youtube', 'tiktok', 'direct', 'other'].forEach(src => {
-                    if (data[`source_${src}`]) sources[src] = data[`source_${src}`];
-                });
-                setSourceStats(sources);
-            }
-
-            // Fetch Page View Stats
-            const pageDoc = await getDoc(doc(db, "stats", "page_views"));
-            if (pageDoc.exists()) {
-                const pageData = pageDoc.data();
-                const pages: Record<string, number> = {};
-                Object.keys(pageData).forEach(key => {
-                    // Only get lifetime page counts (not daily or hourly)
-                    if (!key.includes('_') && key !== 'total_page_views' && key !== 'last_updated' && typeof pageData[key] === 'number') {
-                        pages[key] = pageData[key];
-                    } else if (key.startsWith('/')) {
-                        pages[key] = pageData[key];
-                    }
-                });
-                setPageViewStats(pages);
-            }
-
-            // ✅ Fetch Online Users (Active in last 10 mins)
-            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-
-            // 1. Active in Course (Enrollments)
-            const qOnlineEnrollments = query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo));
-            const snapOnlineEnrollments = await getDocs(qOnlineEnrollments);
-
-            // 2. Active on Site (Users)
-            const qOnlineUsers = query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo));
-            const snapOnlineUsers = await getDocs(qOnlineUsers);
-
-            const onlineMap = new Map();
-
-            // Process Site Visitors first
-            snapOnlineUsers.docs.forEach(doc => {
-                const data = doc.data();
-                if (data.email) {
-                    onlineMap.set(data.email, {
-                        ...data,
-                        userName: data.displayName || data.email,
-                        userEmail: data.email,
-                        lastAccessedAt: data.lastActive,
-                        isMember: false, // Default to false, check later
-                        currentActivity: 'กำลังเยี่ยมชมเว็บไซต์',
-                        sessionStart: data.sessionStart,
-                    });
-                }
-            });
-
-            // Process Active Students (Overwrite Visitors if studying)
-            snapOnlineEnrollments.docs.forEach(doc => {
-                const data = doc.data();
-                if (data.userEmail) {
-                    const existing = onlineMap.get(data.userEmail) || {};
-                    onlineMap.set(data.userEmail, {
-                        ...existing,
-                        ...data,
-                        userName: data.userName || existing.userName || data.userEmail, // Prefer enrollment name
-                        userEmail: data.userEmail,
-                        currentActivity: `กำลังเรียน: ${data.courseTitle || 'ไม่ระบุวิชา'}`,
-                        isStudying: true
-                    });
-                }
-            });
-
-            const uniqueOnline = Array.from(onlineMap.values());
-
-            // Determine Member vs Guest (Check against approvedData)
-            const finalOnlineUsers = uniqueOnline.map((user: any) => {
-                const isMember = approvedData.some(e => e.userEmail === user.userEmail);
-                return {
-                    ...user,
-                    isMember: isMember,
-                    userType: isMember ? 'สมาชิก' : 'แขกทั่วไป'
-                };
-            });
-
-            setOnlineUsers(finalOnlineUsers);
-
-        } catch (error) {
-            console.error("Error fetching data:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Custom Hook to fetch all data
+    const {
+        loading,
+        enrollments,
+        pendingCount,
+        ticketsCount,
+        onlineUsers,
+        dailyVisits,
+        totalVisits,
+        deviceStats,
+        sourceStats,
+        pageViewStats,
+        stats
+    } = useAdminStats(selectedYear);
 
     const handleLogout = async () => {
         if (confirm("ต้องการออกจากระบบใช่ไหม?")) {
@@ -183,130 +37,22 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleExport = async () => {
-        if (!confirm("ต้องการดาวน์โหลดข้อมูลการลงทะเบียนทั้งหมดเป็นไฟล์ Excel ใช่ไหม?")) return;
+    const formatOnlineDuration = (startTime: Date | null): string => {
+        if (!startTime) return 'เพิ่งเข้าชมเมื่อสักครู่';
+        const now = new Date();
+        const diffMs = now.getTime() - startTime.getTime();
+        if (diffMs < 0) return 'เพิ่งเข้าชมเมื่อสักครู่';
+        const totalMinutes = Math.floor(diffMs / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
 
-        try {
-            const q = query(collection(db, "enrollments"), orderBy("createdAt", "desc"));
-            const snap = await getDocs(q);
-
-            // CSV Header
-            let csvContent = "Date,Student Name,Email,Phone,Course,Price,Status,Slip URL\n";
-
-            snap.forEach(doc => {
-                const data = doc.data();
-                const date = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('th-TH') : "";
-                const name = `"${data.userName || data.userEmail || 'Unknown'}"`; // Escape commas
-                const email = data.userEmail || "-";
-                const phone = data.tel || "-";
-                const course = `"${data.courseTitle || 'Unknown'}"`;
-                const price = data.price || 0;
-                const status = data.status || "pending";
-                const slip = data.slipUrl || "-";
-
-                csvContent += `${date},${name},${email},${phone},${course},${price},${status},${slip}\n`;
-            });
-
-            // BOM for Excel to read UTF-8 correctly
-            const bom = "\uFEFF";
-            const blob = new Blob([bom + csvContent], { type: "text/csv;charset=utf-8;" });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `enrollments_export_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (error) {
-            console.error("Export Error:", error);
-            alert("เกิดข้อผิดพลาดในการส่งออกข้อมูล");
-        }
+        if (hours === 0 && minutes === 0) return 'เพิ่งเข้าชมเมื่อสักครู่';
+        if (hours === 0) return `ออนไลน์มา ${minutes} นาที`;
+        if (minutes === 0) return `ออนไลน์มา ${hours} ชั่วโมง`;
+        return `ออนไลน์มา ${hours} ชม. ${minutes} น.`;
     };
 
-    // 📊 Logic คำนวณสถิติ
-    const stats = useMemo(() => {
-        const filteredByYear = enrollments.filter(item => {
-            if (!item.approvedAt && !item.createdAt) return false;
-            const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
-            return date.getFullYear() === selectedYear;
-        });
-
-        const totalRevenue = filteredByYear.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-        const totalStudents = filteredByYear.length;
-
-        const monthlyData = Array(12).fill(0).map((_, i) => ({
-            month: new Date(0, i).toLocaleString('th-TH', { month: 'short' }),
-            revenue: 0,
-            students: 0
-        }));
-
-        filteredByYear.forEach(item => {
-            const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
-            const monthIndex = date.getMonth();
-            monthlyData[monthIndex].revenue += (Number(item.price) || 0);
-            monthlyData[monthIndex].students += 1;
-        });
-
-        const courseMap: Record<string, { title: string, revenue: number, students: number }> = {};
-
-        filteredByYear.forEach(item => {
-            const title = item.courseTitle || "ไม่ระบุชื่อคอร์ส";
-            if (!courseMap[title]) {
-                courseMap[title] = { title, revenue: 0, students: 0 };
-            }
-            courseMap[title].revenue += (Number(item.price) || 0);
-            courseMap[title].students += 1;
-        });
-
-        const courseData = Object.values(courseMap).sort((a, b) => b.revenue - a.revenue);
-        const maxMonthlyRevenue = Math.max(...monthlyData.map(m => m.revenue), 1);
-
-        return { totalRevenue, totalStudents, monthlyData, courseData, maxMonthlyRevenue };
-    }, [enrollments, selectedYear]);
-
-    const chartData = useMemo(() => {
-        let dataPoints: { label: string, value: number, fullLabel: string }[] = [];
-
-        if (trafficTimeRange === 'week' || trafficTimeRange === 'month') {
-            const daysCount = trafficTimeRange === 'week' ? 7 : 30;
-            for (let i = daysCount - 1; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                // Use Asia/Bangkok time to match VisitorTracker
-                const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
-                dataPoints.push({
-                    label: d.toLocaleDateString('th-TH', { day: 'numeric', month: trafficTimeRange === 'week' ? 'short' : undefined }),
-                    value: dailyVisits[dateStr] || 0,
-                    fullLabel: d.toLocaleDateString('th-TH', { dateStyle: 'long' })
-                });
-            }
-        } else {
-            // Year View (Monthly Aggregation)
-            const currentYear = new Date().getFullYear();
-            const monthlyVisits: Record<string, number> = {};
-
-            // Aggregate visits by month
-            Object.keys(dailyVisits).forEach(date => {
-                const [y, m] = date.split('-');
-                if (parseInt(y) === currentYear) {
-                    const key = `${parseInt(m)}`;
-                    monthlyVisits[key] = (monthlyVisits[key] || 0) + dailyVisits[date];
-                }
-            });
-
-            for (let i = 0; i < 12; i++) {
-                const date = new Date(currentYear, i, 1);
-                const monthKey = `${i + 1}`;
-                dataPoints.push({
-                    label: date.toLocaleDateString('th-TH', { month: 'short' }),
-                    value: monthlyVisits[monthKey] || 0,
-                    fullLabel: date.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' })
-                });
-            }
-        }
-        return dataPoints;
-    }, [trafficTimeRange, dailyVisits]);
-
+    const enrollmentHours = enrollments.map(e => (e.createdAt?.toDate ? e.createdAt.toDate().getHours() : new Date().getHours()));
 
     if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
 
@@ -336,233 +82,27 @@ export default function AdminDashboard() {
 
             <main className="max-w-7xl mx-auto p-6 md:p-10 space-y-12">
 
-                {/* 2. Main Menu Cards (8 Cards Layout) */}
-                <div>
-                    <div className="mb-6">
-                        <h2 className="text-3xl font-bold text-stone-800 mb-1">ภาพรวมวันนี้</h2>
-                        <p className="text-stone-500 font-light">ระบบจัดการโรงเรียนออนไลน์ครบวงจร</p>
+                {/* Top Section: Action Center & Recent Activity */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 space-y-8">
+                        {/* 1. Action Center (Pending Tasks) */}
+                        <ActionCenter pendingCount={pendingCount} ticketsCount={ticketsCount} />
+
+                        {/* 2. Menu Grid */}
+                        <MenuGrid pendingCount={pendingCount} ticketsCount={ticketsCount} />
                     </div>
 
-                    {/* Grid 4 Columns สำหรับจอใหญ่ */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-
-                        {/* 1. ตรวจสอบชำระเงิน (Peach Gradient) */}
-                        <Link href="/admin/enrollments" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-orange-100 to-rose-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">💰</span>
-                                {pendingCount > 0 && (
-                                    <span className="bg-white/80 text-rose-500 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-bounce">
-                                        {pendingCount} รอตรวจ
-                                    </span>
-                                )}
-                            </div>
-                            <h3 className="font-bold text-xl text-rose-900/80 group-hover:text-rose-900 relative z-10">ตรวจสอบชำระเงิน</h3>
-                            <p className="text-sm text-rose-800/60 mt-1 relative z-10">อนุมัติสลิปโอนเงิน</p>
-                        </Link>
-
-                        {/* Exam Management Link (New) */}
-                        <Link href="/admin/exams" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-purple-100 to-fuchsia-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">📝</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-purple-900/80 group-hover:text-purple-900 relative z-10">คลังข้อสอบ</h3>
-                            <p className="text-sm text-purple-800/60 mt-1 relative z-10">เพิ่ม/ลบ ชุดข้อสอบ</p>
-                        </Link>
-
-                        {/* 2. ทะเบียนนักเรียน (Sky Gradient) */}
-                        <Link href="/admin/students" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-sky-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">👨‍🎓</span>
-                                <span className="bg-white/60 text-blue-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm">{enrollments.length} คน</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">ทะเบียนนักเรียน</h3>
-                            <p className="text-sm text-blue-800/60 mt-1 relative z-10">ดูรายชื่อและประวัติ</p>
-                        </Link>
-
-                        {/* 3. จัดการคอร์ส (Mint Gradient) */}
-                        <Link href="/admin/courses" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-emerald-100 to-teal-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">📚</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-teal-900/80 group-hover:text-teal-900 relative z-10">จัดการคอร์สเรียน</h3>
-                            <p className="text-sm text-teal-800/60 mt-1 relative z-10">เพิ่ม/ลบ บทเรียน</p>
-                        </Link>
-
-                        {/* 4. สรุปเนื้อหา / Knowledge Hub (Teal-Cyan Gradient) - NEW */}
-                        <Link href="/admin/summaries" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-teal-100 to-cyan-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">✨</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-cyan-900/80 group-hover:text-cyan-900 relative z-10">สรุปเนื้อหา</h3>
-                            <p className="text-sm text-cyan-800/60 mt-1 relative z-10">เขียน/แก้ไข บทสรุป</p>
-                        </Link>
-
-
-                        {/* 5. ประกาศข่าวสาร (Amber Gradient) */}
-                        <Link href="/admin/notifications" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-amber-100 to-orange-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">📢</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-orange-900/80 group-hover:text-orange-900 relative z-10">ประกาศข่าวสาร</h3>
-                            <p className="text-sm text-orange-800/60 mt-1 relative z-10">แจ้งเตือนนักเรียนทุกคน</p>
-                        </Link>
-
-                        {/* 6. จัดการโฆษณา (Pink Gradient) */}
-                        <Link href="/admin/banners" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-pink-100 to-rose-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">🖼️</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-pink-900/80 group-hover:text-pink-900 relative z-10">จัดการโฆษณา</h3>
-                            <p className="text-sm text-pink-800/60 mt-1 relative z-10">เปลี่ยนรูปภาพหน้าเว็บ</p>
-                        </Link>
-
-
-
-                        {/* 7. ระบบแชท (Indigo Gradient) - NEW */}
-                        <Link href="/admin/chat" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-indigo-100 to-violet-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">💬</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-indigo-900/80 group-hover:text-indigo-900 relative z-10">แชทกับลูกค้า</h3>
-                            <p className="text-sm text-indigo-800/60 mt-1 relative z-10">ตอบแชทสด Real-time</p>
-                        </Link>
-
-                        {/* 8. ถาม-ตอบ / แจ้งปัญหา (Cyan Gradient) */}
-                        {/* 8. ถาม-ตอบ / แจ้งปัญหา (Cyan Gradient) */}
-                        <Link href="/admin/support" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">🎫</span>
-                                {ticketsCount > 0 && (
-                                    <span className="bg-white/80 text-blue-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-bounce">
-                                        {ticketsCount} ใหม่
-                                    </span>
-                                )}
-                            </div>
-                            <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">แจ้งปัญหา (Ticket)</h3>
-                            <p className="text-sm text-blue-800/60 mt-1 relative z-10">ระบบตั๋วแจ้งซ่อม/ปัญหา</p>
-                        </Link>
-
-                        {/* 9. จัดการรีวิว (Fuchsia Gradient) */}
-                        <Link href="/admin/reviews" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-fuchsia-100 to-purple-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">⭐</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-purple-900/80 group-hover:text-purple-900 relative z-10">จัดการรีวิว</h3>
-                            <p className="text-sm text-purple-800/60 mt-1 relative z-10">ซ่อน/ลบ รีวิวที่ไม่เหมาะสม</p>
-                        </Link>
-
-
-
-
-
-
-                        {/* 8. Polls (Indigo Gradient) */}
-                        <Link href="/admin/poll" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-indigo-100 to-violet-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">📝</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-indigo-900/80 group-hover:text-indigo-900 relative z-10">แบบสอบถาม</h3>
-                            <p className="text-sm text-indigo-800/60 mt-1 relative z-10">สร้าง Poll ถามความเห็น</p>
-                        </Link>
-                        <div onClick={handleExport} className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-emerald-100 to-green-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">📥</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-green-900/80 group-hover:text-green-900 relative z-10">Export Excel</h3>
-                            <p className="text-sm text-green-800/60 mt-1 relative z-10">ดาวน์โหลดรายงาน</p>
-                        </div>
-
-                        {/* Activity Log (Cyan Gradient) - NEW */}
-                        <Link href="/admin/activity" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-teal-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">📊</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-teal-900/80 group-hover:text-teal-900 relative z-10">Activity Log</h3>
-                            <p className="text-sm text-teal-800/60 mt-1 relative z-10">ติดตามกิจกรรมนักเรียน</p>
-                        </Link>
-
-                        {/* 9. สำรองข้อมูล (Gray/Slate Gradient) */}
-                        <Link href="/admin/backup" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-slate-100 to-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="flex justify-between items-start mb-4 relative z-10">
-                                <span className="text-4xl drop-shadow-sm">💾</span>
-                            </div>
-                            <h3 className="font-bold text-xl text-slate-900/80 group-hover:text-slate-900 relative z-10">สำรองข้อมูล</h3>
-                            <p className="text-sm text-slate-800/60 mt-1 relative z-10">ดาวน์โหลดข้อมูลเก็บไว้</p>
-                        </Link>
-
-
-
-                    </div>
-
-                    {/* 🔴 Online Users List Section */}
-                    <div id="online-users-section" className="mt-8 bg-white rounded-3xl p-8 shadow-sm border border-green-100 animate-in fade-in slide-in-from-bottom-4 scroll-mt-24">
-                        <h3 className="font-bold text-xl text-stone-800 mb-6 flex items-center gap-2">
-                            <span className="relative flex h-3 w-3">
-                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${onlineUsers.length > 0 ? 'bg-green-400' : 'bg-gray-400'} opacity-75`}></span>
-                                <span className={`relative inline-flex rounded-full h-3 w-3 ${onlineUsers.length > 0 ? 'bg-green-500' : 'bg-gray-500'}`}></span>
-                            </span>
-                            นักเรียนที่กำลังออนไลน์ ({onlineUsers.length} คน)
-                        </h3>
-
-                        {onlineUsers.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {onlineUsers.map((user, idx) => (
-                                    <div key={idx} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${user.isMember ? 'bg-indigo-50/50 border-indigo-100' : 'bg-stone-50 border-stone-100'}`}>
-                                        <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shadow-sm ${user.isMember ? 'bg-indigo-100 text-indigo-600' : 'bg-stone-200 text-stone-500'}`}>
-                                            {user.userName ? user.userName.charAt(0).toUpperCase() : 'U'}
-                                            <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${user.isStudying ? 'bg-green-500' : 'bg-amber-400'}`}></span>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <p className="font-bold text-stone-700 truncate text-sm">{user.userName || user.userEmail || "Unknown User"}</p>
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${user.isMember ? 'bg-indigo-100 text-indigo-600' : 'bg-stone-200 text-stone-500'}`}>
-                                                    {user.userType}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs text-stone-500 truncate">{user.currentActivity}</p>
-                                            <div className="flex items-center gap-1.5 mt-1.5">
-                                                <span className="text-green-500">⏱️</span>
-                                                <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${(() => {
-                                                    const startTime = user.sessionStart?.toDate?.() || null;
-                                                    if (!startTime) return 'bg-stone-100 text-stone-400';
-                                                    const mins = Math.floor((new Date().getTime() - startTime.getTime()) / 60000);
-                                                    if (mins >= 60) return 'bg-green-100 text-green-700';
-                                                    if (mins >= 30) return 'bg-emerald-100 text-emerald-600';
-                                                    return 'bg-lime-100 text-lime-600';
-                                                })()
-                                                    }`}>
-                                                    {formatOnlineDuration(user.sessionStart?.toDate?.() || null)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 text-stone-400 italic bg-stone-50 rounded-2xl border border-stone-100">
-                                <span className="text-4xl block mb-2">😴</span>
-                                ยังไม่มีนักเรียนออนไลน์ในขณะนี้
-                            </div>
-                        )}
+                    <div className="lg:col-span-1 space-y-8">
+                        {/* Recent Activity Feed */}
+                        <RecentActivityWidget />
                     </div>
                 </div>
 
-                {/* 3. Analytics Section */}
-                <div id="report-section" className="pt-8">
+                {/* 3. Online Users */}
+                <OnlineUsersWidget onlineUsers={onlineUsers} formatOnlineDuration={formatOnlineDuration} />
+
+                {/* 4. Stats & Analytics */}
+                <div id="report-section" className="">
                     <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
                         <div>
                             <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-3">
@@ -570,7 +110,6 @@ export default function AdminDashboard() {
                                 <span className="text-xs bg-white/80 text-stone-500 px-3 py-1 rounded-full shadow-sm">Approved Data</span>
                             </h2>
                         </div>
-
                         <div className="flex items-center gap-3 bg-white/70 p-2 pr-4 rounded-2xl shadow-sm backdrop-blur-sm">
                             <div className="bg-amber-100 p-2 rounded-xl">📅</div>
                             <select
@@ -585,26 +124,11 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
-                    {/* Stats Summary Boxes */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="rounded-3xl p-8 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-xl shadow-fuchsia-200/50 transform hover:scale-105 transition duration-500">
-                            <p className="text-fuchsia-100 font-medium mb-2 text-sm uppercase tracking-wider">💰 รายได้รวม (ปี {selectedYear + 543})</p>
-                            <h3 className="text-5xl font-black tracking-tight">฿{stats.totalRevenue.toLocaleString()}</h3>
-                        </div>
-                        <div className="rounded-3xl p-8 bg-white shadow-sm hover:shadow-md transition border-none relative overflow-hidden group">
-                            <div className="absolute right-0 top-0 w-32 h-32 bg-sky-50 rounded-bl-full -mr-8 -mt-8 transition group-hover:scale-110"></div>
-                            <p className="text-stone-400 font-bold text-sm mb-2 uppercase tracking-wide relative z-10">👨‍🎓 นักเรียนใหม่</p>
-                            <h3 className="text-4xl font-bold text-stone-800 relative z-10">{stats.totalStudents.toLocaleString()} <span className="text-xl text-stone-400 font-normal">คน</span></h3>
-                        </div>
-                        <div className="rounded-3xl p-8 bg-white shadow-sm hover:shadow-md transition border-none relative overflow-hidden group">
-                            <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-8 -mt-8 transition group-hover:scale-110"></div>
-                            <p className="text-stone-400 font-bold text-sm mb-2 uppercase tracking-wide relative z-10">📚 คอร์สที่ขายออก</p>
-                            <h3 className="text-4xl font-bold text-stone-800 relative z-10">{stats.courseData.length} <span className="text-xl text-stone-400 font-normal">วิชา</span></h3>
-                        </div>
-                    </div>
+                    {/* Stats Cards */}
+                    <StatsOverview stats={stats} selectedYear={selectedYear} />
 
+                    {/* Visual Charts */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
                         {/* Pictogram Chart Section */}
                         <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm h-full">
                             <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
@@ -615,8 +139,6 @@ export default function AdminDashboard() {
                                 {stats.monthlyData.map((m, index) => (
                                     <div key={index} className="group flex items-start gap-4 border-b border-stone-50 pb-4 last:border-none last:pb-0">
                                         <div className="font-bold text-stone-400 w-10 text-sm pt-1">{m.month}</div>
-
-                                        {/* Pictogram Area */}
                                         <div className="flex-1 flex flex-wrap gap-1 items-center min-h-[28px]">
                                             {m.students > 0 ? (
                                                 Array.from({ length: m.students }).map((_, i) => (
@@ -633,7 +155,6 @@ export default function AdminDashboard() {
                                                 <span className="text-stone-200 text-xs font-light italic self-center">ไม่มีนักเรียน</span>
                                             )}
                                         </div>
-
                                         <div className="flex flex-col items-end min-w-[80px]">
                                             <span className={`font-bold text-sm transition ${m.revenue > 0 ? 'text-indigo-600' : 'text-stone-300'}`}>
                                                 {m.revenue > 0 ? `฿${m.revenue.toLocaleString()}` : '-'}
@@ -669,219 +190,21 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
                                 ))}
-
-                                {stats.courseData.length === 0 && (
-                                    <div className="text-center py-10 text-stone-300 italic">
-                                        ยังไม่มีข้อมูลคอร์ส
-                                    </div>
-                                )}
+                                {stats.courseData.length === 0 && <div className="text-center py-10 text-stone-300 italic">ยังไม่มีข้อมูลคอร์ส</div>}
                             </div>
                         </div>
-
-                        {/* Traffic Analytics Section */}
-                        <div className="lg:col-span-3 bg-white rounded-3xl p-8 shadow-sm mt-8">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                                <h3 className="font-bold text-xl text-stone-800 flex items-center gap-2">
-                                    <span className="text-sky-500">📊</span> สถิติผู้เข้าชมเว็บไซต์ (Website Traffic)
-                                </h3>
-                                <div className="flex bg-stone-100 p-1 rounded-xl">
-                                    <button
-                                        onClick={() => setTrafficTimeRange('week')}
-                                        className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${trafficTimeRange === 'week' ? 'bg-white text-sky-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                                    >
-                                        รายสัปดาห์
-                                    </button>
-                                    <button
-                                        onClick={() => setTrafficTimeRange('month')}
-                                        className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${trafficTimeRange === 'month' ? 'bg-white text-sky-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                                    >
-                                        รายเดือน
-                                    </button>
-                                    <button
-                                        onClick={() => setTrafficTimeRange('year')}
-                                        className={`px-4 py-1.5 rounded-lg text-sm font-bold transition ${trafficTimeRange === 'year' ? 'bg-white text-sky-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                                    >
-                                        รายปี
-                                    </button>
-                                </div>
-
-
-                                <div className="mt-6 flex items-center justify-between gap-6 p-8 bg-gradient-to-r from-sky-50 to-blue-50 rounded-[2.5rem] border border-sky-100 shadow-sm relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/40 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <span className="flex items-center justify-center w-12 h-12 bg-white rounded-2xl shadow-sm text-2xl">👁️</span>
-                                            <p className="text-lg font-bold text-sky-900">เข้าชมทั้งหมด <span className="opacity-60 font-normal text-sm ml-1">(Total Visits)</span></p>
-                                        </div>
-                                        <p className="text-stone-500 text-sm pl-1">สถิติคนเข้าเว็บไซต์สะสม</p>
-                                    </div>
-                                    <h3 className="relative z-10 text-6xl font-black text-sky-600 tracking-tighter drop-shadow-sm">
-                                        {totalVisits.toLocaleString()}
-                                    </h3>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {/* Dynamic Chart */}
-                                <div>
-                                    <h4 className="font-bold text-stone-600 mb-4">
-                                        {trafficTimeRange === 'week' && "ยอดคนเข้าชม 7 วันล่าสุด"}
-                                        {trafficTimeRange === 'month' && "ยอดคนเข้าชม 30 วันล่าสุด"}
-                                        {trafficTimeRange === 'year' && "ยอดคนเข้าชมรายเดือน (ปีนี้)"}
-                                    </h4>
-                                    <div className="h-64 w-full">
-                                        <TrafficChart data={chartData} />
-                                    </div>
-                                </div>
-
-                                {/* Insights & Demographics - NOW WITH REAL DATA */}
-                                <div className="space-y-6">
-                                    <div className="bg-amber-50 rounded-2xl p-6 border border-amber-100">
-                                        <h4 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
-                                            <span className="text-xl">⏰</span> ช่วงเวลาที่คนซื้อคอร์สเยอะที่สุด
-                                        </h4>
-                                        <p className="text-3xl font-black text-amber-600">
-                                            {(() => {
-                                                const hours = Array(24).fill(0);
-                                                enrollments.forEach(e => {
-                                                    const d = e.createdAt?.toDate ? e.createdAt.toDate() : new Date();
-                                                    hours[d.getHours()]++;
-                                                });
-                                                const maxHour = hours.indexOf(Math.max(...hours));
-                                                return `${maxHour}:00 - ${maxHour + 1}:00 น.`;
-                                            })()}
-                                        </p>
-                                        <p className="text-sm text-amber-700/60 mt-1">
-                                            แนะนำให้ยิงโฆษณาหรือโพสต์ขายในช่วงเวลานี้
-                                        </p>
-                                    </div>
-
-                                    {/* 📱 DEVICE STATS - REAL DATA */}
-                                    <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
-                                        <h4 className="font-bold text-indigo-800 mb-4 flex items-center gap-2">
-                                            <span className="text-xl">📱</span> อุปกรณ์ที่ใช้เข้าชม
-                                        </h4>
-                                        {(() => {
-                                            const total = deviceStats.mobile + deviceStats.tablet + deviceStats.desktop || 1;
-                                            return (
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-sm text-indigo-700">📱 Mobile</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-32 h-2 bg-indigo-200 rounded-full overflow-hidden">
-                                                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(deviceStats.mobile / total) * 100}%` }}></div>
-                                                            </div>
-                                                            <span className="text-sm font-bold text-indigo-600 w-12 text-right">{Math.round((deviceStats.mobile / total) * 100)}%</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-sm text-indigo-700">🖥️ Desktop</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-32 h-2 bg-indigo-200 rounded-full overflow-hidden">
-                                                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(deviceStats.desktop / total) * 100}%` }}></div>
-                                                            </div>
-                                                            <span className="text-sm font-bold text-indigo-600 w-12 text-right">{Math.round((deviceStats.desktop / total) * 100)}%</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-sm text-indigo-700">📟 Tablet</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-32 h-2 bg-indigo-200 rounded-full overflow-hidden">
-                                                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(deviceStats.tablet / total) * 100}%` }}></div>
-                                                            </div>
-                                                            <span className="text-sm font-bold text-indigo-600 w-12 text-right">{Math.round((deviceStats.tablet / total) * 100)}%</span>
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-xs text-indigo-500 mt-2">รวม {total.toLocaleString()} ครั้ง</p>
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 🔗 TRAFFIC SOURCES + TOP PAGES - REAL DATA */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                                {/* Traffic Sources */}
-                                <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100">
-                                    <h4 className="font-bold text-emerald-800 mb-4 flex items-center gap-2">
-                                        <span className="text-xl">🔗</span> ช่องทางที่มาเยือน (Traffic Sources)
-                                    </h4>
-                                    {Object.keys(sourceStats).length > 0 ? (
-                                        <div className="space-y-2">
-                                            {Object.entries(sourceStats)
-                                                .sort((a, b) => b[1] - a[1])
-                                                .slice(0, 6)
-                                                .map(([source, count]) => {
-                                                    const icons: Record<string, string> = {
-                                                        google: '🔍',
-                                                        facebook: '📘',
-                                                        line: '💚',
-                                                        instagram: '📸',
-                                                        youtube: '📺',
-                                                        tiktok: '🎵',
-                                                        direct: '🔗',
-                                                        other: '🌐',
-                                                        internal: '🏠',
-                                                    };
-                                                    const total = Object.values(sourceStats).reduce((a, b) => a + b, 0) || 1;
-                                                    return (
-                                                        <div key={source} className="flex items-center justify-between">
-                                                            <span className="text-sm text-emerald-700 capitalize">{icons[source] || '🌐'} {source}</span>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-bold text-emerald-600">{count.toLocaleString()}</span>
-                                                                <span className="text-xs text-emerald-500">({Math.round((count / total) * 100)}%)</span>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-emerald-500 italic">ยังไม่มีข้อมูล (จะเริ่มเก็บหลังจากนี้)</p>
-                                    )}
-                                </div>
-
-                                {/* Top Pages */}
-                                <div className="bg-sky-50 rounded-2xl p-6 border border-sky-100">
-                                    <h4 className="font-bold text-sky-800 mb-4 flex items-center gap-2">
-                                        <span className="text-xl">📄</span> หน้าที่มีคนเข้าชมมากที่สุด
-                                    </h4>
-                                    {Object.keys(pageViewStats).length > 0 ? (
-                                        <div className="space-y-2">
-                                            {Object.entries(pageViewStats)
-                                                .filter(([path]) => path.startsWith('/'))
-                                                .sort((a, b) => b[1] - a[1])
-                                                .slice(0, 6)
-                                                .map(([path, count], idx) => {
-                                                    const pageNames: Record<string, string> = {
-                                                        '/': '🏠 หน้าแรก',
-                                                        '/exam': '📝 คลังข้อสอบ',
-                                                        '/exam/[id]': '📝 ทำข้อสอบ',
-                                                        '/course/[id]': '📚 รายละเอียดคอร์ส',
-                                                        '/learn/[id]': '📖 เรียนบทเรียน',
-                                                        '/summary': '✨ สรุปเนื้อหา',
-                                                        '/summary/[slug]': '✨ อ่านสรุป',
-                                                        '/blog': '📰 บทความ',
-                                                        '/blog/[slug]': '📰 อ่านบทความ',
-                                                        '/login': '🔐 ล็อกอิน',
-                                                        '/reviews': '⭐ รีวิว',
-                                                    };
-                                                    return (
-                                                        <div key={path} className="flex items-center justify-between">
-                                                            <span className="text-sm text-sky-700 truncate max-w-[180px]">{idx + 1}. {pageNames[path] || path}</span>
-                                                            <span className="text-sm font-bold text-sky-600">{count.toLocaleString()} views</span>
-                                                        </div>
-                                                    );
-                                                })}
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-sky-500 italic">ยังไม่มีข้อมูล (จะเริ่มเก็บหลังจากนี้)</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
+
+                    {/* Traffic Analytics (Charts & Demographics) */}
+                    <TrafficAnalytics
+                        dailyVisits={dailyVisits}
+                        totalVisits={totalVisits}
+                        deviceStats={deviceStats}
+                        sourceStats={sourceStats}
+                        pageViewStats={pageViewStats}
+                        enrollmentHours={enrollmentHours}
+                    />
+
                 </div>
 
             </main >
