@@ -283,39 +283,39 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
             <div className="w-full">
                 {blocks.map((block, idx) => (
                     <div key={idx} className="mb-8">
-                        {/* Header Block */}
+                        {/* Header Block - MAIN HEADING */}
                         {block.type === 'header' && (
-                            <div className="mt-12 mb-6">
-                                <h3 className="text-2xl md:text-3xl font-extrabold text-slate-800 flex items-center gap-3 border-l-4 border-slate-400 pl-4 py-1">
-                                    <span className="text-2xl">{getEmojiForHeader(block.content)}</span>
+                            <div className="mt-14 mb-8">
+                                <h2 className="text-3xl md:text-4xl font-black text-slate-900 flex items-center gap-3 border-l-4 border-slate-800 pl-5 py-2">
+                                    <span className="text-3xl">{getEmojiForHeader(block.content)}</span>
                                     {block.content}
-                                </h3>
+                                </h2>
                             </div>
                         )}
 
-                        {/* Definition Block - Minimal Style */}
+                        {/* Definition Block - SUB SECTION */}
                         {block.type === 'definition' && (
                             <div className="my-6 group bg-slate-50/50 p-5 rounded-xl border border-slate-100">
                                 <div className="flex gap-3 items-start">
-                                    <div className="text-3xl select-none shrink-0 mt-0.5">
+                                    <div className="text-2xl select-none shrink-0 mt-0.5">
                                         {block.title && getEmojiForHeader(block.title) ? getEmojiForHeader(block.title) : '💡'}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        {block.title && <div className="font-bold text-slate-800 text-3xl mb-3">{block.title}</div>}
+                                        {block.title && <div className="font-semibold text-slate-700 text-xl md:text-2xl mb-3">{block.title}</div>}
                                         <div className="text-slate-600 leading-relaxed">
-                                            {renderNotionStyleContent(block.content, "text-xl")}
+                                            {renderNotionStyleContent(block.content, "text-lg")}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* Formula Block - Minimal Style */}
+                        {/* Formula Block - SUB SECTION */}
                         {block.type === 'formula' && (
                             <div className="my-6 py-6 px-5 bg-white rounded-xl border border-slate-100 text-center">
                                 {block.title && (
-                                    <div className="text-2xl font-bold text-slate-700 mb-4 flex items-center justify-center gap-2">
-                                        <span className="text-3xl">{getEmojiForHeader(block.title) || '📐'}</span>
+                                    <div className="text-xl font-semibold text-slate-600 mb-4 flex items-center justify-center gap-2">
+                                        <span className="text-2xl">{getEmojiForHeader(block.title) || '📐'}</span>
                                         <span>{block.title}</span>
                                     </div>
                                 )}
@@ -325,24 +325,24 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                             </div>
                         )}
 
-                        {/* Example Block - Minimal Style */}
+                        {/* Example Block - SUB SECTION */}
                         {block.type === 'example' && (
                             <div className="my-6 pl-4 border-l-2 border-slate-200 py-1">
-                                {block.title && <div className="text-3xl font-bold text-slate-700 mb-3 flex items-center gap-2"><span className="text-3xl">📝</span> {block.title}</div>}
+                                {block.title && <div className="text-xl font-semibold text-slate-600 mb-3 flex items-center gap-2"><span className="text-xl">📝</span> {block.title}</div>}
                                 <div className="text-slate-600 leading-relaxed">
-                                    {renderNotionStyleContent(block.content, "text-xl")}
+                                    {renderNotionStyleContent(block.content, "text-lg")}
                                 </div>
                             </div>
                         )}
 
-                        {/* Note/Warning Block - Minimal Style */}
+                        {/* Note/Warning Block - SUB SECTION */}
                         {block.type === 'note' && (
                             <div className="my-6 p-4 bg-slate-50 border border-slate-200 rounded-xl flex gap-3 text-slate-700">
-                                <div className="text-3xl select-none shrink-0">⚠️</div>
+                                <div className="text-2xl select-none shrink-0">⚠️</div>
                                 <div className="flex-1">
-                                    <div className="font-bold text-slate-800 text-3xl mb-2">ข้อควรระวัง</div>
+                                    <div className="font-semibold text-slate-700 text-xl mb-2">ข้อควรระวัง</div>
                                     <div className="text-slate-600 leading-relaxed">
-                                        {renderNotionStyleContent(block.content, "text-xl")}
+                                        {renderNotionStyleContent(block.content, "text-lg")}
                                     </div>
                                 </div>
                             </div>

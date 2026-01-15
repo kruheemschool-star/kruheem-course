@@ -137,27 +137,37 @@ export default function SummaryContentPage({ params }: { params: Promise<{ slug:
                         <span className="text-slate-600 font-medium truncate">{summary.title}</span>
                     </div>
 
-                    {/* Header */}
-                    <header className="mb-12 pb-8 border-b border-slate-100">
-                        <div className="flex items-center gap-3 mb-4 flex-wrap">
-                            <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-sm font-bold">
-                                บทที่ {currentIndex + 1} / {allSummaries.length}
+                    {/* Header - Hero Title Section */}
+                    <header className="mb-16 pb-10 border-b border-slate-100 relative">
+                        {/* Subtle Background Accent */}
+                        <div className="absolute -left-6 -right-6 -top-6 bottom-0 bg-gradient-to-b from-slate-50/80 to-transparent rounded-3xl -z-10"></div>
+
+                        {/* Meta Tags */}
+                        <div className="flex items-center gap-3 mb-6 flex-wrap">
+                            <span className="bg-slate-800 text-white px-4 py-1.5 rounded-full text-sm font-bold">
+                                บทที่ {currentIndex + 1}
                             </span>
-                            <span className="bg-slate-50 text-slate-400 px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-1">
+                            <span className="bg-white text-slate-500 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1.5 border border-slate-200">
                                 <Clock size={14} />
                                 อ่าน {readingTime} นาที
                             </span>
                             {(meta?.tags || summary.tags)?.slice(0, 3).map((tag: string, i: number) => (
-                                <span key={i} className="bg-teal-50 text-teal-600 px-2 py-0.5 rounded text-xs font-medium">
+                                <span key={i} className="bg-teal-50 text-teal-600 px-2.5 py-1 rounded-full text-xs font-medium border border-teal-100">
                                     #{tag}
                                 </span>
                             ))}
                         </div>
-                        <h1 className="text-3xl md:text-4xl font-black text-slate-800 leading-tight">
+
+                        {/* Main Title - Very Large */}
+                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 leading-[1.15] tracking-tight mb-6">
                             {meta?.seo_title || summary.title}
                         </h1>
+
+                        {/* Subtitle / Meta Description */}
                         {(meta?.meta_description || summary.meta_description) && (
-                            <p className="text-slate-500 mt-4 text-lg">{meta?.meta_description || summary.meta_description}</p>
+                            <p className="text-xl md:text-2xl text-slate-500 leading-relaxed font-light max-w-2xl">
+                                {meta?.meta_description || summary.meta_description}
+                            </p>
                         )}
                     </header>
 
