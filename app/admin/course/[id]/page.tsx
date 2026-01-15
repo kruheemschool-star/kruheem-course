@@ -10,6 +10,11 @@ import { InlineMath, BlockMath } from "react-katex";
 import { Plus, Trash2, FileJson, Blocks, AlertCircle, Image as ImageIcon, Copy, Edit2 } from 'lucide-react';
 import JSON5 from 'json5';
 
+// Drag and Drop imports
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableLessonItem } from '@/components/admin/SortableLessonItem';
+
 // 🎨 Global CSS for consistent KaTeX styling
 const katexGlobalStyles = `
   .katex { font-size: 1.1em !important; font-family: 'KaTeX_Main', 'Times New Roman', serif; }
@@ -138,8 +143,13 @@ const tryParseJson = (str: string) => {
 };
 
 // ✨ Component แสดงกลุ่มบทเรียน
-const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, handleMoveLesson }: { group: any, handleEdit: any, handleDelete: any, handleToggleVisibility: any, handleMoveLesson: any }) => {
+const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, handleMoveLesson, onDragEnd }: { group: any, handleEdit: any, handleDelete: any, handleToggleVisibility: any, handleMoveLesson: any, onDragEnd: (event: DragEndEvent, groupItems: any[]) => void }) => {
     const [isOpen, setIsOpen] = useState(true);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
 
     return (
         <div className={`rounded-[1.5rem] border-2 shadow-sm overflow-hidden mb-4 transition-colors ${!group.header ? 'bg-amber-50 border-amber-200 border-dashed' : 'bg-white border-indigo-50'}`}>
@@ -167,57 +177,47 @@ const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, 
             </div>
             <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[50000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="bg-slate-50/50 p-2 space-y-2">
-                    {group.items.map((lesson: any, index: number) => (
-                        <div key={lesson.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-md transition group ml-4 md:ml-10">
-                            <div className="flex items-center gap-3 overflow-hidden">
-                                {/* ✅ Color logic สำหรับ Exercise (สีเขียว) */}
-                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-sm 
-                            ${lesson.type === 'quiz' ? 'bg-purple-100 text-purple-600'
-                                        : lesson.type === 'text' ? 'bg-pink-100 text-pink-600'
-                                            : lesson.type === 'exercise' ? 'bg-emerald-100 text-emerald-600'
-                                                : lesson.type === 'html' ? 'bg-cyan-100 text-cyan-600'
-                                                    : lesson.type === 'flashcard' ? 'bg-yellow-100 text-yellow-600'
-                                                        : 'bg-blue-100 text-blue-600'}`}>
-                                    {lesson.type === 'quiz' ? <QuizIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : lesson.type === 'flashcard' ? <FlashcardIcon /> : <VideoIcon />}
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="font-semibold text-slate-700 truncate text-sm md:text-base">{lesson.title}</p>
-                                    <div className="flex gap-2">
-                                        {lesson.type === 'exercise' && <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-100">PDF</span>}
-                                        {lesson.isFree && <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded border border-teal-100">FREE</span>}
-                                        {lesson.image && <span className="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded border border-orange-100">IMG</span>}
-                                        {!lesson.headerId && <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100">รอจัดหมวด</span>}
-                                        {lesson.isHidden && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1"><EyeSlashIcon /> ซ่อนอยู่</span>}
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event) => onDragEnd(event, group.items)}>
+                        <SortableContext items={group.items.map((l: any) => l.id)} strategy={verticalListSortingStrategy}>
+                            {group.items.map((lesson: any, index: number) => (
+                                <SortableLessonItem key={lesson.id} id={lesson.id}>
+                                    <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-md transition group ml-4 md:ml-10">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            {/* ✅ Color logic สำหรับ Exercise (สีเขียว) */}
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-sm 
+                                        ${lesson.type === 'quiz' ? 'bg-purple-100 text-purple-600'
+                                                    : lesson.type === 'text' ? 'bg-pink-100 text-pink-600'
+                                                        : lesson.type === 'exercise' ? 'bg-emerald-100 text-emerald-600'
+                                                            : lesson.type === 'html' ? 'bg-cyan-100 text-cyan-600'
+                                                                : lesson.type === 'flashcard' ? 'bg-yellow-100 text-yellow-600'
+                                                                    : 'bg-blue-100 text-blue-600'}`}>
+                                                {lesson.type === 'quiz' ? <QuizIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : lesson.type === 'flashcard' ? <FlashcardIcon /> : <VideoIcon />}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-slate-700 truncate text-sm md:text-base">{lesson.title}</p>
+                                                <div className="flex gap-2">
+                                                    {lesson.type === 'exercise' && <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-100">PDF</span>}
+                                                    {lesson.isFree && <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded border border-teal-100">FREE</span>}
+                                                    {lesson.image && <span className="text-[10px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded border border-orange-100">IMG</span>}
+                                                    {!lesson.headerId && <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-100">รอจัดหมวด</span>}
+                                                    {lesson.isHidden && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1"><EyeSlashIcon /> ซ่อนอยู่</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleToggleVisibility(lesson)} className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${lesson.isHidden ? 'bg-gray-100 text-gray-400 hover:bg-gray-200' : 'bg-indigo-50 text-indigo-400 hover:bg-indigo-100'}`} title={lesson.isHidden ? "แสดงเนื้อหา" : "ซ่อนเนื้อหา"}>
+                                                    {lesson.isHidden ? <EyeSlashIcon /> : <EyeIcon />}
+                                                </button>
+                                                <button onClick={() => handleEdit(lesson)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-50 text-amber-500 hover:bg-amber-100">✏️</button>
+                                                <button onClick={() => handleDelete(lesson.id)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100">🗑</button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <div className="flex flex-col gap-1 mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={() => handleMoveLesson(lesson, 'up', group.items)}
-                                        disabled={index === 0}
-                                        className={`p-1 rounded hover:bg-slate-100 ${index === 0 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-indigo-500'}`}
-                                    >
-                                        <ArrowUpIcon />
-                                    </button>
-                                    <button
-                                        onClick={() => handleMoveLesson(lesson, 'down', group.items)}
-                                        disabled={index === group.items.length - 1}
-                                        className={`p-1 rounded hover:bg-slate-100 ${index === group.items.length - 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-indigo-500'}`}
-                                    >
-                                        <ArrowDownIcon />
-                                    </button>
-                                </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => handleToggleVisibility(lesson)} className={`w-8 h-8 flex items-center justify-center rounded-lg transition ${lesson.isHidden ? 'bg-gray-100 text-gray-400 hover:bg-gray-200' : 'bg-indigo-50 text-indigo-400 hover:bg-indigo-100'}`} title={lesson.isHidden ? "แสดงเนื้อหา" : "ซ่อนเนื้อหา"}>
-                                        {lesson.isHidden ? <EyeSlashIcon /> : <EyeIcon />}
-                                    </button>
-                                    <button onClick={() => handleEdit(lesson)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-50 text-amber-500 hover:bg-amber-100">✏️</button>
-                                    <button onClick={() => handleDelete(lesson.id)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100">🗑</button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                                </SortableLessonItem>
+                            ))}
+                        </SortableContext>
+                    </DndContext>
                     {group.items.length === 0 && <p className="text-center text-slate-300 text-sm py-4 italic">ยังไม่มีเนื้อหาในบทนี้</p>}
                 </div>
             </div>
@@ -718,6 +718,31 @@ export default function ManageLessonsPage() {
                 isHidden: newStatus
             });
             showToast(newStatus ? "👁️‍🗨️ ซ่อนเนื้อหาแล้ว" : "👁️ แสดงเนื้อหาแล้ว");
+            fetchCourseInfo();
+        } catch (error: any) {
+            showToast("Error: " + error.message, "error");
+        }
+    };
+
+    // Drag-and-Drop Handler
+    const handleDragEnd = async (event: DragEndEvent, groupItems: any[]) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = groupItems.findIndex((l: any) => l.id === active.id);
+        const newIndex = groupItems.findIndex((l: any) => l.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const newItems = arrayMove([...groupItems], oldIndex, newIndex);
+
+        try {
+            const batch = writeBatch(db);
+            newItems.forEach((item, index) => {
+                const lessonRef = doc(db, "courses", courseId, "lessons", item.id);
+                batch.update(lessonRef, { order: index });
+            });
+            await batch.commit();
+            showToast("ย้ายตำแหน่งเรียบร้อยแล้ว!");
             fetchCourseInfo();
         } catch (error: any) {
             showToast("Error: " + error.message, "error");
@@ -1687,6 +1712,7 @@ export default function ManageLessonsPage() {
                                             handleDelete={handleDelete}
                                             handleToggleVisibility={handleToggleVisibility}
                                             handleMoveLesson={handleMoveLesson}
+                                            onDragEnd={handleDragEnd}
                                         />
                                     ))}
                                 </div>

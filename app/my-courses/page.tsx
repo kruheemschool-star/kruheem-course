@@ -25,7 +25,7 @@ const LockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 2
 import { useDebounce } from "@/hooks/useDebounce";
 
 export default function MyCoursesPage() {
-    const { user, userProfile, updateProfile, loading: authLoading, daysSinceLastActive } = useUserAuth();
+    const { user, userProfile, isAdmin, updateProfile, loading: authLoading, daysSinceLastActive } = useUserAuth();
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [reviewingCourse, setReviewingCourse] = useState<any>(null);
@@ -270,7 +270,10 @@ export default function MyCoursesPage() {
                         };
                     });
 
-                    const myCourses = coursesData.filter((c: any) => c.status);
+                    // Admin sees ALL courses, normal users see only enrolled
+                    const myCourses = isAdmin
+                        ? coursesData.map((c: any) => ({ ...c, status: c.status || 'approved' })) // Admin: add virtual 'approved' status
+                        : coursesData.filter((c: any) => c.status);
                     setEnrolledCourses(myCourses);
                     setAllCourses(coursesData);
 

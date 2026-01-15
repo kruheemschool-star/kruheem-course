@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, getDocs, orderBy, limit, where, collectionGroup, Timestamp } from "firebase/firestore";
+import { collection, query, getDocs, orderBy, limit, where, collectionGroup, Timestamp, doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 
 interface ActivityItem {
@@ -92,35 +92,73 @@ export default function ActivityLogPage() {
                 console.log("Users query error:", e);
             }
 
+
+
             // 3. Fetch Progress Updates (lesson completions)
             try {
-                const progressQuery = query(collectionGroup(db, "progress"), limit(100));
+                const progressQuery = query(collectionGroup(db, "progress"), limit(50)); // Reduced limit for performance
                 const progressSnap = await getDocs(progressQuery);
 
-                for (const doc of progressSnap.docs) {
-                    const data = doc.data();
-                    const userId = doc.ref.parent.parent?.id;
-                    const courseId = doc.id;
+                // Collect userIds to fetch names
+                const userIdsToFetch = new Set<string>();
+                const progressEvents: any[] = [];
 
-                    if (data.lastUpdated && data.completed?.length > 0) {
+                for (const docSnapshot of progressSnap.docs) {
+                    const data = docSnapshot.data();
+                    const userId = docSnapshot.ref.parent.parent?.id; // Get userId from parent doc
+                    const courseId = docSnapshot.id;
+
+                    if (userId && data.lastUpdated && data.completed?.length > 0) {
                         const updateTime = data.lastUpdated?.toDate ? data.lastUpdated.toDate() : new Date(data.lastUpdated);
 
                         if (!startDate || updateTime >= startDate) {
-                            // Get user info
-                            activityList.push({
-                                id: `progress-${doc.id}-${userId}`,
-                                type: 'lesson_complete',
-                                userId: userId || '',
-                                userName: 'นักเรียน',
-                                userEmail: '',
-                                courseTitle: courseId,
-                                lessonTitle: `เรียนครบ ${data.completed.length} บท`,
-                                timestamp: updateTime,
-                                metadata: { completed: data.completed.length }
+                            userIdsToFetch.add(userId);
+                            progressEvents.push({
+                                docId: docSnapshot.id,
+                                userId,
+                                courseId,
+                                data,
+                                updateTime
                             });
                         }
                     }
                 }
+
+                // Fetch User Profiles (optimized with Promise.all)
+                const userMap = new Map<string, { name: string, email: string }>();
+                if (userIdsToFetch.size > 0) {
+                    await Promise.all(Array.from(userIdsToFetch).map(async (uid) => {
+                        try {
+                            const userDoc = await getDoc(doc(db, "users", uid));
+                            if (userDoc.exists()) {
+                                const uData = userDoc.data();
+                                userMap.set(uid, {
+                                    name: uData.displayName || uData.email || 'Unknown',
+                                    email: uData.email || ''
+                                });
+                            }
+                        } catch (err) {
+                            console.log(`Failed to fetch user ${uid}`, err);
+                        }
+                    }));
+                }
+
+                // Add to activity list
+                progressEvents.forEach(event => {
+                    const userInfo = userMap.get(event.userId) || { name: 'นักเรียน', email: '' };
+                    activityList.push({
+                        id: `progress-${event.docId}-${event.userId}`,
+                        type: 'lesson_complete',
+                        userId: event.userId,
+                        userName: userInfo.name, // Use fetched name
+                        userEmail: userInfo.email,
+                        courseTitle: event.courseId,
+                        lessonTitle: `เรียนครบ ${event.data.completed.length} บท`,
+                        timestamp: event.updateTime,
+                        metadata: { completed: event.data.completed.length }
+                    });
+                });
+
             } catch (e) {
                 console.log("Progress query error:", e);
             }
@@ -265,8 +303,8 @@ export default function ActivityLogPage() {
                                     key={range}
                                     onClick={() => setDateRange(range)}
                                     className={`px-4 py-2 rounded-lg text-sm font-bold transition ${dateRange === range
-                                            ? 'bg-white text-indigo-600 shadow-sm'
-                                            : 'text-slate-500 hover:text-slate-700'
+                                        ? 'bg-white text-indigo-600 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-700'
                                         }`}
                                 >
                                     {range === 'today' && 'วันนี้'}
