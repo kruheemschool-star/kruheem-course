@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs, orderBy, limit, collectionGroup, addDoc, serverTimestamp, onSnapshot, updateDoc, doc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, collectionGroup, addDoc, serverTimestamp, onSnapshot, updateDoc, doc, deleteDoc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import Link from "next/link";
@@ -11,6 +11,8 @@ import Footer from "@/components/Footer";
 import PollWidget from "@/components/PollWidget";
 import { useUserAuth } from "@/context/AuthContext";
 import ReviewForm from "@/app/reviews/ReviewForm";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { MyCoursesSkeleton } from "@/components/skeletons/MyCoursesSkeleton";
 
 // --- Icons ---
 const PlayIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" /></svg>;
@@ -18,6 +20,9 @@ const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 2
 const BellIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0113.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 01-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 11-7.48 0 24.585 24.585 0 01-4.831-1.244.75.75 0 01-.298-1.205A8.217 8.217 0 005.25 9.75V9zm4.502 8.9a2.25 2.25 0 104.496 0 25.057 25.057 0 01-4.496 0z" clipRule="evenodd" /></svg>;
 const SearchIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 100 13.5 6.75 6.75 0 000-13.5zM2.25 10.5a8.25 8.25 0 1114.59 5.28l4.69 4.69a.75.75 0 11-1.06 1.06l-4.69-4.69A8.25 8.25 0 012.25 10.5z" clipRule="evenodd" /></svg>;
 const LockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>;
+
+// Import shared hooks
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function MyCoursesPage() {
     const { user, userProfile, updateProfile, loading: authLoading, daysSinceLastActive } = useUserAuth();
@@ -42,6 +47,7 @@ export default function MyCoursesPage() {
     const [allCourses, setAllCourses] = useState<any[]>([]);
     const [allLessons, setAllLessons] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
+    const debouncedSearchQuery = useDebounce(searchQuery, 300); // Debounce 300ms
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
 
@@ -58,6 +64,9 @@ export default function MyCoursesPage() {
     const [supportFile, setSupportFile] = useState<File | null>(null);
     const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
     const [supportViewMode, setSupportViewMode] = useState<'list' | 'form'>('list');
+
+    // --- Progress Tracking State ---
+    const [courseProgress, setCourseProgress] = useState<Record<string, { completed: number; total: number; percent: number; lastLessonId?: string }>>({});
 
     // ✅ Load settings from LocalStorage
     useEffect(() => {
@@ -278,6 +287,61 @@ export default function MyCoursesPage() {
                     });
                     setAllLessons(lessons);
 
+                    // 6. Fetch Progress for Enrolled Courses
+                    const progressMap: Record<string, { completed: number; total: number; percent: number; lastLessonId?: string }> = {};
+                    for (const course of myCourses) {
+                        if (course.status === 'approved') {
+                            const courseLessons = lessons.filter(l => l.courseId === course.id);
+                            // Filter learnable lessons (video, summary, exercise)
+                            const learnableLessons = courseLessons.filter((l: any) =>
+                                ['video', 'summary', 'exercise'].includes(l.type)
+                            );
+                            const totalLearnable = learnableLessons.length;
+
+                            try {
+                                const progressRef = doc(db, "users", user.uid, "progress", course.id);
+                                const progressSnap = await getDoc(progressRef);
+
+                                if (progressSnap.exists()) {
+                                    const data = progressSnap.data();
+                                    const completedIds = data.completed || [];
+                                    const validCompleted = completedIds.filter((id: string) =>
+                                        learnableLessons.some((l: any) => l.id === id)
+                                    );
+                                    const percent = totalLearnable > 0
+                                        ? Math.round((validCompleted.length / totalLearnable) * 100)
+                                        : 0;
+
+                                    // Find last completed lesson for resume feature
+                                    const lastCompletedId = validCompleted[validCompleted.length - 1];
+                                    const lastIndex = learnableLessons.findIndex((l: any) => l.id === lastCompletedId);
+                                    const nextLesson = learnableLessons[lastIndex + 1] || learnableLessons[lastIndex];
+
+                                    progressMap[course.id] = {
+                                        completed: validCompleted.length,
+                                        total: totalLearnable,
+                                        percent,
+                                        lastLessonId: nextLesson?.id
+                                    };
+                                } else {
+                                    progressMap[course.id] = {
+                                        completed: 0,
+                                        total: totalLearnable,
+                                        percent: 0,
+                                        lastLessonId: learnableLessons[0]?.id
+                                    };
+                                }
+                            } catch (err) {
+                                progressMap[course.id] = {
+                                    completed: 0,
+                                    total: totalLearnable,
+                                    percent: 0
+                                };
+                            }
+                        }
+                    }
+                    setCourseProgress(progressMap);
+
                 } catch (error) {
                     console.error("Error:", error);
                 } finally {
@@ -332,28 +396,33 @@ export default function MyCoursesPage() {
     useEffect(() => {
         if (!selectedTicket) return;
 
+        let isMounted = true; // Guard to prevent state updates on unmounted component
+
         // 1. Listen to Messages
         const qMessages = query(collection(db, "support_tickets", selectedTicket.id, "messages"), orderBy("createdAt", "asc"));
         const unsubscribeMessages = onSnapshot(qMessages, (snapshot) => {
+            if (!isMounted) return;
             const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setMessages(msgs);
         });
 
         // 2. Listen to Ticket Status (for Read Receipts)
         const unsubscribeTicket = onSnapshot(doc(db, "support_tickets", selectedTicket.id), (docSnap) => {
+            if (!isMounted) return;
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 // Update selectedTicket with latest data (especially lastAdminReadAt)
-                setSelectedTicket((prev: any) => ({ ...prev, ...data }));
+                setSelectedTicket((prev: any) => prev ? ({ ...prev, ...data }) : null);
             }
         });
 
         // 3. Mark as read by user (Initial open)
         updateDoc(doc(db, "support_tickets", selectedTicket.id), {
             lastUserReadAt: serverTimestamp()
-        });
+        }).catch(() => { }); // Ignore errors if component unmounts
 
         return () => {
+            isMounted = false;
             unsubscribeMessages();
             unsubscribeTicket();
         };
@@ -425,16 +494,16 @@ export default function MyCoursesPage() {
         fetchNotifications();
     }, [user?.uid, enrolledCourses]);
 
-    // ✅ Smart Search Logic
+    // ✅ Smart Search Logic (with Debounce)
     useEffect(() => {
-        if (!searchQuery.trim()) {
+        if (!debouncedSearchQuery.trim()) {
             setSearchResults([]);
             setIsSearching(false);
             return;
         }
 
         setIsSearching(true);
-        const lowerQuery = searchQuery.toLowerCase();
+        const lowerQuery = debouncedSearchQuery.toLowerCase();
 
         const results = allLessons.filter((lesson: any) => {
             return lesson.title?.toLowerCase().includes(lowerQuery);
@@ -459,456 +528,513 @@ export default function MyCoursesPage() {
         }));
 
         setSearchResults([...courseResults, ...results]);
-    }, [searchQuery, allLessons, allCourses]);
+    }, [debouncedSearchQuery, allLessons, allCourses]);
 
-    if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center text-slate-400">กำลังโหลดคอร์ส...</div>;
+    if (authLoading || loading) return (
+        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans">
+            {/* Mesh Gradient Background */}
+            <div className="fixed inset-0 z-0">
+                <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-amber-200/40 dark:bg-indigo-900/30 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob"></div>
+                <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-orange-200/40 dark:bg-purple-900/30 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob animation-delay-2000"></div>
+            </div>
+            <div className="relative z-10">
+                <Navbar />
+                <div className="max-w-7xl mx-auto px-6 md:px-12 pb-24 pt-40">
+                    <MyCoursesSkeleton />
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-teal-200 selection:text-teal-900 flex flex-col overflow-x-hidden transition-colors">
             {/* Dynamic Mesh Gradient Background (Warm Paper Theme) */}
             <div className="fixed inset-0 z-0">
-                <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-amber-200/40 rounded-full blur-[100px] mix-blend-multiply animate-blob"></div>
-                <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-orange-200/40 rounded-full blur-[100px] mix-blend-multiply animate-blob animation-delay-2000"></div>
-                <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-yellow-100/40 rounded-full blur-[100px] mix-blend-multiply animate-blob animation-delay-4000"></div>
-                <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.05] mix-blend-overlay pointer-events-none"></div>
+                <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-amber-200/40 dark:bg-indigo-900/30 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob"></div>
+                <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-orange-200/40 dark:bg-purple-900/30 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob animation-delay-2000"></div>
+                <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-yellow-100/40 dark:bg-slate-800/40 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob animation-delay-4000"></div>
+                <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.05] dark:opacity-[0.03] mix-blend-overlay pointer-events-none"></div>
             </div>
 
             <div className="relative z-10 flex flex-col min-h-screen">
                 <Navbar />
 
-                <div className="max-w-7xl mx-auto px-6 md:px-12 pb-24 pt-40 flex-grow w-full">
+                <ErrorBoundary>
+                    <div className="max-w-7xl mx-auto px-6 md:px-12 pb-24 pt-40 flex-grow w-full">
 
-                    {/* ✅ Welcome Message (Last Active) */}
-                    {welcomeMessage && (
-                        <div className={`mb-8 p-6 rounded-[2rem] border-2 flex items-center md:items-start gap-6 shadow-sm animate-in slide-in-from-top-4 duration-500 ${welcomeMessage.color}`}>
-                            <div className="text-5xl bg-white rounded-full w-20 h-20 flex items-center justify-center shadow-sm flex-shrink-0 border-4 border-white/50">
-                                {welcomeMessage.icon}
+                        {/* ✅ Welcome Message (Last Active) */}
+                        {welcomeMessage && (
+                            <div className={`mb-8 p-6 rounded-[2rem] border-2 flex items-center md:items-start gap-6 shadow-sm animate-in slide-in-from-top-4 duration-500 ${welcomeMessage.color}`}>
+                                <div className="text-5xl bg-white rounded-full w-20 h-20 flex items-center justify-center shadow-sm flex-shrink-0 border-4 border-white/50">
+                                    {welcomeMessage.icon}
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-black text-2xl mb-2 tracking-tight">{welcomeMessage.title}</h3>
+                                    <p className="font-medium opacity-90 leading-relaxed text-lg">{welcomeMessage.msg}</p>
+                                </div>
+                                <button
+                                    onClick={() => setWelcomeMessage(null)}
+                                    className="text-slate-400 hover:text-slate-600 p-2 hover:bg-white/50 rounded-full transition"
+                                >
+                                    <X size={24} />
+                                </button>
                             </div>
-                            <div className="flex-1">
-                                <h3 className="font-black text-2xl mb-2 tracking-tight">{welcomeMessage.title}</h3>
-                                <p className="font-medium opacity-90 leading-relaxed text-lg">{welcomeMessage.msg}</p>
-                            </div>
-                            <button
-                                onClick={() => setWelcomeMessage(null)}
-                                className="text-slate-400 hover:text-slate-600 p-2 hover:bg-white/50 rounded-full transition"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-                    )}
+                        )}
 
-                    {/* ✅ 4 Cards Grid Layout */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+                        {/* ✅ 4 Cards Grid Layout */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
 
-                        {/* Card 1: Student Profile */}
-                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden group h-full flex flex-col justify-center">
-                            <div className="absolute top-0 right-0 w-40 h-40 bg-slate-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
-                            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
-                                <div className="relative flex-shrink-0">
-                                    <div className="w-28 h-28 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 p-1 shadow-lg transform group-hover:scale-105 transition-transform duration-500">
-                                        <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden text-6xl">
-                                            {userProfile?.avatar ? (
-                                                userProfile.avatar.startsWith("http") ? (
-                                                    /* eslint-disable-next-line @next/next/no-img-element */
-                                                    <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                            {/* Card 1: Student Profile */}
+                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden group h-full flex flex-col justify-center">
+                                <div className="absolute top-0 right-0 w-40 h-40 bg-slate-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
+                                <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
+                                    <div className="relative flex-shrink-0">
+                                        <div className="w-28 h-28 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 p-1 shadow-lg transform group-hover:scale-105 transition-transform duration-500">
+                                            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden text-6xl">
+                                                {userProfile?.avatar ? (
+                                                    userProfile.avatar.startsWith("http") ? (
+                                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                                        <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <span className="leading-none select-none">{userProfile.avatar}</span>
+                                                    )
                                                 ) : (
-                                                    <span className="leading-none select-none">{userProfile.avatar}</span>
-                                                )
-                                            ) : (
-                                                <span className="leading-none select-none">{user?.displayName ? user.displayName[0] : "👦"}</span>
-                                            )}
+                                                    <span className="leading-none select-none">{user?.displayName ? user.displayName[0] : "👦"}</span>
+                                                )}
+                                            </div>
                                         </div>
+                                        <button
+                                            onClick={handleOpenProfileModal}
+                                            className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md border border-slate-100 hover:bg-slate-50 transition"
+                                            title="แก้ไขข้อมูลส่วนตัว"
+                                        >
+                                            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M14.0002 5.00004L19.0002 10M14.0002 5.00004L5.50024 13.5C5.10024 13.9 4.80024 14.4 4.60024 14.9L3.00024 19.5C2.90024 19.8 3.00024 20.1 3.30024 20.3C3.50024 20.5 3.80024 20.5 4.00024 20.5L8.60024 19.4C9.10024 19.3 9.60024 19 10.0002 18.6L18.5002 10M14.0002 5.00004L16.3002 2.70004C17.6002 1.40004 19.7002 1.40004 21.0002 2.70004C22.3002 4.00004 22.3002 6.10004 21.0002 7.40004L18.5002 10M18.5002 10L19.0002 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={handleOpenProfileModal}
-                                        className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow-md border border-slate-100 hover:bg-slate-50 transition"
-                                        title="แก้ไขข้อมูลส่วนตัว"
-                                    >
-                                        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M14.0002 5.00004L19.0002 10M14.0002 5.00004L5.50024 13.5C5.10024 13.9 4.80024 14.4 4.60024 14.9L3.00024 19.5C2.90024 19.8 3.00024 20.1 3.30024 20.3C3.50024 20.5 3.80024 20.5 4.00024 20.5L8.60024 19.4C9.10024 19.3 9.60024 19 10.0002 18.6L18.5002 10M14.0002 5.00004L16.3002 2.70004C17.6002 1.40004 19.7002 1.40004 21.0002 2.70004C22.3002 4.00004 22.3002 6.10004 21.0002 7.40004L18.5002 10M18.5002 10L19.0002 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div className="text-center sm:text-left">
-                                    <div className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold mb-2">
-                                        🎓 นักเรียนของ KruHeem
+                                    <div className="text-center sm:text-left">
+                                        <div className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold mb-2">
+                                            🎓 นักเรียนของ KruHeem
+                                        </div>
+                                        <h1 className="text-2xl font-black text-slate-800 mb-1">
+                                            {userProfile?.displayName || user?.displayName || "นักเรียน"}
+                                        </h1>
+                                        <p className="text-slate-500 text-sm">
+                                            พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?
+                                        </p>
                                     </div>
-                                    <h1 className="text-2xl font-black text-slate-800 mb-1">
-                                        {userProfile?.displayName || user?.displayName || "นักเรียน"}
-                                    </h1>
-                                    <p className="text-slate-500 text-sm">
-                                        พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?
-                                    </p>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Card 2: Search */}
-                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-full">
-                            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <span className="bg-blue-100 text-blue-600 p-2 rounded-xl"><SearchIcon /></span>
-                                ค้นหาบทเรียน
-                            </h2>
-                            <div className="relative flex-1">
-                                <div className="relative h-full">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                        <SearchIcon />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        placeholder="พิมพ์คำค้นหา..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full h-full min-h-[56px] pl-12 pr-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all text-slate-700 font-medium placeholder:text-slate-400"
-                                    />
-                                </div>
-
-                                {/* Search Results Dropdown */}
-                                {searchQuery && (
-                                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[300px] overflow-y-auto custom-scrollbar z-50">
-                                        {searchResults.length > 0 ? (
-                                            <div className="divide-y divide-slate-50">
-                                                {searchResults.map((result, index) => (
-                                                    <Link
-                                                        key={index}
-                                                        href={result.isEnrolled ? (result.type === 'lesson' ? `/learn/${result.course.id}?lessonId=${result.data.id}` : `/learn/${result.course.id}`) : `/course/${result.course.id}`}
-                                                        className="block p-3 hover:bg-indigo-50 transition"
-                                                    >
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${result.isEnrolled ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                                                                {result.type === 'lesson' ? (result.data.type === 'video' ? <PlayIcon /> : '📄') : '📘'}
-                                                            </div>
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="font-bold text-slate-800 text-sm truncate">{result.type === 'lesson' ? result.data.title : result.course.title}</p>
-                                                                <p className="text-xs text-slate-400 truncate">{result.course?.title}</p>
-                                                            </div>
-                                                        </div>
-                                                    </Link>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="p-4 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Card 3: Notifications */}
-                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full flex flex-col">
-                            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <span className="bg-amber-100 text-amber-600 p-2 rounded-xl"><BellIcon /></span>
-                                ข่าวสารจากครูฮีม
-                            </h2>
-                            <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[300px] pr-2 space-y-3">
-                                {notifications.length > 0 ? (
-                                    notifications
-                                        .filter(n => !dismissedIds.includes(n.id))
-                                        .map(notif => (
-                                            <div key={notif.id} className="relative group bg-slate-50 p-3 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white hover:shadow-sm transition">
-                                                <div className="flex gap-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notif.type === 'general' ? 'bg-orange-100 text-orange-500' : 'bg-indigo-100 text-indigo-500'}`}>
-                                                        {notif.type === 'general' ? '📢' : '✨'}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-normal text-slate-700 leading-tight mb-1">{notif.type === 'general' ? notif.message : notif.lessonTitle}</p>
-                                                        <p className="text-xs text-slate-400">{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString('th-TH') : 'เมื่อเร็วๆ นี้'}</p>
-                                                    </div>
-                                                    <button onClick={(e) => handleDismiss(e, notif.id)} className="text-slate-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition">✕</button>
-                                                </div>
-                                            </div>
-                                        ))
-                                ) : (
-                                    <div className="text-center py-8 text-slate-400">
-                                        <p>ยังไม่มีประกาศใหม่</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Card 4: Support / Q&A */}
-                        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full flex flex-col relative overflow-hidden">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                    <span className="bg-cyan-100 text-cyan-600 p-2 rounded-xl">💬</span>
-                                    พูดคุย / แจ้งปัญหา
+                            {/* Card 2: Search */}
+                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-full">
+                                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                    <span className="bg-blue-100 text-blue-600 p-2 rounded-xl"><SearchIcon /></span>
+                                    ค้นหาบทเรียน
                                 </h2>
-                                {supportViewMode === 'list' && supportTickets.length > 0 && (
-                                    <button
-                                        onClick={() => setSupportViewMode('form')}
-                                        className="text-xs font-bold text-cyan-600 bg-cyan-50 px-3 py-1.5 rounded-lg hover:bg-cyan-100 transition"
-                                    >
-                                        + เรื่องใหม่
-                                    </button>
-                                )}
-                            </div>
-
-                            {supportViewMode === 'list' ? (
-                                <div className="flex-1 flex flex-col">
-                                    {supportTickets.length > 0 ? (
-                                        <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[200px] space-y-3 pr-2 -mr-2">
-                                            {supportTickets.map(ticket => (
-                                                <div
-                                                    key={ticket.id}
-                                                    onClick={() => setSelectedTicket(ticket)}
-                                                    className="bg-white border border-slate-100 p-4 rounded-2xl hover:border-cyan-200 hover:shadow-md transition cursor-pointer group relative overflow-hidden"
-                                                >
-                                                    <div className="absolute top-0 left-0 w-1 h-full bg-slate-200 group-hover:bg-cyan-400 transition"></div>
-                                                    <div className="flex justify-between items-start mb-1 pl-2">
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ticket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                                                            {ticket.status === 'resolved' ? '✅ แก้ไขแล้ว' : '⏳ รอตรวจสอบ'}
-                                                        </span>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                                <Clock size={10} />
-                                                                {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString('th-TH') : '...'}
-                                                            </span>
-                                                            <button
-                                                                onClick={(e) => handleDeleteTicket(e, ticket.id)}
-                                                                className="text-slate-300 hover:text-rose-500 transition p-1 rounded-full hover:bg-rose-50"
-                                                                title="ลบรายการ"
-                                                            >
-                                                                <Trash2 size={12} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    <p className="font-bold text-slate-700 text-sm truncate pl-2 group-hover:text-cyan-700 transition">{ticket.subject}</p>
-                                                    <p className="text-xs text-slate-500 truncate pl-2">{ticket.message}</p>
-                                                </div>
-                                            ))}
+                                <div className="relative flex-1">
+                                    <div className="relative h-full">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                            <SearchIcon />
                                         </div>
-                                    ) : (
-                                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 space-y-3">
-                                            <MessageSquare size={40} className="text-slate-200" />
-                                            <p className="text-sm">ยังไม่มีรายการแจ้งปัญหา</p>
-                                            <button
-                                                onClick={() => setSupportViewMode('form')}
-                                                className="px-4 py-2 bg-cyan-50 text-cyan-600 rounded-xl font-bold text-sm hover:bg-cyan-100 transition"
-                                            >
-                                                แจ้งปัญหาเรื่องแรก
-                                            </button>
+                                        <input
+                                            type="text"
+                                            placeholder="พิมพ์คำค้นหา..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full h-full min-h-[56px] pl-12 pr-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all text-slate-700 font-medium placeholder:text-slate-400"
+                                        />
+                                    </div>
+
+                                    {/* Search Results Dropdown */}
+                                    {searchQuery && (
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[300px] overflow-y-auto custom-scrollbar z-50">
+                                            {searchResults.length > 0 ? (
+                                                <div className="divide-y divide-slate-50">
+                                                    {searchResults.map((result, index) => (
+                                                        <Link
+                                                            key={index}
+                                                            href={result.isEnrolled ? (result.type === 'lesson' ? `/learn/${result.course.id}?lessonId=${result.data.id}` : `/learn/${result.course.id}`) : `/course/${result.course.id}`}
+                                                            className="block p-3 hover:bg-indigo-50 transition"
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${result.isEnrolled ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                                    {result.type === 'lesson' ? (result.data.type === 'video' ? <PlayIcon /> : '📄') : '📘'}
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-bold text-slate-800 text-sm truncate">{result.type === 'lesson' ? result.data.title : result.course.title}</p>
+                                                                    <p className="text-xs text-slate-400 truncate">{result.course?.title}</p>
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
-                            ) : (
-                                <form onSubmit={handleSubmitSupport} className="flex-1 flex flex-col gap-3 animate-in fade-in slide-in-from-right-4 duration-200">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <button
-                                            type="button"
-                                            onClick={() => setSupportViewMode('list')}
-                                            className="p-1 hover:bg-slate-100 rounded-lg transition text-slate-400"
-                                        >
-                                            <ArrowLeft size={18} />
-                                        </button>
-                                        <span className="text-sm font-bold text-slate-600">แจ้งปัญหาใหม่</span>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        placeholder="หัวข้อเรื่อง..."
-                                        className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm font-bold text-slate-700"
-                                        value={supportSubject}
-                                        onChange={e => setSupportSubject(e.target.value)}
-                                        required
-                                    />
-                                    <textarea
-                                        placeholder="รายละเอียด หรือคำถาม..."
-                                        className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm text-slate-700 resize-none flex-1 min-h-[80px]"
-                                        value={supportMessage}
-                                        onChange={e => setSupportMessage(e.target.value)}
-                                        required
-                                    ></textarea>
-                                    <div className="flex items-center gap-2">
-                                        <label className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 text-slate-500 text-xs cursor-pointer hover:bg-slate-100 transition truncate border border-transparent hover:border-slate-200">
-                                            <Paperclip size={14} />
-                                            <span className="truncate">{supportFile ? supportFile.name : "แนบไฟล์ (ถ้ามี)"}</span>
-                                            <input type="file" className="hidden" onChange={e => setSupportFile(e.target.files?.[0] || null)} />
-                                        </label>
-                                        <button
-                                            type="submit"
-                                            disabled={isSubmittingSupport}
-                                            className="px-6 py-2 rounded-xl bg-cyan-500 text-white font-bold text-sm hover:bg-cyan-600 transition shadow-md shadow-cyan-200 disabled:opacity-50"
-                                        >
-                                            {isSubmittingSupport ? '...' : 'ส่งเรื่อง'}
-                                        </button>
-                                    </div>
-                                </form>
-                            )}
-                        </div>
+                            </div>
 
-
-
-                    </div>
-
-                    <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-3">
-                        📖 คอร์สเรียนของฉัน
-                    </h1>
-
-                    {/* รายชื่อคอร์ส (Grouped by Category) */}
-                    {enrolledCourses.length > 0 ? (
-                        <div className="space-y-12">
-                            {Object.entries(enrolledCourses.reduce((acc: Record<string, any[]>, course) => {
-                                const cat = course.category || "คอร์สเรียนทั่วไป";
-                                if (!acc[cat]) acc[cat] = [];
-                                acc[cat].push(course);
-                                return acc;
-                            }, {})).map(([category, courses]) => (
-                                <div key={category} className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                    <h2 className="text-2xl font-bold text-slate-700 mb-6 flex items-center gap-3">
-                                        <span className="w-2 h-8 bg-indigo-500 rounded-full"></span>
-                                        {category}
-                                        <span className="text-sm font-normal text-slate-400 bg-slate-100 px-2 py-1 rounded-full">{courses.length} คอร์ส</span>
-                                    </h2>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                                        {courses.map((course) => (
-                                            <div key={course.id} className={`group bg-white rounded-[2.5rem] shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-2 flex flex-col ${course.status === 'pending' ? 'border-2 border-yellow-200' : 'hover:shadow-xl'}`}>
-
-                                                <div className="aspect-video bg-slate-100 relative overflow-hidden">
-                                                    {course.image ? (
-                                                        /* eslint-disable-next-line @next/next/no-img-element */
-                                                        <img src={course.image} alt={course.title} className={`w-full h-full object-cover ${course.status !== 'approved' ? 'grayscale opacity-80' : ''}`} />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-4xl">📘</div>
-                                                    )}
-
-                                                    {/* Badge สถานะ */}
-                                                    {course.status === 'pending' && (
-                                                        <div className="absolute inset-0 bg-black/10 flex items-center justify-center backdrop-blur-[2px]">
-                                                            <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full shadow-md animate-pulse">รอตรวจสอบ</span>
+                            {/* Card 3: Notifications */}
+                            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800 h-full flex flex-col">
+                                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                                    <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-600 p-2 rounded-xl relative">
+                                        <BellIcon />
+                                        {/* Notification Badge */}
+                                        {notifications.filter(n => !dismissedIds.includes(n.id)).length > 0 && (
+                                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                                                {notifications.filter(n => !dismissedIds.includes(n.id)).length}
+                                            </span>
+                                        )}
+                                    </span>
+                                    ข่าวสารจากครูฮีม
+                                </h2>
+                                <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[300px] pr-2 space-y-3">
+                                    {notifications.length > 0 ? (
+                                        notifications
+                                            .filter(n => !dismissedIds.includes(n.id))
+                                            .map(notif => (
+                                                <div key={notif.id} className="relative group bg-slate-50 p-3 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white hover:shadow-sm transition">
+                                                    <div className="flex gap-3">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notif.type === 'general' ? 'bg-orange-100 text-orange-500' : 'bg-indigo-100 text-indigo-500'}`}>
+                                                            {notif.type === 'general' ? '📢' : '✨'}
                                                         </div>
-                                                    )}
-                                                    {course.status === 'suspended' && (
-                                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px]">
-                                                            <span className="bg-slate-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">พักการเรียน</span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-normal text-slate-700 leading-tight mb-1">{notif.type === 'general' ? notif.message : notif.lessonTitle}</p>
+                                                            <p className="text-xs text-slate-400">{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString('th-TH') : 'เมื่อเร็วๆ นี้'}</p>
                                                         </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="p-6 flex flex-col flex-1">
-                                                    <h3 className="text-lg font-bold text-slate-800 mb-2 line-clamp-2">{course.title}</h3>
-
-                                                    <div className="mt-auto pt-4">
-                                                        {course.status === 'approved' ? (
-                                                            <>
-                                                                {(() => {
-                                                                    if (course.accessType === 'lifetime') {
-                                                                        return (
-                                                                            <div className="mb-3 flex justify-center">
-                                                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 shadow-sm flex items-center gap-1">
-                                                                                    ♾️ เรียนได้ตลอดชีพ
-                                                                                </span>
-                                                                            </div>
-                                                                        );
-                                                                    } else if (course.expiryDate) {
-                                                                        const now = new Date();
-                                                                        const expiry = course.expiryDate.toDate ? course.expiryDate.toDate() : new Date(course.expiryDate);
-                                                                        const diffTime = expiry.getTime() - now.getTime();
-                                                                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                                                                        if (diffDays <= 0) {
-                                                                            return (
-                                                                                <div className="mb-3 flex justify-center">
-                                                                                    <span className="text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 flex items-center gap-1">
-                                                                                        🔒 หมดอายุแล้ว ({expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })})
-                                                                                    </span>
-                                                                                </div>
-                                                                            );
-                                                                        } else {
-                                                                            return (
-                                                                                <div className="mb-3 flex flex-col items-center gap-1">
-                                                                                    <span className={`text-xs font-bold px-3 py-1.5 rounded-full border shadow-sm flex items-center gap-1 ${diffDays < 30 ? 'text-orange-600 bg-orange-50 border-orange-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
-                                                                                        ⏳ เหลือเวลาเรียน {diffDays} วัน
-                                                                                    </span>
-                                                                                    <span className="text-[10px] text-slate-400 font-medium">
-                                                                                        หมดอายุ: {expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
-                                                                                    </span>
-                                                                                </div>
-                                                                            );
-                                                                        }
-                                                                    }
-                                                                    return null;
-                                                                })()}
-
-                                                                {(() => {
-                                                                    const isExpired = course.expiryDate && course.accessType !== 'lifetime' && (course.expiryDate.toDate ? course.expiryDate.toDate() : new Date(course.expiryDate)) < new Date();
-
-                                                                    if (isExpired) {
-                                                                        return (
-                                                                            <button disabled className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold cursor-not-allowed flex items-center justify-center gap-2">
-                                                                                🔒 หมดอายุการใช้งาน
-                                                                            </button>
-                                                                        );
-                                                                    }
-
-                                                                    return (
-                                                                        <div className="flex flex-col gap-2 w-full">
-                                                                            <Link href={`/learn/${course.id}`} className="w-full py-3 rounded-xl bg-[#D9E9CF] hover:bg-[#C8DDBB] text-emerald-800 font-bold flex items-center justify-center gap-2 transition shadow-sm">
-                                                                                <PlayIcon /> เข้าเรียน
-                                                                            </Link>
-                                                                            {reviewedCourses[course.id] ? (
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        setReviewingCourse({
-                                                                                            ...course,
-                                                                                            initialCouponCode: reviewedCourses[course.id].couponCode,
-                                                                                            isCouponUsed: reviewedCourses[course.id].isCouponUsed
-                                                                                        });
-                                                                                        setShowReviewModal(true);
-                                                                                    }}
-                                                                                    className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition shadow-sm border ${reviewedCourses[course.id].isCouponUsed
-                                                                                        ? "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
-                                                                                        : "bg-violet-100 text-violet-700 border-violet-200 hover:bg-violet-200"
-                                                                                        }`}
-                                                                                >
-                                                                                    {reviewedCourses[course.id].isCouponUsed ? "✔️ ใช้โค้ดแล้ว" : "🎟️ ดูโค้ดส่วนลด"}
-                                                                                </button>
-                                                                            ) : (
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        setReviewingCourse(course);
-                                                                                        setShowReviewModal(true);
-                                                                                    }}
-                                                                                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-100 to-orange-100 text-orange-800 font-bold text-sm flex items-center justify-center gap-2 hover:from-amber-200 hover:to-orange-200 transition shadow-sm border border-orange-200/50"
-                                                                                >
-                                                                                    🎁 รีวิวรับคูปอง
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                })()}
-                                                            </>
-                                                        ) : course.status === 'pending' ? (
-                                                            <Link
-                                                                href={`/payment?courseId=${course.id}`}
-                                                                className="w-full py-3 rounded-xl bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-bold flex items-center justify-center gap-2 transition border border-yellow-300 border-dashed"
-                                                            >
-                                                                <EditIcon /> แจ้งโอนใหม่ / ติดต่อแอดมิน
-                                                            </Link>
-                                                        ) : (
-                                                            <button disabled className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold cursor-not-allowed flex items-center justify-center gap-2">
-                                                                🔒 ไม่สามารถเข้าเรียนได้
-                                                            </button>
-                                                        )}
+                                                        <button onClick={(e) => handleDismiss(e, notif.id)} className="text-slate-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition">✕</button>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                            ))
+                                    ) : (
+                                        <div className="text-center py-8 text-slate-400">
+                                            <p>ยังไม่มีประกาศใหม่</p>
+                                        </div>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-200 text-slate-400">
-                            <div className="text-6xl mb-4">🎒</div>
-                            <p className="text-lg font-medium mb-6">คุณยังไม่ได้ลงทะเบียนคอร์สเรียน</p>
-                            <Link href="/" className="bg-indigo-600 text-white px-8 py-3 rounded-full font-bold hover:bg-indigo-700 transition shadow-lg">
-                                ดูคอร์สทั้งหมด
-                            </Link>
-                        </div>
-                    )}
-                </div>
+                            </div>
 
-                <Footer />
-                <PollWidget />
+                            {/* Card 4: Support / Q&A */}
+                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full flex flex-col relative overflow-hidden">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                        <span className="bg-cyan-100 text-cyan-600 p-2 rounded-xl">💬</span>
+                                        พูดคุย / แจ้งปัญหา
+                                    </h2>
+                                    {supportViewMode === 'list' && supportTickets.length > 0 && (
+                                        <button
+                                            onClick={() => setSupportViewMode('form')}
+                                            className="text-xs font-bold text-cyan-600 bg-cyan-50 px-3 py-1.5 rounded-lg hover:bg-cyan-100 transition"
+                                        >
+                                            + เรื่องใหม่
+                                        </button>
+                                    )}
+                                </div>
+
+                                {supportViewMode === 'list' ? (
+                                    <div className="flex-1 flex flex-col">
+                                        {supportTickets.length > 0 ? (
+                                            <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[200px] space-y-3 pr-2 -mr-2">
+                                                {supportTickets.map(ticket => (
+                                                    <div
+                                                        key={ticket.id}
+                                                        onClick={() => setSelectedTicket(ticket)}
+                                                        className="bg-white border border-slate-100 p-4 rounded-2xl hover:border-cyan-200 hover:shadow-md transition cursor-pointer group relative overflow-hidden"
+                                                    >
+                                                        <div className="absolute top-0 left-0 w-1 h-full bg-slate-200 group-hover:bg-cyan-400 transition"></div>
+                                                        <div className="flex justify-between items-start mb-1 pl-2">
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ticket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                                                                {ticket.status === 'resolved' ? '✅ แก้ไขแล้ว' : '⏳ รอตรวจสอบ'}
+                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                                                    <Clock size={10} />
+                                                                    {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString('th-TH') : '...'}
+                                                                </span>
+                                                                <button
+                                                                    onClick={(e) => handleDeleteTicket(e, ticket.id)}
+                                                                    className="text-slate-300 hover:text-rose-500 transition p-1 rounded-full hover:bg-rose-50"
+                                                                    title="ลบรายการ"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <p className="font-bold text-slate-700 text-sm truncate pl-2 group-hover:text-cyan-700 transition">{ticket.subject}</p>
+                                                        <p className="text-xs text-slate-500 truncate pl-2">{ticket.message}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 space-y-3">
+                                                <MessageSquare size={40} className="text-slate-200" />
+                                                <p className="text-sm">ยังไม่มีรายการแจ้งปัญหา</p>
+                                                <button
+                                                    onClick={() => setSupportViewMode('form')}
+                                                    className="px-4 py-2 bg-cyan-50 text-cyan-600 rounded-xl font-bold text-sm hover:bg-cyan-100 transition"
+                                                >
+                                                    แจ้งปัญหาเรื่องแรก
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handleSubmitSupport} className="flex-1 flex flex-col gap-3 animate-in fade-in slide-in-from-right-4 duration-200">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSupportViewMode('list')}
+                                                className="p-1 hover:bg-slate-100 rounded-lg transition text-slate-400"
+                                            >
+                                                <ArrowLeft size={18} />
+                                            </button>
+                                            <span className="text-sm font-bold text-slate-600">แจ้งปัญหาใหม่</span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="หัวข้อเรื่อง..."
+                                            className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm font-bold text-slate-700"
+                                            value={supportSubject}
+                                            onChange={e => setSupportSubject(e.target.value)}
+                                            required
+                                        />
+                                        <textarea
+                                            placeholder="รายละเอียด หรือคำถาม..."
+                                            className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm text-slate-700 resize-none flex-1 min-h-[80px]"
+                                            value={supportMessage}
+                                            onChange={e => setSupportMessage(e.target.value)}
+                                            required
+                                        ></textarea>
+                                        <div className="flex items-center gap-2">
+                                            <label className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 text-slate-500 text-xs cursor-pointer hover:bg-slate-100 transition truncate border border-transparent hover:border-slate-200">
+                                                <Paperclip size={14} />
+                                                <span className="truncate">{supportFile ? supportFile.name : "แนบไฟล์ (ถ้ามี)"}</span>
+                                                <input type="file" className="hidden" onChange={e => setSupportFile(e.target.files?.[0] || null)} />
+                                            </label>
+                                            <button
+                                                type="submit"
+                                                disabled={isSubmittingSupport}
+                                                className="px-6 py-2 rounded-xl bg-cyan-500 text-white font-bold text-sm hover:bg-cyan-600 transition shadow-md shadow-cyan-200 disabled:opacity-50"
+                                            >
+                                                {isSubmittingSupport ? '...' : 'ส่งเรื่อง'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
+
+
+
+                        </div>
+
+                        <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                            📖 คอร์สเรียนของฉัน
+                        </h1>
+
+                        {/* รายชื่อคอร์ส (Grouped by Category) */}
+                        {enrolledCourses.length > 0 ? (
+                            <div className="space-y-12">
+                                {Object.entries(enrolledCourses.reduce((acc: Record<string, any[]>, course) => {
+                                    const cat = course.category || "คอร์สเรียนทั่วไป";
+                                    if (!acc[cat]) acc[cat] = [];
+                                    acc[cat].push(course);
+                                    return acc;
+                                }, {})).map(([category, courses]) => (
+                                    <div key={category} className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                        <h2 className="text-2xl font-bold text-slate-700 mb-6 flex items-center gap-3">
+                                            <span className="w-2 h-8 bg-indigo-500 rounded-full"></span>
+                                            {category}
+                                            <span className="text-sm font-normal text-slate-400 bg-slate-100 px-2 py-1 rounded-full">{courses.length} คอร์ส</span>
+                                        </h2>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                                            {courses.map((course) => (
+                                                <div key={course.id} className={`group bg-white rounded-[2.5rem] shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-2 flex flex-col ${course.status === 'pending' ? 'border-2 border-yellow-200' : 'hover:shadow-xl'}`}>
+
+                                                    <div className="aspect-video bg-slate-100 relative overflow-hidden">
+                                                        {course.image ? (
+                                                            /* eslint-disable-next-line @next/next/no-img-element */
+                                                            <img src={course.image} alt={course.title} className={`w-full h-full object-cover ${course.status !== 'approved' ? 'grayscale opacity-80' : ''}`} />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-4xl">📘</div>
+                                                        )}
+
+                                                        {/* Badge สถานะ */}
+                                                        {course.status === 'pending' && (
+                                                            <div className="absolute inset-0 bg-black/10 flex items-center justify-center backdrop-blur-[2px]">
+                                                                <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full shadow-md animate-pulse">รอตรวจสอบ</span>
+                                                            </div>
+                                                        )}
+                                                        {course.status === 'suspended' && (
+                                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px]">
+                                                                <span className="bg-slate-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">พักการเรียน</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="p-6 flex flex-col flex-1">
+                                                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2 line-clamp-2">{course.title}</h3>
+
+                                                        {/* Progress Bar */}
+                                                        {course.status === 'approved' && courseProgress[course.id] && (
+                                                            <div className="mb-3">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <span className="text-[10px] font-bold text-slate-500">ความคืบหน้า</span>
+                                                                    <span className={`text-[10px] font-bold ${courseProgress[course.id].percent === 100 ? 'text-emerald-600' : 'text-indigo-600'}`}>
+                                                                        {courseProgress[course.id].percent}%
+                                                                    </span>
+                                                                </div>
+                                                                <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={`h-full transition-all duration-700 ease-out rounded-full ${courseProgress[course.id].percent === 100 ? 'bg-gradient-to-r from-emerald-400 to-green-500' : 'bg-gradient-to-r from-indigo-400 to-purple-500'}`}
+                                                                        style={{ width: `${courseProgress[course.id].percent}%` }}
+                                                                    />
+                                                                </div>
+                                                                <p className="text-[9px] text-slate-400 mt-1 text-right">
+                                                                    {courseProgress[course.id].completed}/{courseProgress[course.id].total} บทเรียน
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="mt-auto pt-4">
+                                                            {course.status === 'approved' ? (
+                                                                <>
+                                                                    {(() => {
+                                                                        if (course.accessType === 'lifetime') {
+                                                                            return (
+                                                                                <div className="mb-3 flex justify-center">
+                                                                                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 shadow-sm flex items-center gap-1">
+                                                                                        ♾️ เรียนได้ตลอดชีพ
+                                                                                    </span>
+                                                                                </div>
+                                                                            );
+                                                                        } else if (course.expiryDate) {
+                                                                            const now = new Date();
+                                                                            const expiry = course.expiryDate.toDate ? course.expiryDate.toDate() : new Date(course.expiryDate);
+                                                                            const diffTime = expiry.getTime() - now.getTime();
+                                                                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                                                                            if (diffDays <= 0) {
+                                                                                return (
+                                                                                    <div className="mb-3 flex justify-center">
+                                                                                        <span className="text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 flex items-center gap-1">
+                                                                                            🔒 หมดอายุแล้ว ({expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })})
+                                                                                        </span>
+                                                                                    </div>
+                                                                                );
+                                                                            } else {
+                                                                                return (
+                                                                                    <div className="mb-3 flex flex-col items-center gap-1">
+                                                                                        <span className={`text-xs font-bold px-3 py-1.5 rounded-full border shadow-sm flex items-center gap-1 ${diffDays < 30 ? 'text-orange-600 bg-orange-50 border-orange-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
+                                                                                            ⏳ เหลือเวลาเรียน {diffDays} วัน
+                                                                                        </span>
+                                                                                        <span className="text-[10px] text-slate-400 font-medium">
+                                                                                            หมดอายุ: {expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                );
+                                                                            }
+                                                                        }
+                                                                        return null;
+                                                                    })()}
+
+                                                                    {(() => {
+                                                                        const isExpired = course.expiryDate && course.accessType !== 'lifetime' && (course.expiryDate.toDate ? course.expiryDate.toDate() : new Date(course.expiryDate)) < new Date();
+
+                                                                        if (isExpired) {
+                                                                            return (
+                                                                                <button disabled className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold cursor-not-allowed flex items-center justify-center gap-2">
+                                                                                    🔒 หมดอายุการใช้งาน
+                                                                                </button>
+                                                                            );
+                                                                        }
+
+                                                                        return (
+                                                                            <div className="flex flex-col gap-2 w-full">
+                                                                                {courseProgress[course.id]?.percent > 0 && courseProgress[course.id]?.lastLessonId ? (
+                                                                                    <Link
+                                                                                        href={`/learn/${course.id}?lessonId=${courseProgress[course.id].lastLessonId}`}
+                                                                                        className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30"
+                                                                                    >
+                                                                                        <PlayIcon /> เรียนต่อจากที่ค้าง
+                                                                                    </Link>
+                                                                                ) : (
+                                                                                    <Link
+                                                                                        href={`/learn/${course.id}`}
+                                                                                        className="w-full py-3 rounded-xl bg-[#D9E9CF] hover:bg-[#C8DDBB] text-emerald-800 font-bold flex items-center justify-center gap-2 transition shadow-sm"
+                                                                                    >
+                                                                                        <PlayIcon /> {courseProgress[course.id]?.percent === 0 ? 'เริ่มเรียน' : 'เข้าเรียน'}
+                                                                                    </Link>
+                                                                                )}
+                                                                                {reviewedCourses[course.id] ? (
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setReviewingCourse({
+                                                                                                ...course,
+                                                                                                initialCouponCode: reviewedCourses[course.id].couponCode,
+                                                                                                isCouponUsed: reviewedCourses[course.id].isCouponUsed
+                                                                                            });
+                                                                                            setShowReviewModal(true);
+                                                                                        }}
+                                                                                        className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition shadow-sm border ${reviewedCourses[course.id].isCouponUsed
+                                                                                            ? "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
+                                                                                            : "bg-violet-100 text-violet-700 border-violet-200 hover:bg-violet-200"
+                                                                                            }`}
+                                                                                    >
+                                                                                        {reviewedCourses[course.id].isCouponUsed ? "✔️ ใช้โค้ดแล้ว" : "🎟️ ดูโค้ดส่วนลด"}
+                                                                                    </button>
+                                                                                ) : (
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setReviewingCourse(course);
+                                                                                            setShowReviewModal(true);
+                                                                                        }}
+                                                                                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-100 to-orange-100 text-orange-800 font-bold text-sm flex items-center justify-center gap-2 hover:from-amber-200 hover:to-orange-200 transition shadow-sm border border-orange-200/50"
+                                                                                    >
+                                                                                        🎁 รีวิวรับคูปอง
+                                                                                    </button>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                </>
+                                                            ) : course.status === 'pending' ? (
+                                                                <Link
+                                                                    href={`/payment?courseId=${course.id}`}
+                                                                    className="w-full py-3 rounded-xl bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-bold flex items-center justify-center gap-2 transition border border-yellow-300 border-dashed"
+                                                                >
+                                                                    <EditIcon /> แจ้งโอนใหม่ / ติดต่อแอดมิน
+                                                                </Link>
+                                                            ) : (
+                                                                <button disabled className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold cursor-not-allowed flex items-center justify-center gap-2">
+                                                                    🔒 ไม่สามารถเข้าเรียนได้
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-200 text-slate-400">
+                                <div className="text-6xl mb-4">🎒</div>
+                                <p className="text-lg font-medium mb-6">คุณยังไม่ได้ลงทะเบียนคอร์สเรียน</p>
+                                <Link href="/" className="bg-indigo-600 text-white px-8 py-3 rounded-full font-bold hover:bg-indigo-700 transition shadow-lg">
+                                    ดูคอร์สทั้งหมด
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+
+                    <Footer />
+                    <PollWidget />
+                </ErrorBoundary>
             </div>
 
             {/* ✅ Profile Edit Modal */}

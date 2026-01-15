@@ -356,7 +356,7 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                                     <img
                                         src={block.url || block.content}
                                         alt={block.alt || block.caption || "Summary Image"}
-                                        className="max-w-full md:max-w-[600px] h-auto object-contain rounded-2xl shadow-lg"
+                                        className="max-w-full md:max-w-[700px] h-auto object-contain rounded-2xl shadow-lg"
                                         loading="lazy"
                                     />
                                 </div>

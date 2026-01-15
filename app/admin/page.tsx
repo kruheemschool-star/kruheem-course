@@ -484,6 +484,16 @@ export default function AdminDashboard() {
                             <p className="text-sm text-green-800/60 mt-1 relative z-10">ดาวน์โหลดรายงาน</p>
                         </div>
 
+                        {/* Activity Log (Cyan Gradient) - NEW */}
+                        <Link href="/admin/activity" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-teal-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">📊</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-teal-900/80 group-hover:text-teal-900 relative z-10">Activity Log</h3>
+                            <p className="text-sm text-teal-800/60 mt-1 relative z-10">ติดตามกิจกรรมนักเรียน</p>
+                        </Link>
+
                         {/* 9. สำรองข้อมูล (Gray/Slate Gradient) */}
                         <Link href="/admin/backup" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-slate-100 to-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
                             <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>

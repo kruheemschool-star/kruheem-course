@@ -309,6 +309,106 @@ export default function AdminStudentsPage() {
                     </div>
                 </div>
 
+                {/* ⚠️ Expiry Alert Section */}
+                {(() => {
+                    const now = new Date();
+                    const expiringItems = filteredEnrollments.filter(item => {
+                        if (item.status !== 'approved' || item.accessType === 'lifetime' || !item.expiryDate) return false;
+                        const expiry = new Date(item.expiryDate.seconds ? item.expiryDate.seconds * 1000 : item.expiryDate);
+                        const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                        return diffDays <= 30; // Within 30 days
+                    });
+
+                    if (expiringItems.length === 0) return null;
+
+                    const expired = expiringItems.filter(item => {
+                        const expiry = new Date(item.expiryDate.seconds ? item.expiryDate.seconds * 1000 : item.expiryDate);
+                        return expiry < now;
+                    });
+
+                    const expiringSoon = expiringItems.filter(item => {
+                        const expiry = new Date(item.expiryDate.seconds ? item.expiryDate.seconds * 1000 : item.expiryDate);
+                        const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                        return diffDays > 0 && diffDays <= 7;
+                    });
+
+                    const expiringLater = expiringItems.filter(item => {
+                        const expiry = new Date(item.expiryDate.seconds ? item.expiryDate.seconds * 1000 : item.expiryDate);
+                        const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                        return diffDays > 7 && diffDays <= 30;
+                    });
+
+                    return (
+                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 mb-6 animate-in fade-in slide-in-from-top-2">
+                            <h3 className="font-bold text-amber-800 flex items-center gap-2 mb-4">
+                                <span className="text-xl">⚠️</span>
+                                แจ้งเตือนการหมดอายุ ({expiringItems.length} รายการ)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Expired */}
+                                <div className="bg-white/80 rounded-xl p-4 border border-rose-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="w-3 h-3 bg-rose-500 rounded-full"></span>
+                                        <span className="font-bold text-rose-700">หมดอายุแล้ว</span>
+                                        <span className="ml-auto text-2xl font-black text-rose-600">{expired.length}</span>
+                                    </div>
+                                    {expired.length > 0 && (
+                                        <div className="space-y-1 max-h-24 overflow-y-auto text-xs">
+                                            {expired.slice(0, 3).map(item => (
+                                                <div key={item.id} className="flex justify-between text-rose-600">
+                                                    <span className="truncate">{item.userName}</span>
+                                                    <span className="font-bold">{item.courseTitle?.slice(0, 15)}...</span>
+                                                </div>
+                                            ))}
+                                            {expired.length > 3 && <div className="text-rose-400">+{expired.length - 3} อีก</div>}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Expiring in 7 days */}
+                                <div className="bg-white/80 rounded-xl p-4 border border-orange-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></span>
+                                        <span className="font-bold text-orange-700">หมดใน 7 วัน</span>
+                                        <span className="ml-auto text-2xl font-black text-orange-600">{expiringSoon.length}</span>
+                                    </div>
+                                    {expiringSoon.length > 0 && (
+                                        <div className="space-y-1 max-h-24 overflow-y-auto text-xs">
+                                            {expiringSoon.slice(0, 3).map(item => (
+                                                <div key={item.id} className="flex justify-between text-orange-600">
+                                                    <span className="truncate">{item.userName}</span>
+                                                    <span className="font-bold">{item.courseTitle?.slice(0, 15)}...</span>
+                                                </div>
+                                            ))}
+                                            {expiringSoon.length > 3 && <div className="text-orange-400">+{expiringSoon.length - 3} อีก</div>}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Expiring in 30 days */}
+                                <div className="bg-white/80 rounded-xl p-4 border border-amber-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="w-3 h-3 bg-amber-400 rounded-full"></span>
+                                        <span className="font-bold text-amber-700">หมดใน 30 วัน</span>
+                                        <span className="ml-auto text-2xl font-black text-amber-600">{expiringLater.length}</span>
+                                    </div>
+                                    {expiringLater.length > 0 && (
+                                        <div className="space-y-1 max-h-24 overflow-y-auto text-xs">
+                                            {expiringLater.slice(0, 3).map(item => (
+                                                <div key={item.id} className="flex justify-between text-amber-600">
+                                                    <span className="truncate">{item.userName}</span>
+                                                    <span className="font-bold">{item.courseTitle?.slice(0, 15)}...</span>
+                                                </div>
+                                            ))}
+                                            {expiringLater.length > 3 && <div className="text-amber-400">+{expiringLater.length - 3} อีก</div>}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+
                 <div className="mb-4"><PaginationControl /></div>
 
                 <div className="bg-white rounded-[2rem] shadow-lg border border-slate-100 overflow-hidden">

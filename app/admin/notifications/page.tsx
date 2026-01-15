@@ -154,13 +154,51 @@ export default function NotificationsPage() {
                         {/* Course Selection List (Only show if specific) */}
                         {targetType === 'specific' && (
                             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 animate-in fade-in slide-in-from-top-2">
-                                <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">เลือกคอร์สที่ต้องการแจ้งเตือน ({selectedCourseIds.length})</p>
+                                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">เลือกคอร์สที่ต้องการแจ้งเตือน ({selectedCourseIds.length})</p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedCourseIds(courses.map(c => c.id))}
+                                            className="px-3 py-1.5 text-xs font-bold bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition"
+                                        >
+                                            ✅ เลือกทั้งหมด
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedCourseIds([])}
+                                            className="px-3 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition"
+                                        >
+                                            ❌ ยกเลิกทั้งหมด
+                                        </button>
+                                    </div>
+                                </div>
                                 <div className="max-h-80 overflow-y-auto pr-2 custom-scrollbar space-y-6">
                                     {groupedCourses.map(([category, items]) => (
                                         <div key={category}>
-                                            <h4 className="text-sm font-bold text-indigo-800 mb-2 bg-indigo-50/50 p-2 rounded-lg border border-indigo-100 sticky top-0 backdrop-blur-sm z-10">
-                                                📌 {category}
-                                            </h4>
+                                            <div className="flex items-center justify-between mb-2 bg-indigo-50/50 p-2 rounded-lg border border-indigo-100 sticky top-0 backdrop-blur-sm z-10">
+                                                <h4 className="text-sm font-bold text-indigo-800">
+                                                    📌 {category} ({items.length})
+                                                </h4>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const categoryIds = items.map((c: any) => c.id);
+                                                        const allSelected = categoryIds.every((id: string) => selectedCourseIds.includes(id));
+                                                        if (allSelected) {
+                                                            setSelectedCourseIds(prev => prev.filter(id => !categoryIds.includes(id)));
+                                                        } else {
+                                                            setSelectedCourseIds(prev => [...new Set([...prev, ...categoryIds])]);
+                                                        }
+                                                    }}
+                                                    className={`text-[10px] px-2 py-1 rounded-md font-bold transition ${items.every((c: any) => selectedCourseIds.includes(c.id))
+                                                            ? 'bg-indigo-600 text-white'
+                                                            : 'bg-white text-indigo-600 hover:bg-indigo-100'
+                                                        }`}
+                                                >
+                                                    {items.every((c: any) => selectedCourseIds.includes(c.id)) ? '✓ เลือกแล้ว' : 'เลือกทั้งกลุ่ม'}
+                                                </button>
+                                            </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                 {items.map((course: any) => (
                                                     <label key={course.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${selectedCourseIds.includes(course.id) ? 'bg-white border-indigo-400 shadow-sm' : 'bg-white/50 border-transparent hover:bg-white'}`}>
