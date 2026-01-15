@@ -68,7 +68,7 @@ export default async function ExamHubPage() {
     const exams = await getExams();
 
     return (
-        <div className="min-h-screen bg-[#FDFCF8] font-sans flex flex-col">
+        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
             <Navbar />
 
             {/* 3. Pass Data to Client Component for Interactivity */}
@@ -77,7 +77,7 @@ export default async function ExamHubPage() {
             </div>
 
             {/* Netflix-style Hero Banner (Moved to Bottom) */}
-            <div className="py-12 px-4 md:px-8 bg-gradient-to-t from-white to-[#FDFCF8]">
+            <div className="py-12 px-4 md:px-8 bg-gradient-to-t from-white dark:from-slate-950 to-slate-50 dark:to-slate-900">
                 <div className="relative w-full max-w-7xl mx-auto rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-900 text-white min-h-[400px] flex items-center group transition-all duration-500 hover:shadow-indigo-500/20">
                     {/* Background Art */}
                     <div className="absolute inset-0 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900"></div>

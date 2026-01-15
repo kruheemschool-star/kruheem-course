@@ -92,6 +92,11 @@ export default function Navbar() {
                         <span>คลังข้อสอบ</span>
                     </Link>
 
+                    <Link href="/summary" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
+                        <BookOpen size={16} />
+                        <span>สรุปเนื้อหา</span>
+                    </Link>
+
                     <Link href="/how-to-apply" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
                         <HelpCircle size={16} />
                         <span>วิธีสมัคร</span>

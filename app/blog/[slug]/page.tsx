@@ -3,10 +3,55 @@
 import { useState, useEffect, useRef, use } from "react";
 import Navbar from "@/components/Navbar";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
-import { Calendar, Share2, Facebook, Link as LinkIcon } from "lucide-react";
+import { collection, query, where, getDocs, limit, doc, getDoc } from "firebase/firestore";
+import { Calendar, Share2, Facebook, Link as LinkIcon, Eye } from "lucide-react";
 import Link from "next/link";
 import Script from "next/script";
+import { SmartContentRenderer } from "@/components/ContentRenderer";
+import type { Metadata, ResolvingMetadata } from 'next';
+
+type Props = {
+    params: Promise<{ slug: string }>
+}
+
+// 🧠 Dynamic Metadata for SEO
+export async function generateMetadata(
+    { params }: Props,
+    parent: ResolvingMetadata
+): Promise<Metadata> {
+    const { slug } = await params;
+
+    // Fetch post data
+    const q = query(
+        collection(db, "posts"),
+        where("slug", "==", slug),
+        limit(1)
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+        return {
+            title: 'บทความไม่พบ - Kruheem.com',
+        };
+    }
+
+    const post = querySnapshot.docs[0].data();
+
+    // Default keywords
+    const defaultKeywords = ['คณิตศาสตร์', 'เรียนพิเศษ', 'Kruheem', 'สอบเข้า'];
+    const postKeywords = Array.isArray(post.keywords) ? post.keywords : [];
+
+    return {
+        title: `${post.title} | Kruheem.com`,
+        description: post.excerpt || post.title,
+        keywords: [...defaultKeywords, ...postKeywords],
+        openGraph: {
+            title: post.title,
+            description: post.excerpt || post.title,
+            images: post.coverImage ? [post.coverImage] : [],
+        },
+    };
+}
 
 interface Post {
     id: string;
@@ -16,6 +61,9 @@ interface Post {
     createdAt: any;
     updatedAt: any;
     content: string;
+    contentType?: 'html' | 'json'; // New field
+    views?: number;
+    keywords?: string[];
 }
 
 export default function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -23,7 +71,7 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
     const [post, setPost] = useState<Post | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // MathJax specific state and ref
+    // MathJax specific state and ref (for Legacy HTML content)
     const [isMathJaxLoaded, setIsMathJaxLoaded] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -54,15 +102,12 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         fetchPost();
     }, [slug]);
 
-    // 2. Typeset MathJax when content or script is ready
+    // 2. Typeset MathJax when content or script is ready (Only for HTML content)
     useEffect(() => {
         const typeset = async () => {
-            if (post && contentRef.current && (window as any).MathJax && isMathJaxLoaded) {
+            if (post && post.contentType !== 'json' && contentRef.current && (window as any).MathJax && isMathJaxLoaded) {
                 try {
-                    // Force typeset specifically on the content container
-                    // verifying the method exists before calling
                     const MathJax = (window as any).MathJax;
-
                     if (MathJax.typesetPromise) {
                         await MathJax.typesetPromise([contentRef.current]);
                     } else if (MathJax.typeset) {
@@ -75,16 +120,13 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         };
 
         typeset();
-
-        // Fallback: Retry after a short delay to ensure DOM is fully ready
-        // This handles cases where React hydration might be slightly delayed vs the effect
         const timer = setTimeout(typeset, 300);
         return () => clearTimeout(timer);
     }, [post, isMathJaxLoaded]);
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#FDFBF7]">
+            <div className="min-h-screen bg-white dark:bg-slate-950 transition-colors">
                 <Navbar />
                 <div className="pt-32 pb-20 px-6 max-w-3xl mx-auto space-y-8 animate-pulse">
                     <div className="h-64 bg-slate-200 rounded-[2rem]"></div>
@@ -107,46 +149,48 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
         );
     }
 
+    // Determine if it's new Smart Content (JSON)
+    // We check explicit 'contentType' field OR try to detect JSON array structure
+    const isSmartContent = post.contentType === 'json' || (
+        typeof post.content === 'string' && post.content.trim().startsWith('[') && post.content.trim().endsWith(']')
+    );
+
     return (
         <div className="min-h-screen bg-[#FDFBF7] font-sans selection:bg-teal-100 selection:text-teal-900">
             <Navbar />
 
-            {/* MathJax Setup */}
-            <Script
-                id="mathjax-config"
-                strategy="beforeInteractive"
-                dangerouslySetInnerHTML={{
-                    __html: `
-                        window.MathJax = {
-                            loader: { load: ['[tex]/ams'] },
-                            tex: {
-                                inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
-                                displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
-                                processEscapes: true,
-                                packages: {'[+]': ['noerrors', 'noundefined', 'ams']}
-                            },
-                            startup: {
-                                typeset: false
-                            },
-                            svg: {
-                                fontCache: 'global',
-                                scale: 1,
-                                minScale: .5
-                            }
-                        };
-                    `
-                }}
-            />
-            <Script
-                id="mathjax-script"
-                strategy="afterInteractive"
-                src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
-                onLoad={() => {
-                    setIsMathJaxLoaded(true);
-                }}
-            />
+            {/* Legacy MathJax Support for Old HTML Posts */}
+            {!isSmartContent && (
+                <>
+                    <Script
+                        id="mathjax-config"
+                        strategy="beforeInteractive"
+                        dangerouslySetInnerHTML={{
+                            __html: `
+                                window.MathJax = {
+                                    loader: { load: ['[tex]/ams'] },
+                                    tex: {
+                                        inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
+                                        displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']],
+                                        processEscapes: true,
+                                        packages: {'[+]': ['noerrors', 'noundefined', 'ams']}
+                                    },
+                                    startup: { typeset: false },
+                                    svg: { fontCache: 'global', scale: 1, minScale: .5 }
+                                };
+                            `
+                        }}
+                    />
+                    <Script
+                        id="mathjax-script"
+                        strategy="afterInteractive"
+                        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+                        onLoad={() => setIsMathJaxLoaded(true)}
+                    />
+                </>
+            )}
+
             {/* Tailwind Play CDN for arbitrary values in dynamic content */}
-            {/* Note: This allows classes like bg-[#123] from DB to work */}
             <Script src="https://cdn.tailwindcss.com" strategy="afterInteractive" />
 
             <main className="pt-24 pb-20">
@@ -156,6 +200,13 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
                         <div className="inline-flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm text-sm text-slate-500 mb-6 mt-6">
                             <Calendar size={14} className="text-teal-500" />
                             {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('th-TH', { dateStyle: 'long' }) : 'Unknown Date'}
+                            {post.views !== undefined && (
+                                <>
+                                    <div className="w-1 h-1 rounded-full bg-slate-300 mx-1"></div>
+                                    <Eye size={14} className="text-slate-400" />
+                                    <span>{post.views.toLocaleString()} views</span>
+                                </>
+                            )}
                         </div>
                         <h1 className="text-3xl md:text-5xl font-black text-slate-800 leading-tight mb-8">
                             {post.title}
@@ -174,15 +225,23 @@ export default function BlogPostPage({ params }: { params: Promise<{ slug: strin
                         </div>
                     )}
 
-                    {/* Content Body with Ref for MathJax targeting */}
+                    {/* Content Body */}
                     <div className="max-w-4xl mx-auto">
-                        <div
-                            ref={contentRef}
-                            className="math-content-area prose prose-lg prose-slate prose-headings:font-bold prose-headings:text-slate-800 prose-p:text-slate-600 prose-a:text-teal-600 hover:prose-a:text-teal-700 prose-img:rounded-2xl max-w-none 
-                            bg-white/80 backdrop-blur-xl border border-white/50 shadow-xl rounded-[2.5rem] p-8 md:p-12
-                            overflow-x-auto leading-8 md:leading-9"
-                            dangerouslySetInnerHTML={{ __html: post.content }}
-                        />
+                        {isSmartContent ? (
+                            // ✅ New Smart Content Renderer
+                            <div className="bg-white/80 backdrop-blur-xl border border-white/50 shadow-xl rounded-[2.5rem] p-8 md:p-12 min-h-[400px]">
+                                <SmartContentRenderer content={post.content} />
+                            </div>
+                        ) : (
+                            // 🍂 Legacy HTML Renderer
+                            <div
+                                ref={contentRef}
+                                className="math-content-area prose prose-lg prose-slate prose-headings:font-bold prose-headings:text-slate-800 prose-p:text-slate-600 prose-a:text-teal-600 hover:prose-a:text-teal-700 prose-img:rounded-2xl max-w-none 
+                                bg-white/80 backdrop-blur-xl border border-white/50 shadow-xl rounded-[2.5rem] p-8 md:p-12
+                                overflow-x-auto leading-8 md:leading-9"
+                                dangerouslySetInnerHTML={{ __html: post.content }}
+                            />
+                        )}
                     </div>
 
                     {/* Share / Tags section */}

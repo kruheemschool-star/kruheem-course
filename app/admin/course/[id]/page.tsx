@@ -734,34 +734,64 @@ export default function ManageLessonsPage() {
 
     const [jsonError, setJsonError] = useState<string | null>(null);
 
+    const tryAutoFixFlashcardJson = (raw: string) => {
+        let fixed = raw.trim();
+        // 1. Fix common quotes (smart quotes -> normal quotes)
+        fixed = fixed.replace(/[''‘’]/g, "'");
+        fixed = fixed.replace(/[""“”]/g, '"');
+
+        // 2. Fix unquoted keys (e.g. id: 1 -> "id": 1)
+        // Matches { key: or , key: ensuring key is alphanumeric/underscore
+        fixed = fixed.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3');
+
+        // 3. Fix trailing commas (e.g. , } -> } and , ] -> ])
+        fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
+
+        return fixed;
+    };
+
     const handleFlashcardJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const rawStr = e.target.value;
         setFlashcardJson(rawStr);
 
         // 🛡️ Auto-clean common artifacts (e.g. from AI citations)
-        // Remove [cite_start], [cite_end], [cite:...] and markdown blocks
-        const cleanStr = rawStr
+        let cleanStr = rawStr
             .replace(/\[cite(_start|_end)?(:.*?)?\]/gi, '')
             .replace(/```json/gi, '')
             .replace(/```/g, '')
             .trim();
 
+        // Try primary parse with JSON5 (more relaxed)
         try {
-            const parsed = JSON.parse(cleanStr);
+            const parsed = JSON5.parse(cleanStr);
             if (Array.isArray(parsed)) {
                 setFlashcardData(parsed);
                 setJsonError(null);
+                return;
             } else {
-                setFlashcardData([]);
                 setJsonError("Format ไม่ถูกต้อง: ต้องเป็น Array [...]");
             }
         } catch (err) {
-            setFlashcardData([]);
-            // Don't show error immediately while typing empty
-            if (cleanStr.length > 5) {
-                setJsonError("Invalid JSON: กำลังรอรูปแบบที่ถูกต้อง...");
-            } else {
-                setJsonError(null);
+            // First failure, try Auto-Fix
+            try {
+                const fixed = tryAutoFixFlashcardJson(cleanStr);
+                const parsedFixed = JSON5.parse(fixed);
+                if (Array.isArray(parsedFixed)) {
+                    setFlashcardData(parsedFixed);
+                    setJsonError(null);
+                    // Optional: You could allow updating the text area to fixed version automatically, 
+                    // but usually better to let user manually click "Fix" or just process it internally.
+                    // For now, we just validate it successfully.
+                    return;
+                }
+            } catch (err2) {
+                // If still fails, show error
+                setFlashcardData([]);
+                if (cleanStr.length > 5) {
+                    setJsonError("JSON ไม่ถูกต้อง (โปรดตรวจสอบ Syntax หรือกดปุ่ม AI Clean)");
+                } else {
+                    setJsonError(null);
+                }
             }
         }
     };
@@ -1284,7 +1314,29 @@ export default function ManageLessonsPage() {
                                                     className={`w-full p-4 bg-white border-2 rounded-xl outline-none transition text-slate-700 min-h-[200px] font-mono text-sm ${jsonError ? 'border-red-300 focus:border-red-500' : 'border-yellow-200 focus:border-yellow-500'}`}
                                                 />
                                                 <div className="flex justify-between items-start mt-2">
-                                                    <p className="text-xs text-yellow-500">* รองรับมาตรฐาน JSON และ LaTeX ($$ ... $$)</p>
+                                                    <div className="flex flex-col gap-1">
+                                                        <p className="text-xs text-yellow-500">* รองรับมาตรฐาน JSON และ LaTeX ($$ ... $$)</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const fixed = tryAutoFixFlashcardJson(flashcardJson);
+                                                                setFlashcardJson(fixed);
+                                                                try {
+                                                                    const parsed = JSON5.parse(fixed);
+                                                                    if (Array.isArray(parsed)) {
+                                                                        setFlashcardData(parsed);
+                                                                        setJsonError(null);
+                                                                        showToast("✨ AI Clean เรียบร้อย!");
+                                                                    }
+                                                                } catch (e) {
+                                                                    // If auto-fix fails to produce valid JSON, just leave it (user sees error)
+                                                                }
+                                                            }}
+                                                            className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded-lg hover:bg-yellow-200 transition font-bold flex items-center gap-1 w-fit"
+                                                        >
+                                                            🪄 AI Clean (Auto Fix)
+                                                        </button>
+                                                    </div>
                                                     {flashcardJson && (
                                                         <p className={`text-xs font-bold ${jsonError ? 'text-red-500' : 'text-emerald-500'}`}>
                                                             {jsonError ? `⚠️ ${jsonError}` : `✅ พบข้อมูล ${flashcardData.length} รายการ`}

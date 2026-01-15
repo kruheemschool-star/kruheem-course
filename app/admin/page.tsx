@@ -21,6 +21,11 @@ export default function AdminDashboard() {
     const [totalVisits, setTotalVisits] = useState(0);
     const [trafficTimeRange, setTrafficTimeRange] = useState<'week' | 'month' | 'year'>('week');
 
+    // New Analytics States
+    const [deviceStats, setDeviceStats] = useState({ mobile: 0, tablet: 0, desktop: 0 });
+    const [sourceStats, setSourceStats] = useState<Record<string, number>>({});
+    const [pageViewStats, setPageViewStats] = useState<Record<string, number>>({});
+
     // Helper function to format online duration
     const formatOnlineDuration = (startTime: Date | null): string => {
         if (!startTime) return 'เพิ่งเข้าชมเมื่อสักครู่';
@@ -68,12 +73,42 @@ export default function AdminDashboard() {
             const snapTickets = await getDocs(qTickets);
             setTicketsCount(snapTickets.size);
 
-            // Fetch Daily Visits
+            // Fetch Daily Visits + Device + Source Stats
             const statsDoc = await getDoc(doc(db, "stats", "daily_visits"));
             if (statsDoc.exists()) {
                 const data = statsDoc.data();
                 setDailyVisits(data as Record<string, number>);
                 setTotalVisits(data.total_visits || 0);
+
+                // Extract device stats
+                setDeviceStats({
+                    mobile: data.device_mobile || 0,
+                    tablet: data.device_tablet || 0,
+                    desktop: data.device_desktop || 0,
+                });
+
+                // Extract source stats
+                const sources: Record<string, number> = {};
+                ['google', 'facebook', 'line', 'instagram', 'youtube', 'tiktok', 'direct', 'other'].forEach(src => {
+                    if (data[`source_${src}`]) sources[src] = data[`source_${src}`];
+                });
+                setSourceStats(sources);
+            }
+
+            // Fetch Page View Stats
+            const pageDoc = await getDoc(doc(db, "stats", "page_views"));
+            if (pageDoc.exists()) {
+                const pageData = pageDoc.data();
+                const pages: Record<string, number> = {};
+                Object.keys(pageData).forEach(key => {
+                    // Only get lifetime page counts (not daily or hourly)
+                    if (!key.includes('_') && key !== 'total_page_views' && key !== 'last_updated' && typeof pageData[key] === 'number') {
+                        pages[key] = pageData[key];
+                    } else if (key.startsWith('/')) {
+                        pages[key] = pageData[key];
+                    }
+                });
+                setPageViewStats(pages);
             }
 
             // ✅ Fetch Online Users (Active in last 10 mins)
@@ -357,6 +392,15 @@ export default function AdminDashboard() {
                             <p className="text-sm text-teal-800/60 mt-1 relative z-10">เพิ่ม/ลบ บทเรียน</p>
                         </Link>
 
+                        {/* 4. สรุปเนื้อหา / Knowledge Hub (Teal-Cyan Gradient) - NEW */}
+                        <Link href="/admin/summaries" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-teal-100 to-cyan-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+                            <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <span className="text-4xl drop-shadow-sm">✨</span>
+                            </div>
+                            <h3 className="font-bold text-xl text-cyan-900/80 group-hover:text-cyan-900 relative z-10">สรุปเนื้อหา</h3>
+                            <p className="text-sm text-cyan-800/60 mt-1 relative z-10">เขียน/แก้ไข บทสรุป</p>
+                        </Link>
 
 
                         {/* 5. ประกาศข่าวสาร (Amber Gradient) */}
@@ -483,13 +527,13 @@ export default function AdminDashboard() {
                                             <div className="flex items-center gap-1.5 mt-1.5">
                                                 <span className="text-green-500">⏱️</span>
                                                 <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${(() => {
-                                                        const startTime = user.sessionStart?.toDate?.() || null;
-                                                        if (!startTime) return 'bg-stone-100 text-stone-400';
-                                                        const mins = Math.floor((new Date().getTime() - startTime.getTime()) / 60000);
-                                                        if (mins >= 60) return 'bg-green-100 text-green-700';
-                                                        if (mins >= 30) return 'bg-emerald-100 text-emerald-600';
-                                                        return 'bg-lime-100 text-lime-600';
-                                                    })()
+                                                    const startTime = user.sessionStart?.toDate?.() || null;
+                                                    if (!startTime) return 'bg-stone-100 text-stone-400';
+                                                    const mins = Math.floor((new Date().getTime() - startTime.getTime()) / 60000);
+                                                    if (mins >= 60) return 'bg-green-100 text-green-700';
+                                                    if (mins >= 30) return 'bg-emerald-100 text-emerald-600';
+                                                    return 'bg-lime-100 text-lime-600';
+                                                })()
                                                     }`}>
                                                     {formatOnlineDuration(user.sessionStart?.toDate?.() || null)}
                                                 </span>
@@ -680,7 +724,7 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
 
-                                {/* Insights & Demographics Note */}
+                                {/* Insights & Demographics - NOW WITH REAL DATA */}
                                 <div className="space-y-6">
                                     <div className="bg-amber-50 rounded-2xl p-6 border border-amber-100">
                                         <h4 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
@@ -702,23 +746,127 @@ export default function AdminDashboard() {
                                         </p>
                                     </div>
 
-                                    <div className="bg-stone-50 rounded-2xl p-6 border border-stone-100">
-                                        <h4 className="font-bold text-stone-600 mb-2">ℹ️ ข้อมูลเชิงลึก (Demographics)</h4>
-                                        <ul className="space-y-2 text-sm text-stone-500">
-                                            <li className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-stone-300"></span>
-                                                เพศ/อายุ: <span className="text-stone-400 italic">ไม่ระบุ (เนื่องจากไม่ได้เก็บข้อมูลตอนสมัคร)</span>
-                                            </li>
-                                            <li className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-green-400"></span>
-                                                อุปกรณ์ที่ใช้: <span className="font-bold text-stone-600">Mobile 75%, Desktop 25%</span> (ประมาณการ)
-                                            </li>
-                                            <li className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                                                ช่องทางสมัคร: <span className="font-bold text-stone-600">Google Login 80%</span>
-                                            </li>
-                                        </ul>
+                                    {/* 📱 DEVICE STATS - REAL DATA */}
+                                    <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
+                                        <h4 className="font-bold text-indigo-800 mb-4 flex items-center gap-2">
+                                            <span className="text-xl">📱</span> อุปกรณ์ที่ใช้เข้าชม
+                                        </h4>
+                                        {(() => {
+                                            const total = deviceStats.mobile + deviceStats.tablet + deviceStats.desktop || 1;
+                                            return (
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-sm text-indigo-700">📱 Mobile</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-32 h-2 bg-indigo-200 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(deviceStats.mobile / total) * 100}%` }}></div>
+                                                            </div>
+                                                            <span className="text-sm font-bold text-indigo-600 w-12 text-right">{Math.round((deviceStats.mobile / total) * 100)}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-sm text-indigo-700">🖥️ Desktop</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-32 h-2 bg-indigo-200 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(deviceStats.desktop / total) * 100}%` }}></div>
+                                                            </div>
+                                                            <span className="text-sm font-bold text-indigo-600 w-12 text-right">{Math.round((deviceStats.desktop / total) * 100)}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-sm text-indigo-700">📟 Tablet</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-32 h-2 bg-indigo-200 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(deviceStats.tablet / total) * 100}%` }}></div>
+                                                            </div>
+                                                            <span className="text-sm font-bold text-indigo-600 w-12 text-right">{Math.round((deviceStats.tablet / total) * 100)}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-indigo-500 mt-2">รวม {total.toLocaleString()} ครั้ง</p>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* 🔗 TRAFFIC SOURCES + TOP PAGES - REAL DATA */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                                {/* Traffic Sources */}
+                                <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100">
+                                    <h4 className="font-bold text-emerald-800 mb-4 flex items-center gap-2">
+                                        <span className="text-xl">🔗</span> ช่องทางที่มาเยือน (Traffic Sources)
+                                    </h4>
+                                    {Object.keys(sourceStats).length > 0 ? (
+                                        <div className="space-y-2">
+                                            {Object.entries(sourceStats)
+                                                .sort((a, b) => b[1] - a[1])
+                                                .slice(0, 6)
+                                                .map(([source, count]) => {
+                                                    const icons: Record<string, string> = {
+                                                        google: '🔍',
+                                                        facebook: '📘',
+                                                        line: '💚',
+                                                        instagram: '📸',
+                                                        youtube: '📺',
+                                                        tiktok: '🎵',
+                                                        direct: '🔗',
+                                                        other: '🌐',
+                                                        internal: '🏠',
+                                                    };
+                                                    const total = Object.values(sourceStats).reduce((a, b) => a + b, 0) || 1;
+                                                    return (
+                                                        <div key={source} className="flex items-center justify-between">
+                                                            <span className="text-sm text-emerald-700 capitalize">{icons[source] || '🌐'} {source}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-bold text-emerald-600">{count.toLocaleString()}</span>
+                                                                <span className="text-xs text-emerald-500">({Math.round((count / total) * 100)}%)</span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-emerald-500 italic">ยังไม่มีข้อมูล (จะเริ่มเก็บหลังจากนี้)</p>
+                                    )}
+                                </div>
+
+                                {/* Top Pages */}
+                                <div className="bg-sky-50 rounded-2xl p-6 border border-sky-100">
+                                    <h4 className="font-bold text-sky-800 mb-4 flex items-center gap-2">
+                                        <span className="text-xl">📄</span> หน้าที่มีคนเข้าชมมากที่สุด
+                                    </h4>
+                                    {Object.keys(pageViewStats).length > 0 ? (
+                                        <div className="space-y-2">
+                                            {Object.entries(pageViewStats)
+                                                .filter(([path]) => path.startsWith('/'))
+                                                .sort((a, b) => b[1] - a[1])
+                                                .slice(0, 6)
+                                                .map(([path, count], idx) => {
+                                                    const pageNames: Record<string, string> = {
+                                                        '/': '🏠 หน้าแรก',
+                                                        '/exam': '📝 คลังข้อสอบ',
+                                                        '/exam/[id]': '📝 ทำข้อสอบ',
+                                                        '/course/[id]': '📚 รายละเอียดคอร์ส',
+                                                        '/learn/[id]': '📖 เรียนบทเรียน',
+                                                        '/summary': '✨ สรุปเนื้อหา',
+                                                        '/summary/[slug]': '✨ อ่านสรุป',
+                                                        '/blog': '📰 บทความ',
+                                                        '/blog/[slug]': '📰 อ่านบทความ',
+                                                        '/login': '🔐 ล็อกอิน',
+                                                        '/reviews': '⭐ รีวิว',
+                                                    };
+                                                    return (
+                                                        <div key={path} className="flex items-center justify-between">
+                                                            <span className="text-sm text-sky-700 truncate max-w-[180px]">{idx + 1}. {pageNames[path] || path}</span>
+                                                            <span className="text-sm font-bold text-sky-600">{count.toLocaleString()} views</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-sky-500 italic">ยังไม่มีข้อมูล (จะเริ่มเก็บหลังจากนี้)</p>
+                                    )}
                                 </div>
                             </div>
                         </div>

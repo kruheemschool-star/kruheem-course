@@ -92,7 +92,7 @@ function PracticeRoomContent() {
     }
 
     return (
-        <div className="min-h-screen bg-[#FDFCF8]">
+        <div className="min-h-screen bg-white dark:bg-slate-950 transition-colors">
             <div className="bg-white border-b border-slate-100 py-4 px-6 fixed top-0 w-full z-10 shadow-sm flex items-center justify-between">
                 <Link href="/practice" className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold transition-colors">
                     <ArrowLeft size={20} />

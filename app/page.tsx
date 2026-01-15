@@ -164,17 +164,22 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F2EB] dark:bg-slate-950 font-sans selection:bg-amber-200 selection:text-amber-900 flex flex-col overflow-x-hidden transition-colors duration-500">
+    <div className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-teal-200 selection:text-teal-900 flex flex-col overflow-x-hidden transition-colors duration-500">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {/* Dynamic Mesh Gradient Background (Warm Paper Theme) */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-amber-200/40 rounded-full blur-[100px] mix-blend-multiply animate-blob"></div>
-        <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-orange-200/40 rounded-full blur-[100px] mix-blend-multiply animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-yellow-100/40 rounded-full blur-[100px] mix-blend-multiply animate-blob animation-delay-4000"></div>
-        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.05] mix-blend-overlay pointer-events-none"></div>
+      {/* Dynamic Mesh Gradient Background */}
+      <div className="fixed inset-0 z-0 dark:hidden">
+        <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-teal-100/30 rounded-full blur-[120px] mix-blend-multiply animate-blob"></div>
+        <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-cyan-100/30 rounded-full blur-[120px] mix-blend-multiply animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-slate-100/40 rounded-full blur-[120px] mix-blend-multiply animate-blob animation-delay-4000"></div>
+      </div>
+      {/* Dark mode background */}
+      <div className="fixed inset-0 z-0 hidden dark:block">
+        <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-teal-900/20 rounded-full blur-[120px] animate-blob"></div>
+        <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-cyan-900/20 rounded-full blur-[120px] animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-slate-900/30 rounded-full blur-[120px] animate-blob animation-delay-4000"></div>
       </div>
 
       <div className="relative z-10 flex flex-col min-h-screen">
@@ -183,9 +188,9 @@ export default function HomePage() {
         {/* Hero Section */}
         <header className="pt-48 pb-16 px-6 text-center relative">
           <div className="max-w-5xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/40 backdrop-blur-md border border-white/60 shadow-sm mb-8 animate-fade-in hover:bg-white/60 transition-colors cursor-default max-w-3xl">
-              <span className="flex-shrink-0 flex w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.6)]"></span>
-              <span className="text-sm md:text-base font-bold text-amber-800 tracking-wide drop-shadow-sm text-left md:text-center">
+            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-md border border-slate-200/60 dark:border-slate-700 shadow-sm mb-8 animate-fade-in hover:bg-white/80 dark:hover:bg-slate-800/80 transition-colors cursor-default max-w-3xl">
+              <span className="flex-shrink-0 flex w-2 h-2 rounded-full bg-teal-500 animate-pulse shadow-[0_0_10px_rgba(20,184,166,0.6)]"></span>
+              <span className="text-sm md:text-base font-bold text-slate-700 dark:text-slate-300 tracking-wide drop-shadow-sm text-left md:text-center">
                 เปลี่ยนความกังวลเรื่องการเรียนของลูก ให้เป็นความมั่นใจเต็ม 100%
               </span>
             </div>
@@ -210,7 +215,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <button
                 onClick={() => document.getElementById('courses')?.scrollIntoView({ behavior: 'smooth' })}
-                className="group relative px-10 py-5 rounded-[2rem] bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-lg shadow-[0_10px_30px_rgba(245,158,11,0.3)] hover:shadow-[0_20px_40px_rgba(245,158,11,0.4)] hover:scale-105 transition-all duration-500 overflow-hidden"
+                className="group relative px-10 py-5 rounded-[2rem] bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-bold text-lg shadow-[0_10px_30px_rgba(20,184,166,0.3)] hover:shadow-[0_20px_40px_rgba(20,184,166,0.4)] hover:scale-105 transition-all duration-500 overflow-hidden"
               >
                 <span className="relative z-10 flex items-center gap-3">
                   <Rocket className="group-hover:-translate-y-1 group-hover:translate-x-1 transition-transform" />
@@ -218,8 +223,8 @@ export default function HomePage() {
                 </span>
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
               </button>
-              <Link href="/my-courses" className="px-10 py-5 rounded-[2rem] bg-white/50 backdrop-blur-sm border border-white/60 text-slate-700 font-bold text-lg hover:bg-white/80 transition-all shadow-sm hover:shadow-md flex items-center gap-3 group">
-                <BookOpen className="group-hover:scale-110 transition-transform text-amber-600" />
+              <Link href="/my-courses" className="px-10 py-5 rounded-[2rem] bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-lg hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm hover:shadow-md flex items-center gap-3 group">
+                <BookOpen className="group-hover:scale-110 transition-transform text-teal-600" />
                 เข้าสู่บทเรียน
               </Link>
             </div>

@@ -99,7 +99,7 @@ export default function PracticeModePage() {
 
 
     return (
-        <div className="min-h-screen bg-[#FDFCF8] font-sans flex flex-col">
+        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
             <Navbar />
 
             {/* Header */}

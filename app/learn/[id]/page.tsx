@@ -39,127 +39,14 @@ const ExerciseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
 const HtmlIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M14.447 3.027a.75.75 0 01.527.92l-4.5 16.5a.75.75 0 01-1.448-.394l4.5-16.5a.75.75 0 01.921-.526zM16.72 6.22a.75.75 0 011.06 0l5.25 5.25a.75.75 0 010 1.06l-5.25 5.25a.75.75 0 11-1.06-1.06L21.44 12l-4.72-4.72a.75.75 0 010-1.06zm-9.44 0a.75.75 0 010 1.06L2.56 12l4.72 4.72a.75.75 0 01-1.06 1.06L.97 12.53a.75.75 0 010-1.06l5.25-5.25a.75.75 0 011.06 0z" clipRule="evenodd" /></svg>;
 const FlashcardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M19.5 22.5a3 3 0 003-3v-9a3 3 0 00-3-3h-9a3 3 0 00-3 3v9a3 3 0 003 3h9z" /><path d="M4.5 19.5a3 3 0 003-3v-9a3 3 0 00-3-3h-9a3 3 0 00-3 3v9a3 3 0 003 3h9z" transform="rotate(180 12 12) translate(12 12)" opacity="0.5" /></svg>;
 
-// ✅ Helper to render LaTeX mixed with text
-// 🧠 Smart Content Renderer (Improved Layout)
-const renderSmartContent = (text: string) => {
-    if (!text) return "";
-    const paragraphs = text.split(/\n|(?:\s*\*\*\*\s*)/g);
-    return paragraphs.map((paragraph, pIndex) => {
-        if (!paragraph.trim()) return <br key={pIndex} />;
-        let processed = paragraph.replace(/(\\frac\{(?:[^{}]|\{[^{}]*\})*\}\{(?:[^{}]|\{[^{}]*\})*\}(?:\s*\\times\s*[\d\w\.]+)?)/g, (match) => `$${match}$`);
-        const parts = processed.split(/(\$[^$]+\$)/g);
-        return (
-            <div key={pIndex} className="mb-2 leading-loose break-words text-slate-700 font-medium">
-                {parts.map((part, index) => {
-                    if (part.startsWith('$') && part.endsWith('$')) {
-                        try {
-                            const math = part.slice(1, -1);
-                            // Use BlockMath for environments like aligned, matrix, cases, etc.
-                            if (math.includes('\\begin')) {
-                                return <div key={index} className="overflow-x-auto my-2"><BlockMath math={math} /></div>;
-                            }
-                            return <InlineMath key={index} math={math} />;
-                        } catch (e) { return <span key={index} className="text-red-500">{part}</span>; }
-                    }
-                    const subParts = part.split(/(\*\*[^*]+\*\*|---|___)/g);
-                    return (
-                        <span key={index}>
-                            {subParts.map((subPart, subIdx) => {
-                                if (subPart.startsWith('**') && subPart.endsWith('**')) return <strong key={subIdx} className="text-rose-600 font-bold">{subPart.slice(2, -2)}</strong>;
-                                if (subPart === '---' || subPart === '___') return <div key={subIdx} className="my-4 h-px bg-slate-200 border-b border-dashed border-slate-300 w-full"></div>;
-                                if (subPart.trim().startsWith('* ') && subPart.length > 2) return <div key={subIdx} className="pl-4 border-l-2 border-indigo-100 my-1">{subPart.replace('* ', '')}</div>;
-                                return subPart;
-                            })}
-                        </span>
-                    );
-                })}
-            </div>
-        );
-    });
-};
-// ✅ Helper to render LaTeX mixed with text & Markdown
-// ✅ Helper to render LaTeX mixed with text & Markdown
-const renderWithLatex = (text: string) => {
-    if (!text) return "";
+import { renderWithLatex, renderNotionStyleContent, SmartContentRenderer, getEmojiForHeader } from "@/components/ContentRenderer";
 
-    // 🧹 Clean up citation artifacts (e.g. [cite: 7, 8])
-    const cleanText = text.replace(/\[cite:\s*[^\]]+\]/gi, '');
+// ... (Imports remain the same, just removed the local functions)
 
-    // 1. Split by explicit LaTeX: $...$ or $$...$$ or \[...\]
-    const parts = cleanText.split(/(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[\s\S]+?\$|\\begin\{equation\}[\s\S]+?\\end\{equation\})/g);
+// ... (Icons remain the same)
 
-    return parts.map((part, index) => {
-        let isDisplay = part.startsWith('$$') || part.startsWith('\\[');
-        let isMath = isDisplay || (part.startsWith('$') && part.endsWith('$'));
-        let content = part;
-
-        if (isMath) {
-            // Strip delimiters
-            const inner = part.replace(/^(\$\$|\\\[|\$)|(\$\$|\\\]|\$)$/g, '');
-
-            const hasThai = /[\u0E00-\u0E7F]/.test(inner);
-            const hasNewlines = inner.includes('\n');
-
-            // Unwrap if Thai (almost always text) OR (Inline math AND Newlines)
-            if (hasThai || (!isDisplay && hasNewlines)) {
-                if (!inner.match(/^\\begin\{/)) {
-                    isMath = false;
-                    content = inner;
-                } else { content = inner; }
-            } else {
-                content = inner;
-            }
-        }
-
-        if (isMath) {
-            try { return <InlineMath key={index} math={content} />; }
-            catch (e) { return <span key={index} className="text-red-500">{part}</span>; }
-        }
-
-        // TEXT PROCESSING: Look for implicit Latex commands (\times, \div, \frac, ^)
-        // Regex to find things that look like LaTeX commands or simple math expressions
-        // 1. \frac{...}{...} or \command{...}
-        // 2. \times, \div, \pm, \le, \ge, \neq, \circ
-        // 3. Simple power/subscript: ^\d+, ^{...}, _\d+, _{...}
-        const implicitRegex = /(\\[a-zA-Z]+(?:\{(?:[^{}]|\{[^{}]*\})*\})*|[\^_]\{?[a-zA-Z0-9\+\-\.\\\s]+\}?)/g;
-
-        const subParts = content.split(implicitRegex);
-
-        return (
-            <span key={index}>
-                {subParts.map((sub, subIdx) => {
-                    if (!sub) return null;
-                    // Check if it matches our implicit math pattern
-                    if (sub.match(/^(\\|\^|_)/)) {
-                        try { return <InlineMath key={`${index}-${subIdx}`} math={sub} />; }
-                        catch (e) { return sub; }
-                    }
-
-                    // Otherwise, Handle Markdown (**bold**, ---)
-                    const boldParts = sub.split(/(\*\*[^*]+\*\*)/g);
-                    return (
-                        <span key={`${index}-${subIdx}`}>
-                            {boldParts.map((bPart, bIdx) => {
-                                if (bPart.startsWith('**') && bPart.endsWith('**')) {
-                                    return <strong key={bIdx} className="text-indigo-600 font-bold">{bPart.slice(2, -2)}</strong>;
-                                }
-                                if (bPart.includes('---')) {
-                                    return bPart.split('---').map((s, i, arr) => (
-                                        <span key={i}>
-                                            {s}
-                                            {i < arr.length - 1 && <div className="my-6 h-px bg-slate-200 border-b border-dashed border-slate-300 w-full"></div>}
-                                        </span>
-                                    ));
-                                }
-                                return bPart;
-                            })}
-                        </span>
-                    );
-                })}
-            </span>
-        );
-    });
-};
+// ❌ Removed local renderSmartContent, renderWithLatex, renderNotionStyleContent helpers 
+// ✅ Now using imported versions from "@/components/ContentRenderer"
 
 const tryParseQuestions = (content: string) => {
     try {
@@ -947,6 +834,7 @@ export default function CoursePlayer() {
                     </div>
                     <div className="flex items-center gap-3">
                         {/* ✅ Certificate Button (Always Show) */}
+                        {/* ✅ Certificate Button (Refined & Minimal) */}
                         <button
                             onClick={() => {
                                 if (progressPercent === 100) {
@@ -955,21 +843,24 @@ export default function CoursePlayer() {
                                     alert(`🔒 ยังไม่ปลดล็อกไอเทม!\n\nน้องๆ ต้องเรียนให้ครบ 100% ก่อนนะครับ ถึงจะรับใบประกาศนียบัตรสุดเท่ได้!\n(ตอนนี้ทำภารกิจไปแล้ว ${progressPercent}%)`);
                                 }
                             }}
-                            className={`hidden md:flex items-center gap-2 px-5 py-2.5 rounded-full font-bold shadow-lg transition
+                            className={`hidden md:flex items-center justify-center gap-2 h-10 px-6 rounded-full font-bold text-sm transition-all border
                             ${progressPercent === 100
-                                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-orange-200 hover:scale-105 animate-pulse'
-                                    : 'bg-white border-2 border-slate-200 text-slate-400 hover:border-yellow-400 hover:text-yellow-500 hover:bg-yellow-50'
+                                    ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200 hover:shadow-sm'
+                                    : 'bg-white border-slate-200 text-slate-400 hover:border-amber-200 hover:text-amber-500 hover:bg-amber-50'
                                 }`}
                         >
-                            <span className="text-xl">{progressPercent === 100 ? '🏆' : '🔒'}</span>
+                            <span className="text-base">{progressPercent === 100 ? '🏆' : '🔒'}</span>
                             <span>รับใบประกาศนียบัตร</span>
                         </button>
 
                         {user && canWatchCurrent && !isHeaderMode && !(activeLesson?.type === 'html' && (activeLesson.htmlCode?.trim().startsWith('[') || activeLesson.htmlCode?.trim().startsWith('{'))) && (
-                            <button onClick={handleNextLesson} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 px-3 md:px-5 py-2 md:py-2 rounded-full font-bold transition-all shadow-sm hover:shadow-md group">
+                            <button
+                                onClick={handleNextLesson}
+                                className="flex items-center justify-center gap-2 h-10 px-6 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-300 rounded-full font-bold text-sm transition-all shadow-sm group"
+                            >
                                 {completedLessons.includes(activeLesson?.id || "") ?
-                                    <><span className="text-[10px] md:text-xs">เรียนจบแล้ว</span> <CheckIcon /></> :
-                                    <><span className="text-[10px] md:text-xs leading-tight text-center">บันทึกความคืบหน้า<br className="md:hidden" />และไปตอนต่อไป</span> <span className="group-hover:translate-x-1 transition">→</span></>
+                                    <><span className="whitespace-nowrap">เรียนจบแล้ว</span> <CheckIcon /></> :
+                                    <><span className="whitespace-nowrap">บันทึกและไปต่อ</span> <span className="group-hover:translate-x-1 transition">→</span></>
                                 }
                             </button>
                         )}
@@ -1022,255 +913,17 @@ export default function CoursePlayer() {
                                 </div>
                             </div>
                         ) : activeLesson?.type === 'text' ? (
-                            (() => {
-                                // 1. Try to parse as Smart Blocks
-                                let blocks: any[] = [];
-                                let isSmart = false;
-                                let isJsonError = false;
-                                let content = activeLesson.content?.trim() || "";
-
-                                // 🧹 Auto-Clean AI Artifacts (Enhanced)
-                                if (content) {
-                                    // Remove Markdown Code Blocks (```json ... ```)
-                                    content = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
-
-                                    // Remove [cite] artifacts
-                                    content = content.replace(/\[cite_start\]/g, "");
-                                    content = content.replace(/\[cite_end\]/g, "");
-                                    content = content.replace(/\[cite:[^\]]*\]/g, "");
-
-                                    // Remove "Based on..." text that sometimes appears before JSON
-                                    content = content.replace(/^Based on the provided[\s\S]*?\[/, "[");
-
-                                    // Try to find the JSON array enclosure
-                                    const start = content.indexOf('[');
-                                    const end = content.lastIndexOf(']');
-                                    if (start !== -1 && end !== -1 && end > start) {
-                                        content = content.substring(start, end + 1);
-                                    }
-
-                                    // Remove trailing commas
-                                    content = content.replace(/,(\s*[\}\]])/g, "$1");
-                                }
-
-                                try {
-                                    if (content.startsWith('[') && content.endsWith(']')) {
-                                        blocks = JSON.parse(content);
-                                        isSmart = Array.isArray(blocks);
-                                    }
-                                } catch (e) {
-                                    // Only show error if it REALLY looks like it should be JSON
-                                    if (content.includes('"type":')) {
-                                        console.warn("Smart Content Parse Error:", e);
-                                        // We don't set isJsonError = true immediately to allow fallback to text
-                                        // But if the user really wants blocks, we might want to know.
-                                        // For now, let's fall back to text if parse fails, 
-                                        // BUT if it looks like a mess, we might want to just show the cleaned text.
-                                    }
-                                }
-
-                                // Helper to guess emoji based on header text
-                                const getEmojiForHeader = (text: string) => {
-                                    const lower = text.toLowerCase();
-                                    if (lower.includes('สูตร') || lower.includes('formula') || lower.includes('สมการ')) return '📐 ';
-                                    if (lower.includes('ตัวอย่าง') || lower.includes('example') || lower.includes('โจทย์')) return '📝 ';
-                                    if (lower.includes('สรุป') || lower.includes('summary') || lower.includes('concept')) return '🧠 ';
-                                    if (lower.includes('เทคนิค') || lower.includes('trick') || lower.includes('tip')) return '⚡️ ';
-                                    if (lower.includes('นิยาม') || lower.includes('definition') || lower.includes('ความหมาย')) return '📖 ';
-                                    if (lower.includes('ข้อควรระวัง') || lower.includes('warning') || lower.includes('caution')) return '⚠️ ';
-                                    if (lower.includes('วิธีทำ') || lower.includes('solution')) return '✍️ ';
-                                    return ''; // Default: no emoji if no match
-                                };
-
-                                // 2. Render Smart Blocks (Notion Style) - Enhanced for Multi-line LaTeX
-                                const renderNotionStyleContent = (text: string) => {
-                                    if (!text) return "";
-
-                                    const nodes: React.ReactNode[] = [];
-
-                                    // 1. Split by Display Math ($$...$$) to protect them from line splitting
-                                    const parts = text.split(/(\$\$[\s\S]*?\$\$)/g);
-
-                                    let currentList: React.ReactNode[] = [];
-                                    let inList = false;
-
-                                    parts.forEach((part, partIndex) => {
-                                        // A. Handle Display Math Block (Pass through directly)
-                                        if (part.startsWith('$$') && part.endsWith('$$')) {
-                                            // Flush any pending list
-                                            if (inList) {
-                                                nodes.push(<ul key={`ul-math-${partIndex}`} className="list-disc list-outside mb-4 space-y-1 ml-4">{currentList}</ul>);
-                                                currentList = [];
-                                                inList = false;
-                                            }
-
-                                            // Render the math block
-                                            nodes.push(
-                                                <div key={`math-${partIndex}`} className="my-4 text-center overflow-x-auto">
-                                                    {renderWithLatex(part)}
-                                                </div>
-                                            );
-                                            return;
-                                        }
-
-                                        // B. Handle Normal Text (Process line by line)
-                                        const lines = part.split('\n');
-                                        lines.forEach((line, i) => {
-                                            const trimmed = line.trim();
-                                            if (!trimmed && i < lines.length - 1) { // Skip empty lines only if not last
-                                                // Check if we need to flush list (e.g. empty line breaks list)
-                                                if (inList && !trimmed) {
-                                                    // Optional: Decide if empty line breaks list. 
-                                                    // For now, let's essentially ignore empty lines inside text segments 
-                                                    // unless we want paragraph spacing.
-                                                    nodes.push(<div key={`space-${partIndex}-${i}`} className="h-4"></div>);
-                                                }
-                                                return;
-                                            }
-                                            if (!trimmed) return;
-
-                                            // List Item
-                                            if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                                                const content = trimmed.substring(2);
-                                                currentList.push(
-                                                    <li key={`${partIndex}-${i}-li`} className="text-slate-800 text-lg leading-8 font-medium ml-4 pl-1 marker:text-slate-400">
-                                                        {renderWithLatex(content)}
-                                                    </li>
-                                                );
-                                                inList = true;
-                                            } else {
-                                                // Flush List
-                                                if (inList) {
-                                                    nodes.push(<ul key={`${partIndex}-${i}-ul`} className="list-disc list-outside mb-4 space-y-1 ml-4">{currentList}</ul>);
-                                                    currentList = [];
-                                                    inList = false;
-                                                }
-
-                                                // Quote
-                                                if (trimmed.startsWith('> ') || trimmed.startsWith('| ')) {
-                                                    nodes.push(
-                                                        <div key={`${partIndex}-${i}`} className="border-l-[3px] border-slate-300 pl-4 py-1 my-2 text-slate-700 italic">
-                                                            {renderWithLatex(trimmed.substring(2))}
-                                                        </div>
-                                                    );
-                                                    return;
-                                                }
-
-                                                // Normal Text
-                                                nodes.push(
-                                                    <div key={`${partIndex}-${i}`} className="text-slate-800 text-lg leading-8 font-medium mb-2 min-h-[1.5em] break-words">
-                                                        {renderWithLatex(line)}
-                                                    </div>
-                                                );
-                                            }
-                                        });
-                                    });
-
-                                    // Flush remaining list at the very end
-                                    if (inList) {
-                                        nodes.push(<ul key="last-ul" className="list-disc list-outside mb-4 space-y-1 ml-4">{currentList}</ul>);
-                                    }
-
-                                    return <div className="notion-content">{nodes}</div>;
-                                };
-
-                                if (isSmart) {
-                                    return (
-                                        <div className="w-full min-h-full py-8 px-4 md:px-8 bg-white/50">
-                                            <div className="max-w-3xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                                {/* Cover Image */}
-                                                {activeLesson.image && (
-                                                    <div className="rounded-xl overflow-hidden mb-10 shadow-sm">
-                                                        <img src={activeLesson.image} className="w-full object-cover max-h-[300px]" alt="Cover" />
-                                                    </div>
-                                                )}
-
-                                                {/* Notion Style Blocks */}
-                                                <div className="bg-white p-8 md:p-12 rounded-xl border border-slate-100 shadow-sm min-h-[500px]">
-                                                    {blocks.map((block, idx) => (
-                                                        <div key={idx} className="mb-6">
-                                                            {block.type === 'header' && (
-                                                                <div className="mt-12 mb-6">
-                                                                    <h3 className="text-2xl md:text-3xl font-extrabold text-slate-800 bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent flex items-center gap-3 border-l-4 border-indigo-500 pl-4 py-1">
-                                                                        <span>{getEmojiForHeader(block.content)}</span>
-                                                                        {block.content}
-                                                                    </h3>
-                                                                </div>
-                                                            )}
-
-                                                            {block.type === 'definition' && (
-                                                                <div className="my-8 group">
-                                                                    <div className="flex gap-4 items-baseline">
-                                                                        <div className="text-2xl select-none opacity-80 group-hover:opacity-100 transition-opacity">
-                                                                            {block.title && getEmojiForHeader(block.title) ? getEmojiForHeader(block.title) : '💡'}
-                                                                        </div>
-                                                                        <div className="flex-1">
-                                                                            {block.title && <div className="font-bold text-slate-900 text-xl mb-2">{block.title}</div>}
-                                                                            <div className="text-slate-800 text-lg leading-relaxed font-medium">
-                                                                                {renderNotionStyleContent(block.content)}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {block.type === 'formula' && (
-                                                                <div className="my-10 py-6 px-4 bg-slate-50/50 rounded-none border-y-2 border-slate-100/50 text-center relative overflow-hidden">
-                                                                    {/* Background Decorative Element */}
-                                                                    <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-50/30 rounded-full -mr-10 -mt-10 blur-xl"></div>
-
-                                                                    {block.title && (
-                                                                        <div className="text-sm font-bold text-indigo-500 uppercase tracking-widest mb-4 inline-flex items-center gap-2 px-4 py-1.5 bg-white rounded-full border border-indigo-100 shadow-sm">
-                                                                            <span>{getEmojiForHeader(block.title) || '📐'}</span>
-                                                                            {block.title}
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="text-xl md:text-2xl text-slate-900 font-medium leading-loose">
-                                                                        {renderWithLatex(block.content)}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {block.type === 'example' && (
-                                                                <div className="my-8 pl-6 border-l-2 border-slate-200 py-1 hover:border-slate-400 transition-colors">
-                                                                    {block.title && <div className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">{block.title}</div>}
-                                                                    <div className="text-slate-700 text-lg leading-relaxed font-medium italic">
-                                                                        {renderNotionStyleContent(block.content)}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {block.type === 'note' && (
-                                                                <div className="my-8 p-6 bg-orange-50/30 border-l-4 border-orange-200 rounded-r-xl flex gap-4 text-slate-800">
-                                                                    <div className="text-xl select-none text-orange-400">⚠️</div>
-                                                                    <div className="flex-1 space-y-1">
-                                                                        <div className="font-bold text-orange-800 text-base tracking-wide uppercase mb-1">ข้อควรระวัง</div>
-                                                                        <div className="text-slate-800 text-lg leading-relaxed font-medium">
-                                                                            {renderNotionStyleContent(block.content)}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
+                            <div className="w-full min-h-full flex flex-col items-center justify-center py-8 px-4 bg-slate-50 text-wrap-pretty">
+                                <div className="w-full max-w-4xl bg-white rounded-xl shadow-sm border border-slate-100 p-8 md:p-14 min-h-[60vh]">
+                                    {activeLesson.image && (
+                                        <div className="rounded-xl overflow-hidden mb-10 shadow-sm">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={activeLesson.image} className="w-full object-cover max-h-[300px]" alt="Cover" />
                                         </div>
-                                    );
-                                }
-
-                                // 3. Fallback: Normal Text Article
-                                return (
-                                    <div className="w-full min-h-full flex flex-col items-center justify-center py-8 px-4 bg-slate-50">
-                                        <div className="w-full max-w-4xl bg-white rounded-xl shadow-sm border border-slate-100 p-8 md:p-14 min-h-[60vh]">
-                                            {activeLesson.image && <img src={activeLesson.image} className="w-full mb-8 rounded-lg" alt="Lesson" />}
-                                            <div className="prose prose-lg max-w-none text-slate-700 leading-relaxed font-medium">
-                                                {renderNotionStyleContent(content || activeLesson.content || "")}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()
+                                    )}
+                                    <SmartContentRenderer content={activeLesson.content || ""} />
+                                </div>
+                            </div>
                         ) : activeLesson?.type === 'exercise' ? (
                             <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100">
                                 <div className="w-full max-w-4xl bg-white rounded-[2rem] shadow-xl border border-slate-200 p-12 text-center">

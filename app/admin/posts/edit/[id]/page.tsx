@@ -3,12 +3,13 @@
 import { useState, useEffect, use } from "react";
 import AdminGuard from "@/components/AdminGuard";
 import Link from "next/link";
-import { ArrowLeft, Save, Image as ImageIcon, Eye, Code, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Image as ImageIcon, Eye, Code, Trash2, Wand2, FileJson } from "lucide-react";
 import TiptapEditor from "@/components/TiptapEditor";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
+import { SmartContentRenderer } from "@/components/ContentRenderer";
 
 export default function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -16,6 +17,12 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
     const [title, setTitle] = useState("");
     const [slug, setSlug] = useState("");
     const [content, setContent] = useState("");
+    const [contentType, setContentType] = useState<'html' | 'json'>('html'); // New State
+
+    // SEO Fields
+    const [excerpt, setExcerpt] = useState("");
+    const [keywords, setKeywords] = useState("");
+
     const [coverImage, setCoverImage] = useState<File | null>(null);
     const [coverImageUrl, setCoverImageUrl] = useState(""); // Existing URL
     const [loading, setLoading] = useState(true);
@@ -34,6 +41,10 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                     setSlug(data.slug);
                     setContent(data.content);
                     setCoverImageUrl(data.coverImage);
+                    // Load new fields if they exist, default to 'html' if not
+                    setContentType(data.contentType || 'html');
+                    setExcerpt(data.excerpt || "");
+                    setKeywords(Array.isArray(data.keywords) ? data.keywords.join(', ') : "");
                 } else {
                     alert("ไม่พบบทความนี้");
                     router.push("/admin/posts");
@@ -56,6 +67,37 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
         }
     };
 
+    // 🪄 Auto-Fix JSON Logic
+    const handleAutoFixJson = () => {
+        try {
+            let cleanJson = content.trim();
+            if (!cleanJson) return;
+
+            // 1. Remove Markdown Code Blocks
+            cleanJson = cleanJson.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+
+            // 2. Remove AI Artifacts
+            cleanJson = cleanJson
+                .replace(/\[cite(_start|_end)?(:.*?)?\]/gi, '')
+                .replace(/^Based on the provided[\s\S]*?\[/, "[");
+
+            // 3. Fix Common Syntax Errors
+            // Fix unquoted keys
+            cleanJson = cleanJson.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1\"$2\"$3');
+            // Fix trailing commas
+            cleanJson = cleanJson.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+
+            // 4. Try parsing
+            const parsed = JSON.parse(cleanJson); // Test parse
+
+            // Re-format nicely
+            setContent(JSON.stringify(parsed, null, 2));
+            alert("🪄 Auto-Fix Complete! JSON format is valid.");
+        } catch (e) {
+            alert("❌ Could not auto-fix. Please check syntax manually.\n" + (e as Error).message);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim()) return alert("กรุณาใส่หัวข้อบทความ");
@@ -73,10 +115,16 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                 finalCoverUrl = await getDownloadURL(snapshot.ref);
             }
 
+            // Prepare Keywords Array
+            const keywordList = keywords.split(',').map(k => k.trim()).filter(k => k);
+
             await updateDoc(doc(db, "posts", id), {
                 title,
                 slug: slug.toLowerCase().replace(/\s+/g, '-'),
                 content,
+                contentType,
+                excerpt,
+                keywords: keywordList,
                 coverImage: finalCoverUrl,
                 updatedAt: serverTimestamp(),
             });
@@ -166,6 +214,31 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                                 </div>
                             </div>
 
+                            {/* SEO Settings */}
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2">🔍 SEO Settings</h3>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">คำอธิบายย่อ (Description)</label>
+                                    <textarea
+                                        value={excerpt}
+                                        onChange={(e) => setExcerpt(e.target.value)}
+                                        rows={3}
+                                        placeholder="สรุปสั้นๆ ให้คนอยากคลิกอ่าน..."
+                                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm text-slate-600"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">คำค้นหา (Keywords)</label>
+                                    <input
+                                        type="text"
+                                        value={keywords}
+                                        onChange={(e) => setKeywords(e.target.value)}
+                                        placeholder="คณิตศาสตร์, สูตรลัด, ม.ปลาย (คั่นด้วย ,)"
+                                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm text-slate-600"
+                                    />
+                                </div>
+                            </div>
+
                             {/* Cover Image */}
                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
                                 <label className="block text-sm font-bold text-slate-700 mb-3">รูปปกบทความ</label>
@@ -187,7 +260,6 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                         {/* Right Column: Editor */}
                         <div className="lg:col-span-2 space-y-4">
                             {/* Toolbar */}
-                            {/* Toolbar - Page Level */}
                             <div className="flex items-center justify-between mb-2">
                                 <div className="bg-white rounded-2xl p-1.5 shadow-sm border border-slate-100 flex items-center gap-1">
                                     <button
@@ -205,20 +277,62 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                                         <Eye size={18} /> Final Preview
                                     </button>
                                 </div>
+
+                                {/* Content Type Toggle */}
+                                <div className="bg-white rounded-2xl p-1.5 shadow-sm border border-slate-100 flex items-center gap-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setContentType('html')}
+                                        className={`px-3 py-2 rounded-xl text-xs font-bold transition ${contentType === 'html' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                                    >
+                                        Rich Text (HTML)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setContentType('json')}
+                                        className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition ${contentType === 'json' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                                    >
+                                        <FileJson size={14} /> Smart Content (JSON)
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Editor/Preview Area */}
                             <div className="min-h-[600px]">
                                 {activeTab === 'edit' ? (
-                                    <TiptapEditor content={content} onChange={setContent} />
+                                    contentType === 'html' ? (
+                                        <TiptapEditor content={content} onChange={setContent} />
+                                    ) : (
+                                        <div className="relative h-[600px]">
+                                            <textarea
+                                                value={content}
+                                                onChange={(e) => setContent(e.target.value)}
+                                                className="w-full h-full p-6 text-sm font-mono bg-slate-900 text-slate-200 rounded-3xl focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none leading-relaxed"
+                                                placeholder={`[\n  {\n    "type": "header",\n    "content": "บทนำ"\n  },\n  {\n    "type": "definition",\n    "title": "สูตรลับ",\n    "content": "E = mc^2"\n  }\n]`}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleAutoFixJson}
+                                                className="absolute bottom-4 right-4 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition"
+                                            >
+                                                <Wand2 size={16} /> Auto Fix JSON
+                                            </button>
+                                        </div>
+                                    )
                                 ) : (
                                     <div className="h-[600px] overflow-y-auto p-6 bg-slate-50/50 rounded-3xl border border-slate-200">
                                         <div
-                                            className="math-content-area w-full min-h-full prose max-w-none 
-                                            bg-white/90 backdrop-blur-xl border border-white/50 shadow-sm rounded-3xl p-8
-                                            overflow-x-auto leading-8 md:leading-9"
-                                            dangerouslySetInnerHTML={{ __html: content }}
-                                        />
+                                            className="w-full min-h-full bg-white/90 backdrop-blur-xl border border-white/50 shadow-sm rounded-3xl p-8"
+                                        >
+                                            {contentType === 'json' ? (
+                                                <SmartContentRenderer content={content} />
+                                            ) : (
+                                                <div
+                                                    className="prose prose-lg max-w-none text-slate-700 leading-relaxed font-medium"
+                                                    dangerouslySetInnerHTML={{ __html: content }}
+                                                />
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>

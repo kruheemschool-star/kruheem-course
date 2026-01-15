@@ -6,4 +6,120 @@
     body {
         @apply transition-colors duration-300;
     }
+
+    /* Dark mode base styles */
+    .dark {
+        color-scheme: dark;
+    }
+
+    .dark body {
+        @apply bg-slate-900 text-slate-100;
+    }
+}
+
+/* Minimal grayscale style for summary content */
+.summary-content,
+.notion-content {
+
+    /* Override any inline underlines to use dark gray */
+    u,
+    ins {
+        @apply text-slate-800 no-underline border-b-2 border-slate-400;
+    }
+
+    /* Override any links to grayscale */
+    a {
+        @apply text-slate-800 font-semibold no-underline border-b border-slate-300 hover:border-slate-500 transition-colors;
+    }
+
+    /* Override any colored spans/strong to use grayscale */
+    strong,
+    b {
+        @apply text-slate-900 font-bold;
+    }
+
+    /* Override any colored text (inline styles) */
+    [style*="color"] {
+        color: #1e293b !important;
+        /* slate-800 */
+    }
+
+    /* Ensure highlighted/marked text is grayscale */
+    mark {
+        @apply bg-slate-200 text-slate-900 px-1 rounded;
+    }
+}
+
+/* Dark mode content overrides */
+.dark .summary-content,
+.dark .notion-content {
+
+    u,
+    ins {
+        @apply text-slate-200 border-slate-500;
+    }
+
+    a {
+        @apply text-slate-200 border-slate-600 hover:border-slate-400;
+    }
+
+    strong,
+    b {
+        @apply text-slate-100;
+    }
+
+    [style*="color"] {
+        color: #e2e8f0 !important;
+        /* slate-200 */
+    }
+
+    mark {
+        @apply bg-slate-700 text-slate-100;
+    }
+}
+
+/* Dark mode for common components */
+.dark .bg-white {
+    @apply bg-slate-800;
+}
+
+.dark .bg-slate-50 {
+    @apply bg-slate-900;
+}
+
+.dark .bg-slate-100 {
+    @apply bg-slate-800;
+}
+
+.dark .text-slate-800 {
+    @apply text-slate-100;
+}
+
+.dark .text-slate-700 {
+    @apply text-slate-200;
+}
+
+.dark .text-slate-600 {
+    @apply text-slate-300;
+}
+
+.dark .text-slate-500 {
+    @apply text-slate-400;
+}
+
+.dark .border-slate-100 {
+    @apply border-slate-700;
+}
+
+.dark .border-slate-200 {
+    @apply border-slate-600;
+}
+
+/* Dark mode for cards */
+.dark .shadow-sm {
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+}
+
+.dark .shadow-lg {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 }

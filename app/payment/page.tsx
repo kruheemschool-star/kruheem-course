@@ -225,7 +225,7 @@ export default function PaymentPage() {
   if (authLoading) return <div className="min-h-screen flex items-center justify-center text-slate-500">กำลังตรวจสอบสิทธิ์...</div>;
 
   return (
-    <div className="min-h-screen bg-[#F0F7F4] font-sans flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
       <Navbar />
 
       {/* 🌿 Background Wrapper */}

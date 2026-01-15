@@ -59,7 +59,7 @@ const sampleExamData: ExamQuestion[] = [
 
 export default function ExamDemoPage() {
     return (
-        <div className="min-h-screen bg-[#FDFCF8] py-12">
+        <div className="min-h-screen bg-white dark:bg-slate-950 py-12 transition-colors">
             <div className="container mx-auto">
                 <ExamSystem
                     examData={sampleExamData}

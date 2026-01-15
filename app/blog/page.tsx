@@ -48,7 +48,7 @@ export default function BlogIndexPage() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-[#FDFBF7] font-sans selection:bg-teal-100 selection:text-teal-900">
+        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-teal-100 selection:text-teal-900 transition-colors">
             <Navbar />
 
             <main className="pt-28 pb-20 px-6">

@@ -2179,7 +2179,7 @@ export default function CourseSalesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#F8F9FD] font-sans text-slate-800 selection:bg-indigo-100 selection:text-indigo-900">
+        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-200 selection:bg-indigo-100 selection:text-indigo-900 transition-colors">
 
             <Navbar />
 

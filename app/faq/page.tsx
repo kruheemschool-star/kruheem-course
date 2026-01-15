@@ -48,7 +48,7 @@ export default function FAQPage() {
     const [openIndex, setOpenIndex] = useState<number | null>(0);
 
     return (
-        <div className="min-h-screen bg-[#F8F9FD] font-sans text-slate-800 flex flex-col">
+        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-200 flex flex-col transition-colors">
             <Navbar />
 
             <main className="flex-grow pt-32 pb-20 px-6">

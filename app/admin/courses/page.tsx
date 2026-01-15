@@ -23,6 +23,8 @@ export default function CourseManagerPage() {
   const [currentImageUrl, setCurrentImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [newKeyword, setNewKeyword] = useState("");
 
   const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,6 +111,8 @@ export default function CourseManagerPage() {
     setCurrentImageUrl(course.image);
     setImagePreview(course.image);
     setImageFile(null);
+    setKeywords(course.keywords || []);
+    setNewKeyword("");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -124,6 +128,8 @@ export default function CourseManagerPage() {
     setCurrentImageUrl("");
     setImagePreview("");
     setImageFile(null);
+    setKeywords([]);
+    setNewKeyword("");
   };
 
   const deleteCourseWithAllData = async (courseId: string, imageUrl: string) => {
@@ -184,6 +190,7 @@ export default function CourseManagerPage() {
         image: downloadURL,
         videoId,
         docUrl,
+        keywords,
         updatedAt: new Date()
       };
 
@@ -430,6 +437,62 @@ export default function CourseManagerPage() {
             <div className="space-y-2">
               <label className="text-base font-bold text-blue-600">ลิงก์ Google Drive (รวมเอกสารทั้งคอร์ส)</label>
               <input type="text" className="w-full p-4 bg-blue-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition font-mono text-base text-blue-700" value={docUrl} onChange={(e) => setDocUrl(e.target.value)} />
+            </div>
+
+            {/* Keywords Field */}
+            <div className="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-100 space-y-3">
+              <label className="block text-sm font-bold text-emerald-600 uppercase tracking-wider">🏷️ คำสำคัญ (Keywords) - สำหรับแนะนำคอร์สที่เกี่ยวข้อง</label>
+
+              {/* Display existing keywords */}
+              {keywords.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {keywords.map((kw, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-emerald-200 text-emerald-700 rounded-full text-sm font-medium">
+                      {kw}
+                      <button
+                        type="button"
+                        onClick={() => setKeywords(keywords.filter((_, i) => i !== idx))}
+                        className="ml-1 text-emerald-400 hover:text-red-500 transition"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Add new keyword */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newKeyword}
+                  onChange={(e) => setNewKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (newKeyword.trim() && !keywords.includes(newKeyword.trim())) {
+                        setKeywords([...keywords, newKeyword.trim()]);
+                        setNewKeyword("");
+                      }
+                    }
+                  }}
+                  placeholder="พิมพ์คำสำคัญ แล้วกด Enter หรือกดปุ่มเพิ่ม"
+                  className="flex-1 p-3 bg-white border-2 border-emerald-200 rounded-xl focus:border-emerald-500 outline-none transition text-emerald-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newKeyword.trim() && !keywords.includes(newKeyword.trim())) {
+                      setKeywords([...keywords, newKeyword.trim()]);
+                      setNewKeyword("");
+                    }
+                  }}
+                  className="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition flex items-center gap-2"
+                >
+                  <Plus size={18} /> เพิ่ม
+                </button>
+              </div>
+              <p className="text-xs text-emerald-500">ตัวอย่าง: จำนวนจริง, สมการ, แคลคูลัส, ลำดับ ฯลฯ</p>
             </div>
 
             <div className="space-y-2">

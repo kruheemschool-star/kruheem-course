@@ -223,21 +223,21 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
     };
 
     return (
-        <div className="bg-[#FDFCF8] relative z-10 pb-12">
+        <div className="bg-white dark:bg-slate-950 relative z-10 pb-12 transition-colors">
             {/* Search & Filter Section */}
             <div className="px-6 py-8 relative">
                 <div className="max-w-4xl mx-auto text-center mb-8">
-                    <h2 className="text-3xl font-bold text-slate-800 mb-2 flex items-center justify-center gap-2">
-                        <span className="text-amber-600">คลังข้อสอบ</span> ออนไลน์ 📚
+                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2 flex items-center justify-center gap-2">
+                        <span className="text-amber-600 dark:text-amber-400">คลังข้อสอบ</span> ออนไลน์ 📚
                     </h2>
-                    <p className="text-slate-500">ค้นหาข้อสอบที่ต้องการฝึกฝน หรือเลือกตามหมวดหมู่ด้านล่าง</p>
+                    <p className="text-slate-500 dark:text-slate-400">ค้นหาข้อสอบที่ต้องการฝึกฝน หรือเลือกตามหมวดหมู่ด้านล่าง</p>
                 </div>
 
                 {/* Grand Search Bar */}
                 <div className="max-w-2xl mx-auto relative group z-20 text-left mb-6">
                     <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-200"></div>
-                    <div className="relative flex items-center bg-white rounded-2xl shadow-xl border border-slate-100">
-                        <div className="pl-6 text-slate-400">
+                    <div className="relative flex items-center bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700">
+                        <div className="pl-6 text-slate-400 dark:text-slate-500">
                             <Search className="w-6 h-6" />
                         </div>
                         <input
@@ -246,17 +246,17 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="ค้นหาโจทย์, สูตร, หรือเนื้อหาที่ต้องการ... (กด / เพื่อค้นหา)"
-                            className="w-full py-4 px-4 bg-transparent text-lg font-medium text-slate-700 outline-none placeholder:text-slate-300"
+                            className="w-full py-4 px-4 bg-transparent text-lg font-medium text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-500"
                         />
                         {searchQuery ? (
                             <button
                                 onClick={() => setSearchQuery("")}
-                                className="mr-4 px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500 text-sm font-bold transition-colors flex items-center gap-1"
+                                className="mr-4 px-3 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg text-slate-500 dark:text-slate-300 text-sm font-bold transition-colors flex items-center gap-1"
                             >
                                 <span>ESC</span>
                             </button>
                         ) : (
-                            <div className="mr-4 px-2 py-1 bg-slate-50 rounded-lg text-slate-400 text-xs font-mono">
+                            <div className="mr-4 px-2 py-1 bg-slate-50 dark:bg-slate-700 rounded-lg text-slate-400 dark:text-slate-500 text-xs font-mono">
                                 /
                             </div>
                         )}
@@ -266,7 +266,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                 {/* Popular Tags */}
                 <div className="max-w-2xl mx-auto mb-8">
                     <div className="flex items-center justify-center gap-2 flex-wrap">
-                        <span className="text-slate-400 text-sm flex items-center gap-1">
+                        <span className="text-slate-400 dark:text-slate-500 text-sm flex items-center gap-1">
                             <Sparkles size={14} />
                             ค้นหายอดนิยม:
                         </span>
@@ -274,7 +274,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                             <button
                                 key={tag}
                                 onClick={() => setSearchQuery(tag)}
-                                className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-sm font-medium hover:bg-amber-100 transition-colors border border-amber-100"
+                                className="px-3 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors border border-amber-100 dark:border-amber-800"
                             >
                                 {tag}
                             </button>
@@ -289,8 +289,8 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
                             className={`px-6 py-2 rounded-full text-sm font-bold transition-all duration-300 border-2 ${selectedCategory === cat
-                                ? 'bg-slate-900 text-white border-slate-900 shadow-lg scale-105'
-                                : 'bg-white text-slate-500 border-slate-200 hover:border-amber-400 hover:text-amber-600'
+                                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-900 dark:border-slate-100 shadow-lg scale-105'
+                                : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400'
                                 }`}
                         >
                             {cat}
@@ -306,10 +306,10 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                 {isSearchMode ? (
                     <div className="space-y-6">
                         {/* Search Summary */}
-                        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 shadow-sm">
                             <div className="flex items-center justify-between flex-wrap gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
+                                    <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/50 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400">
                                         {isLoadingSearch ? (
                                             <Loader2 size={24} className="animate-spin" />
                                         ) : (
@@ -317,10 +317,10 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                         )}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-slate-800">
+                                        <h3 className="font-bold text-slate-800 dark:text-slate-100">
                                             {isLoadingSearch ? 'กำลังค้นหา...' : `ผลการค้นหา: "${searchQuery}"`}
                                         </h3>
-                                        <p className="text-slate-500 text-sm">
+                                        <p className="text-slate-500 dark:text-slate-400 text-sm">
                                             {isLoadingSearch ? 'กำลังโหลดข้อมูลข้อสอบ...' : `พบ ${searchResults.length} ชุดข้อสอบ`}
                                             {totalQuestionMatches > 0 && `, ${totalQuestionMatches} ข้อที่ตรงกัน`}
                                         </p>
@@ -328,7 +328,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                 </div>
                                 <button
                                     onClick={() => setSearchQuery("")}
-                                    className="text-slate-500 hover:text-slate-700 font-medium text-sm"
+                                    className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium text-sm"
                                 >
                                     ดูทั้งหมด →
                                 </button>
@@ -344,13 +344,13 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                     return (
                                         <div
                                             key={result.examId}
-                                            className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+                                            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
                                         >
                                             {/* Exam Header */}
                                             <Link
                                                 ref={idx === 0 ? firstResultRef : undefined}
                                                 href={`/exam/${result.examId}`}
-                                                className="flex items-center gap-4 p-5 hover:bg-slate-50 transition-colors"
+                                                className="flex items-center gap-4 p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                                             >
                                                 {/* Cover Image or Placeholder */}
                                                 <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-slate-800">
@@ -371,14 +371,14 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                                 {/* Exam Info */}
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <h4 className="font-bold text-slate-800 text-lg truncate">
+                                                        <h4 className="font-bold text-slate-800 dark:text-slate-100 text-lg truncate">
                                                             {highlightText(result.examTitle, searchQuery)}
                                                         </h4>
-                                                        <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                                                        <span className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">
                                                             {result.examLevel}
                                                         </span>
                                                     </div>
-                                                    <p className="text-slate-500 text-sm mt-1">
+                                                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                                                         {result.questionMatches.length > 0
                                                             ? `พบใน ${result.questionMatches.length} ข้อ`
                                                             : 'พบในชื่อ/คำอธิบาย'}
@@ -393,8 +393,8 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
 
                                             {/* Question Matches (if any) */}
                                             {result.questionMatches.length > 0 && (
-                                                <div className="border-t border-slate-100 bg-slate-50 p-4">
-                                                    <div className="flex items-center gap-2 text-slate-500 text-sm mb-3">
+                                                <div className="border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-4">
+                                                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-3">
                                                         <FileText size={14} />
                                                         <span className="font-medium">ข้อที่พบ:</span>
                                                     </div>
@@ -403,18 +403,18 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                                             <Link
                                                                 key={match.index}
                                                                 href={`/exam/${result.examId}?q=${match.index - 1}`}
-                                                                className="inline-flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-slate-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-sm group"
+                                                                className="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all text-sm group"
                                                             >
                                                                 <span className={`w-6 h-6 rounded-full ${theme.bg} text-white text-xs font-bold flex items-center justify-center`}>
                                                                     {match.index}
                                                                 </span>
-                                                                <span className="text-slate-600 truncate max-w-[150px] group-hover:text-amber-700">
+                                                                <span className="text-slate-600 dark:text-slate-300 truncate max-w-[150px] group-hover:text-amber-700 dark:group-hover:text-amber-400">
                                                                     {highlightText(match.preview || `ข้อ ${match.index}`, searchQuery)}
                                                                 </span>
                                                             </Link>
                                                         ))}
                                                         {result.questionMatches.length > 10 && (
-                                                            <span className="text-slate-400 text-sm px-3 py-2">
+                                                            <span className="text-slate-400 dark:text-slate-500 text-sm px-3 py-2">
                                                                 +{result.questionMatches.length - 10} ข้ออื่นๆ
                                                             </span>
                                                         )}
@@ -426,14 +426,14 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                 })}
                             </div>
                         ) : (
-                            <div className="text-center py-16 bg-white rounded-[3rem] border border-slate-100">
+                            <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-[3rem] border border-slate-100 dark:border-slate-700">
                                 <div className="text-5xl mb-4">🔍</div>
-                                <h3 className="text-xl font-bold text-slate-600 mb-2">ไม่พบ "{searchQuery}"</h3>
-                                <p className="text-slate-400 mb-6">ลองค้นหาด้วยคำอื่นดูนะครับ</p>
+                                <h3 className="text-xl font-bold text-slate-600 dark:text-slate-300 mb-2">ไม่พบ "{searchQuery}"</h3>
+                                <p className="text-slate-400 dark:text-slate-500 mb-6">ลองค้นหาด้วยคำอื่นดูนะครับ</p>
 
                                 {/* Suggested Keywords */}
                                 <div className="max-w-md mx-auto mb-6">
-                                    <div className="flex items-center justify-center gap-2 text-slate-500 text-sm mb-3">
+                                    <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 text-sm mb-3">
                                         <Lightbulb size={16} />
                                         <span>ลองค้นหาคำเหล่านี้:</span>
                                     </div>
@@ -442,7 +442,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                             <button
                                                 key={keyword}
                                                 onClick={() => setSearchQuery(keyword)}
-                                                className="px-4 py-2 bg-amber-50 text-amber-700 rounded-full text-sm font-medium hover:bg-amber-100 transition-colors border border-amber-200"
+                                                className="px-4 py-2 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors border border-amber-200 dark:border-amber-800"
                                             >
                                                 {keyword}
                                             </button>
@@ -452,7 +452,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
 
                                 <button
                                     onClick={() => { setSelectedCategory("ทั้งหมด"); setSearchQuery(""); }}
-                                    className="px-6 py-2 rounded-full bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
+                                    className="px-6 py-2 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                                 >
                                     ดูข้อสอบทั้งหมด
                                 </button>

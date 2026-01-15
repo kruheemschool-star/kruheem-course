@@ -7,7 +7,7 @@ import Footer from "@/components/Footer";
 
 export default function ReviewsPage() {
     return (
-        <div className="min-h-screen bg-[#F0F7F4] font-sans">
+        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans transition-colors">
             <Navbar />
 
             <main className="pt-24 pb-24 px-4 sm:px-6 relative overflow-hidden">

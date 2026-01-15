@@ -464,7 +464,7 @@ export default function MyCoursesPage() {
     if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center text-slate-400">กำลังโหลดคอร์ส...</div>;
 
     return (
-        <div className="min-h-screen bg-[#F5F2EB] font-sans selection:bg-amber-200 selection:text-amber-900 flex flex-col overflow-x-hidden">
+        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-teal-200 selection:text-teal-900 flex flex-col overflow-x-hidden transition-colors">
             {/* Dynamic Mesh Gradient Background (Warm Paper Theme) */}
             <div className="fixed inset-0 z-0">
                 <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-amber-200/40 rounded-full blur-[100px] mix-blend-multiply animate-blob"></div>
