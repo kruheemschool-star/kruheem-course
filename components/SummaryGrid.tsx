@@ -116,23 +116,44 @@ export default function SummaryGrid({ summaries }: { summaries: Summary[] }) {
                             </div>
 
                             {/* Content */}
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
+                            <div className="flex-1 min-w-0 py-1">
+                                <div className="flex items-center gap-2 mb-1.5">
                                     {/* Category Badge */}
                                     {summary.category && (
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${categoryStyles[summary.category] || categoryStyles.default}`}>
+                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${categoryStyles[summary.category] || categoryStyles.default}`}>
                                             {summary.category}
                                         </span>
                                     )}
                                 </div>
-                                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg truncate group-hover:text-slate-900 dark:group-hover:text-white transition">
-                                    {summary.title}
-                                </h3>
-                                {(summary.excerpt || summary.meta_description) && (
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 truncate mt-1">
-                                        {summary.excerpt || summary.meta_description}
-                                    </p>
-                                )}
+
+                                {(() => {
+                                    // Helper to split title to get just the main title
+                                    const getMainTitle = (text: string) => {
+                                        const separators = [' ฉบับ', ' แบบ', ' โดย', ' พื้นฐาน', ' พร้อม', ' ('];
+                                        for (const sep of separators) {
+                                            const idx = text.indexOf(sep);
+                                            if (idx !== -1 && idx >= 5) {
+                                                return text.substring(0, idx);
+                                            }
+                                        }
+                                        return text;
+                                    };
+
+                                    const mainTitle = getMainTitle(summary.title);
+
+                                    return (
+                                        <div className="flex flex-col">
+                                            <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg group-hover:text-slate-900 dark:group-hover:text-white transition leading-tight mb-1">
+                                                {mainTitle}
+                                            </h3>
+                                            {(summary.excerpt || summary.meta_description) && (
+                                                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed line-clamp-2">
+                                                    {summary.excerpt || summary.meta_description}
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
                             {/* Meta Info */}
@@ -157,8 +178,8 @@ export default function SummaryGrid({ summaries }: { summaries: Summary[] }) {
                             </div>
                         </Link>
                     ))}
-                </div>
+                </div >
             )}
-        </div>
+        </div >
     );
 }
