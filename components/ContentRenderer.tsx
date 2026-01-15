@@ -350,19 +350,19 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
 
                         {/* Image Block */}
                         {block.type === 'image' && (
-                            <div className="my-10 flex flex-col items-center">
-                                <div className="relative overflow-hidden">
+                            <div className="my-8">
+                                <div className="relative w-full">
                                     {/* Handle both explicit url property or content property as fallback */}
                                     <img
                                         src={block.url || block.content}
                                         alt={block.alt || block.caption || "Summary Image"}
-                                        className="max-w-full md:max-w-[700px] h-auto object-contain rounded-2xl shadow-lg"
+                                        className="w-full h-auto rounded-xl border border-slate-100 shadow-sm"
                                         loading="lazy"
                                     />
                                 </div>
                                 {block.caption && (
-                                    <div className="mt-4 text-center text-sm text-slate-500 italic">
-                                        📷 {block.caption}
+                                    <div className="mt-3 text-center text-sm text-slate-500 font-medium">
+                                        {block.caption}
                                     </div>
                                 )}
                             </div>
