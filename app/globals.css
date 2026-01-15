@@ -123,3 +123,46 @@
 .dark .shadow-lg {
     box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 }
+
+/* KaTeX Font Size Limiting - Prevent equations from scaling too large */
+/* Using absolute rem units instead of relative em to prevent inheritance issues */
+.katex {
+    font-size: 1.25rem !important;
+    /* Fixed at ~20px regardless of parent */
+}
+
+/* BlockMath (display equations) - slightly larger but still controlled */
+.katex-display {
+    font-size: 1.375rem !important;
+    /* Fixed at ~22px for display math */
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.5rem 0;
+}
+
+/* Override any inline styles from KaTeX */
+.katex .base {
+    font-size: inherit !important;
+}
+
+/* Ensure inline math doesn't break the line height */
+.katex-html {
+    line-height: 1.4;
+}
+
+/* Prevent very long equations from overflowing */
+.notion-content .katex-display,
+.summary-content .katex-display {
+    max-width: 100%;
+}
+
+/* Additional specificity for formula blocks */
+.notion-content .katex,
+.summary-content .katex {
+    font-size: 1.25rem !important;
+}
+
+.notion-content .katex-display .katex,
+.summary-content .katex-display .katex {
+    font-size: 1.375rem !important;
+}

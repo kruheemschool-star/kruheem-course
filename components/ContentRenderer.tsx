@@ -185,7 +185,7 @@ const normalizeTextForLineBreaks = (text: string): string => {
 };
 
 // --- Notion Style Renderer ---
-export const renderNotionStyleContent = (text: string, fontSizeClass: string = "text-xl") => {
+export const renderNotionStyleContent = (text: string, fontSizeClass: string = "text-2xl") => {
     if (!text) return "";
 
     // Normalize text first (add line breaks where needed)
@@ -286,8 +286,8 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {/* Header Block */}
                         {block.type === 'header' && (
                             <div className="mt-12 mb-6">
-                                <h3 className="text-3xl md:text-4xl font-extrabold text-slate-800 flex items-center gap-3 border-l-4 border-slate-400 pl-4 py-1">
-                                    <span className="text-3xl">{getEmojiForHeader(block.content)}</span>
+                                <h3 className="text-2xl md:text-3xl font-extrabold text-slate-800 flex items-center gap-3 border-l-4 border-slate-400 pl-4 py-1">
+                                    <span className="text-2xl">{getEmojiForHeader(block.content)}</span>
                                     {block.content}
                                 </h3>
                             </div>
@@ -297,13 +297,13 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {block.type === 'definition' && (
                             <div className="my-6 group bg-slate-50/50 p-5 rounded-xl border border-slate-100">
                                 <div className="flex gap-3 items-start">
-                                    <div className="text-2xl select-none shrink-0 mt-0.5">
+                                    <div className="text-3xl select-none shrink-0 mt-0.5">
                                         {block.title && getEmojiForHeader(block.title) ? getEmojiForHeader(block.title) : '💡'}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        {block.title && <div className="font-bold text-slate-800 text-2xl mb-3">{block.title}</div>}
+                                        {block.title && <div className="font-bold text-slate-800 text-3xl mb-3">{block.title}</div>}
                                         <div className="text-slate-600 leading-relaxed">
-                                            {renderNotionStyleContent(block.content, "text-lg")}
+                                            {renderNotionStyleContent(block.content, "text-xl")}
                                         </div>
                                     </div>
                                 </div>
@@ -319,7 +319,7 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                                         <span>{block.title}</span>
                                     </div>
                                 )}
-                                <div className="text-xl md:text-2xl text-slate-700 leading-loose">
+                                <div className="text-lg md:text-xl text-slate-700 leading-loose">
                                     {renderWithLatex(block.content)}
                                 </div>
                             </div>
@@ -328,9 +328,9 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {/* Example Block - Minimal Style */}
                         {block.type === 'example' && (
                             <div className="my-6 pl-4 border-l-2 border-slate-200 py-1">
-                                {block.title && <div className="text-2xl font-bold text-slate-700 mb-3 flex items-center gap-2"><span className="text-2xl">📝</span> {block.title}</div>}
+                                {block.title && <div className="text-3xl font-bold text-slate-700 mb-3 flex items-center gap-2"><span className="text-3xl">📝</span> {block.title}</div>}
                                 <div className="text-slate-600 leading-relaxed">
-                                    {renderNotionStyleContent(block.content, "text-lg")}
+                                    {renderNotionStyleContent(block.content, "text-xl")}
                                 </div>
                             </div>
                         )}
@@ -338,11 +338,11 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {/* Note/Warning Block - Minimal Style */}
                         {block.type === 'note' && (
                             <div className="my-6 p-4 bg-slate-50 border border-slate-200 rounded-xl flex gap-3 text-slate-700">
-                                <div className="text-2xl select-none shrink-0">⚠️</div>
+                                <div className="text-3xl select-none shrink-0">⚠️</div>
                                 <div className="flex-1">
-                                    <div className="font-bold text-slate-800 text-2xl mb-2">ข้อควรระวัง</div>
+                                    <div className="font-bold text-slate-800 text-3xl mb-2">ข้อควรระวัง</div>
                                     <div className="text-slate-600 leading-relaxed">
-                                        {renderNotionStyleContent(block.content, "text-lg")}
+                                        {renderNotionStyleContent(block.content, "text-xl")}
                                     </div>
                                 </div>
                             </div>
@@ -375,7 +375,7 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
 
     // 3. Fallback to Normal Text Rendering
     return (
-        <div className="prose prose-xl max-w-none text-slate-700 leading-relaxed font-medium notion-content">
+        <div className="prose prose-2xl max-w-none text-slate-700 leading-relaxed font-medium notion-content">
             {renderNotionStyleContent(content)}
         </div>
     );
