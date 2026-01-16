@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo, useState } from 'react';
 import TrafficChart from "@/app/admin/components/TrafficChart";
 
@@ -7,7 +9,7 @@ interface TrafficAnalyticsProps {
     deviceStats: { mobile: number; tablet: number; desktop: number };
     sourceStats: Record<string, number>;
     pageViewStats: Record<string, number>;
-    enrollmentHours: number[]; // Array of 0-23 hours where enrollments happened
+    enrollmentHours: number[];
 }
 
 export default function TrafficAnalytics({ dailyVisits, totalVisits, deviceStats, sourceStats, pageViewStats, enrollmentHours }: TrafficAnalyticsProps) {
@@ -53,160 +55,170 @@ export default function TrafficAnalytics({ dailyVisits, totalVisits, deviceStats
         return dataPoints;
     }, [trafficTimeRange, dailyVisits]);
 
+    // Calculate peak hour
+    const peakHour = useMemo(() => {
+        if (enrollmentHours.length === 0) return 0;
+        const counts: Record<number, number> = {};
+        enrollmentHours.forEach(h => counts[h] = (counts[h] || 0) + 1);
+        return Object.keys(counts).reduce((a, b) => counts[+a] > counts[+b] ? +a : +b, 0);
+    }, [enrollmentHours]);
+
+    // Calculate device percentages
+    const deviceTotal = deviceStats.mobile + deviceStats.tablet + deviceStats.desktop || 1;
+    const deviceData = [
+        { label: 'Mobile', value: deviceStats.mobile, icon: '📱' },
+        { label: 'Desktop', value: deviceStats.desktop, icon: '💻' },
+        { label: 'Tablet', value: deviceStats.tablet, icon: '📟' }
+    ];
+
     return (
-        <div id="report-section" className="pt-8">
-            <div className="lg:col-span-3 bg-white rounded-3xl p-8 shadow-sm mt-8">
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                    <h3 className="font-bold text-xl text-stone-800 flex items-center gap-2">
-                        <span className="text-sky-500">📊</span> สถิติผู้เข้าชมเว็บไซต์ (Website Traffic)
-                    </h3>
-                    <div className="flex bg-stone-100 p-1 rounded-xl">
-                        {(['week', 'month', 'year'] as const).map(range => (
-                            <button
-                                key={range}
-                                onClick={() => setTrafficTimeRange(range)}
-                                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition capitalize ${trafficTimeRange === range ? 'bg-white text-sky-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                            >
-                                {range === 'week' ? 'รายสัปดาห์' : range === 'month' ? 'รายเดือน' : 'รายปี'}
-                            </button>
-                        ))}
+        <div className="space-y-6">
+            {/* Header with Total & Time Range */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <span className="text-lg">📊</span>
+                    <div>
+                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Website Traffic</h3>
+                        <p className="text-2xl font-bold text-slate-800">{totalVisits.toLocaleString()} <span className="text-sm font-normal text-slate-400">ครั้ง</span></p>
                     </div>
+                </div>
+                <div className="flex bg-slate-100 p-1 rounded-lg">
+                    {(['week', 'month', 'year'] as const).map(range => (
+                        <button
+                            key={range}
+                            onClick={() => setTrafficTimeRange(range)}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${trafficTimeRange === range
+                                    ? 'bg-white text-slate-800 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                        >
+                            {range === 'week' ? '7 วัน' : range === 'month' ? '30 วัน' : 'ปีนี้'}
+                        </button>
+                    ))}
+                </div>
+            </div>
 
-
-                    <div className="mt-6 flex items-center justify-between gap-6 p-8 bg-gradient-to-r from-sky-50 to-blue-50 rounded-[2.5rem] border border-sky-100 shadow-sm relative overflow-hidden group w-full md:w-auto">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/40 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="flex items-center justify-center w-12 h-12 bg-white rounded-2xl shadow-sm text-2xl">👁️</span>
-                                <p className="text-lg font-bold text-sky-900">เข้าชมทั้งหมด <span className="opacity-60 font-normal text-sm ml-1">(Total Visits)</span></p>
-                            </div>
-                            <p className="text-stone-500 text-sm pl-1">สถิติคนเข้าเว็บไซต์สะสม</p>
-                        </div>
-                        <h3 className="relative z-10 text-6xl font-black text-sky-600 tracking-tighter drop-shadow-sm">
-                            {totalVisits.toLocaleString()}
-                        </h3>
+            {/* Main Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Chart - Takes 2 columns */}
+                <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6">
+                    <h4 className="text-sm font-medium text-slate-600 mb-4">
+                        {trafficTimeRange === 'week' && "ยอดคนเข้าชม 7 วันล่าสุด"}
+                        {trafficTimeRange === 'month' && "ยอดคนเข้าชม 30 วันล่าสุด"}
+                        {trafficTimeRange === 'year' && "ยอดคนเข้าชมรายเดือน (ปีนี้)"}
+                    </h4>
+                    <div className="h-56">
+                        <TrafficChart data={chartData} />
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Chart */}
-                    <div>
-                        <h4 className="font-bold text-stone-600 mb-4">
-                            {trafficTimeRange === 'week' && "ยอดคนเข้าชม 7 วันล่าสุด"}
-                            {trafficTimeRange === 'month' && "ยอดคนเข้าชม 30 วันล่าสุด"}
-                            {trafficTimeRange === 'year' && "ยอดคนเข้าชมรายเดือน (ปีนี้)"}
-                        </h4>
-                        <div className="h-64 w-full">
-                            <TrafficChart data={chartData} />
+                {/* Right Column - Insights */}
+                <div className="space-y-4">
+                    {/* Peak Hour */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-5">
+                        <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
+                            <span>⏰</span>
+                            <span>ช่วงเวลาซื้อคอร์สเยอะที่สุด</span>
                         </div>
+                        <p className="text-2xl font-bold text-slate-800">
+                            {peakHour}:00 - {peakHour + 1}:00 น.
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">แนะนำให้ยิงโฆษณาหรือโพสต์ขายในช่วงนี้</p>
                     </div>
 
-                    {/* Insights & Demographics */}
-                    <div className="space-y-6">
-                        <div className="bg-amber-50 rounded-2xl p-6 border border-amber-100">
-                            <h4 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
-                                <span className="text-xl">⏰</span> ช่วงเวลาที่คนซื้อคอร์สเยอะที่สุด
-                            </h4>
-                            <p className="text-3xl font-black text-amber-600">
-                                {(() => {
-                                    const maxHour = enrollmentHours.length > 0
-                                        ? (() => {
-                                            const counts: Record<number, number> = {};
-                                            enrollmentHours.forEach(h => counts[h] = (counts[h] || 0) + 1);
-                                            return Object.keys(counts).reduce((a, b) => counts[+a] > counts[+b] ? +a : +b, 0);
-                                        })()
-                                        : 0;
-                                    return `${maxHour}:00 - ${maxHour + 1}:00 น.`;
-                                })()}
-                            </p>
-                            <p className="text-sm text-amber-700/60 mt-1">
-                                แนะนำให้ยิงโฆษณาหรือโพสต์ขายในช่วงเวลานี้
-                            </p>
+                    {/* Device Stats */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-5">
+                        <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                            <span>📱</span>
+                            <span>อุปกรณ์ที่ใช้เข้าชม</span>
                         </div>
-
-                        {/* Device Stats */}
-                        <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
-                            <h4 className="font-bold text-indigo-800 mb-4 flex items-center gap-2">
-                                <span className="text-xl">📱</span> อุปกรณ์ที่ใช้เข้าชม
-                            </h4>
-                            {(() => {
-                                const total = deviceStats.mobile + deviceStats.tablet + deviceStats.desktop || 1;
+                        <div className="space-y-3">
+                            {deviceData.map(d => {
+                                const percent = Math.round((d.value / deviceTotal) * 100);
                                 return (
-                                    <div className="space-y-3">
-                                        {[
-                                            { label: 'Mobile', value: deviceStats.mobile },
-                                            { label: 'Desktop', value: deviceStats.desktop },
-                                            { label: 'Tablet', value: deviceStats.tablet }
-                                        ].map(d => (
-                                            <div key={d.label} className="flex items-center justify-between">
-                                                <span className="text-sm text-indigo-700">📱 {d.label}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-32 h-2 bg-indigo-200 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(d.value / total) * 100}%` }}></div>
-                                                    </div>
-                                                    <span className="text-sm font-bold text-indigo-600 w-12 text-right">{Math.round((d.value / total) * 100)}%</span>
-                                                </div>
-                                            </div>
-                                        ))}
+                                    <div key={d.label}>
+                                        <div className="flex items-center justify-between text-sm mb-1">
+                                            <span className="text-slate-600">{d.icon} {d.label}</span>
+                                            <span className="font-medium text-slate-800">{percent}%</span>
+                                        </div>
+                                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-slate-400 rounded-full transition-all"
+                                                style={{ width: `${percent}%` }}
+                                            />
+                                        </div>
                                     </div>
                                 );
-                            })()}
+                            })}
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* 🔗 TRAFFIC SOURCES + TOP PAGES */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                    {/* Traffic Sources */}
-                    <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100">
-                        <h4 className="font-bold text-emerald-800 mb-4 flex items-center gap-2">
-                            <span className="text-xl">🔗</span> ช่องทางที่มาเยือน (Traffic Sources)
-                        </h4>
-                        {Object.keys(sourceStats).length > 0 ? (
-                            <div className="space-y-2">
-                                {Object.entries(sourceStats)
-                                    .sort((a, b) => b[1] - a[1])
-                                    .slice(0, 6)
-                                    .map(([source, count]) => {
-                                        const total = Object.values(sourceStats).reduce((a, b) => a + b, 0) || 1;
-                                        return (
-                                            <div key={source} className="flex items-center justify-between">
-                                                <span className="text-sm text-emerald-700 capitalize">🌐 {source}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-bold text-emerald-600">{count.toLocaleString()}</span>
-                                                    <span className="text-xs text-emerald-500">({Math.round((count / total) * 100)}%)</span>
-                                                </div>
+            {/* Bottom Row - Sources & Top Pages */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Traffic Sources */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5">
+                    <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                        <span>🔗</span>
+                        <span>ช่องทางที่มาเยือน (Traffic Sources)</span>
+                    </div>
+                    {Object.keys(sourceStats).length > 0 ? (
+                        <div className="space-y-3">
+                            {Object.entries(sourceStats)
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 5)
+                                .map(([source, count]) => {
+                                    const total = Object.values(sourceStats).reduce((a, b) => a + b, 0) || 1;
+                                    const percent = Math.round((count / total) * 100);
+                                    return (
+                                        <div key={source} className="flex items-center justify-between">
+                                            <span className="text-sm text-slate-700 capitalize flex items-center gap-2">
+                                                {source === 'direct' && '🔗'}
+                                                {source === 'google' && '🔍'}
+                                                {source === 'facebook' && '📘'}
+                                                {source === 'internal' && '🏠'}
+                                                {!['direct', 'google', 'facebook', 'internal'].includes(source) && '🌐'}
+                                                {source}
+                                            </span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-sm font-medium text-slate-800">{count.toLocaleString()}</span>
+                                                <span className="text-xs text-slate-400 w-10 text-right">({percent}%)</span>
                                             </div>
-                                        );
-                                    })}
-                            </div>
-                        ) : (
-                            <p className="text-sm text-emerald-500 italic">ยังไม่มีข้อมูล</p>
-                        )}
-                    </div>
-
-                    {/* Top Pages */}
-                    <div className="bg-sky-50 rounded-2xl p-6 border border-sky-100">
-                        <h4 className="font-bold text-sky-800 mb-4 flex items-center gap-2">
-                            <span className="text-xl">📄</span> หน้าที่มีคนเข้าชมมากที่สุด
-                        </h4>
-                        {Object.keys(pageViewStats).length > 0 ? (
-                            <div className="space-y-2">
-                                {Object.entries(pageViewStats)
-                                    .filter(([path]) => path.startsWith('/'))
-                                    .sort((a, b) => b[1] - a[1])
-                                    .slice(0, 6)
-                                    .map(([path, count], idx) => (
-                                        <div key={path} className="flex items-center justify-between">
-                                            <span className="text-sm text-sky-700 truncate max-w-[180px]">{idx + 1}. {path}</span>
-                                            <span className="text-sm font-bold text-sky-600">{count.toLocaleString()} views</span>
                                         </div>
-                                    ))}
-                            </div>
-                        ) : (
-                            <p className="text-sm text-sky-500 italic">ยังไม่มีข้อมูล</p>
-                        )}
+                                    );
+                                })}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-slate-400 italic">ยังไม่มีข้อมูล</p>
+                    )}
+                </div>
+
+                {/* Top Pages */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5">
+                    <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                        <span>📄</span>
+                        <span>หน้าที่มีคนเข้าชมมากที่สุด</span>
                     </div>
+                    {Object.keys(pageViewStats).length > 0 ? (
+                        <div className="space-y-3">
+                            {Object.entries(pageViewStats)
+                                .filter(([path]) => path.startsWith('/'))
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 5)
+                                .map(([path, count], idx) => (
+                                    <div key={path} className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-700 truncate max-w-[200px]">
+                                            <span className="text-slate-400 mr-2">{idx + 1}.</span>
+                                            {path}
+                                        </span>
+                                        <span className="text-sm font-medium text-slate-800">{count.toLocaleString()} views</span>
+                                    </div>
+                                ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-slate-400 italic">ยังไม่มีข้อมูล</p>
+                    )}
                 </div>
             </div>
         </div>
