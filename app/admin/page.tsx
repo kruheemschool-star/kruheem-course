@@ -184,20 +184,24 @@ export default function AdminDashboard() {
                                             <div className="flex-1">
                                                 <div className="flex flex-wrap items-center gap-0.5 min-h-[24px]">
                                                     {m.students > 0 ? (
-                                                        <>
-                                                            {Array.from({ length: m.students }).map((_, i) => (
-                                                                <span key={i} className="text-[10px] text-emerald-500/80 leading-none" title={`คนที่ ${i + 1}`}>
-                                                                    👤
-                                                                </span>
-                                                            ))}
-                                                            <span className="text-[10px] text-slate-500 font-medium ml-1.5 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
-                                                                {m.students} คน
+                                                        Array.from({ length: m.students }).map((_, i) => (
+                                                            <span key={i} className="text-[10px] text-emerald-500/80 leading-none" title={`คนที่ ${i + 1}`}>
+                                                                👤
                                                             </span>
-                                                        </>
+                                                        ))
                                                     ) : (
                                                         <span className="text-sm text-slate-300 italic pt-0.5">-</span>
                                                     )}
                                                 </div>
+                                            </div>
+                                            <div className="w-16 text-right">
+                                                {m.students > 0 ? (
+                                                    <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 block w-fit ml-auto">
+                                                        {m.students} คน
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-sm text-slate-300">-</span>
+                                                )}
                                             </div>
                                             <div className="w-24 text-right">
                                                 <span className={`text-sm font-medium ${m.revenue > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
