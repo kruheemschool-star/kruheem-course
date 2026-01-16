@@ -101,10 +101,10 @@ export default function AdminDashboard() {
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-10">
+            <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-8">
 
                 {/* Top Section: Action Center & Menu Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
                         {/* 1. Action Center (Pending Tasks) */}
                         <ActionCenter pendingCount={pendingCount} ticketsCount={ticketsCount} />
@@ -119,12 +119,25 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                {/* 3. Online Users */}
-                <OnlineUsersWidget
-                    onlineUsers={onlineUsers}
-                    formatOnlineDuration={formatOnlineDuration}
-                    todayVisitors={dailyVisits[new Date().toISOString().split('T')[0]] || 0}
-                />
+                {/* Section 2: Online Users & Website Traffic (Related) */}
+                <div className="space-y-6">
+                    {/* Online Users */}
+                    <OnlineUsersWidget
+                        onlineUsers={onlineUsers}
+                        formatOnlineDuration={formatOnlineDuration}
+                        todayVisitors={dailyVisits[new Date().toISOString().split('T')[0]] || 0}
+                    />
+
+                    {/* Traffic Analytics */}
+                    <TrafficAnalytics
+                        dailyVisits={dailyVisits}
+                        totalVisits={totalVisits}
+                        deviceStats={deviceStats}
+                        sourceStats={sourceStats}
+                        pageViewStats={pageViewStats}
+                        enrollmentHours={enrollmentHours}
+                    />
+                </div>
 
                 {/* 4. Stats & Analytics */}
                 <div id="report-section">
@@ -225,18 +238,6 @@ export default function AdminDashboard() {
                                 )}
                             </div>
                         </div>
-                    </div>
-
-                    {/* Traffic Analytics */}
-                    <div className="mt-6">
-                        <TrafficAnalytics
-                            dailyVisits={dailyVisits}
-                            totalVisits={totalVisits}
-                            deviceStats={deviceStats}
-                            sourceStats={sourceStats}
-                            pageViewStats={pageViewStats}
-                            enrollmentHours={enrollmentHours}
-                        />
                     </div>
                 </div>
 
