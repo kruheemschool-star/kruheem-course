@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import Link from 'next/link';
+import { ChevronRight, Clock } from 'lucide-react';
 
 interface ActivityItem {
     id: string;
@@ -18,7 +19,6 @@ export default function RecentActivityWidget() {
     useEffect(() => {
         const fetchRecent = async () => {
             try {
-                // Fetch recent enrollments as a proxy for interesting activity
                 const q = query(collection(db, "enrollments"), orderBy("approvedAt", "desc"), limit(5));
                 const snap = await getDocs(q);
 
@@ -45,31 +45,75 @@ export default function RecentActivityWidget() {
         fetchRecent();
     }, []);
 
-    if (loading) return <div className="animate-pulse h-40 bg-slate-50 rounded-3xl"></div>;
+    if (loading) {
+        return (
+            <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">🚀</span>
+                    <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">กิจกรรมล่าสุด</h2>
+                </div>
+                <div className="bg-white rounded-xl border border-slate-200 p-4">
+                    <div className="animate-pulse space-y-3">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="flex gap-3">
+                                <div className="w-8 h-8 bg-slate-100 rounded-full" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="h-4 bg-slate-100 rounded w-3/4" />
+                                    <div className="h-3 bg-slate-50 rounded w-1/2" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (activities.length === 0) return null;
 
     return (
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg text-slate-800">🚀 กิจกรรมล่าสุด</h3>
-                <Link href="/admin/activity" className="text-sm text-indigo-500 hover:text-indigo-700">
-                    ดูทั้งหมด →
+        <div>
+            {/* Section Header */}
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                    <span className="text-lg">🚀</span>
+                    <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">กิจกรรมล่าสุด</h2>
+                </div>
+                <Link
+                    href="/admin/activity"
+                    className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
+                >
+                    ดูทั้งหมด
+                    <ChevronRight size={14} />
                 </Link>
             </div>
-            <div className="space-y-4">
+
+            {/* Activity List - Notion Style */}
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
                 {activities.map(item => (
-                    <div key={item.id} className="flex items-start gap-3 text-sm">
-                        <div className="mt-1">
+                    <div key={item.id} className="flex items-start gap-3 p-3">
+                        {/* Icon */}
+                        <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-sm flex-shrink-0">
                             {item.type === 'enrollment' && '💰'}
                             {item.type === 'login' && '🔑'}
                         </div>
-                        <div>
-                            <p className="font-bold text-slate-700">{item.userName}</p>
-                            <p className="text-slate-500 text-xs">{item.description}</p>
-                            <p className="text-slate-400 text-[10px] mt-0.5">
-                                {item.timestamp.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                            <p className="font-medium text-slate-800 text-sm truncate">
+                                {item.userName}
                             </p>
+                            <p className="text-slate-500 text-xs truncate">
+                                {item.description}
+                            </p>
+                        </div>
+
+                        {/* Time */}
+                        <div className="flex items-center gap-1 text-slate-400 text-xs flex-shrink-0">
+                            <Clock size={12} />
+                            <span>
+                                {item.timestamp.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                         </div>
                     </div>
                 ))}

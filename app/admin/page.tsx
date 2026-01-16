@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
 import { useAdminStats } from "@/hooks/useAdminStats";
+import { Home, LogOut, Loader2 } from "lucide-react";
 
 // Components
 import StatsOverview from "@/components/admin/StatsOverview";
@@ -54,37 +55,57 @@ export default function AdminDashboard() {
 
     const enrollmentHours = enrollments.map(e => (e.createdAt?.toDate ? e.createdAt.toDate().getHours() : new Date().getHours()));
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
+    // Loading State
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="flex items-center gap-3 text-slate-500">
+                    <Loader2 className="animate-spin" size={24} />
+                    <span className="font-medium">กำลังโหลด...</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-amber-50 font-sans text-stone-700">
+        <div className="min-h-screen bg-slate-50 font-sans text-slate-700">
 
-            {/* Header */}
-            <header className="sticky top-0 z-20 bg-white/60 backdrop-blur-md border-b border-white/20 px-6 py-4">
-                <div className="max-w-7xl mx-auto flex justify-between items-center">
+            {/* Header - Clean & Minimal */}
+            <header className="sticky top-0 z-20 bg-white border-b border-slate-200">
+                <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <div className="text-2xl">🛠️</div>
+                        <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center text-lg">
+                            🛠️
+                        </div>
                         <div>
-                            <h1 className="text-xl font-bold text-stone-800">Admin Dashboard</h1>
-                            <p className="text-xs text-stone-500">สวัสดี, {user?.email}</p>
+                            <h1 className="text-lg font-semibold text-slate-800">Admin Dashboard</h1>
+                            <p className="text-xs text-slate-500">{user?.email}</p>
                         </div>
                     </div>
-                    <div className="flex gap-3">
-                        <Link href="/" className="px-4 py-2 text-sm font-bold text-stone-600 bg-white/50 rounded-full hover:bg-white transition shadow-sm">
-                            🏡 หน้าบ้าน
+                    <div className="flex gap-2">
+                        <Link
+                            href="/"
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                        >
+                            <Home size={16} />
+                            หน้าบ้าน
                         </Link>
-                        <button onClick={handleLogout} className="px-4 py-2 text-sm font-bold text-rose-500 bg-rose-100/50 rounded-full hover:bg-rose-200 transition shadow-sm">
-                            🚪 ออกจากระบบ
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors"
+                        >
+                            <LogOut size={16} />
+                            ออกจากระบบ
                         </button>
                     </div>
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto p-6 md:p-10 space-y-12">
+            <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-10">
 
-                {/* Top Section: Action Center & Recent Activity */}
+                {/* Top Section: Action Center & Menu Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-8">
+                    <div className="lg:col-span-2 space-y-6">
                         {/* 1. Action Center (Pending Tasks) */}
                         <ActionCenter pendingCount={pendingCount} ticketsCount={ticketsCount} />
 
@@ -92,7 +113,7 @@ export default function AdminDashboard() {
                         <MenuGrid pendingCount={pendingCount} ticketsCount={ticketsCount} />
                     </div>
 
-                    <div className="lg:col-span-1 space-y-8">
+                    <div className="lg:col-span-1">
                         {/* Recent Activity Feed */}
                         <RecentActivityWidget />
                     </div>
@@ -106,20 +127,19 @@ export default function AdminDashboard() {
                 />
 
                 {/* 4. Stats & Analytics */}
-                <div id="report-section" className="">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-                        <div>
-                            <h2 className="text-2xl font-bold text-stone-800 flex items-center gap-3">
-                                📈 รายงานสถิติ
-                                <span className="text-xs bg-white/80 text-stone-500 px-3 py-1 rounded-full shadow-sm">Approved Data</span>
-                            </h2>
+                <div id="report-section">
+                    {/* Section Header */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg">📈</span>
+                            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">รายงานสถิติ</h2>
                         </div>
-                        <div className="flex items-center gap-3 bg-white/70 p-2 pr-4 rounded-2xl shadow-sm backdrop-blur-sm">
-                            <div className="bg-amber-100 p-2 rounded-xl">📅</div>
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 rounded-lg">
+                            <span className="text-sm">📅</span>
                             <select
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(Number(e.target.value))}
-                                className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer text-lg"
+                                className="bg-transparent font-medium text-slate-700 outline-none cursor-pointer text-sm"
                             >
                                 {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
                                     <option key={year} value={year}>ปี {year + 543}</option>
@@ -132,86 +152,91 @@ export default function AdminDashboard() {
                     <StatsOverview stats={stats} selectedYear={selectedYear} />
 
                     {/* Visual Charts */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Pictogram Chart Section */}
-                        <div className="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm h-full">
-                            <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
-                                <span className="text-indigo-500">📅</span> สรุปรายได้และจำนวนนักเรียนรายเดือน
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                        {/* Monthly Summary */}
+                        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6">
+                            <h3 className="font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                                <span>📅</span>
+                                สรุปรายได้และจำนวนนักเรียนรายเดือน
                             </h3>
 
-                            <div className="space-y-6">
+                            <div className="space-y-4">
                                 {stats.monthlyData.map((m, index) => (
-                                    <div key={index} className="group flex items-start gap-4 border-b border-stone-50 pb-4 last:border-none last:pb-0">
-                                        <div className="font-bold text-stone-400 w-10 text-sm pt-1">{m.month}</div>
-                                        <div className="flex-1 flex flex-wrap gap-1 items-center min-h-[28px]">
+                                    <div key={index} className="flex items-start gap-4 py-3 border-b border-slate-50 last:border-none">
+                                        <div className="font-medium text-slate-400 w-8 text-sm">{m.month}</div>
+                                        <div className="flex-1 flex flex-wrap gap-1 items-center min-h-[24px]">
                                             {m.students > 0 ? (
                                                 Array.from({ length: m.students }).map((_, i) => (
                                                     <span
                                                         key={i}
-                                                        className="text-xl animate-in zoom-in duration-500 hover:scale-125 transition cursor-default"
-                                                        style={{ animationDelay: `${i * 100}ms` }}
+                                                        className="text-lg hover:scale-110 transition cursor-default"
                                                         title={`นักเรียนคนที่ ${i + 1}`}
                                                     >
                                                         🧒
                                                     </span>
                                                 ))
                                             ) : (
-                                                <span className="text-stone-200 text-xs font-light italic self-center">ไม่มีนักเรียน</span>
+                                                <span className="text-slate-300 text-xs italic">ไม่มีนักเรียน</span>
                                             )}
                                         </div>
                                         <div className="flex flex-col items-end min-w-[80px]">
-                                            <span className={`font-bold text-sm transition ${m.revenue > 0 ? 'text-indigo-600' : 'text-stone-300'}`}>
+                                            <span className={`font-semibold text-sm ${m.revenue > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
                                                 {m.revenue > 0 ? `฿${m.revenue.toLocaleString()}` : '-'}
                                             </span>
-                                            {m.students > 0 && <span className="text-[10px] text-stone-400">{m.students} คน</span>}
+                                            {m.students > 0 && <span className="text-[10px] text-slate-400">{m.students} คน</span>}
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Ranking Section */}
-                        <div className="bg-white rounded-3xl p-8 shadow-sm h-fit">
-                            <h3 className="font-bold text-xl text-stone-800 mb-8 flex items-center gap-2">
-                                <span className="text-amber-500">🏆</span> อันดับคอร์สขายดี
+                        {/* Course Ranking */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-6">
+                            <h3 className="font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                                <span>🏆</span>
+                                อันดับคอร์สขายดี
                             </h3>
 
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {stats.courseData.map((c, index) => (
-                                    <div key={index} className="flex items-center justify-between p-4 rounded-2xl bg-stone-50/50 hover:bg-amber-50/50 transition group cursor-default">
-                                        <div className="flex items-center gap-4 overflow-hidden">
-                                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black text-white shadow-sm transform group-hover:scale-110 transition
-                                          ${index === 0 ? 'bg-amber-400' : index === 1 ? 'bg-stone-400' : index === 2 ? 'bg-orange-400' : 'bg-indigo-200'}`}>
-                                                {index + 1}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="font-bold text-stone-700 text-sm truncate group-hover:text-amber-700 transition">{c.title}</p>
-                                                <p className="text-xs font-medium text-stone-400">{c.students} คนลงทะเบียน</p>
-                                            </div>
+                                    <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white
+                                            ${index === 0 ? 'bg-amber-400' : index === 1 ? 'bg-slate-400' : index === 2 ? 'bg-orange-400' : 'bg-slate-300'}`}
+                                        >
+                                            {index + 1}
                                         </div>
-                                        <div className="font-bold text-stone-600 text-sm whitespace-nowrap group-hover:text-amber-600">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-slate-700 text-sm truncate">{c.title}</p>
+                                            <p className="text-xs text-slate-400">{c.students} คนลงทะเบียน</p>
+                                        </div>
+                                        <div className="font-semibold text-slate-600 text-sm">
                                             ฿{c.revenue.toLocaleString()}
                                         </div>
                                     </div>
                                 ))}
-                                {stats.courseData.length === 0 && <div className="text-center py-10 text-stone-300 italic">ยังไม่มีข้อมูลคอร์ส</div>}
+                                {stats.courseData.length === 0 && (
+                                    <div className="text-center py-8 text-slate-400 italic text-sm">
+                                        ยังไม่มีข้อมูลคอร์ส
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Traffic Analytics (Charts & Demographics) */}
-                    <TrafficAnalytics
-                        dailyVisits={dailyVisits}
-                        totalVisits={totalVisits}
-                        deviceStats={deviceStats}
-                        sourceStats={sourceStats}
-                        pageViewStats={pageViewStats}
-                        enrollmentHours={enrollmentHours}
-                    />
-
+                    {/* Traffic Analytics */}
+                    <div className="mt-6">
+                        <TrafficAnalytics
+                            dailyVisits={dailyVisits}
+                            totalVisits={totalVisits}
+                            deviceStats={deviceStats}
+                            sourceStats={sourceStats}
+                            pageViewStats={pageViewStats}
+                            enrollmentHours={enrollmentHours}
+                        />
+                    </div>
                 </div>
 
-            </main >
-        </div >
+            </main>
+        </div>
     );
 }

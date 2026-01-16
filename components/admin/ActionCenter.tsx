@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { AlertCircle, ChevronRight } from 'lucide-react';
 
 interface ActionCenterProps {
     pendingCount: number;
@@ -12,43 +12,40 @@ export default function ActionCenter({ pendingCount, ticketsCount }: ActionCente
     if (!hasActions) return null;
 
     return (
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-rose-100 animate-in slide-in-from-top-4 mb-8">
-            <h3 className="font-bold text-lg text-rose-800 mb-4 flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-                </span>
-                งานที่ต้องจัดการด่วน (Action Required)
-            </h3>
+        <div className="mb-6">
+            {/* Section Header */}
+            <div className="flex items-center gap-2 mb-3">
+                <AlertCircle size={16} className="text-amber-500" />
+                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">งานที่ต้องดำเนินการ</h2>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Action Items - Notion Callout Style */}
+            <div className="space-y-2">
                 {pendingCount > 0 && (
-                    <Link href="/admin/enrollments" className="flex items-center justify-between p-4 bg-rose-50 rounded-2xl border border-rose-100 hover:bg-rose-100 transition group">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm">💰</div>
-                            <div>
-                                <p className="font-bold text-rose-900 group-hover:text-rose-700">ตรวจสอบชำระเงิน</p>
-                                <p className="text-xs text-rose-600">รอยืนยันสลิป</p>
-                            </div>
+                    <Link
+                        href="/admin/enrollments"
+                        className="group flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+                    >
+                        <span className="text-xl">💰</span>
+                        <div className="flex-1">
+                            <p className="font-medium text-amber-900">ตรวจสอบชำระเงิน</p>
+                            <p className="text-sm text-amber-700">{pendingCount} รายการรอดำเนินการ</p>
                         </div>
-                        <span className="bg-rose-500 text-white text-sm font-bold px-3 py-1 rounded-full shadow-sm animate-pulse">
-                            {pendingCount} รายการ
-                        </span>
+                        <ChevronRight size={18} className="text-amber-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
                     </Link>
                 )}
 
                 {ticketsCount > 0 && (
-                    <Link href="/admin/support" className="flex items-center justify-between p-4 bg-blue-50 rounded-2xl border border-blue-100 hover:bg-blue-100 transition group">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm">🎫</div>
-                            <div>
-                                <p className="font-bold text-blue-900 group-hover:text-blue-700">แจ้งปัญหา (Ticket)</p>
-                                <p className="text-xs text-blue-600">รอการตรวจสอบ</p>
-                            </div>
+                    <Link
+                        href="/admin/support"
+                        className="group flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                        <span className="text-xl">🎫</span>
+                        <div className="flex-1">
+                            <p className="font-medium text-blue-900">แจ้งปัญหา (Ticket)</p>
+                            <p className="text-sm text-blue-700">{ticketsCount} รายการรอตรวจสอบ</p>
                         </div>
-                        <span className="bg-blue-500 text-white text-sm font-bold px-3 py-1 rounded-full shadow-sm animate-pulse">
-                            {ticketsCount} รายการ
-                        </span>
+                        <ChevronRight size={18} className="text-blue-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
                     </Link>
                 )}
             </div>

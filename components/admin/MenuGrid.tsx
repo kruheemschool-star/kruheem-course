@@ -1,148 +1,145 @@
 import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 
 interface MenuGridProps {
     pendingCount: number;
     ticketsCount: number;
 }
 
+// Menu items configuration
+const menuItems = [
+    {
+        href: '/admin/enrollments',
+        icon: '💰',
+        title: 'ตรวจสอบชำระเงิน',
+        description: 'อนุมัติสลิปโอนเงิน',
+        badgeKey: 'pending' as const,
+    },
+    {
+        href: '/admin/exams',
+        icon: '📝',
+        title: 'คลังข้อสอบ',
+        description: 'เพิ่ม/ลบ ชุดข้อสอบ',
+    },
+    {
+        href: '/admin/students',
+        icon: '👨‍🎓',
+        title: 'ทะเบียนนักเรียน',
+        description: 'ดูรายชื่อและประวัติ',
+    },
+    {
+        href: '/admin/courses',
+        icon: '📚',
+        title: 'จัดการคอร์สเรียน',
+        description: 'เพิ่ม/ลบ บทเรียน',
+    },
+    {
+        href: '/admin/summaries',
+        icon: '✨',
+        title: 'สรุปเนื้อหา',
+        description: 'เขียน/แก้ไข บทสรุป',
+    },
+    {
+        href: '/admin/notifications',
+        icon: '📢',
+        title: 'ประกาศข่าวสาร',
+        description: 'แจ้งเตือนนักเรียน',
+    },
+    {
+        href: '/admin/banners',
+        icon: '🖼️',
+        title: 'จัดการโฆษณา',
+        description: 'เปลี่ยนรูปภาพหน้าเว็บ',
+    },
+    {
+        href: '/admin/chat',
+        icon: '💬',
+        title: 'แชทกับลูกค้า',
+        description: 'ตอบแชทสด Real-time',
+    },
+    {
+        href: '/admin/support',
+        icon: '🎫',
+        title: 'แจ้งปัญหา (Ticket)',
+        description: 'ระบบตั๋วแจ้งซ่อม/ปัญหา',
+        badgeKey: 'tickets' as const,
+    },
+    {
+        href: '/admin/reviews',
+        icon: '⭐',
+        title: 'จัดการรีวิว',
+        description: 'ซ่อน/ลบ รีวิว',
+    },
+    {
+        href: '/admin/poll',
+        icon: '📊',
+        title: 'แบบสอบถาม',
+        description: 'สร้าง Poll ถามความเห็น',
+    },
+    {
+        href: '/admin/activity',
+        icon: '📈',
+        title: 'Activity Log',
+        description: 'ติดตามกิจกรรม',
+    },
+];
+
 export default function MenuGrid({ pendingCount, ticketsCount }: MenuGridProps) {
+    const getBadgeCount = (key?: 'pending' | 'tickets') => {
+        if (key === 'pending') return pendingCount;
+        if (key === 'tickets') return ticketsCount;
+        return 0;
+    };
+
     return (
         <div>
-            <div className="mb-6">
-                <h2 className="text-3xl font-bold text-stone-800 mb-1">ภาพรวมวันนี้</h2>
-                <p className="text-stone-500 font-light">ระบบจัดการโรงเรียนออนไลน์ครบวงจร</p>
+            {/* Section Header */}
+            <div className="flex items-center gap-2 mb-4">
+                <span className="text-lg">📋</span>
+                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">เมนูหลัก</h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* 1. ตรวจสอบชำระเงิน */}
-                <Link href="/admin/enrollments" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-orange-100 to-rose-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">💰</span>
-                        {pendingCount > 0 && (
-                            <span className="bg-white/80 text-rose-500 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-bounce">
-                                {pendingCount} รอตรวจ
+            {/* Menu List - Notion Style */}
+            <div className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                {menuItems.map((item) => {
+                    const badgeCount = getBadgeCount(item.badgeKey);
+
+                    return (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className="group flex items-center gap-4 px-4 py-3 hover:bg-slate-50 transition-colors"
+                        >
+                            {/* Icon */}
+                            <span className="text-xl w-8 text-center flex-shrink-0">
+                                {item.icon}
                             </span>
-                        )}
-                    </div>
-                    <h3 className="font-bold text-xl text-rose-900/80 group-hover:text-rose-900 relative z-10">ตรวจสอบชำระเงิน</h3>
-                    <p className="text-sm text-rose-800/60 mt-1 relative z-10">อนุมัติสลิปโอนเงิน</p>
-                </Link>
 
-                {/* Exam Management Link */}
-                <Link href="/admin/exams" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-purple-100 to-fuchsia-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">📝</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-purple-900/80 group-hover:text-purple-900 relative z-10">คลังข้อสอบ</h3>
-                    <p className="text-sm text-purple-800/60 mt-1 relative z-10">เพิ่ม/ลบ ชุดข้อสอบ</p>
-                </Link>
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="font-medium text-slate-800 group-hover:text-slate-900">
+                                        {item.title}
+                                    </h3>
+                                    {badgeCount > 0 && (
+                                        <span className="bg-rose-100 text-rose-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                                            {badgeCount}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-sm text-slate-500 truncate">
+                                    {item.description}
+                                </p>
+                            </div>
 
-                {/* 2. ทะเบียนนักเรียน */}
-                <Link href="/admin/students" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-sky-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">👨‍🎓</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">ทะเบียนนักเรียน</h3>
-                    <p className="text-sm text-blue-800/60 mt-1 relative z-10">ดูรายชื่อและประวัติ</p>
-                </Link>
-
-                {/* 3. จัดการคอร์ส */}
-                <Link href="/admin/courses" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-emerald-100 to-teal-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">📚</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-teal-900/80 group-hover:text-teal-900 relative z-10">จัดการคอร์สเรียน</h3>
-                    <p className="text-sm text-teal-800/60 mt-1 relative z-10">เพิ่ม/ลบ บทเรียน</p>
-                </Link>
-
-                {/* 4. สรุปเนื้อหา */}
-                <Link href="/admin/summaries" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-teal-100 to-cyan-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">✨</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-cyan-900/80 group-hover:text-cyan-900 relative z-10">สรุปเนื้อหา</h3>
-                    <p className="text-sm text-cyan-800/60 mt-1 relative z-10">เขียน/แก้ไข บทสรุป</p>
-                </Link>
-
-                {/* 5. ประกาศข่าวสาร */}
-                <Link href="/admin/notifications" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-amber-100 to-orange-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">📢</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-orange-900/80 group-hover:text-orange-900 relative z-10">ประกาศข่าวสาร</h3>
-                    <p className="text-sm text-orange-800/60 mt-1 relative z-10">แจ้งเตือนนักเรียนทุกคน</p>
-                </Link>
-
-                {/* 6. จัดการโฆษณา */}
-                <Link href="/admin/banners" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-pink-100 to-rose-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">🖼️</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-pink-900/80 group-hover:text-pink-900 relative z-10">จัดการโฆษณา</h3>
-                    <p className="text-sm text-pink-800/60 mt-1 relative z-10">เปลี่ยนรูปภาพหน้าเว็บ</p>
-                </Link>
-
-                {/* 7. ระบบแชท */}
-                <Link href="/admin/chat" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-indigo-100 to-violet-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">💬</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-indigo-900/80 group-hover:text-indigo-900 relative z-10">แชทกับลูกค้า</h3>
-                    <p className="text-sm text-indigo-800/60 mt-1 relative z-10">ตอบแชทสด Real-time</p>
-                </Link>
-
-                {/* 8. ถาม-ตอบ / แจ้งปัญหา */}
-                <Link href="/admin/support" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-blue-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">🎫</span>
-                        {ticketsCount > 0 && (
-                            <span className="bg-white/80 text-blue-600 text-xs font-bold px-3 py-1 rounded-full shadow-sm animate-bounce">
-                                {ticketsCount} ใหม่
-                            </span>
-                        )}
-                    </div>
-                    <h3 className="font-bold text-xl text-blue-900/80 group-hover:text-blue-900 relative z-10">แจ้งปัญหา (Ticket)</h3>
-                    <p className="text-sm text-blue-800/60 mt-1 relative z-10">ระบบตั๋วแจ้งซ่อม/ปัญหา</p>
-                </Link>
-
-                {/* 9. จัดการรีวิว */}
-                <Link href="/admin/reviews" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-fuchsia-100 to-purple-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">⭐</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-purple-900/80 group-hover:text-purple-900 relative z-10">จัดการรีวิว</h3>
-                    <p className="text-sm text-purple-800/60 mt-1 relative z-10">ซ่อน/ลบ รีวิวที่ไม่เหมาะสม</p>
-                </Link>
-
-                {/* 10. แบบสอบถาม */}
-                <Link href="/admin/poll" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-indigo-100 to-violet-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">📝</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-indigo-900/80 group-hover:text-indigo-900 relative z-10">แบบสอบถาม</h3>
-                    <p className="text-sm text-indigo-800/60 mt-1 relative z-10">สร้าง Poll ถามความเห็น</p>
-                </Link>
-
-                {/* 11. Activity Log */}
-                <Link href="/admin/activity" className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-cyan-100 to-teal-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100">
-                    <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <div className="flex justify-between items-start mb-4 relative z-10">
-                        <span className="text-4xl drop-shadow-sm">📊</span>
-                    </div>
-                    <h3 className="font-bold text-xl text-teal-900/80 group-hover:text-teal-900 relative z-10">Activity Log</h3>
-                    <p className="text-sm text-teal-800/60 mt-1 relative z-10">ติดตามกิจกรรมนักเรียน</p>
-                </Link>
+                            {/* Arrow */}
+                            <ChevronRight
+                                size={18}
+                                className="text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all flex-shrink-0"
+                            />
+                        </Link>
+                    );
+                })}
             </div>
         </div>
     );
