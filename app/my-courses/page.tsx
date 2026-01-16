@@ -28,6 +28,7 @@ import { useGamification } from "@/hooks/useGamification";
 // Import gamification components
 import BadgeDisplay from "@/components/gamification/BadgeDisplay";
 import ProgressBar from "@/components/gamification/ProgressBar";
+import WeeklyProgressChart from "@/components/gamification/WeeklyProgressChart";
 
 export default function MyCoursesPage() {
     const { user, userProfile, isAdmin, updateProfile, loading: authLoading, daysSinceLastActive } = useUserAuth();
@@ -594,10 +595,21 @@ export default function MyCoursesPage() {
 
                         {/* 🏆 Gamification Section - Achievement Progress */}
                         {!gamificationLoading && gamificationData && badges.length > 0 && (
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 mb-8">
-                                <BadgeDisplay badges={badges} gamificationData={gamificationData} />
-                                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                                    <ProgressBar gamificationData={gamificationData} badges={badges} />
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                                {/* Main Badges Section */}
+                                <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+                                    <BadgeDisplay badges={badges} gamificationData={gamificationData} />
+                                    <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                        <ProgressBar gamificationData={gamificationData} badges={badges} />
+                                    </div>
+                                </div>
+
+                                {/* Weekly Progress Chart */}
+                                <div className="lg:col-span-1">
+                                    <WeeklyProgressChart
+                                        completedCourses={gamificationData.completedCourses}
+                                        totalCourses={gamificationData.totalCourses}
+                                    />
                                 </div>
                             </div>
                         )}

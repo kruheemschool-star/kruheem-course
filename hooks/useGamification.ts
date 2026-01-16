@@ -37,7 +37,12 @@ export function useGamification() {
             try {
                 setLoading(true);
 
-                // 1. Get user's enrollments (approved only)
+                // 1. Get all courses count FIRST (for total badge thresholds)
+                const allCoursesSnap = await getDocs(collection(db, 'courses'));
+                const allCoursesCount = allCoursesSnap.size;
+                setTotalCourses(allCoursesCount);
+
+                // 2. Get user's enrollments (approved only)
                 const enrollmentsQuery = query(
                     collection(db, 'enrollments'),
                     where('userId', '==', user.uid),
@@ -48,14 +53,9 @@ export function useGamification() {
 
                 if (enrolledCourseIds.length === 0) {
                     setCourseProgress([]);
-                    setTotalCourses(0);
                     setLoading(false);
                     return;
                 }
-
-                // 2. Get all courses count (for total badge thresholds)
-                const allCoursesSnap = await getDocs(collection(db, 'courses'));
-                setTotalCourses(allCoursesSnap.size);
 
                 // 3. Fetch lessons for enrolled courses (VIDEO type only)
                 const lessonsQuery = query(collectionGroup(db, 'lessons'));
