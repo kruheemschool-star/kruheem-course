@@ -1,4 +1,8 @@
+"use client";
+
 import Link from 'next/link';
+import Image from 'next/image';
+import { useMenuCovers } from '@/hooks/useMenuCovers';
 
 interface MenuGridProps {
     pendingCount: number;
@@ -8,6 +12,7 @@ interface MenuGridProps {
 // Menu items configuration with cover colors
 const menuItems = [
     {
+        key: 'enrollments',
         href: '/admin/enrollments',
         icon: '💰',
         title: 'ตรวจสอบชำระเงิน',
@@ -16,6 +21,7 @@ const menuItems = [
         coverColor: 'from-amber-100 to-orange-100',
     },
     {
+        key: 'exams',
         href: '/admin/exams',
         icon: '📝',
         title: 'คลังข้อสอบ',
@@ -23,6 +29,7 @@ const menuItems = [
         coverColor: 'from-violet-100 to-purple-100',
     },
     {
+        key: 'students',
         href: '/admin/students',
         icon: '👨‍🎓',
         title: 'ทะเบียนนักเรียน',
@@ -30,6 +37,7 @@ const menuItems = [
         coverColor: 'from-sky-100 to-blue-100',
     },
     {
+        key: 'courses',
         href: '/admin/courses',
         icon: '📚',
         title: 'จัดการคอร์สเรียน',
@@ -37,6 +45,7 @@ const menuItems = [
         coverColor: 'from-emerald-100 to-teal-100',
     },
     {
+        key: 'summaries',
         href: '/admin/summaries',
         icon: '✨',
         title: 'สรุปเนื้อหา',
@@ -44,6 +53,7 @@ const menuItems = [
         coverColor: 'from-cyan-100 to-sky-100',
     },
     {
+        key: 'notifications',
         href: '/admin/notifications',
         icon: '📢',
         title: 'ประกาศข่าวสาร',
@@ -51,6 +61,7 @@ const menuItems = [
         coverColor: 'from-yellow-100 to-amber-100',
     },
     {
+        key: 'banners',
         href: '/admin/banners',
         icon: '🖼️',
         title: 'จัดการโฆษณา',
@@ -58,6 +69,7 @@ const menuItems = [
         coverColor: 'from-pink-100 to-rose-100',
     },
     {
+        key: 'chat',
         href: '/admin/chat',
         icon: '💬',
         title: 'แชทกับลูกค้า',
@@ -65,6 +77,7 @@ const menuItems = [
         coverColor: 'from-indigo-100 to-violet-100',
     },
     {
+        key: 'support',
         href: '/admin/support',
         icon: '🎫',
         title: 'แจ้งปัญหา (Ticket)',
@@ -73,6 +86,7 @@ const menuItems = [
         coverColor: 'from-blue-100 to-indigo-100',
     },
     {
+        key: 'reviews',
         href: '/admin/reviews',
         icon: '⭐',
         title: 'จัดการรีวิว',
@@ -80,6 +94,7 @@ const menuItems = [
         coverColor: 'from-fuchsia-100 to-pink-100',
     },
     {
+        key: 'poll',
         href: '/admin/poll',
         icon: '📊',
         title: 'แบบสอบถาม',
@@ -87,6 +102,7 @@ const menuItems = [
         coverColor: 'from-slate-100 to-gray-100',
     },
     {
+        key: 'activity',
         href: '/admin/activity',
         icon: '📈',
         title: 'Activity Log',
@@ -96,6 +112,8 @@ const menuItems = [
 ];
 
 export default function MenuGrid({ pendingCount, ticketsCount }: MenuGridProps) {
+    const { covers } = useMenuCovers();
+
     const getBadgeCount = (key?: 'pending' | 'tickets') => {
         if (key === 'pending') return pendingCount;
         if (key === 'tickets') return ticketsCount;
@@ -105,15 +123,24 @@ export default function MenuGrid({ pendingCount, ticketsCount }: MenuGridProps) 
     return (
         <div>
             {/* Section Header */}
-            <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">📋</span>
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">เมนูหลัก</h2>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    <span className="text-lg">📋</span>
+                    <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">เมนูหลัก</h2>
+                </div>
+                <Link
+                    href="/admin/settings"
+                    className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                    ⚙️ ตั้งค่า
+                </Link>
             </div>
 
             {/* Card Grid - Notion Database Card Style */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {menuItems.map((item) => {
                     const badgeCount = getBadgeCount(item.badgeKey);
+                    const coverUrl = covers[item.key];
 
                     return (
                         <Link
@@ -122,7 +149,18 @@ export default function MenuGrid({ pendingCount, ticketsCount }: MenuGridProps) 
                             className="group relative bg-white rounded-xl border border-slate-200 overflow-hidden hover:border-slate-300 hover:shadow-md transition-all"
                         >
                             {/* Cover Image Area */}
-                            <div className={`h-20 bg-gradient-to-br ${item.coverColor} relative`}>
+                            <div className="h-20 relative overflow-hidden">
+                                {coverUrl ? (
+                                    <Image
+                                        src={coverUrl}
+                                        alt=""
+                                        fill
+                                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                ) : (
+                                    <div className={`h-full bg-gradient-to-br ${item.coverColor}`} />
+                                )}
+
                                 {/* Badge on cover */}
                                 {badgeCount > 0 && (
                                     <span className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm text-rose-600 text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
