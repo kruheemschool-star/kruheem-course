@@ -166,7 +166,13 @@ export default function CelebrationModal({
                         style={{ animation: 'glow-pulse 2s ease-in-out infinite' }}
                     >
                         <span className="text-6xl drop-shadow-lg">
-                            {type === 'rank_up' && badge ? badge.icon : '🎉'}
+                            {type === 'rank_up' && badge ? (
+                                badge.rank === 'bronze' ? '🛡️' :
+                                    badge.rank === 'silver' ? '🏅' :
+                                        badge.rank === 'gold' ? '🏆' :
+                                            badge.rank === 'diamond' ? '💎' :
+                                                '👑'
+                            ) : '🎉'}
                         </span>
                     </div>
 
@@ -185,7 +191,7 @@ export default function CelebrationModal({
                             <>
                                 คุณได้รับตราสัญลักษณ์{' '}
                                 <span className="font-bold" style={{ color: badge.color }}>
-                                    {badge.thaiLabel}
+                                    {badge.label}
                                 </span>{' '}
                                 แล้ว!
                             </>
