@@ -222,7 +222,7 @@ export default function AdminDashboard() {
                             </div>
 
                             <div className="space-y-2">
-                                {stats.courseData.map((c, index) => (
+                                {stats.courseData.slice(0, 5).map((c, index) => (
                                     <div key={index} className="flex items-center gap-3 py-2">
                                         <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold
                                             ${index === 0 ? 'bg-amber-100 text-amber-700' : index === 1 ? 'bg-slate-100 text-slate-600' : index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-50 text-slate-400'}`}
