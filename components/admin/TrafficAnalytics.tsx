@@ -88,8 +88,8 @@ export default function TrafficAnalytics({ dailyVisits, totalVisits, deviceStats
                             key={range}
                             onClick={() => setTrafficTimeRange(range)}
                             className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${trafficTimeRange === range
-                                    ? 'bg-white text-slate-800 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                ? 'bg-white text-slate-800 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
                                 }`}
                         >
                             {range === 'week' ? '7 วัน' : range === 'month' ? '30 วัน' : 'ปีนี้'}
@@ -107,7 +107,7 @@ export default function TrafficAnalytics({ dailyVisits, totalVisits, deviceStats
                         {trafficTimeRange === 'month' && "ยอดคนเข้าชม 30 วันล่าสุด"}
                         {trafficTimeRange === 'year' && "ยอดคนเข้าชมรายเดือน (ปีนี้)"}
                     </h4>
-                    <div className="h-56">
+                    <div className="h-[300px]">
                         <TrafficChart data={chartData} />
                     </div>
                 </div>
