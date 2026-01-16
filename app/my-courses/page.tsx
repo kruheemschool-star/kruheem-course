@@ -23,6 +23,11 @@ const LockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 2
 
 // Import shared hooks
 import { useDebounce } from "@/hooks/useDebounce";
+import { useGamification } from "@/hooks/useGamification";
+
+// Import gamification components
+import BadgeDisplay from "@/components/gamification/BadgeDisplay";
+import ProgressBar from "@/components/gamification/ProgressBar";
 
 export default function MyCoursesPage() {
     const { user, userProfile, isAdmin, updateProfile, loading: authLoading, daysSinceLastActive } = useUserAuth();
@@ -67,6 +72,9 @@ export default function MyCoursesPage() {
 
     // --- Progress Tracking State ---
     const [courseProgress, setCourseProgress] = useState<Record<string, { completed: number; total: number; percent: number; lastLessonId?: string }>>({});
+
+    // --- Gamification ---
+    const { gamificationData, badges, loading: gamificationLoading } = useGamification();
 
     // ✅ Load settings from LocalStorage
     useEffect(() => {
@@ -833,6 +841,17 @@ export default function MyCoursesPage() {
 
 
                         </div>
+
+
+                        {/* 🏆 Gamification Section */}
+                        {!gamificationLoading && gamificationData && badges.length > 0 && (
+                            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800 mb-10">
+                                <BadgeDisplay badges={badges} gamificationData={gamificationData} />
+                                <div className="mt-6">
+                                    <ProgressBar gamificationData={gamificationData} badges={badges} />
+                                </div>
+                            </div>
+                        )}
 
                         <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-3">
                             📖 คอร์สเรียนของฉัน
