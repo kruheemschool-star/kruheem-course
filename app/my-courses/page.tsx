@@ -592,6 +592,16 @@ export default function MyCoursesPage() {
                             </div>
                         )}
 
+                        {/* 🏆 Gamification Section - Achievement Progress */}
+                        {!gamificationLoading && gamificationData && badges.length > 0 && (
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 mb-8">
+                                <BadgeDisplay badges={badges} gamificationData={gamificationData} />
+                                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                    <ProgressBar gamificationData={gamificationData} badges={badges} />
+                                </div>
+                            </div>
+                        )}
+
                         {/* ✅ 4 Cards Grid Layout */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
 
@@ -842,16 +852,6 @@ export default function MyCoursesPage() {
 
                         </div>
 
-
-                        {/* 🏆 Gamification Section */}
-                        {!gamificationLoading && gamificationData && badges.length > 0 && (
-                            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800 mb-10">
-                                <BadgeDisplay badges={badges} gamificationData={gamificationData} />
-                                <div className="mt-6">
-                                    <ProgressBar gamificationData={gamificationData} badges={badges} />
-                                </div>
-                            </div>
-                        )}
 
                         <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-3">
                             📖 คอร์สเรียนของฉัน
