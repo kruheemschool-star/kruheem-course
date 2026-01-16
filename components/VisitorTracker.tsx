@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, increment, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, increment, serverTimestamp } from "firebase/firestore";
 import { usePathname } from "next/navigation";
+import { useUserAuth } from "@/context/AuthContext";
 
 // Helper: Detect device type
 function getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
@@ -46,10 +47,26 @@ function getReferrerSource(): string {
     return 'other';
 }
 
+// Helper: Check if current session is admin (using localStorage for persistence)
+function isAdminSession(): boolean {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('isAdminSession') === 'true';
+}
+
 export default function VisitorTracker() {
     const hasRun = useRef(false);
     const pathname = usePathname();
     const lastPathRef = useRef<string | null>(null);
+
+    // Get admin status from AuthContext
+    const { isAdmin, loading } = useUserAuth();
+
+    // Store admin session flag in localStorage for persistence
+    useEffect(() => {
+        if (!loading && isAdmin) {
+            localStorage.setItem('isAdminSession', 'true');
+        }
+    }, [isAdmin, loading]);
 
     // === 1. Daily Visit Counter (Runs Once Per Day) ===
     useEffect(() => {
@@ -57,6 +74,12 @@ export default function VisitorTracker() {
         hasRun.current = true;
 
         const recordDailyVisit = async () => {
+            // ❌ Skip tracking for Admin users
+            if (isAdmin || isAdminSession()) {
+                console.log('[VisitorTracker] Admin detected, skipping daily visit tracking');
+                return;
+            }
+
             const now = new Date();
             const dateInThailand = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }));
             const today = dateInThailand.toISOString().split("T")[0]; // YYYY-MM-DD
@@ -92,14 +115,27 @@ export default function VisitorTracker() {
             }
         };
 
-        recordDailyVisit();
-    }, []);
+        // Wait a bit for auth to settle before checking admin status
+        const timeoutId = setTimeout(recordDailyVisit, 500);
+        return () => clearTimeout(timeoutId);
+    }, [isAdmin]);
 
     // === 2. Page View Tracking (Runs On Every Page Change) ===
     useEffect(() => {
         // Skip if same page or no pathname
         if (!pathname || pathname === lastPathRef.current) return;
         lastPathRef.current = pathname;
+
+        // ❌ Skip tracking for Admin users
+        if (isAdmin || isAdminSession()) {
+            console.log('[VisitorTracker] Admin detected, skipping page view tracking for:', pathname);
+            return;
+        }
+
+        // ❌ Skip tracking for admin pages (extra safety)
+        if (pathname.startsWith('/admin')) {
+            return;
+        }
 
         const recordPageView = async () => {
             try {
@@ -137,7 +173,7 @@ export default function VisitorTracker() {
         };
 
         recordPageView();
-    }, [pathname]);
+    }, [pathname, isAdmin]);
 
     return null;
 }

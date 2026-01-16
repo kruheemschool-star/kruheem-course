@@ -88,6 +88,10 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             setUserProfile(null);
             setDaysSinceLastActive(null);
             setHasCheckedActivity(false);
+            // Clear admin session flag from localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('isAdminSession');
+            }
         } catch (error) {
             console.error("Logout Error:", error);
         }
