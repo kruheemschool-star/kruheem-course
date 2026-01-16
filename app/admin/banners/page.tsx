@@ -2,9 +2,13 @@
 import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import Link from "next/link";
 import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2, Trash2, Star, Heart, Flame, Trophy, Sparkles } from "lucide-react";
+
+// File validation constants
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export default function AdminBanners() {
     const [loading, setLoading] = useState(true);
@@ -13,6 +17,7 @@ export default function AdminBanners() {
     const [badgeText, setBadgeText] = useState("คอร์สยอดนิยม");
     const [badgeIcon, setBadgeIcon] = useState("Star");
     const [isSavingBadge, setIsSavingBadge] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchBanners();
@@ -44,6 +49,18 @@ export default function AdminBanners() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // Validate file size
+        if (file.size > MAX_FILE_SIZE) {
+            alert(`ไฟล์มีขนาดใหญ่เกินไป (สูงสุด ${MAX_FILE_SIZE / 1024 / 1024}MB) ❌`);
+            return;
+        }
+
+        // Validate file type
+        if (!ALLOWED_TYPES.includes(file.type)) {
+            alert("รองรับเฉพาะไฟล์ JPG, PNG, และ WebP เท่านั้น ❌");
+            return;
+        }
+
         try {
             setUploading(true);
             const imageId = `banner_${Date.now()}`;
@@ -70,13 +87,28 @@ export default function AdminBanners() {
     const handleDeleteImage = async (imageId: string) => {
         if (!confirm("ต้องการลบรูปภาพนี้ใช่ไหม?")) return;
 
+        setDeletingId(imageId);
         try {
+            // Delete from Firebase Storage (skip legacy images)
+            if (imageId !== 'legacy') {
+                const storageRef = ref(storage, `banners/${imageId}`);
+                try {
+                    await deleteObject(storageRef);
+                } catch (storageError) {
+                    console.warn("Could not delete from storage:", storageError);
+                    // Continue with Firestore deletion even if storage deletion fails
+                }
+            }
+
             const updatedImages = bannerImages.filter(img => img.id !== imageId);
             setBannerImages(updatedImages);
             await setDoc(doc(db, "system", "banners"), { bannerImages: updatedImages }, { merge: true });
+            alert("ลบรูปภาพเรียบร้อยแล้ว ✅");
         } catch (error) {
             console.error("Error deleting image:", error);
-            alert("เกิดข้อผิดพลาดในการลบรูปภาพ");
+            alert("เกิดข้อผิดพลาดในการลบรูปภาพ ❌");
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -142,10 +174,11 @@ export default function AdminBanners() {
                                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                                             <button
                                                 onClick={() => handleDeleteImage(img.id)}
-                                                className="p-3 bg-white text-rose-500 rounded-full hover:bg-rose-50 hover:scale-110 transition shadow-lg"
+                                                disabled={deletingId === img.id}
+                                                className={`p-3 bg-white text-rose-500 rounded-full hover:bg-rose-50 hover:scale-110 transition shadow-lg ${deletingId === img.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 title="ลบรูปภาพ"
                                             >
-                                                <Trash2 size={20} />
+                                                {deletingId === img.id ? <Loader2 size={20} className="animate-spin" /> : <Trash2 size={20} />}
                                             </button>
                                         </div>
                                         <div className="absolute top-4 left-4 bg-black/50 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm">

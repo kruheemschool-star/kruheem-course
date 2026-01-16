@@ -166,3 +166,39 @@
 .summary-content .katex-display .katex {
     font-size: 1.375rem !important;
 }
+
+/* Thai Word Breaking Utilities - Prevent awkward word splits */
+.thai-text,
+.summary-content h1,
+.summary-content h2,
+.summary-content h3,
+article h1 {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    word-spacing: 0.05em;
+    line-break: strict;
+}
+
+/* Ensure titles wrap nicely on mobile */
+@media (max-width: 640px) {
+    article h1 {
+        word-break: break-word;
+        hyphens: manual;
+    }
+}
+
+/* Shimmer Animation for Image Loading */
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.animate-shimmer {
+    animation: shimmer 1.5s infinite;
+    background-size: 200% 100%;
+}

@@ -33,6 +33,45 @@ const blockConfig: Record<string, { icon: React.ReactNode; label: string; color:
     image: { icon: <ImageIcon size={18} />, label: "รูปภาพ", color: "text-teal-600", bg: "bg-teal-50 border-teal-200" },
 };
 
+// Small Image with Loading for Admin Preview
+const ImageWithLoadingSmall = ({ src, alt }: { src: string; alt: string }) => {
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasError, setHasError] = useState(false);
+
+    return (
+        <div className="relative max-h-32 w-fit">
+            {/* Skeleton */}
+            {isLoading && !hasError && (
+                <div className="h-24 w-40 bg-slate-200 rounded-lg animate-pulse flex items-center justify-center">
+                    <ImageIcon size={24} className="text-slate-300" />
+                </div>
+            )}
+
+            {/* Error */}
+            {hasError && (
+                <div className="h-24 w-40 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400">
+                    <span className="text-xs">โหลดไม่สำเร็จ</span>
+                </div>
+            )}
+
+            {/* Image */}
+            {!hasError && (
+                <img
+                    src={src}
+                    alt={alt}
+                    className={`max-h-32 rounded-lg transition-all duration-300 ${isLoading ? 'opacity-0 absolute' : 'opacity-100'
+                        }`}
+                    onLoad={() => setIsLoading(false)}
+                    onError={() => {
+                        setIsLoading(false);
+                        setHasError(true);
+                    }}
+                />
+            )}
+        </div>
+    );
+};
+
 export default function SummaryBlockEditor({ content, onChange }: SummaryBlockEditorProps) {
     const [blocks, setBlocks] = useState<ContentBlock[]>([]);
     const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
@@ -297,7 +336,7 @@ export default function SummaryBlockEditor({ content, onChange }: SummaryBlockEd
                         {block.type === 'image' ? (
                             <div>
                                 {block.url && (
-                                    <img src={block.url} alt={block.caption || ''} className="max-h-32 rounded-lg" />
+                                    <ImageWithLoadingSmall src={block.url} alt={block.caption || ''} />
                                 )}
                                 {block.caption && (
                                     <p className="text-sm text-slate-500 mt-1">{block.caption}</p>

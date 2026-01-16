@@ -158,8 +158,15 @@ export default function SummaryContentPage({ params }: { params: Promise<{ slug:
                             ))}
                         </div>
 
-                        {/* Main Title - Very Large */}
-                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 leading-[1.15] tracking-tight mb-6">
+                        {/* Main Title - Very Large with proper Thai word breaking */}
+                        <h1
+                            className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 leading-[1.15] tracking-tight mb-6"
+                            style={{
+                                wordBreak: 'keep-all',
+                                overflowWrap: 'break-word',
+                                wordSpacing: '0.05em'
+                            }}
+                        >
                             {meta?.seo_title || summary.title}
                         </h1>
 

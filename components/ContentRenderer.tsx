@@ -1,8 +1,110 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { InlineMath, BlockMath } from "react-katex";
 import "katex/dist/katex.min.css";
+
+// --- ImageWithLoading Component ---
+const ImageWithLoading = ({
+    src,
+    alt,
+    className = "",
+    caption
+}: {
+    src: string;
+    alt: string;
+    className?: string;
+    caption?: string;
+}) => {
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasError, setHasError] = useState(false);
+
+    return (
+        <div className="relative w-full">
+            {/* Skeleton Loader */}
+            {isLoading && !hasError && (
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 rounded-xl animate-pulse">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer"
+                        style={{
+                            backgroundSize: '200% 100%',
+                            animation: 'shimmer 1.5s infinite'
+                        }}
+                    />
+                    {/* Image icon placeholder */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <svg
+                            className="w-12 h-12 text-slate-300"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                        </svg>
+                    </div>
+                </div>
+            )}
+
+            {/* Error State */}
+            {hasError && (
+                <div className="w-full h-48 bg-slate-100 rounded-xl flex flex-col items-center justify-center text-slate-400 border border-slate-200">
+                    <svg
+                        className="w-10 h-10 mb-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                    </svg>
+                    <span className="text-sm">ไม่สามารถโหลดรูปภาพได้</span>
+                </div>
+            )}
+
+            {/* Actual Image */}
+            {!hasError && (
+                <img
+                    src={src}
+                    alt={alt}
+                    className={`${className} transition-all duration-500 ease-out ${isLoading
+                        ? 'opacity-0 scale-[0.98]'
+                        : 'opacity-100 scale-100'
+                        }`}
+                    onLoad={() => setIsLoading(false)}
+                    onError={() => {
+                        setIsLoading(false);
+                        setHasError(true);
+                    }}
+                    loading="lazy"
+                />
+            )}
+
+            {/* Caption */}
+            {caption && !hasError && (
+                <div className={`mt-3 text-center text-sm text-slate-500 font-medium transition-opacity duration-500 ${isLoading ? 'opacity-0' : 'opacity-100'
+                    }`}>
+                    {caption}
+                </div>
+            )}
+
+            {/* Shimmer Animation Style */}
+            <style jsx>{`
+                @keyframes shimmer {
+                    0% { background-position: -200% 0; }
+                    100% { background-position: 200% 0; }
+                }
+            `}</style>
+        </div>
+    );
+};
 
 // --- Types ---
 export type ContentBlock = {
@@ -351,20 +453,12 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {/* Image Block */}
                         {block.type === 'image' && (
                             <div className="my-8">
-                                <div className="relative w-full">
-                                    {/* Handle both explicit url property or content property as fallback */}
-                                    <img
-                                        src={block.url || block.content}
-                                        alt={block.alt || block.caption || "Summary Image"}
-                                        className="w-full h-auto rounded-xl border border-slate-100 shadow-sm"
-                                        loading="lazy"
-                                    />
-                                </div>
-                                {block.caption && (
-                                    <div className="mt-3 text-center text-sm text-slate-500 font-medium">
-                                        {block.caption}
-                                    </div>
-                                )}
+                                <ImageWithLoading
+                                    src={block.url || block.content}
+                                    alt={block.alt || block.caption || "Summary Image"}
+                                    className="w-full h-auto rounded-xl border border-slate-100 shadow-sm"
+                                    caption={block.caption}
+                                />
                             </div>
                         )}
                     </div>
