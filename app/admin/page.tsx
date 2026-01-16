@@ -182,17 +182,20 @@ export default function AdminDashboard() {
                                         <div key={index} className="flex items-center gap-4">
                                             <div className="w-8 text-sm text-slate-400 font-medium">{m.month}</div>
                                             <div className="flex-1">
-                                                <div className="h-6 bg-slate-50 rounded-md overflow-hidden relative">
-                                                    {m.revenue > 0 && (
-                                                        <div
-                                                            className="h-full bg-emerald-100 rounded-md transition-all"
-                                                            style={{ width: `${widthPercent}%` }}
-                                                        />
-                                                    )}
-                                                    {m.students > 0 && (
-                                                        <div className="absolute inset-0 flex items-center px-2">
-                                                            <span className="text-xs text-slate-500">{m.students} คน</span>
-                                                        </div>
+                                                <div className="flex flex-wrap items-center gap-0.5 min-h-[24px]">
+                                                    {m.students > 0 ? (
+                                                        <>
+                                                            {Array.from({ length: m.students }).map((_, i) => (
+                                                                <span key={i} className="text-[10px] text-emerald-500/80 leading-none" title={`คนที่ ${i + 1}`}>
+                                                                    👤
+                                                                </span>
+                                                            ))}
+                                                            <span className="text-[10px] text-slate-500 font-medium ml-1.5 bg-slate-100 px-1.5 py-0.5 rounded-full border border-slate-200">
+                                                                {m.students} คน
+                                                            </span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-sm text-slate-300 italic pt-0.5">-</span>
                                                     )}
                                                 </div>
                                             </div>
