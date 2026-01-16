@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState, useMemo } from "react";
 import { db } from "@/lib/firebase";
+import { logLearningActivity } from "@/lib/activityTracking";
 import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, onSnapshot, where, serverTimestamp } from "firebase/firestore";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -240,6 +241,9 @@ export default function CoursePlayer() {
         if (!newCompleted.includes(lessonId)) {
             newCompleted.push(lessonId);
             await setDoc(doc(db, "users", user.uid, "progress", courseId), { completed: newCompleted, lastUpdated: new Date() }, { merge: true });
+
+            // ✅ Log activity for weekly chart
+            await logLearningActivity(user.uid);
         }
     };
 
