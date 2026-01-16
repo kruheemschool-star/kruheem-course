@@ -3,32 +3,34 @@
 import Navbar from '@/components/Navbar';
 import { BookOpen } from 'lucide-react';
 
-// Skeleton component for summary cards
-function SummaryCardSkeleton() {
+// Skeleton component for category group
+function CategoryGroupSkeleton({ itemCount = 3 }: { itemCount?: number }) {
     return (
-        <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 animate-pulse">
-            {/* Number skeleton */}
-            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-slate-200 dark:bg-slate-700" />
-
-            {/* Content skeleton */}
-            <div className="flex-1 min-w-0 py-1 space-y-3">
-                {/* Category badge skeleton */}
-                <div className="w-12 h-4 bg-slate-200 dark:bg-slate-700 rounded-full" />
-
-                {/* Title skeleton */}
-                <div className="w-3/4 h-5 bg-slate-200 dark:bg-slate-700 rounded-lg" />
-
-                {/* Excerpt skeleton */}
-                <div className="w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-lg" />
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-pulse">
+            {/* Category Header Skeleton */}
+            <div className="flex items-center justify-between px-5 py-4 bg-slate-100 dark:bg-slate-800">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded" />
+                    <div className="w-16 h-6 bg-slate-200 dark:bg-slate-700 rounded-lg" />
+                    <div className="w-12 h-5 bg-slate-200 dark:bg-slate-700 rounded-lg" />
+                </div>
+                <div className="w-6 h-6 bg-slate-200 dark:bg-slate-700 rounded" />
             </div>
 
-            {/* Meta skeleton */}
-            <div className="flex-shrink-0 hidden sm:flex items-center gap-3">
-                <div className="w-16 h-4 bg-slate-100 dark:bg-slate-700 rounded-lg" />
+            {/* Items Skeleton */}
+            <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+                {Array.from({ length: itemCount }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-4 p-4">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700" />
+                        <div className="flex-1 space-y-2">
+                            <div className="w-3/4 h-5 bg-slate-200 dark:bg-slate-700 rounded-lg" />
+                            <div className="w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-lg" />
+                        </div>
+                        <div className="w-16 h-4 bg-slate-100 dark:bg-slate-700 rounded-lg hidden sm:block" />
+                        <div className="w-4 h-4 bg-slate-100 dark:bg-slate-700 rounded" />
+                    </div>
+                ))}
             </div>
-
-            {/* Arrow skeleton */}
-            <div className="flex-shrink-0 w-4 h-4 bg-slate-100 dark:bg-slate-700 rounded" />
         </div>
     );
 }
@@ -59,34 +61,29 @@ export default function SummaryLoading() {
                         {/* Search Input skeleton */}
                         <div className="h-12 bg-slate-100 dark:bg-slate-700 rounded-xl animate-pulse" />
 
-                        {/* Category Filter skeleton */}
+                        {/* Category Filter skeleton - expanded to 8 categories */}
                         <div className="flex flex-wrap gap-2">
-                            {[1, 2, 3, 4, 5].map((i) => (
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                                 <div
                                     key={i}
                                     className="w-16 h-9 bg-slate-100 dark:bg-slate-700 rounded-xl animate-pulse"
-                                    style={{ animationDelay: `${i * 100}ms` }}
+                                    style={{ animationDelay: `${i * 50}ms` }}
                                 />
                             ))}
                         </div>
                     </div>
 
                     {/* Loading indicator */}
-                    <div className="flex items-center justify-center gap-2 text-slate-500 mb-4">
+                    <div className="flex items-center justify-center gap-2 text-slate-500 mb-6">
                         <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
                         <span className="text-sm font-medium">กำลังโหลดบทสรุป...</span>
                     </div>
 
-                    {/* Card Grid skeleton */}
-                    <div className="space-y-3">
-                        {[1, 2, 3, 4, 5, 6].map((i) => (
-                            <div
-                                key={i}
-                                style={{ animationDelay: `${i * 50}ms` }}
-                            >
-                                <SummaryCardSkeleton />
-                            </div>
-                        ))}
+                    {/* Category Groups skeleton */}
+                    <div className="space-y-6">
+                        <CategoryGroupSkeleton itemCount={4} />
+                        <CategoryGroupSkeleton itemCount={3} />
+                        <CategoryGroupSkeleton itemCount={2} />
                     </div>
                 </div>
             </main>

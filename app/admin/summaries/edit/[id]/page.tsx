@@ -318,6 +318,9 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                                         <option value="ม.1">ม.1</option>
                                         <option value="ม.2">ม.2</option>
                                         <option value="ม.3">ม.3</option>
+                                        <option value="ม.4">ม.4</option>
+                                        <option value="ม.5">ม.5</option>
+                                        <option value="ม.6">ม.6</option>
                                         <option value="Gifted">Gifted</option>
                                     </select>
                                 </div>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Clock, Eye, Search, BookOpen } from 'lucide-react';
+import { Clock, Eye, Search, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface Summary {
     id: string;
@@ -17,33 +17,93 @@ interface Summary {
     viewCount?: number;
 }
 
-// Category colors for badges
-const categoryStyles: Record<string, string> = {
-    'ม.1': 'bg-emerald-100 text-emerald-700',
-    'ม.2': 'bg-blue-100 text-blue-700',
-    'ม.3': 'bg-purple-100 text-purple-700',
-    'Gifted': 'bg-amber-100 text-amber-700',
-    'default': 'bg-slate-100 text-slate-600'
+// Category colors for badges - expanded to ม.6
+const categoryStyles: Record<string, { bg: string; text: string; border: string; icon: string }> = {
+    'ม.1': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: '🌱' },
+    'ม.2': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: '📘' },
+    'ม.3': { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', icon: '📚' },
+    'ม.4': { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', icon: '🔥' },
+    'ม.5': { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200', icon: '🚀' },
+    'ม.6': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: '🎯' },
+    'Gifted': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: '⭐' },
+    'default': { bg: 'bg-slate-50', text: 'text-slate-600', border: 'border-slate-200', icon: '📖' }
 };
 
-const categories = ['ทั้งหมด', 'ม.1', 'ม.2', 'ม.3', 'Gifted'];
+// Category order for display
+const categoryOrder = ['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6', 'Gifted'];
+const filterCategories = ['ทั้งหมด', ...categoryOrder];
 
 export default function SummaryGrid({ summaries }: { summaries: Summary[] }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด');
+    const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
-    // Filter summaries based on search and category
-    const filteredSummaries = summaries.filter(summary => {
-        const matchesSearch = searchQuery === '' ||
-            summary.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            summary.excerpt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            summary.meta_description?.toLowerCase().includes(searchQuery.toLowerCase());
+    // Filter summaries based on search
+    const filteredSummaries = useMemo(() => {
+        return summaries.filter(summary => {
+            const matchesSearch = searchQuery === '' ||
+                summary.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                summary.excerpt?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                summary.meta_description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesCategory = selectedCategory === 'ทั้งหมด' ||
-            summary.category === selectedCategory;
+            const matchesCategory = selectedCategory === 'ทั้งหมด' ||
+                summary.category === selectedCategory;
 
-        return matchesSearch && matchesCategory;
-    });
+            return matchesSearch && matchesCategory;
+        });
+    }, [summaries, searchQuery, selectedCategory]);
+
+    // Group summaries by category
+    const groupedSummaries = useMemo(() => {
+        const groups: Record<string, Summary[]> = {};
+
+        filteredSummaries.forEach(summary => {
+            const cat = summary.category || 'อื่นๆ';
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(summary);
+        });
+
+        // Sort groups by category order
+        const sortedGroups: { category: string; summaries: Summary[] }[] = [];
+
+        categoryOrder.forEach(cat => {
+            if (groups[cat]) {
+                sortedGroups.push({ category: cat, summaries: groups[cat] });
+                delete groups[cat];
+            }
+        });
+
+        // Add remaining categories (like 'อื่นๆ')
+        Object.entries(groups).forEach(([cat, sums]) => {
+            sortedGroups.push({ category: cat, summaries: sums });
+        });
+
+        return sortedGroups;
+    }, [filteredSummaries]);
+
+    const toggleGroup = (category: string) => {
+        setCollapsedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(category)) {
+                next.delete(category);
+            } else {
+                next.add(category);
+            }
+            return next;
+        });
+    };
+
+    // Helper to split title to get just the main title
+    const getMainTitle = (text: string) => {
+        const separators = [' ฉบับ', ' แบบ', ' โดย', ' พื้นฐาน', ' พร้อม', ' ('];
+        for (const sep of separators) {
+            const idx = text.indexOf(sep);
+            if (idx !== -1 && idx >= 5) {
+                return text.substring(0, idx);
+            }
+        }
+        return text;
+    };
 
     return (
         <div className="space-y-6">
@@ -63,7 +123,7 @@ export default function SummaryGrid({ summaries }: { summaries: Summary[] }) {
 
                 {/* Category Filter */}
                 <div className="flex flex-wrap gap-2">
-                    {categories.map((cat) => (
+                    {filterCategories.map((cat) => (
                         <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
@@ -87,7 +147,7 @@ export default function SummaryGrid({ summaries }: { summaries: Summary[] }) {
                 </div>
             )}
 
-            {/* Card Grid - Simple horizontal cards without cover images */}
+            {/* Empty State */}
             {filteredSummaries.length === 0 ? (
                 <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
                     <div className="text-5xl mb-4">🔍</div>
@@ -103,83 +163,89 @@ export default function SummaryGrid({ summaries }: { summaries: Summary[] }) {
                     </button>
                 </div>
             ) : (
-                <div className="space-y-3">
-                    {filteredSummaries.map((summary, index) => (
-                        <Link
-                            key={summary.id}
-                            href={`/summary/${summary.slug}`}
-                            className="group flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-slate-100 dark:border-slate-700"
-                        >
-                            {/* Number/Icon */}
-                            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-lg group-hover:bg-slate-800 group-hover:text-white dark:group-hover:bg-slate-600 transition">
-                                {index + 1}
-                            </div>
+                /* Grouped Content */
+                <div className="space-y-6">
+                    {groupedSummaries.map(({ category, summaries: groupSummaries }) => {
+                        const style = categoryStyles[category] || categoryStyles.default;
+                        const isCollapsed = collapsedGroups.has(category);
 
-                            {/* Content */}
-                            <div className="flex-1 min-w-0 py-1">
-                                <div className="flex items-center gap-2 mb-1.5">
-                                    {/* Category Badge */}
-                                    {summary.category && (
-                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${categoryStyles[summary.category] || categoryStyles.default}`}>
-                                            {summary.category}
+                        return (
+                            <div key={category} className={`rounded-2xl border ${style.border} overflow-hidden`}>
+                                {/* Category Header */}
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup(category)}
+                                    className={`w-full flex items-center justify-between px-5 py-4 ${style.bg} hover:brightness-95 transition`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">{style.icon}</span>
+                                        <h2 className={`text-lg font-black ${style.text}`}>
+                                            {category}
+                                        </h2>
+                                        <span className={`text-sm font-bold ${style.text} opacity-60`}>
+                                            ({groupSummaries.length} บท)
                                         </span>
-                                    )}
-                                </div>
+                                    </div>
+                                    <div className={`${style.text}`}>
+                                        {isCollapsed ? <ChevronRight size={24} /> : <ChevronDown size={24} />}
+                                    </div>
+                                </button>
 
-                                {(() => {
-                                    // Helper to split title to get just the main title
-                                    const getMainTitle = (text: string) => {
-                                        const separators = [' ฉบับ', ' แบบ', ' โดย', ' พื้นฐาน', ' พร้อม', ' ('];
-                                        for (const sep of separators) {
-                                            const idx = text.indexOf(sep);
-                                            if (idx !== -1 && idx >= 5) {
-                                                return text.substring(0, idx);
-                                            }
-                                        }
-                                        return text;
-                                    };
+                                {/* Summaries List */}
+                                {!isCollapsed && (
+                                    <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
+                                        {groupSummaries.map((summary, index) => (
+                                            <Link
+                                                key={summary.id}
+                                                href={`/summary/${summary.slug}`}
+                                                className="group flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all duration-200"
+                                            >
+                                                {/* Number */}
+                                                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-sm group-hover:bg-slate-800 group-hover:text-white dark:group-hover:bg-slate-600 transition">
+                                                    {index + 1}
+                                                </div>
 
-                                    const mainTitle = getMainTitle(summary.title);
+                                                {/* Content */}
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base group-hover:text-slate-900 dark:group-hover:text-white transition leading-snug">
+                                                        {getMainTitle(summary.title)}
+                                                    </h3>
+                                                    {(summary.excerpt || summary.meta_description) && (
+                                                        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed line-clamp-1 mt-0.5">
+                                                            {summary.excerpt || summary.meta_description}
+                                                        </p>
+                                                    )}
+                                                </div>
 
-                                    return (
-                                        <div className="flex flex-col">
-                                            <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg group-hover:text-slate-900 dark:group-hover:text-white transition leading-tight mb-1">
-                                                {mainTitle}
-                                            </h3>
-                                            {(summary.excerpt || summary.meta_description) && (
-                                                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed line-clamp-2">
-                                                    {summary.excerpt || summary.meta_description}
-                                                </span>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-                            </div>
+                                                {/* Meta Info */}
+                                                <div className="flex-shrink-0 hidden sm:flex items-center gap-3 text-xs text-slate-400">
+                                                    {summary.readingTime ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <Clock size={14} />
+                                                            <span>{summary.readingTime} นาที</span>
+                                                        </div>
+                                                    ) : null}
+                                                    {summary.viewCount !== undefined && summary.viewCount > 0 ? (
+                                                        <div className="flex items-center gap-1">
+                                                            <Eye size={14} />
+                                                            <span>{summary.viewCount}</span>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
 
-                            {/* Meta Info */}
-                            <div className="flex-shrink-0 hidden sm:flex items-center gap-3 text-xs text-slate-400">
-                                {summary.readingTime && (
-                                    <div className="flex items-center gap-1">
-                                        <Clock size={14} />
-                                        <span>{summary.readingTime} นาที</span>
+                                                {/* Arrow */}
+                                                <div className="flex-shrink-0 text-slate-300 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-300 group-hover:translate-x-1 transition">
+                                                    →
+                                                </div>
+                                            </Link>
+                                        ))}
                                     </div>
                                 )}
-                                {summary.viewCount !== undefined && (
-                                    <div className="flex items-center gap-1">
-                                        <Eye size={14} />
-                                        <span>{summary.viewCount} views</span>
-                                    </div>
-                                )}
                             </div>
-
-                            {/* Arrow */}
-                            <div className="flex-shrink-0 text-slate-300 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-300 group-hover:translate-x-1 transition">
-                                →
-                            </div>
-                        </Link>
-                    ))}
-                </div >
+                        );
+                    })}
+                </div>
             )}
-        </div >
+        </div>
     );
 }
