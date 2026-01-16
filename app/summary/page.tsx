@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import Navbar from '@/components/Navbar';
 import { BookOpen } from 'lucide-react';
 import SummaryGrid from '@/components/SummaryGrid';
@@ -11,8 +11,8 @@ export const metadata: Metadata = {
     keywords: ['สรุปคณิตศาสตร์', 'สูตรคณิต', 'Kruheem'],
 };
 
-// Force dynamic to avoid caching issues
-export const dynamic = 'force-dynamic';
+// ISR: Revalidate every 5 minutes (300 seconds) instead of force-dynamic
+export const revalidate = 300;
 
 interface Summary {
     id: string;
@@ -30,11 +30,16 @@ interface Summary {
 
 async function getSummaries(): Promise<Summary[]> {
     try {
-        const q = query(collection(db, 'summaries'));
+        // Optimized query: filter at Firestore level + order by 'order' field
+        const q = query(
+            collection(db, 'summaries'),
+            where('status', '==', 'published'),
+            orderBy('order', 'asc')
+        );
         const snapshot = await getDocs(q);
 
-        // Map to plain objects only (avoid Firestore Timestamps)
-        const data = snapshot.docs.map(doc => {
+        // Map to plain objects (no client-side filtering needed)
+        return snapshot.docs.map(doc => {
             const d = doc.data();
             return {
                 id: doc.id,
@@ -50,14 +55,35 @@ async function getSummaries(): Promise<Summary[]> {
                 viewCount: d.viewCount || 0,
             } as Summary;
         });
-
-        // Filter published and sort by order
-        return data
-            .filter(s => s.status === 'published')
-            .sort((a, b) => (a.order || 0) - (b.order || 0));
     } catch (error) {
         console.error('Error fetching summaries:', error);
-        return [];
+        // Fallback: try without orderBy in case index doesn't exist
+        try {
+            const fallbackQuery = query(collection(db, 'summaries'));
+            const snapshot = await getDocs(fallbackQuery);
+            return snapshot.docs
+                .map(doc => {
+                    const d = doc.data();
+                    return {
+                        id: doc.id,
+                        title: d.title || '',
+                        slug: d.slug || '',
+                        order: d.order || 0,
+                        status: d.status || '',
+                        excerpt: d.excerpt || '',
+                        meta_description: d.meta_description || '',
+                        coverImage: d.coverImage || '',
+                        category: d.category || '',
+                        readingTime: d.readingTime || 0,
+                        viewCount: d.viewCount || 0,
+                    } as Summary;
+                })
+                .filter(s => s.status === 'published')
+                .sort((a, b) => (a.order || 0) - (b.order || 0));
+        } catch (fallbackError) {
+            console.error('Fallback query also failed:', fallbackError);
+            return [];
+        }
     }
 }
 

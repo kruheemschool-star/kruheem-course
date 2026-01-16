@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import Navbar from "@/components/Navbar";
 import { ArrowLeft, Clock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
@@ -56,16 +56,19 @@ export default function SummaryContentPage({ params }: { params: Promise<{ slug:
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const q = query(collection(db, "summaries"));
+                // Optimized query: fetch only published summaries, ordered
+                const q = query(
+                    collection(db, "summaries"),
+                    where("status", "==", "published"),
+                    orderBy("order", "asc")
+                );
                 const snapshot = await getDocs(q);
                 const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Summary[];
 
-                // Filter published
-                const published = data.filter(s => s.status === "published");
-                setAllSummaries(published.sort((a, b) => (a.order || 0) - (b.order || 0)));
+                setAllSummaries(data);
 
                 // Find current summary
-                const found = published.find(s => s.slug === slug);
+                const found = data.find(s => s.slug === slug);
 
                 if (found) {
                     setSummary(found);
@@ -77,7 +80,29 @@ export default function SummaryContentPage({ params }: { params: Promise<{ slug:
                 }
             } catch (err) {
                 console.error("Error:", err);
-                setError("เกิดข้อผิดพลาดในการโหลดข้อมูล");
+                // Fallback query without orderBy in case index doesn't exist
+                try {
+                    const fallbackQuery = query(collection(db, "summaries"));
+                    const snapshot = await getDocs(fallbackQuery);
+                    const data = snapshot.docs
+                        .map(d => ({ id: d.id, ...d.data() })) as Summary[];
+                    const published = data
+                        .filter(s => s.status === "published")
+                        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                    setAllSummaries(published);
+                    const found = published.find(s => s.slug === slug);
+
+                    if (found) {
+                        setSummary(found);
+                        const meta = extractMetadata(found.content);
+                        document.title = (meta?.seo_title || found.title) + " | Kruheem.com";
+                    } else {
+                        setError("ไม่พบบทสรุปนี้");
+                    }
+                } catch (fallbackErr) {
+                    setError("เกิดข้อผิดพลาดในการโหลดข้อมูล");
+                }
             } finally {
                 setLoading(false);
             }
@@ -90,9 +115,34 @@ export default function SummaryContentPage({ params }: { params: Promise<{ slug:
         return (
             <div className="min-h-screen bg-white dark:bg-slate-950 font-sans transition-colors">
                 <Navbar />
-                <div className="flex items-center justify-center h-[60vh]">
-                    <Loader2 className="animate-spin text-slate-400" size={32} />
-                </div>
+                <main className="pt-28 pb-20 px-6">
+                    <div className="max-w-3xl mx-auto">
+                        {/* Breadcrumb skeleton */}
+                        <div className="flex items-center gap-2 mb-8 animate-pulse">
+                            <div className="w-24 h-4 bg-slate-200 rounded" />
+                            <span className="text-slate-300">/</span>
+                            <div className="w-48 h-4 bg-slate-200 rounded" />
+                        </div>
+
+                        {/* Title skeleton */}
+                        <div className="mb-16 pb-10 border-b border-slate-100 animate-pulse">
+                            <div className="flex gap-3 mb-6">
+                                <div className="w-16 h-7 bg-slate-800 rounded-full" />
+                                <div className="w-24 h-7 bg-slate-200 rounded-full" />
+                            </div>
+                            <div className="space-y-4">
+                                <div className="w-full h-12 bg-slate-200 rounded-xl" />
+                                <div className="w-3/4 h-12 bg-slate-200 rounded-xl" />
+                            </div>
+                        </div>
+
+                        {/* Loading indicator */}
+                        <div className="flex items-center justify-center gap-2 text-slate-500">
+                            <Loader2 className="animate-spin" size={20} />
+                            <span className="text-sm font-medium">กำลังโหลดเนื้อหา...</span>
+                        </div>
+                    </div>
+                </main>
             </div>
         );
     }
