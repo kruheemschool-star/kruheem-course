@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 export interface MenuCovers {
     [key: string]: string | null;
@@ -11,23 +11,23 @@ export function useMenuCovers() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onSnapshot(
-            doc(db, 'settings', 'admin_menu'),
-            (docSnap) => {
+        const fetchCovers = async () => {
+            try {
+                const docRef = doc(db, 'settings', 'admin_menu');
+                const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     setCovers(docSnap.data()?.covers || {});
                 } else {
                     setCovers({});
                 }
-                setLoading(false);
-            },
-            (error) => {
+            } catch (error) {
                 console.error('Error fetching menu covers:', error);
+            } finally {
                 setLoading(false);
             }
-        );
+        };
 
-        return () => unsubscribe();
+        fetchCovers();
     }, []);
 
     return { covers, loading };

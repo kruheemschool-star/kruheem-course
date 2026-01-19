@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc, updateDoc, getDoc, where, getDocs } from "firebase/firestore";
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc, updateDoc, getDoc, where, getDocs, limit } from "firebase/firestore";
 import { useUserAuth } from "@/context/AuthContext";
 
 import { signInAnonymously } from "firebase/auth";
@@ -56,7 +56,7 @@ export default function ChatWidget() {
         if (!chatId) return;
 
         // A. Listen to Messages
-        const q = query(collection(db, "chats", chatId, "messages"));
+        const q = query(collection(db, "chats", chatId, "messages"), limit(50));
         const unsubscribeMessages = onSnapshot(q, (snapshot) => {
             const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 

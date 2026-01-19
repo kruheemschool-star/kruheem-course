@@ -286,17 +286,27 @@ export default function MyCoursesPage() {
                     setEnrolledCourses(myCourses);
                     setAllCourses(coursesData);
 
-                    // 5. Fetch Lessons
-                    const lessonsQuery = query(collectionGroup(db, "lessons"));
-                    const lessonsSnapshot = await getDocs(lessonsQuery);
-                    const lessons = lessonsSnapshot.docs.map(doc => {
-                        const courseId = doc.ref.parent.parent?.id;
-                        return {
-                            id: doc.id,
-                            courseId,
-                            ...doc.data()
-                        };
+                    // 5. Fetch Lessons (Only for enrolled courses to save reads)
+                    const lessonsPromises = myCourses.map(async (course: any) => {
+                        // Only fetch if approved/enrolled to avoid wasting reads on pending/unowned courses
+                        if (course.status !== 'approved') return [];
+
+                        try {
+                            const qLessons = query(collection(db, "courses", course.id, "lessons"));
+                            const snap = await getDocs(qLessons);
+                            return snap.docs.map(doc => ({
+                                id: doc.id,
+                                courseId: course.id,
+                                ...doc.data()
+                            }));
+                        } catch (err) {
+                            console.error(`Error fetching lessons for ${course.id}:`, err);
+                            return [];
+                        }
                     });
+
+                    const lessonsArrays = await Promise.all(lessonsPromises);
+                    const lessons = lessonsArrays.flat();
                     setAllLessons(lessons);
 
                     // 6. Fetch Progress for Enrolled Courses

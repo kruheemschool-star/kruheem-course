@@ -31,6 +31,10 @@ export default function AdminChatInbox() {
     };
 
     // Listen to all chats
+    // Track previous unread count for sound effect
+    const prevUnreadCountRef = useRef(0);
+
+    // Listen to all chats
     useEffect(() => {
         if (!isAdmin || isHidden) return;
 
@@ -41,17 +45,18 @@ export default function AdminChatInbox() {
             // Count unread
             const unread = chatData.filter((c: any) => c.isRead === false).length;
 
-            // Play sound if new unread message
-            if (unread > unreadCount && unreadCount >= 0) {
+            // Play sound if new unread message (compare with ref)
+            if (unread > prevUnreadCountRef.current && prevUnreadCountRef.current >= 0) {
                 playNotificationSound();
             }
+            prevUnreadCountRef.current = unread;
 
             setUnreadCount(unread);
             setChats(chatData);
         });
 
         return () => unsubscribe();
-    }, [isAdmin, isHidden, unreadCount]);
+    }, [isAdmin, isHidden]);
 
     // Listen to selected chat messages
     useEffect(() => {
