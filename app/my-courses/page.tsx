@@ -4,8 +4,7 @@ import { collection, query, where, getDocs, orderBy, limit, collectionGroup, add
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, MessageSquare, Paperclip, CheckCircle, Trash2, Clock, User, Send, X } from "lucide-react";
+import { Search as SearchIcon, Play as PlayIcon, Clock, Trash2, ArrowLeft, MessageSquare, Paperclip, Send, X, Settings } from 'lucide-react';
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PollWidget from "@/components/PollWidget";
@@ -375,32 +374,13 @@ export default function MyCoursesPage() {
                 }
             };
             fetchCoursesAndReviews();
-            fetchUserTickets(); // ✅ Enable Support
+            // fetchUserTickets(); // DISABLED - User requested removal
         }
     }, [user, authLoading, router]);
 
-    const fetchUserTickets = async () => {
-        if (!user) return;
-        try {
-            const q = query(collection(db, "support_tickets"), where("userId", "==", user.uid));
-            const snapshot = await getDocs(q);
-            const tickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-            // Client-side sort
-            tickets.sort((a: any, b: any) => {
-                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
-                return dateB.getTime() - dateA.getTime();
-            });
-            setSupportTickets(tickets);
-            if (tickets.length === 0) {
-                setSupportViewMode('form');
-            } else {
-                setSupportViewMode('list');
-            }
-        } catch (error) {
-            console.error("Error fetching tickets:", error);
-        }
-    };
+    // Data fetch functions disabled/removed for simplification
+    const fetchUserTickets = async () => { };
+    // const handleDeleteTicket = ...
 
     const handleDeleteTicket = async (e: React.MouseEvent, ticketId: string) => {
         e.stopPropagation();
@@ -483,42 +463,8 @@ export default function MyCoursesPage() {
         }
     };
 
-    // ✅ Fetch Notifications
-    useEffect(() => {
-        if (!user) return;
-
-        const fetchNotifications = async () => {
-            try {
-                // Fetch recent notifications
-                const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(20));
-                const snapshot = await getDocs(q);
-                const allNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-
-                // Filter relevant notifications
-                const courseIds = enrolledCourses.map(c => c.id);
-                const relevant = allNotifs.filter((n: any) => {
-                    // 1. ประกาศทั่วไป (All)
-                    if (n.target === 'all') return true;
-
-                    // 2. ประกาศเฉพาะคอร์ส (Specific Courses) - แบบใหม่
-                    if (n.target === 'specific_courses' && n.targetCourseIds) {
-                        return n.targetCourseIds.some((id: string) => courseIds.includes(id));
-                    }
-
-                    // 3. ประกาศบทเรียนใหม่ (Legacy / Single Course)
-                    if (n.target === 'enrolled_students' && n.courseId) {
-                        return courseIds.includes(n.courseId);
-                    }
-
-                    return false;
-                });
-                setNotifications(relevant);
-            } catch (error) {
-                console.error("Error fetching notifications:", error);
-            }
-        };
-        fetchNotifications();
-    }, [user?.uid, enrolledCourses]);
+    // ✅ Fetch Notifications - DISABLED
+    // useEffect(() => { ... }, []);
 
     // ✅ Smart Search Logic REMOVED
     // useEffect(() => { ... }, []);
@@ -592,11 +538,10 @@ export default function MyCoursesPage() {
                             </div>
                         )} */}
 
-                        {/* ✅ 4 Cards Grid Layout - PARTIALLY DISABLED */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
-
-                            {/* Card 1: Student Profile (ENABLED) */}
-                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden group h-full flex flex-col justify-center">
+                        {/* ✅ 4 Cards Grid Layout - SIMPLIFIED TO PROFILE ONLY */}
+                        <div className="mb-16">
+                            {/* Card 1: Student Profile (ALONE) */}
+                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden group flex flex-col justify-center max-w-2xl mx-auto">
                                 {/* ... Profile Content ... */}
                                 <div className="absolute top-0 right-0 w-40 h-40 bg-slate-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
                                 <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
@@ -626,160 +571,15 @@ export default function MyCoursesPage() {
                                         <p className="text-slate-500 text-sm">
                                             พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?
                                         </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Card 2: Search REMOVED as requested */}
-                            {/* <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-full">...</div> */}
-                            {/* Card 3: Notifications */}
-                            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800 h-full flex flex-col">
-                                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-                                    <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-600 p-2 rounded-xl relative">
-                                        <BellIcon />
-                                        {/* Notification Badge */}
-                                        {notifications.filter(n => !dismissedIds.includes(n.id)).length > 0 && (
-                                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse shadow-lg">
-                                                {notifications.filter(n => !dismissedIds.includes(n.id)).length}
-                                            </span>
-                                        )}
-                                    </span>
-                                    ข่าวสารจากครูฮีม
-                                </h2>
-                                <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[300px] pr-2 space-y-3">
-                                    {notifications.length > 0 ? (
-                                        notifications
-                                            .filter(n => !dismissedIds.includes(n.id))
-                                            .map(notif => (
-                                                <div key={notif.id} className="relative group bg-slate-50 p-3 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white hover:shadow-sm transition">
-                                                    <div className="flex gap-3">
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notif.type === 'general' ? 'bg-orange-100 text-orange-500' : 'bg-indigo-100 text-indigo-500'}`}>
-                                                            {notif.type === 'general' ? '📢' : '✨'}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-normal text-slate-700 leading-tight mb-1">{notif.type === 'general' ? notif.message : notif.lessonTitle}</p>
-                                                            <p className="text-xs text-slate-400">{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString('th-TH') : 'เมื่อเร็วๆ นี้'}</p>
-                                                        </div>
-                                                        <button onClick={(e) => handleDismiss(e, notif.id)} className="text-slate-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition">✕</button>
-                                                    </div>
-                                                </div>
-                                            ))
-                                    ) : (
-                                        <div className="text-center py-8 text-slate-400">
-                                            <p>ยังไม่มีประกาศใหม่</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            {/* Support (ENABLED) */}
-                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full flex flex-col relative overflow-hidden">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                        <span className="bg-cyan-100 text-cyan-600 p-2 rounded-xl">💬</span>
-                                        พูดคุย / แจ้งปัญหา
-                                    </h2>
-                                    {supportViewMode === 'list' && supportTickets.length > 0 && (
                                         <button
-                                            onClick={() => setSupportViewMode('form')}
-                                            className="text-xs font-bold text-cyan-600 bg-cyan-50 px-3 py-1.5 rounded-lg hover:bg-cyan-100 transition"
+                                            onClick={() => setShowProfileModal(true)}
+                                            className="mt-3 text-xs font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 justify-center sm:justify-start transition"
                                         >
-                                            + เรื่องใหม่
+                                            <Settings size={14} /> แก้ไขข้อมูลส่วนตัว
                                         </button>
-                                    )}
-                                </div>
-
-                                {supportViewMode === 'list' ? (
-                                    <div className="flex-1 flex flex-col">
-                                        {supportTickets.length > 0 ? (
-                                            <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[200px] space-y-3 pr-2 -mr-2">
-                                                {supportTickets.map(ticket => (
-                                                    <div
-                                                        key={ticket.id}
-                                                        onClick={() => setSelectedTicket(ticket)}
-                                                        className="bg-white border border-slate-100 p-4 rounded-2xl hover:border-cyan-200 hover:shadow-md transition cursor-pointer group relative overflow-hidden"
-                                                    >
-                                                        <div className="absolute top-0 left-0 w-1 h-full bg-slate-200 group-hover:bg-cyan-400 transition"></div>
-                                                        <div className="flex justify-between items-start mb-1 pl-2">
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ticket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                                                                {ticket.status === 'resolved' ? '✅ แก้ไขแล้ว' : '⏳ รอตรวจสอบ'}
-                                                            </span>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                                                                    <Clock size={10} />
-                                                                    {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString('th-TH') : '...'}
-                                                                </span>
-                                                                <button
-                                                                    onClick={(e) => handleDeleteTicket(e, ticket.id)}
-                                                                    className="text-slate-300 hover:text-rose-500 transition p-1 rounded-full hover:bg-rose-50"
-                                                                    title="ลบรายการ"
-                                                                >
-                                                                    <Trash2 size={12} />
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <p className="font-bold text-slate-700 text-sm truncate pl-2 group-hover:text-cyan-700 transition">{ticket.subject}</p>
-                                                        <p className="text-xs text-slate-500 truncate pl-2">{ticket.message}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 space-y-3">
-                                                <MessageSquare size={40} className="text-slate-200" />
-                                                <p className="text-sm">ยังไม่มีรายการแจ้งปัญหา</p>
-                                                <button
-                                                    onClick={() => setSupportViewMode('form')}
-                                                    className="px-4 py-2 bg-cyan-50 text-cyan-600 rounded-xl font-bold text-sm hover:bg-cyan-100 transition"
-                                                >
-                                                    แจ้งปัญหาเรื่องแรก
-                                                </button>
-                                            </div>
-                                        )}
                                     </div>
-                                ) : (
-                                    <form onSubmit={handleSubmitSupport} className="flex-1 flex flex-col gap-3 animate-in fade-in slide-in-from-right-4 duration-200">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <button
-                                                type="button"
-                                                onClick={() => setSupportViewMode('list')}
-                                                className="p-1 hover:bg-slate-100 rounded-lg transition text-slate-400"
-                                            >
-                                                <ArrowLeft size={18} />
-                                            </button>
-                                            <span className="text-sm font-bold text-slate-600">แจ้งปัญหาใหม่</span>
-                                        </div>
-                                        <input
-                                            type="text"
-                                            placeholder="หัวข้อเรื่อง..."
-                                            className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm font-bold text-slate-700"
-                                            value={supportSubject}
-                                            onChange={e => setSupportSubject(e.target.value)}
-                                            required
-                                        />
-                                        <textarea
-                                            placeholder="รายละเอียด หรือคำถาม..."
-                                            className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm text-slate-700 resize-none flex-1 min-h-[80px]"
-                                            value={supportMessage}
-                                            onChange={e => setSupportMessage(e.target.value)}
-                                            required
-                                        ></textarea>
-                                        <div className="flex items-center gap-2">
-                                            <label className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 text-slate-500 text-xs cursor-pointer hover:bg-slate-100 transition truncate border border-transparent hover:border-slate-200">
-                                                <Paperclip size={14} />
-                                                <span className="truncate">{supportFile ? supportFile.name : "แนบไฟล์ (ถ้ามี)"}</span>
-                                                <input type="file" className="hidden" onChange={e => setSupportFile(e.target.files?.[0] || null)} />
-                                            </label>
-                                            <button
-                                                type="submit"
-                                                disabled={isSubmittingSupport}
-                                                className="px-6 py-2 rounded-xl bg-cyan-500 text-white font-bold text-sm hover:bg-cyan-600 transition shadow-md shadow-cyan-200 disabled:opacity-50"
-                                            >
-                                                {isSubmittingSupport ? '...' : 'ส่งเรื่อง'}
-                                            </button>
-                                        </div>
-                                    </form>
-                                )}
+                                </div>
                             </div>
-
                         </div>
 
                         {/* ✅ Courses List */}
