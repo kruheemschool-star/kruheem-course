@@ -107,6 +107,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    // 1. Auth Listener
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
@@ -115,71 +116,6 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
                     const adminEmails = ADMIN_EMAILS.map(email => email.toLowerCase());
                     setIsAdmin(adminEmails.includes(currentUser.email.toLowerCase()));
                 }
-
-                // Real-time listener for user profile
-                const unsubscribeProfile = onSnapshot(doc(db, "users", currentUser.uid), (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data() as UserProfile;
-                        setUserProfile(data);
-
-                        // Calculate Days Since Last Active (Only once per session)
-                        if (!hasCheckedActivity) {
-                            const now = new Date();
-                            // Days calculation moved to logic block
-                            if (data.lastActive?.toDate) {
-                                const last = data.lastActive.toDate();
-                                const diffDays = now.getTime() - last.getTime();
-                                const days = Math.floor(diffDays / (1000 * 60 * 60 * 24));
-                                setDaysSinceLastActive(days);
-                            } else {
-                                setDaysSinceLastActive(0);
-                            }
-
-                            setHasCheckedActivity(true);
-
-                            // Calculate time difference
-                            // now is already defined above
-                            let lastActiveTime = 0;
-                            if (data.lastActive?.toDate) {
-                                lastActiveTime = data.lastActive.toDate().getTime();
-                            }
-
-                            const diff = now.getTime() - lastActiveTime;
-                            const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-                            const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes (Throttle writes)
-
-                            setHasCheckedActivity(true);
-
-                            // Logic: 
-                            // 1. If inactive > 30 mins -> New Session (Update sessionStart & lastActive)
-                            // 2. If inactive > 5 mins -> Heartbeat (Update lastActive only)
-
-                            const updateData: any = {};
-                            let shouldUpdate = false;
-
-                            if (lastActiveTime === 0 || diff > SESSION_TIMEOUT) {
-                                // New Session
-                                updateData.sessionStart = serverTimestamp();
-                                updateData.lastActive = serverTimestamp();
-                                shouldUpdate = true;
-                            } else if (diff > HEARTBEAT_INTERVAL) {
-                                // Within session, just heartbeat
-                                updateData.lastActive = serverTimestamp();
-                                shouldUpdate = true;
-                            }
-
-                            if (shouldUpdate) {
-                                setDoc(doc(db, "users", currentUser.uid), updateData, { merge: true })
-                                    .catch(err => console.error("Update activity failed", err));
-                            }
-                        }
-                    } else {
-                        setUserProfile(null);
-                    }
-                    setLoading(false);
-                });
-
-                return () => unsubscribeProfile();
             } else {
                 setIsAdmin(false);
                 setUserProfile(null);
@@ -189,7 +125,77 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             }
         });
         return () => unsubscribeAuth();
-    }, [hasCheckedActivity]); // Add hasCheckedActivity dependency to ensure logic works
+    }, []);
+
+    // 2. Profile Listener & Activity Logic
+    useEffect(() => {
+        if (!user) return;
+
+        let isActivityChecked = false; // Local flag to ensure we only check once per connection
+
+        // Real-time listener for user profile
+        const unsubscribeProfile = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data() as UserProfile;
+                setUserProfile(data);
+
+                // Calculate Days Since Last Active (Only once per session)
+                if (!isActivityChecked) {
+                    const now = new Date();
+                    // Days calculation
+                    if (data.lastActive?.toDate) {
+                        const last = data.lastActive.toDate();
+                        const diffDays = now.getTime() - last.getTime();
+                        const days = Math.floor(diffDays / (1000 * 60 * 60 * 24));
+                        setDaysSinceLastActive(days);
+                    } else {
+                        setDaysSinceLastActive(0);
+                    }
+
+                    isActivityChecked = true;
+                    setHasCheckedActivity(true);
+
+                    // Calculate time difference for 'Online' status
+                    let lastActiveTime = 0;
+                    if (data.lastActive?.toDate) {
+                        lastActiveTime = data.lastActive.toDate().getTime();
+                    }
+
+                    const diff = now.getTime() - lastActiveTime;
+                    const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+                    const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes (Throttle writes)
+
+                    const updateData: any = {};
+                    let shouldUpdate = false;
+
+                    // Logic: 
+                    // 1. If inactive > 30 mins -> New Session (Update sessionStart & lastActive)
+                    // 2. If inactive > 5 mins -> Heartbeat (Update lastActive only)
+
+                    if (lastActiveTime === 0 || diff > SESSION_TIMEOUT) {
+                        // New Session
+                        updateData.sessionStart = serverTimestamp();
+                        updateData.lastActive = serverTimestamp();
+                        shouldUpdate = true;
+                    } else if (diff > HEARTBEAT_INTERVAL) {
+                        // Within session, just heartbeat
+                        updateData.lastActive = serverTimestamp();
+                        shouldUpdate = true;
+                    }
+
+                    if (shouldUpdate) {
+                        setDoc(doc(db, "users", user.uid), updateData, { merge: true })
+                            .catch(err => console.error("Update activity failed", err));
+                    }
+                }
+            } else {
+                setUserProfile(null);
+            }
+            setLoading(false);
+        });
+
+        return () => unsubscribeProfile();
+    }, [user]);
 
     return (
         <AuthContext.Provider value={{ user, userProfile, isAdmin, loading, daysSinceLastActive, googleSignIn, emailSignIn, emailSignUp, resetPassword, logOut, updateProfile }}>
