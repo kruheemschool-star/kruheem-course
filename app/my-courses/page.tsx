@@ -213,20 +213,164 @@ export default function MyCoursesPage() {
             return;
         }
 
-        // if (user) {
-        //     const fetchCoursesAndReviews = async () => {
-        //         try {
-        //             // ...
-        //         } catch (error) {
-        //             console.error("Error:", error);
-        //         } finally {
-        //             setLoading(false);
-        //         // FETCHING DISABLED
-        //     };
-        //     fetchCoursesAndReviews();
-        //     fetchUserTickets();
-        // }
-        setLoading(false); // Force load for test
+        if (user) {
+            const fetchCoursesAndReviews = async () => {
+                try {
+                    // 1. Fetch Enrollments
+                    const qEnroll = query(collection(db, "enrollments"), where("userId", "==", user.uid));
+                    const snapshotEnroll = await getDocs(qEnroll);
+                    const userEnrollments = snapshotEnroll.docs.map(d => ({ id: d.id, ...d.data() } as any));
+
+                    // 2. Fetch Reviews by this User
+                    const qReviews = query(collection(db, "reviews"), where("userId", "==", user.uid));
+                    const snapshotReviews = await getDocs(qReviews);
+
+                    // 3. Fetch Coupons
+                    const qCoupons = query(collection(db, "coupons"), where("userId", "==", user.uid));
+                    const snapshotCoupons = await getDocs(qCoupons);
+                    // Sort client-side to avoid creating a new composite index
+                    const coupons = snapshotCoupons.docs
+                        .map(d => d.data())
+                        .sort((a: any, b: any) => {
+                            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                            return dateB.getTime() - dateA.getTime();
+                        });
+
+                    // Sort reviews by date descending to match coupons 1:1
+                    const reviews = snapshotReviews.docs
+                        .map(d => d.data())
+                        .sort((a: any, b: any) => {
+                            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                            return dateB.getTime() - dateA.getTime();
+                        });
+
+                    const reviewsMap: Record<string, any> = {};
+                    reviews.forEach((review, index) => {
+                        if (review.courseId) {
+                            // Try to map 1:1 with sorted coupons
+                            const coupon = coupons[index];
+
+                            const couponCode = coupon ? coupon.code : "ReviewReward";
+                            const isCouponUsed = coupon ? coupon.isUsed : false;
+
+                            reviewsMap[review.courseId] = { ...review, couponCode, isCouponUsed };
+                        }
+                    });
+                    setReviewedCourses(reviewsMap);
+
+                    // 4. Fetch Courses
+                    const qCourses = query(collection(db, "courses"));
+                    const snapshotCourses = await getDocs(qCourses);
+
+                    const coursesData = snapshotCourses.docs.map(doc => {
+                        const courseData = doc.data();
+                        const enrollment = userEnrollments.find((e: any) => e.courseId === doc.id);
+                        return {
+                            id: doc.id,
+                            ...courseData,
+                            status: enrollment ? enrollment.status : null,
+                            enrollmentId: enrollment ? enrollment.id : null,
+                            expiryDate: enrollment ? enrollment.expiryDate : null,
+                            accessType: enrollment ? enrollment.accessType : null
+                        };
+                    });
+
+                    // Admin sees ALL courses, normal users see only enrolled
+                    const myCourses = isAdmin
+                        ? coursesData.map((c: any) => ({ ...c, status: c.status || 'approved' })) // Admin: add virtual 'approved' status
+                        : coursesData.filter((c: any) => c.status);
+                    setEnrolledCourses(myCourses);
+                    setAllCourses(coursesData);
+
+                    // 5. Fetch Lessons (Only for enrolled courses to save reads)
+                    const lessonsPromises = myCourses.map(async (course: any) => {
+                        // Only fetch if approved/enrolled to avoid wasting reads on pending/unowned courses
+                        if (course.status !== 'approved') return [];
+
+                        try {
+                            const qLessons = query(collection(db, "courses", course.id, "lessons"));
+                            const snap = await getDocs(qLessons);
+                            return snap.docs.map(doc => ({
+                                id: doc.id,
+                                courseId: course.id,
+                                ...doc.data()
+                            }));
+                        } catch (err) {
+                            console.error(`Error fetching lessons for ${course.id}:`, err);
+                            return [];
+                        }
+                    });
+
+                    const lessonsArrays = await Promise.all(lessonsPromises);
+                    const lessons = lessonsArrays.flat();
+                    setAllLessons(lessons);
+
+                    // 6. Fetch Progress for Enrolled Courses
+                    const progressMap: Record<string, { completed: number; total: number; percent: number; lastLessonId?: string }> = {};
+                    for (const course of myCourses) {
+                        if (course.status === 'approved') {
+                            const courseLessons = lessons.filter(l => l.courseId === course.id);
+                            // Filter learnable lessons (video, summary, exercise)
+                            const learnableLessons = courseLessons.filter((l: any) =>
+                                ['video', 'summary', 'exercise'].includes(l.type)
+                            );
+                            const totalLearnable = learnableLessons.length;
+
+                            try {
+                                const progressRef = doc(db, "users", user.uid, "progress", course.id);
+                                const progressSnap = await getDoc(progressRef);
+
+                                if (progressSnap.exists()) {
+                                    const data = progressSnap.data();
+                                    const completedIds = data.completed || [];
+                                    const validCompleted = completedIds.filter((id: string) =>
+                                        learnableLessons.some((l: any) => l.id === id)
+                                    );
+                                    const percent = totalLearnable > 0
+                                        ? Math.round((validCompleted.length / totalLearnable) * 100)
+                                        : 0;
+
+                                    // Find last completed lesson for resume feature
+                                    const lastCompletedId = validCompleted[validCompleted.length - 1];
+                                    const lastIndex = learnableLessons.findIndex((l: any) => l.id === lastCompletedId);
+                                    const nextLesson = learnableLessons[lastIndex + 1] || learnableLessons[lastIndex];
+
+                                    progressMap[course.id] = {
+                                        completed: validCompleted.length,
+                                        total: totalLearnable,
+                                        percent,
+                                        lastLessonId: nextLesson?.id
+                                    };
+                                } else {
+                                    progressMap[course.id] = {
+                                        completed: 0,
+                                        total: totalLearnable,
+                                        percent: 0,
+                                        lastLessonId: learnableLessons[0]?.id
+                                    };
+                                }
+                            } catch (err) {
+                                progressMap[course.id] = {
+                                    completed: 0,
+                                    total: totalLearnable,
+                                    percent: 0
+                                };
+                            }
+                        }
+                    }
+                    setCourseProgress(progressMap);
+
+                } catch (error) {
+                    console.error("Error:", error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchCoursesAndReviews();
+            // fetchUserTickets(); // STILL DISABLED
+        }
     }, [user, authLoading, router]);
 
     // const fetchUserTickets = async () => {
@@ -343,10 +487,41 @@ export default function MyCoursesPage() {
     //     fetchNotifications();
     // }, [user?.uid, enrolledCourses]);
 
-    // ✅ Smart Search Logic (with Debounce) (DISABLED FOR TEST)
-    // useEffect(() => {
-    //   // ...
-    // }, [debouncedSearchQuery, allLessons, allCourses]);
+    // ✅ Smart Search Logic (with Debounce)
+    useEffect(() => {
+        if (!debouncedSearchQuery.trim()) {
+            setSearchResults([]);
+            setIsSearching(false);
+            return;
+        }
+
+        setIsSearching(true);
+        const lowerQuery = debouncedSearchQuery.toLowerCase();
+
+        const results = allLessons.filter((lesson: any) => {
+            return lesson.title?.toLowerCase().includes(lowerQuery);
+        }).map((lesson: any) => {
+            const course = allCourses.find(c => c.id === lesson.courseId);
+            return {
+                type: 'lesson',
+                data: lesson,
+                course: course,
+                isEnrolled: course?.status === 'approved'
+            };
+        });
+
+        // Also search courses
+        const courseResults = allCourses.filter((course: any) => {
+            return course.title?.toLowerCase().includes(lowerQuery);
+        }).map((course: any) => ({
+            type: 'course',
+            data: null,
+            course: course,
+            isEnrolled: course.status === 'approved'
+        }));
+
+        setSearchResults([...courseResults, ...results]);
+    }, [debouncedSearchQuery, allLessons, allCourses]);
 
     if (authLoading || loading) return (
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans">
@@ -455,11 +630,55 @@ export default function MyCoursesPage() {
                                 </div>
                             </div>
 
-                            {/* Card 2: Search (DISABLED) */}
-                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-full opacity-50 pointer-events-none grayscale">
+                            {/* Card 2: Search */}
+                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-full">
                                 <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                    (Disabled for Test)
+                                    <span className="bg-blue-100 text-blue-600 p-2 rounded-xl"><SearchIcon /></span>
+                                    ค้นหาบทเรียน
                                 </h2>
+                                <div className="relative flex-1">
+                                    <div className="relative h-full">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                            <SearchIcon />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="พิมพ์คำค้นหา..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full h-full min-h-[56px] pl-12 pr-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all text-slate-700 font-medium placeholder:text-slate-400"
+                                        />
+                                    </div>
+
+                                    {/* Search Results Dropdown */}
+                                    {searchQuery && (
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[300px] overflow-y-auto custom-scrollbar z-50">
+                                            {searchResults.length > 0 ? (
+                                                <div className="divide-y divide-slate-50">
+                                                    {searchResults.map((result, index) => (
+                                                        <Link
+                                                            key={index}
+                                                            href={result.isEnrolled ? (result.type === 'lesson' ? `/learn/${result.course.id}?lessonId=${result.data.id}` : `/learn/${result.course.id}`) : `/course/${result.course.id}`}
+                                                            className="block p-3 hover:bg-indigo-50 transition"
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${result.isEnrolled ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                                    {result.type === 'lesson' ? (result.data.type === 'video' ? <PlayIcon /> : '📄') : '📘'}
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-bold text-slate-800 text-sm truncate">{result.type === 'lesson' ? result.data.title : result.course.title}</p>
+                                                                    <p className="text-xs text-slate-400 truncate">{result.course?.title}</p>
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             {/* Notifications (DISABLED) */}
                             <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full opacity-50 pointer-events-none grayscale">
@@ -476,9 +695,9 @@ export default function MyCoursesPage() {
 
                         </div>
 
-                        {/* ✅ Courses List (DISABLED) */}
-                        <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-3 opacity-50">
-                            📖 คอร์สเรียนของฉัน (Disabled)
+                        {/* ✅ Courses List */}
+                        <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-3">
+                            📖 คอร์สเรียนของฉัน
                         </h1>
 
                         {/* รายชื่อคอร์ส (Grouped by Category) */}
