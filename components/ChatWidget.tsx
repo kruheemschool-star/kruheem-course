@@ -50,7 +50,7 @@ export default function ChatWidget() {
         }
     }, [user, loading, isHidden]);
 
-    // 2. Listen to Messages & Chat Status
+    // 2. Listen to Messages (Always active if chatId exists)
     useEffect(() => {
         if (isHidden) return;
         if (!chatId) return;
@@ -71,15 +71,23 @@ export default function ChatWidget() {
 
             const lastMsg: any = msgs[msgs.length - 1];
             if (lastMsg) {
-                // Sound Alert
+                // Sound Alert (Only if new message from admin)
                 if (lastMsg.sender === 'admin' && Date.now() - (lastMsg.createdAt?.toMillis() || 0) < 5000) {
                     playNotificationSound();
                 }
 
-                // Unread Badge Logic
+                // Unread Badge Logic (Local)
+                // We use a ref or check state carefully. Here we rely on the fact that if this runs, it has latest state.
+                // ideally, check against a ref of isOpen, but here we can just update count.
+                // We'll handle "Mark Read" in a separate effect dependent on isOpen.
+
+                // Get last read from local storage
                 const lastReadId = localStorage.getItem(`chat_last_read_${chatId}`);
-                if (!isOpen && lastMsg.sender === 'admin' && lastMsg.id !== lastReadId) {
-                    setUnreadCount(1);
+                if (lastMsg.sender === 'admin' && lastMsg.id !== lastReadId) {
+                    // Check if chat is OPEN currently?
+                    // We can't easily access current 'isOpen' here without triggering re-subscription if we add it to dependency.
+                    // IMPORTANT: We will set unread count here. The separate effect will clear it if open.
+                    setUnreadCount(prev => 1);
                 }
             }
         }, (error) => {
@@ -98,27 +106,32 @@ export default function ChatWidget() {
             unsubscribeMessages();
             unsubscribeChat();
         };
-    }, [chatId, isOpen]);
+    }, [chatId, isHidden]); // Removed isOpen to prevent re-subscribing
 
-    // 3. Auto-scroll and Mark Read
+    // 3. Mark Read Logic (Dependent on isOpen and Messages)
     useEffect(() => {
-        if (isHidden) return;
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (isHidden || !chatId || !isOpen) return;
 
-        if (isOpen && chatId) {
-            // Clear local badge
-            setUnreadCount(0);
-            if (messages.length > 0) {
-                const lastMsg = messages[messages.length - 1];
+        // If open, clear unread count
+        setUnreadCount(0);
+
+        if (messages.length > 0) {
+            const lastMsg = messages[messages.length - 1];
+            const lastReadId = localStorage.getItem(`chat_last_read_${chatId}`);
+
+            if (lastMsg.id !== lastReadId) {
                 localStorage.setItem(`chat_last_read_${chatId}`, lastMsg.id);
-            }
 
-            // Update Firestore: User has read the chat
-            updateDoc(doc(db, "chats", chatId), {
-                lastUserReadAt: serverTimestamp()
-            }).catch(err => console.log("Error updating read status:", err));
+                // Update Firestore: User has read the chat
+                // Only write if actually changed to prevent loop
+                if (lastMsg.sender === 'admin') {
+                    updateDoc(doc(db, "chats", chatId), {
+                        lastUserReadAt: serverTimestamp()
+                    }).catch(err => console.log("Error updating read status:", err));
+                }
+            }
         }
-    }, [messages, isOpen, chatId]);
+    }, [messages, isOpen, chatId, isHidden]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
