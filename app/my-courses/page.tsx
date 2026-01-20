@@ -1,766 +1,239 @@
 "use client";
+
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs, orderBy, limit, collectionGroup, addDoc, serverTimestamp, onSnapshot, updateDoc, doc, deleteDoc, getDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "@/lib/firebase";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Search as SearchIcon, Play as PlayIcon, Clock, Trash2, ArrowLeft, MessageSquare, Paperclip, Send, X, Settings } from 'lucide-react';
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import PollWidget from "@/components/PollWidget";
-import { useUserAuth } from "@/context/AuthContext";
-import ReviewForm from "@/app/reviews/ReviewForm";
-import ErrorBoundary from "@/components/ErrorBoundary";
-import { MyCoursesSkeleton } from "@/components/skeletons/MyCoursesSkeleton";
+import Link from "next/link";
+import { Settings } from "lucide-react"; // Re-import Settings for Edit Profile button
 
-// --- Icons ---
-// --- Icons ---
-// const PlayIcon = ... (Removed to use Lucide)
-const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M21.731 2.269a2.625 2.625 0 113.71 3.71L9.6 18.833a1.125 1.125 0 01-.532.33L4.508 20.68a.375.375 0 01-.468-.468l1.516-4.549a1.125 1.125 0 01.33-.532L21.73 2.269zM9.75 16.5l-2 2 .75-3 1.25 1z" /></svg>;
-const BellIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0113.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 01-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 11-7.48 0 24.585 24.585 0 01-4.831-1.244.75.75 0 01-.298-1.205A8.217 8.217 0 005.25 9.75V9zm4.502 8.9a2.25 2.25 0 104.496 0 25.057 25.057 0 01-4.496 0z" clipRule="evenodd" /></svg>;
-// const SearchIcon = ... (Removed to use Lucide)
-const LockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>;
+// Types
+interface Course {
+    id: string;
+    title: string;
+    image?: string;
+    category?: string;
+    status?: string; // from enrollment
+    expiryDate?: any;
+    totalLessons?: number;
+}
 
-// Import shared hooks
-import { useDebounce } from "@/hooks/useDebounce";
-// import { useGamification } from "@/hooks/useGamification"; // ❌ Removed for optimization
-// import BadgeDisplay from "@/components/gamification/BadgeDisplay"; // ❌ Removed for optimization
-// import ProgressBar from "@/components/gamification/ProgressBar"; // ❌ Removed for optimization
-// import WeeklyProgressChart from "@/components/gamification/WeeklyProgressChart"; // ❌ Removed for optimization
+interface Progress {
+    completed: number;
+    total: number;
+    percent: number;
+}
 
 export default function MyCoursesPage() {
-    const { user, userProfile, isAdmin, updateProfile, loading: authLoading, daysSinceLastActive } = useUserAuth();
-    const [showProfileModal, setShowProfileModal] = useState(false);
-    const [showReviewModal, setShowReviewModal] = useState(false);
-    const [reviewingCourse, setReviewingCourse] = useState<any>(null);
-    const [editingName, setEditingName] = useState("");
-    const [editingAvatar, setEditingAvatar] = useState("");
-    const [isSavingProfile, setIsSavingProfile] = useState(false);
-    const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
-    const [notifications, setNotifications] = useState<any[]>([]);
-    const [showNotifications, setShowNotifications] = useState(true);
+    const { user, userProfile, loading: authLoading } = useUserAuth();
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [progressMap, setProgressMap] = useState<Record<string, Progress>>({});
     const [loading, setLoading] = useState(true);
-    const router = useRouter();
-    const [dismissedIds, setDismissedIds] = useState<string[]>([]);
-    const [isLoaded, setIsLoaded] = useState(false);
 
-    // --- Welcome Message State ---
-    const [welcomeMessage, setWelcomeMessage] = useState<{ title: string, msg: string, color: string, icon: string } | null>(null);
-
-    // --- Smart Search State ---
-    const [allCourses, setAllCourses] = useState<any[]>([]);
-    const [allLessons, setAllLessons] = useState<any[]>([]);
-    const [searchQuery, setSearchQuery] = useState("");
-    const debouncedSearchQuery = useDebounce(searchQuery, 300); // Debounce 300ms
-    const [searchResults, setSearchResults] = useState<any[]>([]);
-    const [isSearching, setIsSearching] = useState(false);
-
-    // --- Support Form State ---
-    const [supportTickets, setSupportTickets] = useState<any[]>([]);
-    const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
-    const [messages, setMessages] = useState<any[]>([]);
-    const [replyText, setReplyText] = useState("");
-    const [replyFile, setReplyFile] = useState<File | null>(null);
-    const [isSendingReply, setIsSendingReply] = useState(false);
-
-    const [supportSubject, setSupportSubject] = useState("");
-    const [supportMessage, setSupportMessage] = useState("");
-    const [supportFile, setSupportFile] = useState<File | null>(null);
-    const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
-    const [supportViewMode, setSupportViewMode] = useState<'list' | 'form'>('list');
-
-    // --- Progress Tracking State ---
-    const [courseProgress, setCourseProgress] = useState<Record<string, { completed: number; total: number; percent: number; lastLessonId?: string }>>({});
-
-    // --- Gamification ---
-    // const { gamificationData, badges, loading: gamificationLoading } = useGamification(); // ❌ Removed for optimization
-
-    // ✅ Load settings from LocalStorage
     useEffect(() => {
-        const savedDismissed = localStorage.getItem("kruheem_dismissed_ids");
-        if (savedDismissed) setDismissedIds(JSON.parse(savedDismissed));
-
-        const savedShow = localStorage.getItem("kruheem_show_notifs");
-        if (savedShow !== null) setShowNotifications(JSON.parse(savedShow));
-
-        setIsLoaded(true);
-    }, []);
-
-    // ✅ Determine Welcome Message based on Days Absent
-    useEffect(() => {
-        if (daysSinceLastActive !== null) {
-            if (daysSinceLastActive > 7) {
-                setWelcomeMessage({
-                    title: `ไม่ได้เจอกันนานเลยนะครับ! (${daysSinceLastActive} วัน)`,
-                    msg: "ดีใจที่คุณกลับมา! อย่าลืมทบทวนบทเรียนบ่อยๆ นะครับ การเรียนอย่างสม่ำเสมอจะช่วยให้เก่งขึ้นไวมากครับ",
-                    color: "bg-rose-100 border-rose-200 text-rose-800",
-                    icon: "⏰"
-                });
-            } else if (daysSinceLastActive >= 3) {
-                setWelcomeMessage({
-                    title: `กลับมาแล้วสินะ! (หายไป ${daysSinceLastActive} วัน)`,
-                    msg: "มาลุยกันต่อเลยครับ! ความพยายามอยู่ที่ไหน ความสำเร็จอยู่ที่นั่น",
-                    color: "bg-orange-100 border-orange-200 text-orange-800",
-                    icon: "🔥"
-                });
-            } else if (daysSinceLastActive >= 1) {
-                setWelcomeMessage({
-                    title: "ยินดีต้อนรับกลับครับ!",
-                    msg: "พร้อมเรียนรู้วันนี้หรือยังครับ? ไปลุยกันเลย!",
-                    color: "bg-indigo-100 border-indigo-200 text-indigo-800",
-                    icon: "👋"
-                });
-            } else {
-                // < 1 day (Came back same day)
-                setWelcomeMessage(null);
-            }
-        }
-    }, [daysSinceLastActive]);
-
-    // ✅ Save settings to LocalStorage
-    useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem("kruheem_dismissed_ids", JSON.stringify(dismissedIds));
-            localStorage.setItem("kruheem_show_notifs", JSON.stringify(showNotifications));
-        }
-    }, [dismissedIds, showNotifications, isLoaded]);
-
-    const handleDismiss = (e: React.MouseEvent, id: string) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDismissedIds(prev => [...prev, id]);
-    };
-
-    const handleOpenProfileModal = () => {
-        setEditingName(userProfile?.displayName || user?.displayName || "");
-        setEditingAvatar(userProfile?.avatar || "👦");
-        setShowProfileModal(true);
-    };
-
-    const handleSaveProfile = async () => {
-        if (!editingName.trim()) return alert("กรุณากรอกชื่อเล่น");
-        setIsSavingProfile(true);
-        try {
-            await updateProfile({
-                displayName: editingName,
-                avatar: editingAvatar
-            });
-            setShowProfileModal(false);
-        } catch (error) {
-            console.error("Error saving profile:", error);
-            alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
-        } finally {
-            setIsSavingProfile(false);
-        }
-    };
-
-    const handleSubmitSupport = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!supportSubject.trim() || !supportMessage.trim()) {
-            alert("กรุณากรอกหัวข้อและรายละเอียด");
+        if (authLoading) return;
+        if (!user) {
+            setLoading(false);
             return;
         }
 
-        setIsSubmittingSupport(true);
-        try {
-            let attachmentUrl = "";
-            if (supportFile) {
-                const storageRef = ref(storage, `support/${user?.uid}/${Date.now()}_${supportFile.name}`);
-                await uploadBytes(storageRef, supportFile);
-                attachmentUrl = await getDownloadURL(storageRef);
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const uid = user.uid;
+
+                // 1. Parallel Fetch: Enrollments, All Courses, User Progress Collection
+                const [enrollSnap, coursesSnap, progressSnap] = await Promise.all([
+                    getDocs(query(collection(db, "enrollments"), where("userId", "==", uid))),
+                    getDocs(collection(db, "courses")),
+                    getDocs(collection(db, "users", uid, "progress"))
+                ]);
+
+                // 2. Process Enrollments
+                const enrollments = enrollSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+                const enrolledCourseIds = new Set(enrollments.map(e => e.courseId));
+
+                // 3. Process Courses (Filter by Enrollment)
+                const allCoursesData = coursesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
+                const myCourses = allCoursesData
+                    .filter(c => enrolledCourseIds.has(c.id))
+                    .map(c => {
+                        const enroll = enrollments.find(e => e.courseId === c.id);
+                        return { ...c, status: enroll?.status, expiryDate: enroll?.expiryDate };
+                    });
+
+                setCourses(myCourses);
+
+                // 4. Process Progress (Map by Course ID)
+                const pMap: Record<string, Progress> = {};
+                progressSnap.docs.forEach(doc => {
+                    const data = doc.data();
+                    const courseId = doc.id;
+                    const completedCount = data.completed?.length || 0;
+
+                    // Best effort total: use course.totalLessons or fallback
+                    // We use 20 as a safe default if not defined, to prevent division by zero
+                    // Ideally, totalLessons should be in the course document
+                    const course = allCoursesData.find(c => c.id === courseId);
+                    const total = course?.totalLessons || 20;
+                    const percent = Math.round((completedCount / total) * 100);
+
+                    pMap[courseId] = {
+                        completed: completedCount,
+                        total,
+                        percent: percent > 100 ? 100 : percent
+                    };
+                });
+                setProgressMap(pMap);
+
+            } catch (err) {
+                console.error("Error fetching my courses:", err);
+            } finally {
+                setLoading(false);
             }
-
-            await addDoc(collection(db, "support_tickets"), {
-                userId: user?.uid,
-                userName: userProfile?.displayName || user?.displayName || "Unknown",
-                userEmail: user?.email,
-                subject: supportSubject,
-                message: supportMessage,
-                attachmentUrl,
-                status: "pending",
-                createdAt: serverTimestamp()
-            });
-
-            alert("ส่งเรื่องแจ้งปัญหาเรียบร้อยแล้ว เจ้าหน้าที่จะรีบตรวจสอบครับ");
-            setSupportSubject("");
-            setSupportMessage("");
-            setSupportFile(null);
-            fetchUserTickets(); // Refresh list
-        } catch (error) {
-            console.error("Error submitting ticket:", error);
-            alert("เกิดข้อผิดพลาดในการส่งเรื่อง");
-        } finally {
-            setIsSubmittingSupport(false);
-        }
-    };
-
-    const AVATAR_CATEGORIES = {
-        "ยอดนิยม": ["👦", "👧", "🧑", "👩", "😎", "🤓", "🤠", "🥳"],
-        "สัตว์น่ารัก": ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🦄", "🐔", "🐧", "🐦", "🐤"],
-        "มอนสเตอร์ & แฟนตาซี": ["👾", "👽", "🤖", "👻", "👺", "👹", "💀", "🦖", "🦕", "🐲", "🐉", "🧛", "🧟", "🧞", "🧜", "🧚"]
-    };
-
-    // Flatten for initial state check if needed, or just use categories in render
-    const ALL_AVATARS = Object.values(AVATAR_CATEGORIES).flat();
-
-    const [reviewedCourses, setReviewedCourses] = useState<Record<string, any>>({});
-
-    // ... existing useEffect ...
-
-    useEffect(() => {
-        if (!authLoading && !user) {
-            router.push("/");
-            return;
-        }
-
-        if (user) {
-            const fetchCoursesAndReviews = async () => {
-                try {
-                    // 1. Fetch Enrollments
-                    const qEnroll = query(collection(db, "enrollments"), where("userId", "==", user.uid));
-                    const snapshotEnroll = await getDocs(qEnroll);
-                    const userEnrollments = snapshotEnroll.docs.map(d => ({ id: d.id, ...d.data() } as any));
-
-                    // 2. Fetch Reviews by this User
-                    const qReviews = query(collection(db, "reviews"), where("userId", "==", user.uid));
-                    const snapshotReviews = await getDocs(qReviews);
-
-                    // 3. Fetch Coupons
-                    const qCoupons = query(collection(db, "coupons"), where("userId", "==", user.uid));
-                    const snapshotCoupons = await getDocs(qCoupons);
-                    // Sort client-side to avoid creating a new composite index
-                    const coupons = snapshotCoupons.docs
-                        .map(d => d.data())
-                        .sort((a: any, b: any) => {
-                            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-                            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
-                            return dateB.getTime() - dateA.getTime();
-                        });
-
-                    // Sort reviews by date descending to match coupons 1:1
-                    const reviews = snapshotReviews.docs
-                        .map(d => d.data())
-                        .sort((a: any, b: any) => {
-                            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-                            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
-                            return dateB.getTime() - dateA.getTime();
-                        });
-
-                    const reviewsMap: Record<string, any> = {};
-                    reviews.forEach((review, index) => {
-                        if (review.courseId) {
-                            // Try to map 1:1 with sorted coupons
-                            const coupon = coupons[index];
-
-                            const couponCode = coupon ? coupon.code : "ReviewReward";
-                            const isCouponUsed = coupon ? coupon.isUsed : false;
-
-                            reviewsMap[review.courseId] = { ...review, couponCode, isCouponUsed };
-                        }
-                    });
-                    setReviewedCourses(reviewsMap);
-
-                    // 4. Fetch Courses
-                    const qCourses = query(collection(db, "courses"));
-                    const snapshotCourses = await getDocs(qCourses);
-
-                    const coursesData = snapshotCourses.docs.map(doc => {
-                        const courseData = doc.data();
-                        const enrollment = userEnrollments.find((e: any) => e.courseId === doc.id);
-                        return {
-                            id: doc.id,
-                            ...courseData,
-                            status: enrollment ? enrollment.status : null,
-                            enrollmentId: enrollment ? enrollment.id : null,
-                            expiryDate: enrollment ? enrollment.expiryDate : null,
-                            accessType: enrollment ? enrollment.accessType : null
-                        };
-                    });
-
-                    // Admin sees ALL courses, normal users see only enrolled
-                    const myCourses = isAdmin
-                        ? coursesData.map((c: any) => ({ ...c, status: c.status || 'approved' })) // Admin: add virtual 'approved' status
-                        : coursesData.filter((c: any) => c.status);
-                    setEnrolledCourses(myCourses);
-                    setAllCourses(coursesData);
-
-                    // 5. Fetch Lessons - DEPRECATED/REMOVED (Search Removed)
-                    // We no longer need to fetch ALL lessons for search.
-                    // If specific lessons are needed for progress, we might need a different strategy,
-                    // but for now, removing the global lesson fetch to save reads.
-                    setAllLessons([]);
-
-                    // 6. Fetch Progress for Enrolled Courses
-
-                    // 6. Fetch Progress for Enrolled Courses (Simplified)
-                    // ❌ REMOVED: Loop fetching lessons for every course (caused 30-40ms loop)
-                    // ✅ FIXED: Only basic progress fetching or bulk if available.
-                    // For now, we will SKIP the deep lesson counting to stop the loop immediately.
-
-                    const progressMap: Record<string, { completed: number; total: number; percent: number; lastLessonId?: string }> = {};
-
-                    // TEMP: Set mock progress or lightweight fetch to verify Network silence
-                    // In a real fix, we would fetch a 'lessonsCount' aggregate from the course doc itself.
-
-                    for (const course of myCourses) {
-                        if (course.status === 'approved') {
-                            try {
-                                const progressRef = doc(db, "users", user.uid, "progress", course.id);
-                                const progressSnap = await getDoc(progressRef);
-
-                                if (progressSnap.exists()) {
-                                    const data = progressSnap.data();
-                                    const completedCount = data.completed?.length || 0;
-                                    // Fallback: We don't have total lessons without fetching subcollection.
-                                    // Use a safe default or course metadata if available.
-                                    const total = course.totalLessons || 10; // Assume 10 if not found to avoid 0 division
-                                    const percent = Math.round((completedCount / total) * 100);
-
-                                    progressMap[course.id] = {
-                                        completed: completedCount,
-                                        total: total,
-                                        percent: percent > 100 ? 100 : percent,
-                                        lastLessonId: undefined // Disable resume link for now to save reads
-                                    };
-                                }
-                            } catch (err) {
-                                console.error("Error fetching progress doc:", err);
-                            }
-                        }
-                    }
-                    setCourseProgress(progressMap);
-
-                } catch (error) {
-                    console.error("Error:", error);
-                } finally {
-                    setLoading(false);
-                }
-            };
-            // fetchCoursesAndReviews(); // DISABLED BY EMERGENCY MAINTENANCE
-            setLoading(false); // ✅ Force stop loading to show Maintenance UI
-        }
-    }, [user, authLoading, router]);
-
-    // Data fetch functions disabled/removed for simplification
-    const fetchUserTickets = async () => { };
-    // const handleDeleteTicket = ...
-
-    const handleDeleteTicket = async (e: React.MouseEvent, ticketId: string) => {
-        e.stopPropagation();
-        if (!confirm("คุณต้องการลบรายการแจ้งปัญหานี้ใช่หรือไม่?")) return;
-
-        try {
-            await deleteDoc(doc(db, "support_tickets", ticketId));
-            // Note: Sub-collections (messages) are not automatically deleted in client SDK,
-            // but for UI purposes, removing the parent is enough.
-            // Ideally, use a Cloud Function for recursive delete.
-            setSupportTickets(prev => prev.filter(t => t.id !== ticketId));
-        } catch (error) {
-            console.error("Error deleting ticket:", error);
-            alert("เกิดข้อผิดพลาดในการลบรายการ");
-        }
-    };
-
-    // Real-time listener for messages when a ticket is selected
-    useEffect(() => {
-        if (!selectedTicket) return;
-
-        let isMounted = true; // Guard to prevent state updates on unmounted component
-
-        // 1. Listen to Messages
-        // const qMessages = query(collection(db, "support_tickets", selectedTicket.id, "messages"), orderBy("createdAt", "asc"));
-        // const unsubscribeMessages = onSnapshot(qMessages, (snapshot) => {
-        //     if (!isMounted) return;
-        //     const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        //     setMessages(msgs);
-        // });
-
-        // 2. Listen to Ticket Status (for Read Receipts)
-        // const unsubscribeTicket = onSnapshot(doc(db, "support_tickets", selectedTicket.id), (docSnap) => {
-        //     if (!isMounted) return;
-        //     if (docSnap.exists()) {
-        //         const data = docSnap.data();
-        //         // Update selectedTicket with latest data (especially lastAdminReadAt)
-        //         setSelectedTicket((prev: any) => prev ? ({ ...prev, ...data }) : null);
-        //     }
-        // });
-
-        // 3. Mark as read by user (Initial open)
-        // updateDoc(doc(db, "support_tickets", selectedTicket.id), {
-        //     lastUserReadAt: serverTimestamp()
-        // }).catch(() => { }); // Ignore errors if component unmounts
-
-        return () => {
-            isMounted = false;
-            // unsubscribeMessages();
-            // unsubscribeTicket();
         };
-    }, [selectedTicket?.id]);
 
-    const handleSendReply = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if ((!replyText.trim() && !replyFile) || !selectedTicket) return;
+        fetchData();
 
-        setIsSendingReply(true);
-        try {
-            let attachmentUrl = "";
-            if (replyFile) {
-                const storageRef = ref(storage, `support/user/${Date.now()}_${replyFile.name}`);
-                await uploadBytes(storageRef, replyFile);
-                attachmentUrl = await getDownloadURL(storageRef);
-            }
+    }, [user, authLoading]);
 
-            await addDoc(collection(db, "support_tickets", selectedTicket.id, "messages"), {
-                text: replyText,
-                attachmentUrl,
-                sender: "user",
-                createdAt: serverTimestamp()
-            });
-            setReplyText("");
-            setReplyFile(null);
-        } catch (error) {
-            console.error("Error sending reply:", error);
-            alert("ส่งข้อความไม่สำเร็จ");
-        } finally {
-            setIsSendingReply(false);
-        }
-    };
-
-    // ✅ Fetch Notifications - DISABLED
-    // useEffect(() => { ... }, []);
-
-    // ✅ Smart Search Logic REMOVED
-    // useEffect(() => { ... }, []);
-
-    if (authLoading || loading) return (
-        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans">
-            {/* Mesh Gradient Background */}
-            <div className="fixed inset-0 z-0">
-                <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-amber-200/40 dark:bg-indigo-900/30 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob"></div>
-                <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-orange-200/40 dark:bg-purple-900/30 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob animation-delay-2000"></div>
-            </div>
-            <div className="relative z-10">
+    if (authLoading || loading) {
+        return (
+            <div className="min-h-screen bg-white dark:bg-slate-950 font-sans pb-20">
                 <Navbar />
-                <div className="max-w-7xl mx-auto px-6 md:px-12 pb-24 pt-40">
-                    <MyCoursesSkeleton />
+                <div className="flex flex-col items-center justify-center min-h-[60vh]">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+                    <p className="text-slate-500">กำลังโหลดข้อมูล...</p>
                 </div>
             </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans pb-20 transition-colors">
+            <Navbar />
+            <main className="container mx-auto px-4 py-8 pt-24 max-w-5xl">
+
+                {/* Header Section */}
+                <div className="mb-8 flex items-center justify-between">
+                    <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100">คอร์สเรียนของฉัน</h1>
+                </div>
+
+                <ProfileHeader profile={userProfile || user} />
+
+                <div className="h-8"></div>
+
+                <CourseList courses={courses} progressMap={progressMap} />
+            </main>
+            <Footer />
+        </div>
+    );
+}
+
+// --- Sub-components (Pure UI) ---
+
+function ProfileHeader({ profile }: { profile: any }) {
+    if (!profile) return null;
+    return (
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-6 animate-in slide-in-from-top-4 duration-500">
+            <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-4xl shadow-inner overflow-hidden">
+                {profile.avatar?.startsWith('http') ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                    <span className="select-none">{profile.displayName?.[0] || 'U'}</span>
+                )}
+            </div>
+            <div className="text-center md:text-left">
+                <div className="inline-block px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-bold mb-2">
+                    🎓 นักเรียนของ KruHeem
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-1">{profile.displayName || 'นักเรียน'}</h2>
+                <p className="text-slate-500 dark:text-slate-400">พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?</p>
+
+                {/* Edit Profile Link (Optional restoration) */}
+                <Link href="/profile" className="mt-3 text-xs font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 justify-center md:justify-start transition">
+                    <Settings size={14} /> แก้ไขข้อมูลส่วนตัว
+                </Link>
+            </div>
+        </div>
+    )
+}
+
+function CourseList({ courses, progressMap }: { courses: Course[], progressMap: Record<string, Progress> }) {
+    if (courses.length === 0) return (
+        <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400">
+            <div className="text-6xl mb-4">🎒</div>
+            <p className="text-lg font-medium mb-6">คุณยังไม่ได้ลงทะเบียนคอร์สเรียน</p>
+            <Link href="/" className="bg-indigo-600 text-white px-8 py-3 rounded-full font-bold hover:bg-indigo-700 transition shadow-lg">
+                ดูคอร์สทั้งหมด
+            </Link>
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-teal-200 selection:text-teal-900 flex flex-col overflow-x-hidden transition-colors">
-            {/* Dynamic Mesh Gradient Background (Warm Paper Theme) */}
-            <div className="fixed inset-0 z-0">
-                <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-amber-200/40 dark:bg-indigo-900/30 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob"></div>
-                <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-orange-200/40 dark:bg-purple-900/30 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob animation-delay-2000"></div>
-                <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-yellow-100/40 dark:bg-slate-800/40 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen animate-blob animation-delay-4000"></div>
-                <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.05] dark:opacity-[0.03] mix-blend-overlay pointer-events-none"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {courses.map(course => (
+                <CourseCard key={course.id} course={course} progress={progressMap[course.id]} />
+            ))}
+        </div>
+    )
+}
+
+function CourseCard({ course, progress }: { course: Course, progress?: Progress }) {
+    return (
+        <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group">
+            <div className="aspect-video bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4 overflow-hidden relative">
+                {course.image ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl text-slate-300">📘</div>
+                )}
+                {course.status !== 'approved' && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <span className="text-white text-xs font-bold px-2 py-1 bg-black/50 rounded-lg backdrop-blur-sm">
+                            {course.status === 'pending' ? 'รอตรวจสอบ' : course.status}
+                        </span>
+                    </div>
+                )}
             </div>
 
-            <div className="relative z-10 flex flex-col min-h-screen">
-                <Navbar />
+            <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-2 line-clamp-2 h-14">{course.title}</h3>
 
-                <ErrorBoundary>
-                    <div className="max-w-7xl mx-auto px-6 md:px-12 pb-24 pt-40 flex-grow w-full">
-
-                        {/* ✅ Welcome Message (Last Active) */}
-                        {welcomeMessage && (
-                            <div className={`mb-8 p-6 rounded-[2rem] border-2 flex items-center md:items-start gap-6 shadow-sm animate-in slide-in-from-top-4 duration-500 ${welcomeMessage.color}`}>
-                                <div className="text-5xl bg-white rounded-full w-20 h-20 flex items-center justify-center shadow-sm flex-shrink-0 border-4 border-white/50">
-                                    {welcomeMessage.icon}
-                                </div>
-                                <div className="flex-1">
-                                    <h3 className="font-black text-2xl mb-2 tracking-tight">{welcomeMessage.title}</h3>
-                                    <p className="font-medium opacity-90 leading-relaxed text-lg">{welcomeMessage.msg}</p>
-                                </div>
-                                <button
-                                    onClick={() => setWelcomeMessage(null)}
-                                    className="text-slate-400 hover:text-slate-600 p-2 hover:bg-white/50 rounded-full transition"
-                                >
-                                    <X size={24} />
-                                </button>
-                            </div>
-                        )}
-
-                        {/* 🏆 Gamification Section - Achievement Progress - REMOVED FOR OPTIMIZATION */}
-                        {/* {!gamificationLoading && gamificationData && badges.length > 0 && (
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                                <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-                                    <BadgeDisplay badges={badges} gamificationData={gamificationData} />
-                                    <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                                        <ProgressBar gamificationData={gamificationData} badges={badges} />
-                                    </div>
-                                </div>
-                                <div className="lg:col-span-1">
-                                    <WeeklyProgressChart
-                                        completedCourses={gamificationData.completedCourses}
-                                        totalCourses={gamificationData.totalCourses}
-                                    />
-                                </div>
-                            </div>
-                        )} */}
-
-                        {/* ✅ 4 Cards Grid Layout - SIMPLIFIED TO PROFILE ONLY */}
-                        <div className="mb-16">
-                            {/* Card 1: Student Profile (ALONE) */}
-                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden group flex flex-col justify-center max-w-2xl mx-auto">
-                                {/* ... Profile Content ... */}
-                                <div className="absolute top-0 right-0 w-40 h-40 bg-slate-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
-                                <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6">
-                                    <div className="relative flex-shrink-0">
-                                        <div className="w-28 h-28 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 p-1 shadow-lg transform group-hover:scale-105 transition-transform duration-500">
-                                            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden text-6xl">
-                                                {userProfile?.avatar ? (
-                                                    userProfile.avatar.startsWith("http") ? (
-                                                        /* eslint-disable-next-line @next/next/no-img-element */
-                                                        <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <span className="leading-none select-none">{userProfile.avatar}</span>
-                                                    )
-                                                ) : (
-                                                    <span className="leading-none select-none">{user?.displayName ? user.displayName[0] : "👦"}</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="text-center sm:text-left">
-                                        <div className="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold mb-2">
-                                            🎓 นักเรียนของ KruHeem
-                                        </div>
-                                        <h1 className="text-2xl font-black text-slate-800 mb-1">
-                                            {userProfile?.displayName || user?.displayName || "นักเรียน"}
-                                        </h1>
-                                        <p className="text-slate-500 text-sm">
-                                            พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?
-                                        </p>
-                                        <button
-                                            onClick={() => setShowProfileModal(true)}
-                                            className="mt-3 text-xs font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 justify-center sm:justify-start transition"
-                                        >
-                                            <Settings size={14} /> แก้ไขข้อมูลส่วนตัว
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ✅ Courses List */}
-                        {/* ✅ Maintenance Message (REPLACED Course List) */}
-                        <div className="bg-white rounded-[2.5rem] p-16 shadow-sm border border-slate-100 text-center flex flex-col items-center justify-center min-h-[400px]">
-                            <div className="w-24 h-24 bg-amber-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                            </div>
-                            <h1 className="text-3xl md:text-4xl font-black text-slate-800 mb-4">
-                                กำลังปรับปรุงเว็บไซต์
-                            </h1>
-                            <p className="text-lg text-slate-500 font-medium">
-                                (ขออภัยในความไม่สะดวก)
-                            </p>
-                            <p className="text-sm text-slate-400 mt-2">
-                                ทีมงานกำลังแก้ไขระบบเพื่อประสิทธิภาพที่ดีที่สุด
-                            </p>
-                        </div>
+            {progress && (course.status === 'approved') && (
+                <div className="mb-4 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <div className="flex justify-between text-xs font-bold text-slate-600 dark:text-slate-400 mb-2">
+                        <span>ความคืบหน้า</span>
+                        <span className="text-indigo-600 dark:text-indigo-400">{progress.percent}%</span>
                     </div>
+                    <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-1000 ease-out"
+                            style={{ width: `${progress.percent}%` }}
+                        ></div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 text-right mt-1">{progress.completed}/{progress.total} บทเรียน</p>
+                </div>
+            )}
 
-                    <Footer />
-                    <PollWidget />
-                </ErrorBoundary>
+            <div className="mt-auto pt-2">
+                {course.status === 'approved' ? (
+                    <Link
+                        href={`/learn/${course.id}`}
+                        className="block w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-center transition shadow-md shadow-indigo-200 dark:shadow-indigo-900/20"
+                    >
+                        {progress && progress.percent > 0 ? 'เรียนต่อ' : 'เริ่มเรียน'}
+                    </Link>
+                ) : (
+                    <button disabled className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 font-bold rounded-xl cursor-not-allowed">
+                        {course.status === 'pending' ? 'รออนุมัติ' : 'ไม่สามารถเข้าเรียนได้'}
+                    </button>
+                )}
+
             </div>
-
-            {/* ✅ Profile Edit Modal */}
-            {
-                showProfileModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowProfileModal(false)}></div>
-                        <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-lg relative z-10 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
-                            <button
-                                onClick={() => setShowProfileModal(false)}
-                                className="absolute top-6 right-6 w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition"
-                            >
-                                ✕
-                            </button>
-
-                            <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">สร้างอวตารของคุณ</h2>
-
-                            <div className="space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                                {/* Avatar Selection */}
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-3">เลือกตัวละครที่ชอบ</label>
-                                    <div className="space-y-6">
-                                        {Object.entries(AVATAR_CATEGORIES).map(([category, avatars]) => (
-                                            <div key={category}>
-                                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">{category}</h3>
-                                                <div className="grid grid-cols-5 gap-3">
-                                                    {avatars.map((avatar) => (
-                                                        <button
-                                                            key={avatar}
-                                                            onClick={() => setEditingAvatar(avatar)}
-                                                            className={`aspect-square rounded-2xl flex items-center justify-center text-3xl transition-all ${editingAvatar === avatar ? 'bg-indigo-100 border-2 border-indigo-500 scale-110 shadow-md' : 'bg-slate-50 hover:bg-slate-100 border border-transparent hover:scale-105'}`}
-                                                        >
-                                                            {avatar}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Name Input */}
-                                <div className="pt-4 border-t border-slate-100">
-                                    <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อเล่นของคุณ</label>
-                                    <input
-                                        type="text"
-                                        value={editingName}
-                                        onChange={(e) => setEditingName(e.target.value)}
-                                        className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none font-bold text-slate-700 text-center text-lg placeholder:font-normal"
-                                        placeholder="เช่น น้องภู, น้องมีนา"
-                                    />
-                                </div>
-
-                                <button
-                                    onClick={handleSaveProfile}
-                                    disabled={isSavingProfile}
-                                    className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xl shadow-lg hover:shadow-indigo-500/30 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-                                >
-                                    {isSavingProfile ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-            {/* ✅ Chat Modal (User Side) */}
-            {
-                selectedTicket && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedTicket(null)}></div>
-                        <div className="bg-white rounded-[2rem] w-full max-w-lg h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 relative z-10">
-                            {/* Modal Header */}
-                            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                                <div>
-                                    <h3 className="font-bold text-slate-800 truncate max-w-[200px]">{selectedTicket.subject}</h3>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${selectedTicket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'}`}>
-                                        {selectedTicket.status === 'resolved' ? 'แก้ไขแล้ว' : 'รอตรวจสอบ'}
-                                    </span>
-                                </div>
-                                <button onClick={() => setSelectedTicket(null)} className="p-2 hover:bg-slate-200 rounded-full transition">
-                                    <X size={20} className="text-slate-500" />
-                                </button>
-                            </div>
-
-                            {/* Chat Area */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 custom-scrollbar">
-                                {/* Original Ticket Message */}
-                                <div className="flex justify-end">
-                                    <div className="bg-indigo-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[85%] shadow-sm">
-                                        <p className="text-sm">{selectedTicket.message}</p>
-                                        {selectedTicket.attachmentUrl && (
-                                            <a href={selectedTicket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-indigo-200 bg-indigo-700/50 px-2 py-1 rounded-lg hover:bg-indigo-700 transition">
-                                                <Paperclip size={12} /> ไฟล์แนบ
-                                            </a>
-                                        )}
-                                        <span className="text-[10px] text-indigo-200 block mt-1 text-right">
-                                            {selectedTicket.createdAt?.toDate ? selectedTicket.createdAt.toDate().toLocaleString('th-TH') : 'เริ่มต้น'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Conversation */}
-                                {messages.map((msg) => (
-                                    <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        <div className={`p-3 rounded-2xl max-w-[85%] shadow-sm ${msg.sender === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-100 text-slate-700 rounded-tl-none'}`}>
-                                            <p className="text-sm">{msg.text}</p>
-                                            {msg.attachmentUrl && (
-                                                <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className={`mt-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg ${msg.sender === 'user' ? 'bg-indigo-700/50 text-indigo-100 hover:bg-indigo-700' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}>
-                                                    <Paperclip size={12} /> ไฟล์แนบ
-                                                </a>
-                                            )}
-                                            <div className={`flex items-center gap-1 mt-1 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                                <span className={`text-[10px] ${msg.sender === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                                    {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleString('th-TH') : 'เมื่อสักครู่'}
-                                                </span>
-                                                {msg.sender === 'user' && (
-                                                    <span className="text-[10px] ml-1 font-bold">
-                                                        {selectedTicket.lastAdminReadAt?.toDate && msg.createdAt?.toDate && selectedTicket.lastAdminReadAt.toDate() > msg.createdAt.toDate() ? (
-                                                            <span className="text-green-300">อ่านแล้ว</span>
-                                                        ) : (
-                                                            <span className="text-indigo-300">ยังไม่อ่าน</span>
-                                                        )}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Input Area (ENABLED) */}
-                            <form onSubmit={handleSendReply} className="p-4 bg-white border-t border-slate-100 flex gap-2 items-end">
-                                <label className="p-3 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer transition">
-                                    <Paperclip size={20} />
-                                    <input type="file" className="hidden" onChange={(e) => setReplyFile(e.target.files?.[0] || null)} />
-                                </label>
-                                <div className="flex-1 flex flex-col gap-2">
-                                    {replyFile && (
-                                        <div className="flex items-center justify-between bg-indigo-50 px-3 py-1 rounded-lg text-xs text-indigo-600">
-                                            <span className="truncate max-w-[200px]">{replyFile.name}</span>
-                                            <button type="button" onClick={() => setReplyFile(null)} className="hover:text-indigo-800"><X size={14} /></button>
-                                        </div>
-                                    )}
-                                    <input
-                                        type="text"
-                                        value={replyText}
-                                        onChange={(e) => setReplyText(e.target.value)}
-                                        placeholder="พิมพ์ข้อความ..."
-                                        className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none transition"
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    disabled={isSendingReply || (!replyText.trim() && !replyFile)}
-                                    className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-indigo-200"
-                                >
-                                    <Send size={20} />
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* ✅ Review Modal */}
-            {
-                showReviewModal && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowReviewModal(false)}></div>
-                        <div className="relative z-10 w-full max-w-lg animate-in fade-in zoom-in-95 duration-300">
-                            {/* We wrap ReviewForm and add a close button */}
-                            <div className="relative">
-                                <ReviewForm
-                                    courseId={reviewingCourse?.id}
-                                    courseName={reviewingCourse?.title}
-                                    initialCouponCode={reviewingCourse?.initialCouponCode}
-                                    isCouponUsed={reviewingCourse?.isCouponUsed}
-                                />
-                                <button
-                                    onClick={() => {
-                                        setShowReviewModal(false);
-                                        setReviewingCourse(null);
-                                    }}
-                                    className="absolute top-4 right-4 bg-white text-slate-800 w-10 h-10 rounded-full flex items-center justify-center transition shadow-lg hover:scale-110 active:scale-90 z-50 border-2 border-slate-100"
-                                >
-                                    <X size={24} strokeWidth={2.5} />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-        </div >
-    );
+        </div>
+    )
 }
