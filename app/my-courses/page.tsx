@@ -55,14 +55,32 @@ export default function MyCoursesPage() {
                 const enrollments = enrollSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
                 const enrolledCourseIds = new Set(enrollments.map(e => e.courseId));
 
-                // 3. Process Courses (Filter by Enrollment)
+                // 3. Process Courses (Logic: Admin vs Student)
                 const allCoursesData = coursesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
-                const myCourses = allCoursesData
-                    .filter(c => enrolledCourseIds.has(c.id))
-                    .map(c => {
+                const isAdmin = userProfile?.email === "kruheemmath@gmail.com" || user.email === "kruheemmath@gmail.com";
+
+                let myCourses: Course[];
+
+                if (isAdmin) {
+                    // Admin: Show ALL courses
+                    myCourses = allCoursesData.map(c => {
                         const enroll = enrollments.find(e => e.courseId === c.id);
-                        return { ...c, status: enroll?.status, expiryDate: enroll?.expiryDate };
+                        return {
+                            ...c,
+                            status: enroll?.status || 'approved', // Admin sees content as approved
+                            expiryDate: enroll?.expiryDate,
+                            isAdminView: true
+                        };
                     });
+                } else {
+                    // Student: Show only Enrolled courses
+                    myCourses = allCoursesData
+                        .filter(c => enrolledCourseIds.has(c.id))
+                        .map(c => {
+                            const enroll = enrollments.find(e => e.courseId === c.id);
+                            return { ...c, status: enroll?.status, expiryDate: enroll?.expiryDate };
+                        });
+                }
 
                 setCourses(myCourses);
 
@@ -117,8 +135,13 @@ export default function MyCoursesPage() {
             <main className="container mx-auto px-4 py-8 pt-24 max-w-5xl">
 
                 {/* Header Section */}
-                <div className="mb-8 flex items-center justify-between">
+                <div className="mb-8 flex items-center gap-4">
                     <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100">คอร์สเรียนของฉัน</h1>
+                    {(userProfile?.email === "kruheemmath@gmail.com" || user?.email === "kruheemmath@gmail.com") && (
+                        <span className="bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1 rounded-full border border-rose-200 animate-pulse">
+                            👁️ Admin View (See All)
+                        </span>
+                    )}
                 </div>
 
                 <ProfileHeader profile={userProfile || user} />
