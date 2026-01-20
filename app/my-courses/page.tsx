@@ -23,12 +23,10 @@ const LockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 2
 
 // Import shared hooks
 import { useDebounce } from "@/hooks/useDebounce";
-import { useGamification } from "@/hooks/useGamification";
-
-// Import gamification components
-import BadgeDisplay from "@/components/gamification/BadgeDisplay";
-import ProgressBar from "@/components/gamification/ProgressBar";
-import WeeklyProgressChart from "@/components/gamification/WeeklyProgressChart";
+// import { useGamification } from "@/hooks/useGamification"; // ❌ Removed for optimization
+// import BadgeDisplay from "@/components/gamification/BadgeDisplay"; // ❌ Removed for optimization
+// import ProgressBar from "@/components/gamification/ProgressBar"; // ❌ Removed for optimization
+// import WeeklyProgressChart from "@/components/gamification/WeeklyProgressChart"; // ❌ Removed for optimization
 
 export default function MyCoursesPage() {
     const { user, userProfile, isAdmin, updateProfile, loading: authLoading, daysSinceLastActive } = useUserAuth();
@@ -75,7 +73,7 @@ export default function MyCoursesPage() {
     const [courseProgress, setCourseProgress] = useState<Record<string, { completed: number; total: number; percent: number; lastLessonId?: string }>>({});
 
     // --- Gamification ---
-    const { gamificationData, badges, loading: gamificationLoading } = useGamification();
+    // const { gamificationData, badges, loading: gamificationLoading } = useGamification(); // ❌ Removed for optimization
 
     // ✅ Load settings from LocalStorage
     useEffect(() => {
@@ -603,18 +601,15 @@ export default function MyCoursesPage() {
                             </div>
                         )}
 
-                        {/* 🏆 Gamification Section - Achievement Progress */}
-                        {!gamificationLoading && gamificationData && badges.length > 0 && (
+                        {/* 🏆 Gamification Section - Achievement Progress - REMOVED FOR OPTIMIZATION */}
+                        {/* {!gamificationLoading && gamificationData && badges.length > 0 && (
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                                {/* Main Badges Section */}
                                 <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
                                     <BadgeDisplay badges={badges} gamificationData={gamificationData} />
                                     <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
                                         <ProgressBar gamificationData={gamificationData} badges={badges} />
                                     </div>
                                 </div>
-
-                                {/* Weekly Progress Chart */}
                                 <div className="lg:col-span-1">
                                     <WeeklyProgressChart
                                         completedCourses={gamificationData.completedCourses}
@@ -622,7 +617,7 @@ export default function MyCoursesPage() {
                                     />
                                 </div>
                             </div>
-                        )}
+                        )} */}
 
                         {/* ✅ 4 Cards Grid Layout */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
