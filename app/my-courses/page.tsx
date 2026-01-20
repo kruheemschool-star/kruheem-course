@@ -337,8 +337,7 @@ export default function MyCoursesPage() {
                     setLoading(false);
                 }
             };
-            fetchCoursesAndReviews();
-            // fetchUserTickets(); // DISABLED - User requested removal
+            // fetchCoursesAndReviews(); // DISABLED BY EMERGENCY MAINTENANCE
         }
     }, [user, authLoading, router]);
 
@@ -547,205 +546,23 @@ export default function MyCoursesPage() {
                         </div>
 
                         {/* ✅ Courses List */}
-                        <h1 className="text-3xl font-black text-slate-800 mb-8 flex items-center gap-3">
-                            📖 คอร์สเรียนของฉัน
-                        </h1>
-
-                        {/* รายชื่อคอร์ส (Grouped by Category) */}
-                        {enrolledCourses.length > 0 ? (
-                            <div className="space-y-12">
-                                {Object.entries(enrolledCourses.reduce((acc: Record<string, any[]>, course) => {
-                                    const cat = course.category || "คอร์สเรียนทั่วไป";
-                                    if (!acc[cat]) acc[cat] = [];
-                                    acc[cat].push(course);
-                                    return acc;
-                                }, {})).map(([category, courses]) => (
-                                    <div key={category} className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                        <h2 className="text-2xl font-bold text-slate-700 mb-6 flex items-center gap-3">
-                                            <span className="w-2 h-8 bg-indigo-500 rounded-full"></span>
-                                            {category}
-                                            <span className="text-sm font-normal text-slate-400 bg-slate-100 px-2 py-1 rounded-full">{courses.length} คอร์ส</span>
-                                        </h2>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                                            {courses.map((course) => (
-                                                <div key={course.id} className={`group bg-white rounded-[2.5rem] shadow-sm overflow-hidden transition-all duration-300 hover:-translate-y-2 flex flex-col ${course.status === 'pending' ? 'border-2 border-yellow-200' : 'hover:shadow-xl'}`}>
-
-                                                    <div className="aspect-video bg-slate-100 relative overflow-hidden">
-                                                        {course.image ? (
-                                                            /* eslint-disable-next-line @next/next/no-img-element */
-                                                            <img src={course.image} alt={course.title} className={`w-full h-full object-cover ${course.status !== 'approved' ? 'grayscale opacity-80' : ''}`} />
-                                                        ) : (
-                                                            <div className="w-full h-full flex items-center justify-center text-4xl">📘</div>
-                                                        )}
-
-                                                        {/* Badge สถานะ */}
-                                                        {course.status === 'pending' && (
-                                                            <div className="absolute inset-0 bg-black/10 flex items-center justify-center backdrop-blur-[2px]">
-                                                                <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full shadow-md animate-pulse">รอตรวจสอบ</span>
-                                                            </div>
-                                                        )}
-                                                        {course.status === 'suspended' && (
-                                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px]">
-                                                                <span className="bg-slate-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">พักการเรียน</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="p-6 flex flex-col flex-1">
-                                                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-2 line-clamp-2">{course.title}</h3>
-
-                                                        {/* Progress Bar */}
-                                                        {course.status === 'approved' && courseProgress[course.id] && (
-                                                            <div className="mb-3">
-                                                                <div className="flex justify-between items-center mb-1">
-                                                                    <span className="text-[10px] font-bold text-slate-500">ความคืบหน้า</span>
-                                                                    <span className={`text-[10px] font-bold ${courseProgress[course.id].percent === 100 ? 'text-emerald-600' : 'text-indigo-600'}`}>
-                                                                        {courseProgress[course.id].percent}%
-                                                                    </span>
-                                                                </div>
-                                                                <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                                                    <div
-                                                                        className={`h-full transition-all duration-700 ease-out rounded-full ${courseProgress[course.id].percent === 100 ? 'bg-gradient-to-r from-emerald-400 to-green-500' : 'bg-gradient-to-r from-indigo-400 to-purple-500'}`}
-                                                                        style={{ width: `${courseProgress[course.id].percent}%` }}
-                                                                    />
-                                                                </div>
-                                                                <p className="text-[9px] text-slate-400 mt-1 text-right">
-                                                                    {courseProgress[course.id].completed}/{courseProgress[course.id].total} บทเรียน
-                                                                </p>
-                                                            </div>
-                                                        )}
-
-                                                        <div className="mt-auto pt-4">
-                                                            {course.status === 'approved' ? (
-                                                                <>
-                                                                    {(() => {
-                                                                        if (course.accessType === 'lifetime') {
-                                                                            return (
-                                                                                <div className="mb-3 flex justify-center">
-                                                                                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 shadow-sm flex items-center gap-1">
-                                                                                        ♾️ เรียนได้ตลอดชีพ
-                                                                                    </span>
-                                                                                </div>
-                                                                            );
-                                                                        } else if (course.expiryDate) {
-                                                                            const now = new Date();
-                                                                            const expiry = course.expiryDate.toDate ? course.expiryDate.toDate() : new Date(course.expiryDate);
-                                                                            const diffTime = expiry.getTime() - now.getTime();
-                                                                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                                                                            if (diffDays <= 0) {
-                                                                                return (
-                                                                                    <div className="mb-3 flex justify-center">
-                                                                                        <span className="text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full border border-rose-100 flex items-center gap-1">
-                                                                                            🔒 หมดอายุแล้ว ({expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })})
-                                                                                        </span>
-                                                                                    </div>
-                                                                                );
-                                                                            } else {
-                                                                                return (
-                                                                                    <div className="mb-3 flex flex-col items-center gap-1">
-                                                                                        <span className={`text-xs font-bold px-3 py-1.5 rounded-full border shadow-sm flex items-center gap-1 ${diffDays < 30 ? 'text-orange-600 bg-orange-50 border-orange-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
-                                                                                            ⏳ เหลือเวลาเรียน {diffDays} วัน
-                                                                                        </span>
-                                                                                        <span className="text-[10px] text-slate-400 font-medium">
-                                                                                            หมดอายุ: {expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                );
-                                                                            }
-                                                                        }
-                                                                        return null;
-                                                                    })()}
-
-                                                                    {(() => {
-                                                                        const isExpired = course.expiryDate && course.accessType !== 'lifetime' && (course.expiryDate.toDate ? course.expiryDate.toDate() : new Date(course.expiryDate)) < new Date();
-
-                                                                        if (isExpired) {
-                                                                            return (
-                                                                                <button disabled className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold cursor-not-allowed flex items-center justify-center gap-2">
-                                                                                    🔒 หมดอายุการใช้งาน
-                                                                                </button>
-                                                                            );
-                                                                        }
-
-                                                                        return (
-                                                                            <div className="flex flex-col gap-2 w-full">
-                                                                                {courseProgress[course.id]?.percent > 0 && courseProgress[course.id]?.lastLessonId ? (
-                                                                                    <Link
-                                                                                        href={`/learn/${course.id}?lessonId=${courseProgress[course.id].lastLessonId}`}
-                                                                                        className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30"
-                                                                                    >
-                                                                                        <PlayIcon /> เรียนต่อจากที่ค้าง
-                                                                                    </Link>
-                                                                                ) : (
-                                                                                    <Link
-                                                                                        href={`/learn/${course.id}`}
-                                                                                        className="w-full py-3 rounded-xl bg-[#D9E9CF] hover:bg-[#C8DDBB] text-emerald-800 font-bold flex items-center justify-center gap-2 transition shadow-sm"
-                                                                                    >
-                                                                                        <PlayIcon /> {courseProgress[course.id]?.percent === 0 ? 'เริ่มเรียน' : 'เข้าเรียน'}
-                                                                                    </Link>
-                                                                                )}
-                                                                                {reviewedCourses[course.id] ? (
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            setReviewingCourse({
-                                                                                                ...course,
-                                                                                                initialCouponCode: reviewedCourses[course.id].couponCode,
-                                                                                                isCouponUsed: reviewedCourses[course.id].isCouponUsed
-                                                                                            });
-                                                                                            setShowReviewModal(true);
-                                                                                        }}
-                                                                                        className={`w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition shadow-sm border ${reviewedCourses[course.id].isCouponUsed
-                                                                                            ? "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
-                                                                                            : "bg-violet-100 text-violet-700 border-violet-200 hover:bg-violet-200"
-                                                                                            }`}
-                                                                                    >
-                                                                                        {reviewedCourses[course.id].isCouponUsed ? "✔️ ใช้โค้ดแล้ว" : "🎟️ ดูโค้ดส่วนลด"}
-                                                                                    </button>
-                                                                                ) : (
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            setReviewingCourse(course);
-                                                                                            setShowReviewModal(true);
-                                                                                        }}
-                                                                                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-100 to-orange-100 text-orange-800 font-bold text-sm flex items-center justify-center gap-2 hover:from-amber-200 hover:to-orange-200 transition shadow-sm border border-orange-200/50"
-                                                                                    >
-                                                                                        🎁 รีวิวรับคูปอง
-                                                                                    </button>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })()}
-                                                                </>
-                                                            ) : course.status === 'pending' ? (
-                                                                <Link
-                                                                    href={`/payment?courseId=${course.id}`}
-                                                                    className="w-full py-3 rounded-xl bg-yellow-100 hover:bg-yellow-200 text-yellow-700 font-bold flex items-center justify-center gap-2 transition border border-yellow-300 border-dashed"
-                                                                >
-                                                                    <EditIcon /> แจ้งโอนใหม่ / ติดต่อแอดมิน
-                                                                </Link>
-                                                            ) : (
-                                                                <button disabled className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold cursor-not-allowed flex items-center justify-center gap-2">
-                                                                    🔒 ไม่สามารถเข้าเรียนได้
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
+                        {/* ✅ Maintenance Message (REPLACED Course List) */}
+                        <div className="bg-white rounded-[2.5rem] p-16 shadow-sm border border-slate-100 text-center flex flex-col items-center justify-center min-h-[400px]">
+                            <div className="w-24 h-24 bg-amber-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
                             </div>
-                        ) : (
-                            <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-200 text-slate-400">
-                                <div className="text-6xl mb-4">🎒</div>
-                                <p className="text-lg font-medium mb-6">คุณยังไม่ได้ลงทะเบียนคอร์สเรียน</p>
-                                <Link href="/" className="bg-indigo-600 text-white px-8 py-3 rounded-full font-bold hover:bg-indigo-700 transition shadow-lg">
-                                    ดูคอร์สทั้งหมด
-                                </Link>
-                            </div>
-                        )}
+                            <h1 className="text-3xl md:text-4xl font-black text-slate-800 mb-4">
+                                กำลังปรับปรุงเว็บไซต์
+                            </h1>
+                            <p className="text-lg text-slate-500 font-medium">
+                                (ขออภัยในความไม่สะดวก)
+                            </p>
+                            <p className="text-sm text-slate-400 mt-2">
+                                ทีมงานกำลังแก้ไขระบบเพื่อประสิทธิภาพที่ดีที่สุด
+                            </p>
+                        </div>
                     </div>
 
                     <Footer />
