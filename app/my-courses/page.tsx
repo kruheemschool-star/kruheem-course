@@ -1,6 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, orderBy, limit, collectionGroup, addDoc, serverTimestamp, onSnapshot, updateDoc, doc, deleteDoc, getDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search as SearchIcon, Play as PlayIcon, Clock, Trash2, ArrowLeft, MessageSquare, Paperclip, Send, X, Settings } from 'lucide-react';
 import Navbar from "@/components/Navbar";
