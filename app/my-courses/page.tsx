@@ -338,6 +338,7 @@ export default function MyCoursesPage() {
                 }
             };
             // fetchCoursesAndReviews(); // DISABLED BY EMERGENCY MAINTENANCE
+            setLoading(false); // ✅ Force stop loading to show Maintenance UI
         }
     }, [user, authLoading, router]);
 
