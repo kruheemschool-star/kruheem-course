@@ -419,22 +419,22 @@ export default function MyCoursesPage() {
         let isMounted = true; // Guard to prevent state updates on unmounted component
 
         // 1. Listen to Messages
-        const qMessages = query(collection(db, "support_tickets", selectedTicket.id, "messages"), orderBy("createdAt", "asc"));
-        const unsubscribeMessages = onSnapshot(qMessages, (snapshot) => {
-            if (!isMounted) return;
-            const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setMessages(msgs);
-        });
+        // const qMessages = query(collection(db, "support_tickets", selectedTicket.id, "messages"), orderBy("createdAt", "asc"));
+        // const unsubscribeMessages = onSnapshot(qMessages, (snapshot) => {
+        //     if (!isMounted) return;
+        //     const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        //     setMessages(msgs);
+        // });
 
         // 2. Listen to Ticket Status (for Read Receipts)
-        const unsubscribeTicket = onSnapshot(doc(db, "support_tickets", selectedTicket.id), (docSnap) => {
-            if (!isMounted) return;
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                // Update selectedTicket with latest data (especially lastAdminReadAt)
-                setSelectedTicket((prev: any) => prev ? ({ ...prev, ...data }) : null);
-            }
-        });
+        // const unsubscribeTicket = onSnapshot(doc(db, "support_tickets", selectedTicket.id), (docSnap) => {
+        //     if (!isMounted) return;
+        //     if (docSnap.exists()) {
+        //         const data = docSnap.data();
+        //         // Update selectedTicket with latest data (especially lastAdminReadAt)
+        //         setSelectedTicket((prev: any) => prev ? ({ ...prev, ...data }) : null);
+        //     }
+        // });
 
         // 3. Mark as read by user (Initial open)
         updateDoc(doc(db, "support_tickets", selectedTicket.id), {
@@ -443,8 +443,8 @@ export default function MyCoursesPage() {
 
         return () => {
             isMounted = false;
-            unsubscribeMessages();
-            unsubscribeTicket();
+            // unsubscribeMessages();
+            // unsubscribeTicket();
         };
     }, [selectedTicket?.id]);
 

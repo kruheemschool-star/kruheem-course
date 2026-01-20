@@ -32,11 +32,13 @@ export default function Navbar() {
         if (!isAdmin) return;
 
         const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setPendingCount(snapshot.size);
-        });
+        // const unsubscribe = onSnapshot(q, (snapshot) => {
+        //     setPendingCount(snapshot.size);
+        // });
 
-        return () => unsubscribe();
+        return () => {
+            // unsubscribe();
+        };
     }, [isAdmin]);
 
     const handleLogin = () => {
