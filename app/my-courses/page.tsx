@@ -58,7 +58,7 @@ export default function MyCoursesPage() {
                 // 3. Process Courses (Logic: Admin vs Student)
                 const allCoursesData = coursesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
                 // Fix: properties on userProfile might need specific typing, but user.email (Auth) is sufficient and safer.
-                const isAdmin = user?.email === "kruheemmath@gmail.com";
+                const isAdmin = user?.email === "kruheemschool@gmail.com";
 
                 let myCourses: Course[];
 
@@ -138,7 +138,7 @@ export default function MyCoursesPage() {
                 {/* Header Section */}
                 <div className="mb-8 flex items-center gap-4">
                     <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100">คอร์สเรียนของฉัน</h1>
-                    {user?.email === "kruheemmath@gmail.com" && (
+                    {user?.email === "kruheemschool@gmail.com" && (
                         <span className="bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1 rounded-full border border-rose-200 animate-pulse">
                             👁️ Admin View (See All)
                         </span>
