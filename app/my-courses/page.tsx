@@ -17,7 +17,9 @@ interface Course {
     category?: string;
     status?: string; // from enrollment
     expiryDate?: any;
+    startedAt?: any; // Added
     totalLessons?: number;
+    isAdminView?: boolean;
 }
 
 interface Progress {
@@ -70,6 +72,7 @@ export default function MyCoursesPage() {
                             ...c,
                             status: enroll?.status || 'approved', // Admin sees content as approved
                             expiryDate: enroll?.expiryDate,
+                            startedAt: enroll?.createdAt, // Map enrollment date
                             isAdminView: true
                         };
                     });
@@ -79,7 +82,12 @@ export default function MyCoursesPage() {
                         .filter(c => enrolledCourseIds.has(c.id))
                         .map(c => {
                             const enroll = enrollments.find(e => e.courseId === c.id);
-                            return { ...c, status: enroll?.status, expiryDate: enroll?.expiryDate };
+                            return {
+                                ...c,
+                                status: enroll?.status,
+                                expiryDate: enroll?.expiryDate,
+                                startedAt: enroll?.createdAt // Map enrollment date
+                            };
                         });
                 }
 
