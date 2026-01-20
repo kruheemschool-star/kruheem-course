@@ -1,27 +1,66 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useUserAuth } from "@/context/AuthContext"; // Confirm path
-import { db, storage } from "@/lib/firebase"; // Confirm path matches lib/firebase.js
-import { doc, updateDoc, setDoc } from "firebase/firestore";
+import { useUserAuth } from "@/context/AuthContext";
+import { db, storage } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { ArrowLeft, Camera, Loader2, Save, User } from "lucide-react";
-import toast, { Toaster } from 'react-hot-toast'; // Optional: Use default alert if no toast library
+import toast, { Toaster } from 'react-hot-toast';
 
-// Default Avatar Presets (DiceBear)
-const AVATAR_PRESETS = [
-    "https://api.dicebear.com/7.x/notionists/svg?seed=Felix",
-    "https://api.dicebear.com/7.x/notionists/svg?seed=Aneka",
-    "https://api.dicebear.com/7.x/notionists/svg?seed=Zack",
-    "https://api.dicebear.com/7.x/notionists/svg?seed=Midnight",
-    "https://api.dicebear.com/7.x/notionists/svg?seed=Shadow",
-    "https://api.dicebear.com/7.x/notionists/svg?seed=Sky",
-    "https://api.dicebear.com/7.x/notionists/svg?seed=Lilac",
-    "https://api.dicebear.com/7.x/notionists/svg?seed=Sunset",
+// Avatar Collections with explicit cartoon styles
+const AVATAR_COLLECTIONS = {
+    boys: [
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Alex",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Brian",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Christopher",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=David",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Eric",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=George",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Harry",
+    ],
+    girls: [
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Anna",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Bella",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Catherine",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Diana",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Eliza",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Fiona",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Grace",
+        "https://api.dicebear.com/7.x/adventurer/svg?seed=Hannah",
+    ],
+    animals: [
+        "https://robohash.org/cat1?set=set4&bgset=bg1",
+        "https://robohash.org/cat2?set=set4&bgset=bg1",
+        "https://robohash.org/cat3?set=set4&bgset=bg1",
+        "https://robohash.org/cat4?set=set4&bgset=bg1",
+        "https://robohash.org/cat5?set=set4&bgset=bg1",
+        "https://robohash.org/cat6?set=set4&bgset=bg1",
+        "https://robohash.org/cat7?set=set4&bgset=bg1",
+        "https://robohash.org/cat8?set=set4&bgset=bg1",
+    ],
+    monsters: [
+        "https://robohash.org/monster1?set=set2&bgset=bg1",
+        "https://robohash.org/monster2?set=set2&bgset=bg1",
+        "https://robohash.org/monster3?set=set2&bgset=bg1",
+        "https://robohash.org/monster4?set=set2&bgset=bg1",
+        "https://robohash.org/monster5?set=set2&bgset=bg1",
+        "https://robohash.org/monster6?set=set2&bgset=bg1",
+        "https://robohash.org/monster7?set=set2&bgset=bg1",
+        "https://robohash.org/monster8?set=set2&bgset=bg1",
+    ]
+};
+
+const TABS = [
+    { id: 'boys', label: '👦 ผู้ชาย' },
+    { id: 'girls', label: '👧 ผู้หญิง' },
+    { id: 'animals', label: '🐱 สัตว์เลี้ยง' },
+    { id: 'monsters', label: '👾 สัตว์ประหลาด' },
 ];
 
 export default function ProfilePage() {
@@ -31,6 +70,7 @@ export default function ProfilePage() {
     const [avatar, setAvatar] = useState("");
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [activeTab, setActiveTab] = useState<'boys' | 'girls' | 'animals' | 'monsters'>('boys');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Load initial data
@@ -42,7 +82,8 @@ export default function ProfilePage() {
             if (parts.length > 0) setFirstName(parts[0]);
             if (parts.length > 1) setLastName(parts.slice(1).join(" "));
 
-            setAvatar(userProfile?.photoURL || user?.photoURL || AVATAR_PRESETS[0]);
+            // Set default avatar if none exists
+            setAvatar(userProfile?.photoURL || user?.photoURL || AVATAR_COLLECTIONS.boys[0]);
         }
     }, [user, userProfile]);
 
@@ -61,17 +102,16 @@ export default function ProfilePage() {
 
             // 2. Update Firestore User Document
             const userRef = doc(db, "users", user.uid);
-            // Merge true to avoid overwriting other fields like role/email
             await setDoc(userRef, {
                 displayName: fullName,
                 photoURL: avatar,
                 updatedAt: new Date()
             }, { merge: true });
 
-            alert("บันทึกข้อมูลสำเร็จ!"); // Simple alert for now
+            toast.success("บันทึกข้อมูลสำเร็จ!");
         } catch (error) {
             console.error("Error updating profile:", error);
-            alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+            toast.error("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
         } finally {
             setLoading(false);
         }
@@ -83,19 +123,14 @@ export default function ProfilePage() {
 
         setUploading(true);
         try {
-            // Create a reference
             const fileRef = ref(storage, `avatars/${user.uid}/${Date.now()}_${file.name}`);
-
-            // Upload
             await uploadBytes(fileRef, file);
-
-            // Get URL
             const url = await getDownloadURL(fileRef);
             setAvatar(url);
-
+            toast.success("อัปโหลดรูปภาพสำเร็จ!");
         } catch (error) {
             console.error("Upload error:", error);
-            alert("อัปโหลดรูปภาพไม่สำเร็จ");
+            toast.error("อัปโหลดรูปภาพไม่สำเร็จ");
         } finally {
             setUploading(false);
         }
@@ -104,8 +139,9 @@ export default function ProfilePage() {
     return (
         <div className="min-h-screen bg-slate-50 font-sans pb-20">
             <Navbar />
+            <Toaster />
 
-            <main className="container mx-auto px-4 py-8 pt-24 max-w-2xl">
+            <main className="container mx-auto px-4 py-8 pt-24 max-w-3xl">
 
                 {/* Back Button */}
                 <Link href="/my-courses" className="inline-flex items-center text-slate-500 hover:text-indigo-600 mb-6 transition">
@@ -122,10 +158,10 @@ export default function ProfilePage() {
                     <div className="mb-10">
                         <label className="block text-sm font-bold text-slate-700 mb-4">รูปโปรไฟล์</label>
 
-                        <div className="flex flex-col md:flex-row gap-8 items-start">
+                        <div className="flex flex-col lg:flex-row gap-8 items-start">
                             {/* Current Avatar + Upload */}
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner relative group">
+                            <div className="flex flex-col items-center gap-3 shrink-0 mx-auto lg:mx-0">
+                                <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner relative group bg-slate-50">
                                     {avatar ? (
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img src={avatar} alt="Profile" className="w-full h-full object-cover" />
@@ -142,9 +178,9 @@ export default function ProfilePage() {
                                 </div>
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-full transition flex items-center gap-1"
+                                    className="text-sm font-bold text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-full transition flex items-center gap-2 border border-indigo-100"
                                 >
-                                    <Camera size={14} /> อัปโหลดรูปเอง
+                                    <Camera size={16} /> อัปโหลดรูปเอง
                                 </button>
                                 <input
                                     type="file"
@@ -155,19 +191,33 @@ export default function ProfilePage() {
                                 />
                             </div>
 
-                            {/* Presets Grid */}
-                            <div className="flex-1">
-                                <p className="text-xs text-slate-400 mb-3">เลือกจากรูปที่เตรียมให้</p>
-                                <div className="grid grid-cols-4 gap-3">
-                                    {AVATAR_PRESETS.map((src, index) => (
+                            {/* Avatar Selector */}
+                            <div className="flex-1 w-full">
+                                <div className="flex flex-wrap gap-2 mb-4 border-b border-slate-100 pb-2">
+                                    {TABS.map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            onClick={() => setActiveTab(tab.id as any)}
+                                            className={`px-4 py-2 rounded-xl text-sm font-bold transition ${activeTab === tab.id
+                                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                    : 'bg-white text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                                                }`}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="grid grid-cols-4 sm:grid-cols-4 gap-3">
+                                    {AVATAR_COLLECTIONS[activeTab].map((src, index) => (
                                         <button
                                             key={index}
                                             onClick={() => setAvatar(src)}
-                                            className={`aspect-square rounded-xl overflow-hidden border-2 transition hover:scale-105 ${avatar === src ? "border-indigo-600 ring-2 ring-indigo-100" : "border-transparent hover:border-slate-200"
+                                            className={`aspect-square rounded-2xl overflow-hidden border-4 transition bg-slate-50 hover:-translate-y-1 ${avatar === src ? "border-indigo-600 ring-2 ring-indigo-200" : "border-transparent hover:border-slate-200"
                                                 }`}
                                         >
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={src} alt={`Preset ${index}`} className="w-full h-full object-cover bg-slate-50" />
+                                            <img src={src} alt="Avatar Preset" className="w-full h-full object-cover" />
                                         </button>
                                     ))}
                                 </div>
