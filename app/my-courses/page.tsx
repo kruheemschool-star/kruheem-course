@@ -185,7 +185,7 @@ export default function MyCoursesPage() {
             setSupportSubject("");
             setSupportMessage("");
             setSupportFile(null);
-            // fetchUserTickets(); // REFRESH DISABLED
+            fetchUserTickets(); // Refresh list
         } catch (error) {
             console.error("Error submitting ticket:", error);
             alert("เกิดข้อผิดพลาดในการส่งเรื่อง");
@@ -284,11 +284,23 @@ export default function MyCoursesPage() {
                     setEnrolledCourses(myCourses);
                     setAllCourses(coursesData);
 
-                    // 5. Fetch Lessons (Only for enrolled courses to save reads)
-                    const lessonsPromises = myCourses.map(async (course: any) => {
-                        // Only fetch if approved/enrolled to avoid wasting reads on pending/unowned courses
-                        if (course.status !== 'approved') return [];
+                    // 5. Fetch Lessons - DEPRECATED/REMOVED (Search Removed)
+                    // We no longer need to fetch ALL lessons for search.
+                    // If specific lessons are needed for progress, we might need a different strategy,
+                    // but for now, removing the global lesson fetch to save reads.
+                    setAllLessons([]);
 
+                    // 6. Fetch Progress for Enrolled Courses
+                    const progressMap: Record<string, { completed: number; total: number; percent: number; lastLessonId?: string }> = {};
+                    // Note: Progress calculation relied on 'lessons' array.
+                    // If we remove 'allLessons' fetch, we need another way to get total lessons count.
+                    // For now, let's just make a lightweight query for COUNTS if possible, or
+                    // if strictly removing search, we accept that we might need to fetch lessons per course
+                    // but ONLY for enrolled courses.
+
+                    // Resurrecting specific lesson fetch ONLY for enrolled courses for progress
+                    const lessonsPromises = myCourses.map(async (course: any) => {
+                        if (course.status !== 'approved') return [];
                         try {
                             const qLessons = query(collection(db, "courses", course.id, "lessons"));
                             const snap = await getDocs(qLessons);
@@ -297,18 +309,12 @@ export default function MyCoursesPage() {
                                 courseId: course.id,
                                 ...doc.data()
                             }));
-                        } catch (err) {
-                            console.error(`Error fetching lessons for ${course.id}:`, err);
-                            return [];
-                        }
+                        } catch (err) { return []; }
                     });
-
                     const lessonsArrays = await Promise.all(lessonsPromises);
                     const lessons = lessonsArrays.flat();
-                    setAllLessons(lessons);
+                    // setAllLessons(lessons); // Don't store all lessons in state if not searching
 
-                    // 6. Fetch Progress for Enrolled Courses
-                    const progressMap: Record<string, { completed: number; total: number; percent: number; lastLessonId?: string }> = {};
                     for (const course of myCourses) {
                         if (course.status === 'approved') {
                             const courseLessons = lessons.filter(l => l.courseId === course.id);
@@ -369,48 +375,48 @@ export default function MyCoursesPage() {
                 }
             };
             fetchCoursesAndReviews();
-            // fetchUserTickets(); // STILL DISABLED
+            fetchUserTickets(); // ✅ Enable Support
         }
     }, [user, authLoading, router]);
 
-    // const fetchUserTickets = async () => {
-    //     if (!user) return;
-    //     try {
-    //         const q = query(collection(db, "support_tickets"), where("userId", "==", user.uid));
-    //         const snapshot = await getDocs(q);
-    //         const tickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-    //         // Client-side sort to avoid index requirement
-    //         tickets.sort((a, b) => {
-    //             const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
-    //             const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
-    //             return dateB.getTime() - dateA.getTime();
-    //         });
-    //         setSupportTickets(tickets);
-    //         if (tickets.length === 0) {
-    //             setSupportViewMode('form');
-    //         } else {
-    //             setSupportViewMode('list');
-    //         }
-    //     } catch (error) {
-    //         console.error("Error fetching tickets:", error);
-    //     }
-    // };
+    const fetchUserTickets = async () => {
+        if (!user) return;
+        try {
+            const q = query(collection(db, "support_tickets"), where("userId", "==", user.uid));
+            const snapshot = await getDocs(q);
+            const tickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+            // Client-side sort
+            tickets.sort((a: any, b: any) => {
+                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+                return dateB.getTime() - dateA.getTime();
+            });
+            setSupportTickets(tickets);
+            if (tickets.length === 0) {
+                setSupportViewMode('form');
+            } else {
+                setSupportViewMode('list');
+            }
+        } catch (error) {
+            console.error("Error fetching tickets:", error);
+        }
+    };
 
-    // const handleDeleteTicket = async (e: React.MouseEvent, ticketId: string) => {
-    //     e.stopPropagation();
-    //     if (!confirm("คุณต้องการลบรายการแจ้งปัญหานี้ใช่หรือไม่?")) return;
+    const handleDeleteTicket = async (e: React.MouseEvent, ticketId: string) => {
+        e.stopPropagation();
+        if (!confirm("คุณต้องการลบรายการแจ้งปัญหานี้ใช่หรือไม่?")) return;
 
-    //     try {
-    //         await deleteDoc(doc(db, "support_tickets", ticketId));
-    //         // Note: Sub-collections (messages) are not automatically deleted in client SDK,
-    //         // but for UI purposes, removing the parent is enough.
-    //         // Ideally, use a Cloud Function for recursive delete.
-    //         setSupportTickets(prev => prev.filter(t => t.id !== ticketId));
-    //     } catch (error) {
-    //         console.error("Error deleting ticket:", error);
-    //         alert("เกิดข้อผิดพลาดในการลบรายการ");
-    //     }
-    // };
+        try {
+            await deleteDoc(doc(db, "support_tickets", ticketId));
+            // Note: Sub-collections (messages) are not automatically deleted in client SDK,
+            // but for UI purposes, removing the parent is enough.
+            // Ideally, use a Cloud Function for recursive delete.
+            setSupportTickets(prev => prev.filter(t => t.id !== ticketId));
+        } catch (error) {
+            console.error("Error deleting ticket:", error);
+            alert("เกิดข้อผิดพลาดในการลบรายการ");
+        }
+    };
 
     // Real-time listener for messages when a ticket is selected
     useEffect(() => {
@@ -448,34 +454,34 @@ export default function MyCoursesPage() {
         };
     }, [selectedTicket?.id]);
 
-    // const handleSendReply = async (e: React.FormEvent) => {
-    //     e.preventDefault();
-    //     if ((!replyText.trim() && !replyFile) || !selectedTicket) return;
+    const handleSendReply = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if ((!replyText.trim() && !replyFile) || !selectedTicket) return;
 
-    //     setIsSendingReply(true);
-    //     try {
-    //         let attachmentUrl = "";
-    //         if (replyFile) {
-    //             const storageRef = ref(storage, `support/user/${Date.now()}_${replyFile.name}`);
-    //             await uploadBytes(storageRef, replyFile);
-    //             attachmentUrl = await getDownloadURL(storageRef);
-    //         }
+        setIsSendingReply(true);
+        try {
+            let attachmentUrl = "";
+            if (replyFile) {
+                const storageRef = ref(storage, `support/user/${Date.now()}_${replyFile.name}`);
+                await uploadBytes(storageRef, replyFile);
+                attachmentUrl = await getDownloadURL(storageRef);
+            }
 
-    //         await addDoc(collection(db, "support_tickets", selectedTicket.id, "messages"), {
-    //             text: replyText,
-    //             attachmentUrl,
-    //             sender: "user",
-    //             createdAt: serverTimestamp()
-    //         });
-    //         setReplyText("");
-    //         setReplyFile(null);
-    //     } catch (error) {
-    //         console.error("Error sending reply:", error);
-    //         alert("ส่งข้อความไม่สำเร็จ");
-    //     } finally {
-    //         setIsSendingReply(false);
-    //     }
-    // };
+            await addDoc(collection(db, "support_tickets", selectedTicket.id, "messages"), {
+                text: replyText,
+                attachmentUrl,
+                sender: "user",
+                createdAt: serverTimestamp()
+            });
+            setReplyText("");
+            setReplyFile(null);
+        } catch (error) {
+            console.error("Error sending reply:", error);
+            alert("ส่งข้อความไม่สำเร็จ");
+        } finally {
+            setIsSendingReply(false);
+        }
+    };
 
     // ✅ Fetch Notifications
     useEffect(() => {
@@ -514,41 +520,8 @@ export default function MyCoursesPage() {
         fetchNotifications();
     }, [user?.uid, enrolledCourses]);
 
-    // ✅ Smart Search Logic (with Debounce)
-    useEffect(() => {
-        if (!debouncedSearchQuery.trim()) {
-            setSearchResults([]);
-            setIsSearching(false);
-            return;
-        }
-
-        setIsSearching(true);
-        const lowerQuery = debouncedSearchQuery.toLowerCase();
-
-        const results = allLessons.filter((lesson: any) => {
-            return lesson.title?.toLowerCase().includes(lowerQuery);
-        }).map((lesson: any) => {
-            const course = allCourses.find(c => c.id === lesson.courseId);
-            return {
-                type: 'lesson',
-                data: lesson,
-                course: course,
-                isEnrolled: course?.status === 'approved'
-            };
-        });
-
-        // Also search courses
-        const courseResults = allCourses.filter((course: any) => {
-            return course.title?.toLowerCase().includes(lowerQuery);
-        }).map((course: any) => ({
-            type: 'course',
-            data: null,
-            course: course,
-            isEnrolled: course.status === 'approved'
-        }));
-
-        setSearchResults([...courseResults, ...results]);
-    }, [debouncedSearchQuery, allLessons, allCourses]);
+    // ✅ Smart Search Logic REMOVED
+    // useEffect(() => { ... }, []);
 
     if (authLoading || loading) return (
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans">
@@ -657,56 +630,8 @@ export default function MyCoursesPage() {
                                 </div>
                             </div>
 
-                            {/* Card 2: Search */}
-                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-full">
-                                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                    <span className="bg-blue-100 text-blue-600 p-2 rounded-xl"><SearchIcon /></span>
-                                    ค้นหาบทเรียน
-                                </h2>
-                                <div className="relative flex-1">
-                                    <div className="relative h-full">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                                            <SearchIcon />
-                                        </div>
-                                        <input
-                                            type="text"
-                                            placeholder="พิมพ์คำค้นหา..."
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full h-full min-h-[56px] pl-12 pr-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 transition-all text-slate-700 font-medium placeholder:text-slate-400"
-                                        />
-                                    </div>
-
-                                    {/* Search Results Dropdown */}
-                                    {searchQuery && (
-                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[300px] overflow-y-auto custom-scrollbar z-50">
-                                            {searchResults.length > 0 ? (
-                                                <div className="divide-y divide-slate-50">
-                                                    {searchResults.map((result, index) => (
-                                                        <Link
-                                                            key={index}
-                                                            href={result.isEnrolled ? (result.type === 'lesson' ? `/learn/${result.course.id}?lessonId=${result.data.id}` : `/learn/${result.course.id}`) : `/course/${result.course.id}`}
-                                                            className="block p-3 hover:bg-indigo-50 transition"
-                                                        >
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${result.isEnrolled ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                                                                    {result.type === 'lesson' ? (result.data.type === 'video' ? <PlayIcon /> : '📄') : '📘'}
-                                                                </div>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <p className="font-bold text-slate-800 text-sm truncate">{result.type === 'lesson' ? result.data.title : result.course.title}</p>
-                                                                    <p className="text-xs text-slate-400 truncate">{result.course?.title}</p>
-                                                                </div>
-                                                            </div>
-                                                        </Link>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="p-4 text-center text-slate-400 text-sm">ไม่พบข้อมูล</div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                            {/* Card 2: Search REMOVED as requested */}
+                            {/* <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-full">...</div> */}
                             {/* Card 3: Notifications */}
                             <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800 h-full flex flex-col">
                                 <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
@@ -746,11 +671,113 @@ export default function MyCoursesPage() {
                                     )}
                                 </div>
                             </div>
-                            {/* Support (DISABLED) */}
-                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full opacity-50 pointer-events-none grayscale">
-                                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                    (Disabled for Test)
-                                </h2>
+                            {/* Support (ENABLED) */}
+                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full flex flex-col relative overflow-hidden">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                        <span className="bg-cyan-100 text-cyan-600 p-2 rounded-xl">💬</span>
+                                        พูดคุย / แจ้งปัญหา
+                                    </h2>
+                                    {supportViewMode === 'list' && supportTickets.length > 0 && (
+                                        <button
+                                            onClick={() => setSupportViewMode('form')}
+                                            className="text-xs font-bold text-cyan-600 bg-cyan-50 px-3 py-1.5 rounded-lg hover:bg-cyan-100 transition"
+                                        >
+                                            + เรื่องใหม่
+                                        </button>
+                                    )}
+                                </div>
+
+                                {supportViewMode === 'list' ? (
+                                    <div className="flex-1 flex flex-col">
+                                        {supportTickets.length > 0 ? (
+                                            <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[200px] space-y-3 pr-2 -mr-2">
+                                                {supportTickets.map(ticket => (
+                                                    <div
+                                                        key={ticket.id}
+                                                        onClick={() => setSelectedTicket(ticket)}
+                                                        className="bg-white border border-slate-100 p-4 rounded-2xl hover:border-cyan-200 hover:shadow-md transition cursor-pointer group relative overflow-hidden"
+                                                    >
+                                                        <div className="absolute top-0 left-0 w-1 h-full bg-slate-200 group-hover:bg-cyan-400 transition"></div>
+                                                        <div className="flex justify-between items-start mb-1 pl-2">
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ticket.status === 'resolved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                                                                {ticket.status === 'resolved' ? '✅ แก้ไขแล้ว' : '⏳ รอตรวจสอบ'}
+                                                            </span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                                                    <Clock size={10} />
+                                                                    {ticket.createdAt?.toDate ? ticket.createdAt.toDate().toLocaleDateString('th-TH') : '...'}
+                                                                </span>
+                                                                <button
+                                                                    onClick={(e) => handleDeleteTicket(e, ticket.id)}
+                                                                    className="text-slate-300 hover:text-rose-500 transition p-1 rounded-full hover:bg-rose-50"
+                                                                    title="ลบรายการ"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <p className="font-bold text-slate-700 text-sm truncate pl-2 group-hover:text-cyan-700 transition">{ticket.subject}</p>
+                                                        <p className="text-xs text-slate-500 truncate pl-2">{ticket.message}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 space-y-3">
+                                                <MessageSquare size={40} className="text-slate-200" />
+                                                <p className="text-sm">ยังไม่มีรายการแจ้งปัญหา</p>
+                                                <button
+                                                    onClick={() => setSupportViewMode('form')}
+                                                    className="px-4 py-2 bg-cyan-50 text-cyan-600 rounded-xl font-bold text-sm hover:bg-cyan-100 transition"
+                                                >
+                                                    แจ้งปัญหาเรื่องแรก
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handleSubmitSupport} className="flex-1 flex flex-col gap-3 animate-in fade-in slide-in-from-right-4 duration-200">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSupportViewMode('list')}
+                                                className="p-1 hover:bg-slate-100 rounded-lg transition text-slate-400"
+                                            >
+                                                <ArrowLeft size={18} />
+                                            </button>
+                                            <span className="text-sm font-bold text-slate-600">แจ้งปัญหาใหม่</span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="หัวข้อเรื่อง..."
+                                            className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm font-bold text-slate-700"
+                                            value={supportSubject}
+                                            onChange={e => setSupportSubject(e.target.value)}
+                                            required
+                                        />
+                                        <textarea
+                                            placeholder="รายละเอียด หรือคำถาม..."
+                                            className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 outline-none text-sm text-slate-700 resize-none flex-1 min-h-[80px]"
+                                            value={supportMessage}
+                                            onChange={e => setSupportMessage(e.target.value)}
+                                            required
+                                        ></textarea>
+                                        <div className="flex items-center gap-2">
+                                            <label className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 text-slate-500 text-xs cursor-pointer hover:bg-slate-100 transition truncate border border-transparent hover:border-slate-200">
+                                                <Paperclip size={14} />
+                                                <span className="truncate">{supportFile ? supportFile.name : "แนบไฟล์ (ถ้ามี)"}</span>
+                                                <input type="file" className="hidden" onChange={e => setSupportFile(e.target.files?.[0] || null)} />
+                                            </label>
+                                            <button
+                                                type="submit"
+                                                disabled={isSubmittingSupport}
+                                                className="px-6 py-2 rounded-xl bg-cyan-500 text-white font-bold text-sm hover:bg-cyan-600 transition shadow-md shadow-cyan-200 disabled:opacity-50"
+                                            >
+                                                {isSubmittingSupport ? '...' : 'ส่งเรื่อง'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
                             </div>
 
                         </div>
@@ -1090,10 +1117,35 @@ export default function MyCoursesPage() {
                                 ))}
                             </div>
 
-                            {/* Input Area (DISABLED) */}
-                            {/* <form onSubmit={handleSendReply} className="p-4 bg-white border-t border-slate-100 flex gap-2 items-end">
-                                ...
-                            </form> */}
+                            {/* Input Area (ENABLED) */}
+                            <form onSubmit={handleSendReply} className="p-4 bg-white border-t border-slate-100 flex gap-2 items-end">
+                                <label className="p-3 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer transition">
+                                    <Paperclip size={20} />
+                                    <input type="file" className="hidden" onChange={(e) => setReplyFile(e.target.files?.[0] || null)} />
+                                </label>
+                                <div className="flex-1 flex flex-col gap-2">
+                                    {replyFile && (
+                                        <div className="flex items-center justify-between bg-indigo-50 px-3 py-1 rounded-lg text-xs text-indigo-600">
+                                            <span className="truncate max-w-[200px]">{replyFile.name}</span>
+                                            <button type="button" onClick={() => setReplyFile(null)} className="hover:text-indigo-800"><X size={14} /></button>
+                                        </div>
+                                    )}
+                                    <input
+                                        type="text"
+                                        value={replyText}
+                                        onChange={(e) => setReplyText(e.target.value)}
+                                        placeholder="พิมพ์ข้อความ..."
+                                        className="w-full px-4 py-2 rounded-xl bg-slate-50 border-transparent focus:bg-white border focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={isSendingReply || (!replyText.trim() && !replyFile)}
+                                    className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-indigo-200"
+                                >
+                                    <Send size={20} />
+                                </button>
+                            </form>
                         </div>
                     </div>
                 )
