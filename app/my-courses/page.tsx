@@ -477,15 +477,42 @@ export default function MyCoursesPage() {
     //     }
     // };
 
-    // ✅ Fetch Notifications (DISABLED FOR TEST)
-    // useEffect(() => {
-    //     if (!user) return;
-    //
-    //     const fetchNotifications = async () => {
-    //        // ...
-    //     };
-    //     fetchNotifications();
-    // }, [user?.uid, enrolledCourses]);
+    // ✅ Fetch Notifications
+    useEffect(() => {
+        if (!user) return;
+
+        const fetchNotifications = async () => {
+            try {
+                // Fetch recent notifications
+                const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(20));
+                const snapshot = await getDocs(q);
+                const allNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+                // Filter relevant notifications
+                const courseIds = enrolledCourses.map(c => c.id);
+                const relevant = allNotifs.filter((n: any) => {
+                    // 1. ประกาศทั่วไป (All)
+                    if (n.target === 'all') return true;
+
+                    // 2. ประกาศเฉพาะคอร์ส (Specific Courses) - แบบใหม่
+                    if (n.target === 'specific_courses' && n.targetCourseIds) {
+                        return n.targetCourseIds.some((id: string) => courseIds.includes(id));
+                    }
+
+                    // 3. ประกาศบทเรียนใหม่ (Legacy / Single Course)
+                    if (n.target === 'enrolled_students' && n.courseId) {
+                        return courseIds.includes(n.courseId);
+                    }
+
+                    return false;
+                });
+                setNotifications(relevant);
+            } catch (error) {
+                console.error("Error fetching notifications:", error);
+            }
+        };
+        fetchNotifications();
+    }, [user?.uid, enrolledCourses]);
 
     // ✅ Smart Search Logic (with Debounce)
     useEffect(() => {
@@ -680,11 +707,44 @@ export default function MyCoursesPage() {
                                     )}
                                 </div>
                             </div>
-                            {/* Notifications (DISABLED) */}
-                            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full opacity-50 pointer-events-none grayscale">
-                                <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                    (Disabled for Test)
+                            {/* Card 3: Notifications */}
+                            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800 h-full flex flex-col">
+                                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                                    <span className="bg-amber-100 dark:bg-amber-900/40 text-amber-600 p-2 rounded-xl relative">
+                                        <BellIcon />
+                                        {/* Notification Badge */}
+                                        {notifications.filter(n => !dismissedIds.includes(n.id)).length > 0 && (
+                                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse shadow-lg">
+                                                {notifications.filter(n => !dismissedIds.includes(n.id)).length}
+                                            </span>
+                                        )}
+                                    </span>
+                                    ข่าวสารจากครูฮีม
                                 </h2>
+                                <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[300px] pr-2 space-y-3">
+                                    {notifications.length > 0 ? (
+                                        notifications
+                                            .filter(n => !dismissedIds.includes(n.id))
+                                            .map(notif => (
+                                                <div key={notif.id} className="relative group bg-slate-50 p-3 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white hover:shadow-sm transition">
+                                                    <div className="flex gap-3">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notif.type === 'general' ? 'bg-orange-100 text-orange-500' : 'bg-indigo-100 text-indigo-500'}`}>
+                                                            {notif.type === 'general' ? '📢' : '✨'}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-normal text-slate-700 leading-tight mb-1">{notif.type === 'general' ? notif.message : notif.lessonTitle}</p>
+                                                            <p className="text-xs text-slate-400">{notif.createdAt?.toDate ? notif.createdAt.toDate().toLocaleDateString('th-TH') : 'เมื่อเร็วๆ นี้'}</p>
+                                                        </div>
+                                                        <button onClick={(e) => handleDismiss(e, notif.id)} className="text-slate-300 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition">✕</button>
+                                                    </div>
+                                                </div>
+                                            ))
+                                    ) : (
+                                        <div className="text-center py-8 text-slate-400">
+                                            <p>ยังไม่มีประกาศใหม่</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             {/* Support (DISABLED) */}
                             <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 h-full opacity-50 pointer-events-none grayscale">
