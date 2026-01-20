@@ -9,6 +9,23 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { Settings } from "lucide-react"; // Re-import Settings for Edit Profile button
 
+// Helpers
+const formatDate = (date: any) => {
+    if (!date) return "-";
+    // Handle Firestore Timestamp
+    const d = date.toDate ? date.toDate() : new Date(date.seconds ? date.seconds * 1000 : date);
+    return d.toLocaleDateString("th-TH", { day: 'numeric', month: 'short', year: '2-digit' });
+};
+
+const getDaysRemaining = (expiryDate: any) => {
+    if (!expiryDate) return null;
+    const now = new Date();
+    const expiry = expiryDate.toDate ? expiryDate.toDate() : new Date(expiryDate.seconds ? expiryDate.seconds * 1000 : expiryDate);
+    const diffTime = expiry.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+};
+
 // Types
 interface Course {
     id: string;
@@ -82,11 +99,24 @@ export default function MyCoursesPage() {
                         .filter(c => enrolledCourseIds.has(c.id))
                         .map(c => {
                             const enroll = enrollments.find(e => e.courseId === c.id);
+
+                            // Logic: Default 5 Years expiry if not present
+                            let expiry = enroll?.expiryDate;
+                            let start = enroll?.createdAt;
+
+                            if (start && !expiry) {
+                                // Calculate 5 years from start
+                                const startDate = start.toDate ? start.toDate() : new Date(start.seconds * 1000);
+                                const expiryDate = new Date(startDate);
+                                expiryDate.setFullYear(expiryDate.getFullYear() + 5);
+                                expiry = expiryDate;
+                            }
+
                             return {
                                 ...c,
                                 status: enroll?.status,
-                                expiryDate: enroll?.expiryDate,
-                                startedAt: enroll?.createdAt // Map enrollment date
+                                expiryDate: expiry,
+                                startedAt: start
                             };
                         });
                 }
