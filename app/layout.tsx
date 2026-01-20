@@ -84,7 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthContextProvider>
             <VisitorTracker />
             {children}
-            <ChatWidget />
+            {/* <ChatWidget /> */}
           </AuthContextProvider>
         </ThemeProvider>
       </body>
