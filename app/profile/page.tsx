@@ -13,8 +13,13 @@ import { ArrowLeft, Camera, Loader2, Save, User } from "lucide-react";
 import toast, { Toaster } from 'react-hot-toast';
 
 // Helper to encode SVG to Base64 for safe usage
-const svgToDataUri = (emoji: string) =>
-    `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${emoji}</text></svg>`)}`;
+const svgToDataUri = (emoji: string) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${emoji}</text></svg>`;
+    const encoded = typeof window !== 'undefined'
+        ? window.btoa(unescape(encodeURIComponent(svg)))
+        : Buffer.from(svg).toString('base64');
+    return `data:image/svg+xml;base64,${encoded}`;
+};
 
 const AVATAR_COLLECTIONS = {
     boys: [
