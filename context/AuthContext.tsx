@@ -20,6 +20,7 @@ interface UserProfile {
     avatar?: string;
     role?: string;
     lastActive?: any;
+    caption?: string;
 }
 
 interface AuthContextType {
