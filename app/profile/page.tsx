@@ -35,14 +35,14 @@ const AVATAR_COLLECTIONS = {
         "https://api.dicebear.com/7.x/adventurer/svg?seed=Hannah",
     ],
     animals: [
-        "https://robohash.org/cat1?set=set4&bgset=bg1",
-        "https://robohash.org/cat2?set=set4&bgset=bg1",
-        "https://robohash.org/cat3?set=set4&bgset=bg1",
-        "https://robohash.org/cat4?set=set4&bgset=bg1",
-        "https://robohash.org/cat5?set=set4&bgset=bg1",
-        "https://robohash.org/cat6?set=set4&bgset=bg1",
-        "https://robohash.org/cat7?set=set4&bgset=bg1",
-        "https://robohash.org/cat8?set=set4&bgset=bg1",
+        `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐶</text></svg>`,
+        `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐱</text></svg>`,
+        `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐰</text></svg>`,
+        `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐻</text></svg>`,
+        `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐼</text></svg>`,
+        `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐨</text></svg>`,
+        `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🐔</text></svg>`,
+        `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🦆</text></svg>`,
     ],
     monsters: [
         "https://robohash.org/monster1?set=set2&bgset=bg1",
@@ -199,8 +199,8 @@ export default function ProfilePage() {
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id as any)}
                                             className={`px-4 py-2 rounded-xl text-sm font-bold transition ${activeTab === tab.id
-                                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                                    : 'bg-white text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                : 'bg-white text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200'
                                                 }`}
                                         >
                                             {tab.label}
