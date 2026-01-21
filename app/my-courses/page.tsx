@@ -21,6 +21,14 @@ const formatDate = (date: any) => {
     }
 };
 
+const getProgressColor = (percent: number) => {
+    if (percent === 100) return "bg-gradient-to-r from-yellow-400 to-amber-500";
+    if (percent >= 80) return "bg-gradient-to-r from-emerald-400 to-green-500";
+    if (percent >= 20) return "bg-gradient-to-r from-sky-400 to-indigo-500";
+    if (percent > 0) return "bg-gradient-to-r from-rose-500 to-orange-500";
+    return "bg-slate-300 dark:bg-slate-600"; // 0%
+};
+
 const getDaysRemaining = (expiryDate: any) => {
     if (!expiryDate) return null;
     try {
@@ -135,17 +143,36 @@ export default function MyCoursesPage() {
 
                 // 4. Process Progress (Map by Course ID)
                 const pMap: Record<string, Progress> = {};
+
+                // Initialize defaults for ALL enrolled courses
+                myCourses.forEach(c => {
+                    pMap[c.id] = {
+                        completed: 0,
+                        total: c.totalLessons || 0, // Will default to 0 if not set, handled in UI
+                        percent: 0
+                    };
+                });
+
+                // Overwrite with actual progress from Firestore
                 progressSnap.docs.forEach(doc => {
                     const data = doc.data();
                     const courseId = doc.id;
                     const completedCount = data.completed?.length || 0;
 
-                    // Best effort total: use course.totalLessons or fallback
-                    // We use 20 as a safe default if not defined, to prevent division by zero
-                    // Ideally, totalLessons should be in the course document
-                    const course = allCoursesData.find(c => c.id === courseId);
-                    const total = course?.totalLessons || 20;
-                    const percent = Math.round((completedCount / total) * 100);
+                    const course = myCourses.find(c => c.id === courseId);
+                    // Use stored totalLessons, or fallback to 0 (which means we should probably show '?' or something, but let's trust the admin fix)
+                    // If totalLessons is 0 or undefined, we might have an issue. 
+                    // But with the admin fix, it should be populated.
+                    // If it's truly 0, percent is 0.
+                    let total = course?.totalLessons || 0;
+
+                    // Fallback to "Standard" if missing (Temporary safety)
+                    if (total === 0) total = 20;
+
+                    let percent = 0;
+                    if (total > 0) {
+                        percent = Math.round((completedCount / total) * 100);
+                    }
 
                     pMap[courseId] = {
                         completed: completedCount,
@@ -236,6 +263,42 @@ function ProfileHeader({ profile }: { profile: any }) {
     )
 }
 
+// --- Sorting & Categorization Helpers ---
+
+const getCourseCategory = (title: string): 'primary' | 'junior' | 'senior' | 'other' => {
+    const t = title.toLowerCase();
+    if (t.match(/ป\.|ประถม|gifted|สอบเข้า ม\.1/)) return 'primary';
+    if (t.match(/ม\.1|ม\.2|ม\.3|เตรียมอุดม|mwit|สอบเข้า ม\.4/)) return 'junior';
+    if (t.match(/ม\.4|ม\.5|ม\.6|a-level|tgat|tpat|cal|แคล/)) return 'senior';
+    return 'other';
+};
+
+const getCourseWeight = (title: string): number => {
+    const t = title.toLowerCase();
+    // Primary
+    if (t.includes('ป.1')) return 11;
+    if (t.includes('ป.2')) return 12;
+    if (t.includes('ป.3')) return 13;
+    if (t.includes('ป.4')) return 14;
+    if (t.includes('ป.5')) return 15;
+    if (t.includes('ป.6')) return 16;
+    if (t.match(/gifted|สอบเข้า ม\.1/)) return 19;
+
+    // Junior
+    if (t.includes('ม.1')) return 21;
+    if (t.includes('ม.2')) return 22;
+    if (t.includes('ม.3')) return 23;
+    if (t.match(/เตรียมอุดม|mwit|สอบเข้า ม\.4/)) return 29;
+
+    // Senior
+    if (t.includes('ม.4')) return 41;
+    if (t.includes('ม.5')) return 42;
+    if (t.includes('ม.6')) return 43;
+    if (t.match(/a-level|tgat|tpat|net|entrance/)) return 49;
+
+    return 99; // Misc
+};
+
 function CourseList({ courses, progressMap }: { courses: Course[], progressMap: Record<string, Progress> }) {
     if (courses.length === 0) return (
         <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400">
@@ -247,13 +310,54 @@ function CourseList({ courses, progressMap }: { courses: Course[], progressMap: 
         </div>
     );
 
+    // Group & Sort Courses
+    const grouped = {
+        primary: [] as Course[],
+        junior: [] as Course[],
+        senior: [] as Course[],
+        other: [] as Course[]
+    };
+
+    courses.forEach(c => {
+        const cat = getCourseCategory(c.title);
+        grouped[cat].push(c);
+    });
+
+    // Sort function
+    const sorter = (a: Course, b: Course) => getCourseWeight(a.title) - getCourseWeight(b.title);
+
+    Object.values(grouped).forEach(list => list.sort(sorter));
+
+    const renderSection = (title: string, icon: string, list: Course[], colorClass: string) => {
+        if (list.length === 0) return null;
+        return (
+            <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className={`flex items-center gap-3 mb-6 pb-2 border-b-2 ${colorClass} border-opacity-20`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${colorClass.replace('border-', 'bg-').replace('-500', '-100')} ${colorClass.replace('border-', 'text-').replace('-500', '-600')}`}>
+                        {icon}
+                    </div>
+                    <h2 className="text-xl font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">{title}</h2>
+                    <span className="text-xs font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400">
+                        {list.length} คอร์ส
+                    </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {list.map(course => (
+                        <CourseCard key={course.id} course={course} progress={progressMap[course.id]} />
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map(course => (
-                <CourseCard key={course.id} course={course} progress={progressMap[course.id]} />
-            ))}
+        <div>
+            {renderSection("ระดับประถมศึกษา (Primary)", "🌱", grouped.primary, "border-emerald-500")}
+            {renderSection("ระดับมัธยมต้น (Junior High)", "🌿", grouped.junior, "border-cyan-500")}
+            {renderSection("ระดับมัธยมปลาย (Senior High)", "🌳", grouped.senior, "border-indigo-500")}
+            {renderSection("คอร์สอื่นๆ (General)", "📚", grouped.other, "border-slate-400")}
         </div>
-    )
+    );
 }
 
 function CourseCard({ course, progress }: { course: Course, progress?: Progress }) {
@@ -305,18 +409,39 @@ function CourseCard({ course, progress }: { course: Course, progress?: Progress 
             )}
 
             {progress && isApproved && (
-                <div className="mb-4 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
-                    <div className="flex justify-between text-xs font-bold text-slate-600 dark:text-slate-400 mb-2">
-                        <span>ความคืบหน้า</span>
-                        <span className="text-indigo-600 dark:text-indigo-400">{progress.percent}%</span>
+                <div className="mb-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-inner">
+                    <div className="flex justify-between items-end mb-2">
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                            เก็บเลเวลไปแล้ว <span className="text-indigo-600 dark:text-indigo-400 text-sm">{progress.completed}</span> / {progress.total} ด่าน
+                        </span>
+                        {progress.percent === 100 && (
+                            <span className="text-amber-500 animate-bounce">👑</span>
+                        )}
                     </div>
-                    <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner p-[2px]">
                         <div
-                            className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-1000 ease-out"
-                            style={{ width: `${progress.percent}%` }}
-                        ></div>
+                            className={`h-full rounded-full transition-all duration-1000 ease-out shadow-sm relative overflow-hidden group/bar ${getProgressColor(progress.percent)}`}
+                            style={{ width: `${progress.percent === 0 ? 5 : progress.percent}%`, opacity: progress.percent === 0 ? 0.5 : 1 }}
+                        >
+                            {/* Shine Effect */}
+                            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-white/30 to-transparent"></div>
+                            {progress.percent > 0 && (
+                                <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent group-hover/bar:animate-[shimmer_1.5s_infinite]"></div>
+                            )}
+                        </div>
                     </div>
-                    <p className="text-[10px] text-slate-400 text-right mt-1">{progress.completed}/{progress.total} บทเรียน</p>
+
+                    <div className="flex justify-between items-center mt-1">
+                        <span className="text-[10px] font-bold text-slate-400">Level {Math.floor(progress.percent / 20) + 1}</span>
+                        <span className={`text-xs font-black ${progress.percent === 100 ? 'text-amber-500' :
+                            progress.percent >= 80 ? 'text-emerald-500' :
+                                progress.percent === 0 ? 'text-slate-400' :
+                                    'text-indigo-600'
+                            }`}>
+                            {progress.percent}%
+                        </span>
+                    </div>
                 </div>
             )}
 

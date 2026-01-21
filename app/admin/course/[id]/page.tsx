@@ -306,6 +306,34 @@ export default function ManageLessonsPage() {
         }
     }, [courseId, lessons]);
 
+    // ✅ ฟังก์ชันคำนวณจำนวนบทเรียนทั้งหมดใหม่ (Recalculate Total Lessons)
+    const recalculateTotalLessons = async () => {
+        if (!courseId) return;
+        try {
+            // 1. Fetch all lessons
+            const q = query(collection(db, "courses", courseId, "lessons"));
+            const snapshot = await getDocs(q);
+
+            // 2. Count only valid lessons (exclude headers)
+            // Valid types: video, quiz, text, exercise, html, flashcard
+            const validDocs = snapshot.docs.filter(d => {
+                const data = d.data();
+                return data.type !== 'header';
+            });
+
+            const count = validDocs.length;
+
+            console.log(`Recalculate: Found ${snapshot.size} docs. Valid Lessons: ${count}.`);
+
+            // 3. Update Course Document
+            const courseRef = doc(db, "courses", courseId);
+            await updateDoc(courseRef, { totalLessons: count });
+
+        } catch (error) {
+            console.error("Error recalculating total lessons:", error);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'students') {
             fetchStudents();
@@ -1032,7 +1060,10 @@ export default function ManageLessonsPage() {
 
                 await addDoc(collection(db, "courses", courseId, "lessons"), { ...dataToSave, createdAt: new Date() });
 
-
+                // ✅ Recalculate Total
+                if (addType !== 'header') {
+                    await recalculateTotalLessons();
+                }
 
                 showToast("✅ เพิ่มข้อมูลสำเร็จ!");
             }
@@ -1044,6 +1075,10 @@ export default function ManageLessonsPage() {
     const handleDelete = async (lessonId: string) => {
         if (confirm("ต้องการลบรายการนี้ใช่ไหม?")) {
             await deleteDoc(doc(db, "courses", courseId, "lessons", lessonId));
+
+            // ✅ Recalculate Total
+            await recalculateTotalLessons();
+
             showToast("ลบเรียบร้อย");
             fetchCourseInfo();
         }
@@ -1091,6 +1126,10 @@ export default function ManageLessonsPage() {
             });
 
             await batch.commit();
+
+            // ✅ Recalculate Total
+            await recalculateTotalLessons();
+
             showToast(`✅ นำเข้า ${lines.length} ตอนไปยัง "${headerTitle}" สำเร็จ!`);
             setBulkImportText("");
             setBulkHeaderId("");
@@ -1138,6 +1177,9 @@ export default function ManageLessonsPage() {
                 await chunk.commit();
             }
 
+            // ✅ Recalculate Total (Reset to 0)
+            await updateDoc(doc(db, "courses", courseId), { totalLessons: 0 });
+
             showToast("🗑 ลบข้อมูลทั้งหมดเรียบร้อยแล้ว");
             fetchCourseInfo();
         } catch (error: any) {
@@ -1163,7 +1205,24 @@ export default function ManageLessonsPage() {
                     <Link href="/admin/courses" className="inline-flex items-center gap-2 text-indigo-500 hover:text-indigo-700 mb-4 transition font-bold bg-white px-4 py-2 rounded-full shadow-sm">← กลับไปหน้ารวมคอร์ส</Link>
                     <div className="flex items-center gap-4 mt-2">
                         <div className="w-14 h-14 bg-indigo-500 rounded-2xl shadow-lg shadow-indigo-200 flex items-center justify-center text-white"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg></div>
-                        <div><h1 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">จัดการบทเรียน</h1><h2 className="text-3xl font-extrabold text-indigo-900">{courseTitle}</h2></div>
+                        <div>
+                            <h1 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">จัดการบทเรียน</h1>
+                            <div className="flex items-center gap-4">
+                                <h2 className="text-3xl font-extrabold text-indigo-900">{courseTitle}</h2>
+                                <button
+                                    onClick={async () => {
+                                        setLoading(true);
+                                        await recalculateTotalLessons();
+                                        setLoading(false);
+                                        showToast("✅ คำนวณจำนวนบทเรียนใหม่เรียบร้อย!");
+                                    }}
+                                    className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-indigo-200"
+                                    title="กดปุ่มนี้ถ้ายอดรวมบทเรียนไม่ตรง"
+                                >
+                                    ↻ Recalculate Count
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

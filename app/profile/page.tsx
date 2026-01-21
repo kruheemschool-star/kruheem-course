@@ -18,14 +18,12 @@ const avatarAssets = {
     male: Array.from({ length: 20 }, (_, i) => `/avatars/male/boy_${i + 1}.png`),
     female: Array.from({ length: 20 }, (_, i) => `/avatars/female/girl_${i + 1}.png`),
     animal: Array.from({ length: 20 }, (_, i) => `/avatars/animals/animal_${i + 1}.svg`),
-    monster: Array.from({ length: 12 }, (_, i) => `/avatars/monster/monster_${i + 1}.png`),
 };
 
 const TABS = [
     { id: 'male', label: '👦 ผู้ชาย' },
     { id: 'female', label: '👧 ผู้หญิง' },
     { id: 'animal', label: '🦁 สัตว์เลี้ยง' },
-    { id: 'monster', label: '👾 สัตว์ประหลาด' },
 ];
 
 export default function ProfilePage() {
@@ -34,7 +32,7 @@ export default function ProfilePage() {
     const [avatar, setAvatar] = useState("");
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'male' | 'female' | 'animal' | 'monster'>('male');
+    const [activeTab, setActiveTab] = useState<'male' | 'female' | 'animal'>('male');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Load initial data
@@ -117,7 +115,7 @@ export default function ProfilePage() {
             <Navbar />
             <Toaster />
 
-            <main className="container mx-auto px-4 py-8 pt-24 max-w-3xl">
+            <main className="container mx-auto px-4 py-8 pt-24 max-w-6xl">
 
                 {/* Back Button */}
                 <Link href="/my-courses" className="inline-flex items-center text-slate-500 hover:text-indigo-600 mb-6 transition">
@@ -125,7 +123,7 @@ export default function ProfilePage() {
                     กลับไปหน้าคอร์สเรียน
                 </Link>
 
-                <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-8 min-h-screen pb-24 font-['Sarabun']">
+                <div className="mx-auto p-4 sm:p-6 space-y-8 min-h-screen pb-24 font-['Sarabun']">
                     <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                         แก้ไขข้อมูลส่วนตัว
                     </h1>
@@ -166,17 +164,17 @@ export default function ProfilePage() {
                     <div className="flex flex-col lg:flex-row gap-8 items-start">
 
                         {/* LEFT COLUMN: Preview & Upload (Sticky on Desktop) */}
-                        <div className="w-full lg:w-80 flex flex-col gap-6 lg:sticky lg:top-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-6 rounded-3xl border border-white/50 dark:border-slate-700/50 shadow-xl">
-                            <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <div className="w-full lg:w-80 flex flex-col gap-6 lg:sticky lg:top-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-6 rounded-3xl border border-white/50 dark:border-slate-700/50 shadow-xl text-center">
+                            <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center justify-center gap-2">
                                 <span className="text-2xl">📸</span> รูปโปรไฟล์
                             </h2>
 
-                            {/* Large Preview */}
+                            {/* Center Preview */}
                             <div className="relative group mx-auto">
-                                <div className="w-48 h-48 sm:w-64 sm:h-64 rounded-full overflow-hidden border-8 border-white dark:border-slate-700 shadow-2xl bg-slate-50 dark:bg-slate-900 transition-transform duration-500 hover:scale-105">
+                                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border-4 border-white dark:border-slate-700 shadow-xl bg-slate-50 dark:bg-slate-900 transition-transform duration-500 hover:scale-105">
                                     {avatar ? (
                                         // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={avatar} alt="Profile Preview" className="w-full h-full object-cover" />
+                                        <img src={avatar} alt="Profile Preview" className="w-full h-full object-contain p-2 bg-white dark:bg-slate-800" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-600">
                                             <User size={64} />
@@ -189,8 +187,8 @@ export default function ProfilePage() {
                                     )}
                                 </div>
                                 {/* Edit Badge overlay */}
-                                <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 bg-indigo-600 text-white p-3 rounded-full shadow-lg border-4 border-white dark:border-slate-800">
-                                    <Camera size={20} />
+                                <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-indigo-600 text-white p-2 rounded-full shadow-lg border-2 border-white dark:border-slate-800 hover:bg-indigo-700 transition cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                                    <Camera size={16} />
                                 </div>
                             </div>
 
@@ -206,31 +204,31 @@ export default function ProfilePage() {
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading}
-                                    className="w-full py-4 bg-slate-100 dark:bg-slate-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 rounded-2xl font-bold border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all flex items-center justify-center gap-2 group"
+                                    className="mx-auto px-6 py-3 bg-white dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 border border-slate-100 dark:border-slate-600"
                                 >
-                                    <Camera className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                                    <span>อัปโหลดรูปของคุณเอง</span>
+                                    <Camera className="w-4 h-4" />
+                                    <span>อัปโหลดรูปเอง</span>
                                 </button>
                             </div>
                         </div>
 
                         {/* RIGHT COLUMN: Selection Grid */}
                         <div className="flex-1 w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-xl border border-white/50 dark:border-slate-700/50">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                            <div className="flex flex-col items-center gap-6 mb-8">
                                 <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                    <span className="text-2xl">🎭</span> เลือกตัวละคร
+                                    <span className="text-2xl">🎭</span> เลือกรูปประจำตัว
                                 </h2>
 
-                                {/* Tabs */}
-                                <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1.5 rounded-full overflow-x-auto scrollbar-hide">
+                                {/* Tabs - Pill Style */}
+                                <div className="flex flex-wrap justify-center gap-3">
                                     {TABS.map((tab) => (
                                         <button
                                             key={tab.id}
                                             /* @ts-ignore */
                                             onClick={() => setActiveTab(tab.id as any)}
-                                            className={`px-4 py-2 rounded-full font-bold text-sm transition-all whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
-                                                ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm transform scale-105'
-                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                                            className={`px-6 py-3 rounded-full font-bold text-base transition-all shadow-sm hover:scale-105 active:scale-95 ${activeTab === tab.id
+                                                ? 'bg-indigo-600 text-white shadow-indigo-200'
+                                                : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200'
                                                 }`}
                                         >
                                             {tab.label}
@@ -239,33 +237,33 @@ export default function ProfilePage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                            {/* Grid - Sticker Shop Style */}
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
                                 {avatarAssets[activeTab].map((src, index) => (
                                     <button
                                         key={index}
                                         onClick={() => setAvatar(src)}
-                                        className={`group relative aspect-square rounded-3xl transition-all duration-300 ${avatar === src
-                                            ? "bg-indigo-50 dark:bg-indigo-900/30 ring-4 ring-indigo-200 dark:ring-indigo-500 scale-105 shadow-xl z-10"
-                                            : "bg-white dark:bg-slate-700 hover:scale-105 hover:shadow-xl hover:z-10 hover:-translate-y-1"
+                                        className={`group relative p-2 rounded-2xl transition-all duration-300 border-2 ${avatar === src
+                                            ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 shadow-md scale-105"
+                                            : "bg-white dark:bg-slate-700 border-transparent hover:border-indigo-200 hover:shadow-lg hover:-translate-y-1"
                                             }`}
                                     >
-                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={src}
-                                            alt={`Avatar ${index + 1}`}
-                                            className="w-full h-full object-contain p-2 drop-shadow-sm group-hover:drop-shadow-lg transition-all"
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = 'none';
-                                                e.currentTarget.parentElement!.style.backgroundColor = '#f1f5f9';
-                                            }}
-                                        />
+                                        <div className="aspect-square w-full flex items-center justify-center min-w-[80px]">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={src}
+                                                alt={`Avatar ${index + 1}`}
+                                                className="w-full h-full object-contain filter drop-shadow-sm group-hover:drop-shadow-md transition-all"
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                }}
+                                            />
+                                        </div>
 
                                         {avatar === src && (
                                             <div className="absolute top-2 right-2">
-                                                <div className="bg-indigo-600 text-white p-1.5 rounded-full shadow-lg transform scale-100 animate-in zoom-in">
-                                                    <Check className="w-3 h-3" />
+                                                <div className="bg-indigo-600 text-white p-1 rounded-full shadow-lg animate-in zoom-in">
+                                                    <Check className="w-2.5 h-2.5" />
                                                 </div>
                                             </div>
                                         )}
