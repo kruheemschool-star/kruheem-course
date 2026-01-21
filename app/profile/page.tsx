@@ -9,115 +9,42 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { ArrowLeft, Camera, Loader2, Save, User } from "lucide-react";
+import { User, Camera, Save, Loader2, Check, ArrowLeft } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 // Reliable Twemoji CDN for Animals
-const ANIMAL_URLS = [
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f436.svg", // Dog
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f431.svg", // Cat
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f430.svg", // Rabbit
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f439.svg", // Hamster
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f424.svg", // Chick
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f438.svg", // Frog
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f414.svg", // Chicken
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg", // Duck
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f985.svg", // Eagle
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f989.svg", // Owl
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f984.svg", // Unicorn
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f41d.svg", // Bee
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f41b.svg", // Bug
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f98b.svg", // Butterfly
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f40c.svg", // Snail
-    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f41e.svg", // Ladybug
-];
-
-const AVATAR_COLLECTIONS = {
-    boys: [
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&top=shortHair&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Ryan&top=shortHairTheCaesar&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jake&top=shortHairShortCurly&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Mason&top=shortHairShortFlat&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Liam&top=shortHairShortRound&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Noah&top=shortHairShortWaved&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Ethan&top=shortHairSides&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Oliver&top=shortHairTheCaesarSidePart&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=James&top=shortHairDreads01&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Lucas&top=shortHairFrizzle&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Henry&top=shortHairShaggyMullet&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&top=shortHair&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Seb&top=shortHairTheCaesar&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jacky&top=shortHairShortCurly&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Owen&top=shortHairShortFlat&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Theo&top=shortHairShortRound&facialHairProbability=0",
-    ],
-    girls: [
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Sophia",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Amelia",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Isabella",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Mia",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Charlotte",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Ava",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Harper",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Evelyn",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Abigail",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Emily",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Ella",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Elizabeth",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Camila",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Luna",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Sofia",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Avery",
-    ],
-    animals: ANIMAL_URLS,
-    monsters: [
-        "https://robohash.org/monst1?set=set2",
-        "https://robohash.org/monst2?set=set2",
-        "https://robohash.org/monst3?set=set2",
-        "https://robohash.org/monst4?set=set2",
-        "https://robohash.org/monst5?set=set2",
-        "https://robohash.org/monst6?set=set2",
-        "https://robohash.org/monst7?set=set2",
-        "https://robohash.org/monst8?set=set2",
-        "https://robohash.org/monst9?set=set2",
-        "https://robohash.org/monst10?set=set2",
-        "https://robohash.org/monst11?set=set2",
-        "https://robohash.org/monst12?set=set2",
-        "https://robohash.org/monst13?set=set2",
-        "https://robohash.org/monst14?set=set2",
-        "https://robohash.org/monst15?set=set2",
-        "https://robohash.org/monst16?set=set2",
-    ]
+// Local Avatar Assets
+const avatarAssets = {
+    male: Array.from({ length: 20 }, (_, i) => `/avatars/male/boy_${i + 1}.png`),
+    female: Array.from({ length: 20 }, (_, i) => `/avatars/female/girl_${i + 1}.png`),
+    animal: Array.from({ length: 20 }, (_, i) => `/avatars/animals/animal_${i + 1}.svg`),
+    monster: Array.from({ length: 12 }, (_, i) => `/avatars/monster/monster_${i + 1}.png`),
 };
 
 const TABS = [
-    { id: 'boys', label: '👦 ผู้ชาย' },
-    { id: 'girls', label: '👧 ผู้หญิง' },
-    { id: 'animals', label: '🐱 สัตว์เลี้ยง' },
-    { id: 'monsters', label: '👾 สัตว์ประหลาด' },
+    { id: 'male', label: '👦 ผู้ชาย' },
+    { id: 'female', label: '👧 ผู้หญิง' },
+    { id: 'animal', label: '🦁 สัตว์เลี้ยง' },
+    { id: 'monster', label: '👾 สัตว์ประหลาด' },
 ];
 
 export default function ProfilePage() {
-    const { user, userProfile } = useUserAuth();
+    const { user, userProfile, setUserProfile } = useUserAuth();
     const [firstName, setFirstName] = useState("");
-    const [lastName, setLastName] = useState("");
     const [avatar, setAvatar] = useState("");
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'boys' | 'girls' | 'animals' | 'monsters'>('boys');
+    const [activeTab, setActiveTab] = useState<'male' | 'female' | 'animal' | 'monster'>('male');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Load initial data
     useEffect(() => {
         if (userProfile || user) {
             const displayName = userProfile?.displayName || user?.displayName || "";
-            // Simple split logic (can be refined)
-            const parts = displayName.split(" ");
-            if (parts.length > 0) setFirstName(parts[0]);
-            if (parts.length > 1) setLastName(parts.slice(1).join(" "));
+            if (displayName) setFirstName(displayName);
 
             // Set default avatar if none exists
-            setAvatar(userProfile?.photoURL || user?.photoURL || AVATAR_COLLECTIONS.boys[0]);
+            setAvatar(userProfile?.avatar || user?.photoURL || avatarAssets.male[0]);
         }
     }, [user, userProfile]);
 
@@ -126,7 +53,12 @@ export default function ProfilePage() {
         setLoading(true);
 
         try {
-            const fullName = `${firstName.trim()} ${lastName.trim()}`;
+            const fullName = firstName.trim();
+            if (!fullName) {
+                toast.error("กรุณากรอกชื่อ");
+                setLoading(false);
+                return;
+            }
 
             // 1. Update Auth Profile
             await updateProfile(user, {
@@ -136,12 +68,21 @@ export default function ProfilePage() {
 
             // 2. Update Firestore User Document
             const userRef = doc(db, "users", user.uid);
-            await setDoc(userRef, {
+            const userUpdateData = {
                 displayName: fullName,
-                avatar: avatar, // FIX: Navbar checks 'avatar', not 'photoURL' from Firestore
-                photoURL: avatar, // Keep for compatibility
+                avatar: avatar,
+                photoURL: avatar,
                 updatedAt: new Date()
-            }, { merge: true });
+            };
+
+            await setDoc(userRef, userUpdateData, { merge: true });
+
+            // 3. IMMEDIATE UPDATE: Force global context to update for Navbar/Header
+            setUserProfile({
+                ...userProfile,
+                displayName: fullName,
+                avatar: avatar
+            });
 
             toast.success("บันทึกข้อมูลสำเร็จ!");
         } catch (error) {
@@ -184,118 +125,155 @@ export default function ProfilePage() {
                     กลับไปหน้าคอร์สเรียน
                 </Link>
 
-                <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
-                    <h1 className="text-2xl font-bold text-slate-800 mb-8 border-b pb-4 border-slate-100">
+                <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-8 min-h-screen pb-24 font-['Sarabun']">
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                         แก้ไขข้อมูลส่วนตัว
                     </h1>
 
-                    {/* Avatar Section */}
-                    <div className="mb-10">
-                        <label className="block text-sm font-bold text-slate-700 mb-4">รูปโปรไฟล์</label>
+                    {/* Top Section: Name Input & Save Button */}
+                    <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-xl border border-white/50 dark:border-slate-700/50">
+                        <div className="flex flex-col sm:flex-row gap-4 items-end sm:items-center">
+                            <div className="flex-1 w-full">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    ชื่อแสดงผล (Display Name)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={firstName}
+                                    onChange={(e) => setFirstName(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-lg"
+                                    placeholder="กรอกชื่อของคุณ"
+                                />
+                            </div>
+                            <button
+                                onClick={handleSave}
+                                disabled={loading}
+                                className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed h-[52px] flex items-center justify-center whitespace-nowrap"
+                            >
+                                {loading ? (
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <>
+                                        <Save className="w-5 h-5 mr-2" />
+                                        บันทึกการเปลี่ยนแปลง
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
 
-                        <div className="flex flex-col lg:flex-row gap-8 items-start">
-                            {/* Current Avatar + Upload */}
-                            <div className="flex flex-col items-center gap-3 shrink-0 mx-auto lg:mx-0">
-                                <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner relative group bg-slate-50">
+                    {/* Main Content Area: 2-Column Layout */}
+                    <div className="flex flex-col lg:flex-row gap-8 items-start">
+
+                        {/* LEFT COLUMN: Preview & Upload (Sticky on Desktop) */}
+                        <div className="w-full lg:w-80 flex flex-col gap-6 lg:sticky lg:top-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-6 rounded-3xl border border-white/50 dark:border-slate-700/50 shadow-xl">
+                            <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                <span className="text-2xl">📸</span> รูปโปรไฟล์
+                            </h2>
+
+                            {/* Large Preview */}
+                            <div className="relative group mx-auto">
+                                <div className="w-48 h-48 sm:w-64 sm:h-64 rounded-full overflow-hidden border-8 border-white dark:border-slate-700 shadow-2xl bg-slate-50 dark:bg-slate-900 transition-transform duration-500 hover:scale-105">
                                     {avatar ? (
                                         // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={avatar} alt="Profile" className="w-full h-full object-cover" />
+                                        <img src={avatar} alt="Profile Preview" className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full bg-slate-100 flex items-center justify-center text-slate-300">
-                                            <User size={48} />
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-600">
+                                            <User size={64} />
                                         </div>
                                     )}
                                     {uploading && (
-                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                            <Loader2 className="animate-spin text-white" />
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
+                                            <Loader2 className="w-10 h-10 animate-spin text-white" />
                                         </div>
                                     )}
                                 </div>
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="text-sm font-bold text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-full transition flex items-center gap-2 border border-indigo-100"
-                                >
-                                    <Camera size={16} /> อัปโหลดรูปเอง
-                                </button>
+                                {/* Edit Badge overlay */}
+                                <div className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 bg-indigo-600 text-white p-3 rounded-full shadow-lg border-4 border-white dark:border-slate-800">
+                                    <Camera size={20} />
+                                </div>
+                            </div>
+
+                            {/* Upload Button */}
+                            <div className="relative">
                                 <input
                                     type="file"
                                     ref={fileInputRef}
-                                    className="hidden"
-                                    accept="image/*"
                                     onChange={handleFileUpload}
+                                    accept="image/*"
+                                    className="hidden"
                                 />
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                    className="w-full py-4 bg-slate-100 dark:bg-slate-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-slate-700 dark:text-slate-200 rounded-2xl font-bold border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all flex items-center justify-center gap-2 group"
+                                >
+                                    <Camera className="w-5 h-5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                                    <span>อัปโหลดรูปของคุณเอง</span>
+                                </button>
                             </div>
+                        </div>
 
-                            {/* Avatar Selector */}
-                            <div className="flex-1 w-full">
-                                <div className="flex flex-wrap gap-2 mb-4 border-b border-slate-100 pb-2">
+                        {/* RIGHT COLUMN: Selection Grid */}
+                        <div className="flex-1 w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-xl border border-white/50 dark:border-slate-700/50">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                                <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                    <span className="text-2xl">🎭</span> เลือกตัวละคร
+                                </h2>
+
+                                {/* Tabs */}
+                                <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1.5 rounded-full overflow-x-auto scrollbar-hide">
                                     {TABS.map((tab) => (
                                         <button
                                             key={tab.id}
+                                            /* @ts-ignore */
                                             onClick={() => setActiveTab(tab.id as any)}
-                                            className={`px-4 py-2 rounded-xl text-sm font-bold transition ${activeTab === tab.id
-                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                                : 'bg-white text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                                            className={`px-4 py-2 rounded-full font-bold text-sm transition-all whitespace-nowrap flex-shrink-0 ${activeTab === tab.id
+                                                ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm transform scale-105'
+                                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                                                 }`}
                                         >
                                             {tab.label}
                                         </button>
                                     ))}
                                 </div>
+                            </div>
 
-                                <div className="grid grid-cols-4 sm:grid-cols-4 gap-3">
-                                    {AVATAR_COLLECTIONS[activeTab].map((src, index) => (
-                                        <button
-                                            key={index}
-                                            onClick={() => setAvatar(src)}
-                                            className={`aspect-square rounded-2xl overflow-hidden border-4 transition bg-slate-50 hover:-translate-y-1 ${avatar === src ? "border-indigo-600 ring-2 ring-indigo-200" : "border-transparent hover:border-slate-200"
-                                                }`}
-                                        >
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={src} alt="Avatar Preset" className="w-full h-full object-cover" />
-                                        </button>
-                                    ))}
-                                </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                                {avatarAssets[activeTab].map((src, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => setAvatar(src)}
+                                        className={`group relative aspect-square rounded-3xl transition-all duration-300 ${avatar === src
+                                            ? "bg-indigo-50 dark:bg-indigo-900/30 ring-4 ring-indigo-200 dark:ring-indigo-500 scale-105 shadow-xl z-10"
+                                            : "bg-white dark:bg-slate-700 hover:scale-105 hover:shadow-xl hover:z-10 hover:-translate-y-1"
+                                            }`}
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={src}
+                                            alt={`Avatar ${index + 1}`}
+                                            className="w-full h-full object-contain p-2 drop-shadow-sm group-hover:drop-shadow-lg transition-all"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                                e.currentTarget.parentElement!.style.backgroundColor = '#f1f5f9';
+                                            }}
+                                        />
+
+                                        {avatar === src && (
+                                            <div className="absolute top-2 right-2">
+                                                <div className="bg-indigo-600 text-white p-1.5 rounded-full shadow-lg transform scale-100 animate-in zoom-in">
+                                                    <Check className="w-3 h-3" />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     </div>
-
-                    {/* Name Section */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">ชื่อจริง</label>
-                            <input
-                                type="text"
-                                value={firstName}
-                                onChange={(e) => setFirstName(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition bg-slate-50 focus:bg-white"
-                                placeholder="เช่น สมชาย"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-2">นามสกุล</label>
-                            <input
-                                type="text"
-                                value={lastName}
-                                onChange={(e) => setLastName(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none transition bg-slate-50 focus:bg-white"
-                                placeholder="เช่น รักเรียน"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Save Button */}
-                    <div className="flex justify-end pt-6 border-t border-slate-100">
-                        <button
-                            onClick={handleSave}
-                            disabled={loading || uploading}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-3 rounded-xl flex items-center gap-2 transition hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? <Loader2 className="animate-spin" /> : <Save size={20} />}
-                            บันทึกการเปลี่ยนแปลง
-                        </button>
-                    </div>
-
                 </div>
             </main>
             <Footer />

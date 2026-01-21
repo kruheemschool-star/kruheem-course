@@ -25,6 +25,7 @@ interface UserProfile {
 interface AuthContextType {
     user: User | null;
     userProfile: UserProfile | null;
+    setUserProfile: (profile: UserProfile | null) => void; // Added setter
     isAdmin: boolean;
     loading: boolean;
     daysSinceLastActive: number | null;
@@ -198,7 +199,20 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     }, [user]);
 
     return (
-        <AuthContext.Provider value={{ user, userProfile, isAdmin, loading, daysSinceLastActive, googleSignIn, emailSignIn, emailSignUp, resetPassword, logOut, updateProfile }}>
+        <AuthContext.Provider value={{
+            user,
+            userProfile,
+            setUserProfile, // Expose setter for immediate updates
+            isAdmin,
+            loading,
+            daysSinceLastActive,
+            googleSignIn,
+            emailSignIn,
+            emailSignUp,
+            resetPassword,
+            logOut,
+            updateProfile
+        }}>
             {children}
         </AuthContext.Provider>
     );

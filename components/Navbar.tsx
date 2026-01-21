@@ -118,19 +118,18 @@ export default function Navbar() {
                         {/* User Profile Badge */}
                         <div className="hidden xl:flex items-center gap-2 pl-1 pr-3 py-1 bg-white/50 border border-white/60 rounded-full backdrop-blur-sm hover:-translate-y-0.5 transition-transform duration-300">
                             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs shadow-sm overflow-hidden">
-                                {userProfile?.avatar ? (
-                                    userProfile.avatar.startsWith("http") ? (
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs shadow-sm overflow-hidden">
+                                    {userProfile?.avatar || user.photoURL ? (
                                         /* eslint-disable-next-line @next/next/no-img-element */
-                                        <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                                        <img
+                                            src={userProfile?.avatar || user.photoURL || ''}
+                                            alt="Profile"
+                                            className="w-full h-full object-cover"
+                                        />
                                     ) : (
-                                        <span className="text-lg leading-none">{userProfile.avatar}</span>
-                                    )
-                                ) : user.photoURL ? (
-                                    /* eslint-disable-next-line @next/next/no-img-element */
-                                    <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                                ) : (
-                                    <span>{user.displayName ? user.displayName[0].toUpperCase() : user.email?.[0].toUpperCase()}</span>
-                                )}
+                                        <span>{user.displayName ? user.displayName[0].toUpperCase() : user.email?.[0].toUpperCase()}</span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex flex-col leading-none">
                                 <span className="text-xs font-bold text-slate-800 max-w-[80px] truncate mb-0.5">

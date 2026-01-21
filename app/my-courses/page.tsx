@@ -12,18 +12,28 @@ import { Settings } from "lucide-react"; // Re-import Settings for Edit Profile 
 // Helpers
 const formatDate = (date: any) => {
     if (!date) return "-";
-    // Handle Firestore Timestamp
-    const d = date.toDate ? date.toDate() : new Date(date.seconds ? date.seconds * 1000 : date);
-    return d.toLocaleDateString("th-TH", { day: 'numeric', month: 'short', year: '2-digit' });
+    try {
+        const d = date.toDate ? date.toDate() : new Date(date.seconds ? date.seconds * 1000 : date);
+        if (isNaN(d.getTime())) return "-";
+        return d.toLocaleDateString("th-TH", { day: 'numeric', month: 'short', year: '2-digit' });
+    } catch (e) {
+        return "-";
+    }
 };
 
 const getDaysRemaining = (expiryDate: any) => {
     if (!expiryDate) return null;
-    const now = new Date();
-    const expiry = expiryDate.toDate ? expiryDate.toDate() : new Date(expiryDate.seconds ? expiryDate.seconds * 1000 : expiryDate);
-    const diffTime = expiry.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    try {
+        const now = new Date();
+        const expiry = expiryDate.toDate ? expiryDate.toDate() : new Date(expiryDate.seconds ? expiryDate.seconds * 1000 : expiryDate);
+        if (isNaN(expiry.getTime())) return null;
+
+        const diffTime = expiry.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    } catch (e) {
+        return null;
+    }
 };
 
 // Types
@@ -201,12 +211,14 @@ function ProfileHeader({ profile }: { profile: any }) {
     return (
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-6 animate-in slide-in-from-top-4 duration-500">
             <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-4xl shadow-inner overflow-hidden">
-                {profile.avatar?.startsWith('http') ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                    <span className="select-none">{profile.displayName?.[0] || 'U'}</span>
-                )}
+                <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-4xl shadow-inner overflow-hidden">
+                    {profile.avatar || profile.photoURL ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={profile.avatar || profile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                        <span className="select-none">{profile.displayName?.[0] || 'U'}</span>
+                    )}
+                </div>
             </div>
             <div className="text-center md:text-left">
                 <div className="inline-block px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-bold mb-2">
@@ -245,8 +257,14 @@ function CourseList({ courses, progressMap }: { courses: Course[], progressMap: 
 }
 
 function CourseCard({ course, progress }: { course: Course, progress?: Progress }) {
+    const daysRemaining = getDaysRemaining(course.expiryDate);
+    const isExpired = daysRemaining !== null && daysRemaining <= 0;
+
+    // Status Logic
+    const isApproved = course.status === 'approved';
+
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group">
+        <div className={`bg-white dark:bg-slate-900 rounded-[1.5rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group ${isExpired ? 'opacity-75 grayscale-[0.5]' : ''}`}>
             <div className="aspect-video bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4 overflow-hidden relative">
                 {course.image ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
@@ -254,18 +272,39 @@ function CourseCard({ course, progress }: { course: Course, progress?: Progress 
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-4xl text-slate-300">📘</div>
                 )}
-                {course.status !== 'approved' && (
+
+                {/* Status Overlays */}
+                {!isApproved && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                         <span className="text-white text-xs font-bold px-2 py-1 bg-black/50 rounded-lg backdrop-blur-sm">
                             {course.status === 'pending' ? 'รอตรวจสอบ' : course.status}
                         </span>
                     </div>
                 )}
+
+                {/* Expiry Badge */}
+                {isApproved && daysRemaining !== null && (
+                    <div className="absolute top-2 right-2">
+                        <ValidityBadge days={daysRemaining} />
+                    </div>
+                )}
             </div>
 
             <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-2 line-clamp-2 h-14">{course.title}</h3>
 
-            {progress && (course.status === 'approved') && (
+            {/* Course Period Info */}
+            {isApproved && (
+                <div className="mb-3 text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 py-1.5 px-3 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                    <span>
+                        <span className="font-semibold text-slate-400">เริ่ม:</span> {formatDate(course.startedAt)}
+                    </span>
+                    <span>
+                        <span className="font-semibold text-slate-400">หมดอายุ:</span> {formatDate(course.expiryDate)}
+                    </span>
+                </div>
+            )}
+
+            {progress && isApproved && (
                 <div className="mb-4 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
                     <div className="flex justify-between text-xs font-bold text-slate-600 dark:text-slate-400 mb-2">
                         <span>ความคืบหน้า</span>
@@ -282,12 +321,16 @@ function CourseCard({ course, progress }: { course: Course, progress?: Progress 
             )}
 
             <div className="mt-auto pt-2">
-                {course.status === 'approved' ? (
+                {isApproved ? (
                     <Link
-                        href={`/learn/${course.id}`}
-                        className="block w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-center transition shadow-md shadow-indigo-200 dark:shadow-indigo-900/20"
+                        href={isExpired ? '#' : `/learn/${course.id}`}
+                        onClick={(e) => isExpired && e.preventDefault()}
+                        className={`block w-full py-3 font-bold rounded-xl text-center transition shadow-md ${isExpired
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none'
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 dark:shadow-indigo-900/20'
+                            }`}
                     >
-                        {progress && progress.percent > 0 ? 'เรียนต่อ' : 'เริ่มเรียน'}
+                        {isExpired ? 'หมดอายุ' : (progress && progress.percent > 0 ? 'เรียนต่อ' : 'เริ่มเรียน')}
                     </Link>
                 ) : (
                     <button disabled className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 font-bold rounded-xl cursor-not-allowed">
@@ -298,4 +341,17 @@ function CourseCard({ course, progress }: { course: Course, progress?: Progress 
             </div>
         </div>
     )
+}
+
+function ValidityBadge({ days }: { days: number }) {
+    if (days <= 0) {
+        return <span className="text-[10px] font-bold px-2 py-1 bg-rose-500 text-white rounded-md shadow-sm">หมดอายุ</span>;
+    }
+    if (days <= 7) {
+        return <span className="text-[10px] font-bold px-2 py-1 bg-rose-500 text-white rounded-md shadow-sm animate-pulse">เหลือ {days} วัน</span>;
+    }
+    if (days <= 30) {
+        return <span className="text-[10px] font-bold px-2 py-1 bg-amber-500 text-white rounded-md shadow-sm">เหลือ {days} วัน</span>;
+    }
+    return <span className="text-[10px] font-bold px-2 py-1 bg-emerald-500 text-white rounded-md shadow-sm">เหลือ {days} วัน</span>;
 }
