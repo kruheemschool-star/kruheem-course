@@ -12,51 +12,48 @@ import Link from "next/link";
 import { ArrowLeft, Camera, Loader2, Save, User } from "lucide-react";
 import toast, { Toaster } from 'react-hot-toast';
 
-// Helper to encode SVG to Base64 for safe usage
+// Helper to encode SVG to Data URI safely (No Base64 needed for simple SVGs)
 const svgToDataUri = (emoji: string) => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${emoji}</text></svg>`;
-    const encoded = typeof window !== 'undefined'
-        ? window.btoa(unescape(encodeURIComponent(svg)))
-        : Buffer.from(svg).toString('base64');
-    return `data:image/svg+xml;base64,${encoded}`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 };
 
 const AVATAR_COLLECTIONS = {
     boys: [
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Alex&top=shortHair&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Brian&top=shortHairTheCaesar&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Chris&top=shortHairShortCurly&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=David&top=shortHairShortFlat&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Eric&top=shortHairShortRound&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Felix&top=shortHairShortWaved&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=George&top=shortHairSides&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Harry&top=shortHairTheCaesarSidePart&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Ivan&top=shortHair&accessories=glasses&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Jack&top=shortHairShortCurly&accessories=goggles&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Kevin&top=shortHairShortFlat&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Leo&top=shortHairShortRound&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Max&top=shortHairShortWaved&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Nick&top=shortHairSides&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Oscar&top=shortHairTheCaesar&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Paul&top=shortHair&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&top=shortHairShortFlat&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Brian&top=shortHairTheCaesar&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Chris&top=shortHairShortCurly&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=David&top=shortHairShortRound&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Eric&top=shortHairShortWaved&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&top=shortHairSides&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=George&top=shortHairTheCaesarSidePart&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Harry&top=shortHairDreads01&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Ivan&top=shortHairFrizzle&accessories=glasses&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jack&top=shortHairShaggyMullet&accessories=goggles&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Kevin&top=shortHairShortFlat&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo&top=shortHairShortRound&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Max&top=shortHairShortWaved&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Nick&top=shortHairSides&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Oscar&top=shortHairTheCaesar&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Paul&top=shortHairTheCaesarSidePart&facialHairProbability=0",
     ],
     girls: [
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Anna&top=longHairBigHair&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Bella&top=longHairBob&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Cathy&top=longHairBun&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Diana&top=longHairCurly&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Eliza&top=longHairCurvy&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Fiona&top=longHairStraight&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Grace&top=longHairStraight2&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Hannah&top=longHairStraightStrand&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Iris&top=longHairBigHair&accessories=glasses&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Jane&top=longHairBob&accessories=goggles&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Kelly&top=longHairBun&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Lily&top=longHairCurly&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Molly&top=longHairCurvy&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Nora&top=longHairStraight&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Olivia&top=longHairStraight2&facialHairProbability=0",
-        "https://api.dicebear.com/9.x/avataaars/svg?seed=Penny&top=longHairStraightStrand&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Anna&top=longHairBigHair&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Bella&top=longHairBob&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Cathy&top=longHairBun&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Diana&top=longHairCurly&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Eliza&top=longHairCurvy&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Fiona&top=longHairStraight&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Grace&top=longHairStraight2&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Hannah&top=longHairStraightStrand&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Iris&top=longHairFrida&accessories=glasses&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jane&top=longHairFro&accessories=goggles&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Kelly&top=longHairMiaWallace&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Lily&top=longHairNotTooLong&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Molly&top=longHairShavedSides&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Nora&top=longHairStraight&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Olivia&top=longHairStraight2&facialHairProbability=0",
+        "https://api.dicebear.com/7.x/avataaars/svg?seed=Penny&top=longHairStraightStrand&facialHairProbability=0",
     ],
     animals: [
         svgToDataUri("🐶"), svgToDataUri("🐱"), svgToDataUri("🐰"), svgToDataUri("🐹"),
