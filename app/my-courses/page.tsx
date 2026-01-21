@@ -141,14 +141,30 @@ export default function MyCoursesPage() {
 
                 setCourses(myCourses);
 
-                // 4. Process Progress (Map by Course ID)
+                // 4. Fetch video lessons for each course (in parallel)
+                const videoCountMap: Record<string, { videoIds: string[], total: number }> = {};
+
+                await Promise.all(myCourses.map(async (course) => {
+                    const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
+                    const videoLessons = lessonsSnap.docs
+                        .map(d => ({ id: d.id, ...d.data() }))
+                        .filter((l: any) => l.type === 'video' && !l.isHidden);
+
+                    videoCountMap[course.id] = {
+                        videoIds: videoLessons.map(l => l.id),
+                        total: videoLessons.length
+                    };
+                }));
+
+                // 5. Process Progress (Map by Course ID)
                 const pMap: Record<string, Progress> = {};
 
                 // Initialize defaults for ALL enrolled courses
                 myCourses.forEach(c => {
+                    const courseVideoData = videoCountMap[c.id] || { videoIds: [], total: 0 };
                     pMap[c.id] = {
                         completed: 0,
-                        total: c.totalLessons || 0, // Will default to 0 if not set, handled in UI
+                        total: courseVideoData.total,
                         percent: 0
                     };
                 });
@@ -157,25 +173,24 @@ export default function MyCoursesPage() {
                 progressSnap.docs.forEach(doc => {
                     const data = doc.data();
                     const courseId = doc.id;
-                    const completedCount = data.completed?.length || 0;
+                    const completedIds: string[] = data.completed || [];
 
-                    const course = myCourses.find(c => c.id === courseId);
-                    // Use stored totalLessons, or fallback to 0 (which means we should probably show '?' or something, but let's trust the admin fix)
-                    // If totalLessons is 0 or undefined, we might have an issue. 
-                    // But with the admin fix, it should be populated.
-                    // If it's truly 0, percent is 0.
-                    let total = course?.totalLessons || 0;
+                    const courseVideoData = videoCountMap[courseId] || { videoIds: [], total: 0 };
 
-                    // Fallback to "Standard" if missing (Temporary safety)
-                    if (total === 0) total = 20;
+                    // Count only completed items that are videos
+                    const completedVideoCount = completedIds.filter(id =>
+                        courseVideoData.videoIds.includes(id)
+                    ).length;
+
+                    const total = courseVideoData.total;
 
                     let percent = 0;
                     if (total > 0) {
-                        percent = Math.round((completedCount / total) * 100);
+                        percent = Math.round((completedVideoCount / total) * 100);
                     }
 
                     pMap[courseId] = {
-                        completed: completedCount,
+                        completed: completedVideoCount,
                         total,
                         percent: percent > 100 ? 100 : percent
                     };
@@ -416,7 +431,7 @@ function CourseCard({ course, progress }: { course: Course, progress?: Progress 
                 <div className="mb-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-inner">
                     <div className="flex justify-between items-end mb-2">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                            เก็บเลเวลไปแล้ว <span className="text-indigo-600 dark:text-indigo-400 text-sm">{progress.completed}</span> / {progress.total} ด่าน
+                            เรียนไปแล้ว <span className="text-indigo-600 dark:text-indigo-400 text-sm">{progress.completed}</span> / {progress.total} คลิป
                         </span>
                         {progress.percent === 100 && (
                             <span className="text-amber-500 animate-bounce">👑</span>
@@ -437,7 +452,7 @@ function CourseCard({ course, progress }: { course: Course, progress?: Progress 
                     </div>
 
                     <div className="flex justify-between items-center mt-1">
-                        <span className="text-[10px] font-bold text-slate-400">Level {Math.floor(progress.percent / 20) + 1}</span>
+                        <span className="text-[10px] font-bold text-slate-400">ความคืบหน้า</span>
                         <span className={`text-xs font-black ${progress.percent === 100 ? 'text-amber-500' :
                             progress.percent >= 80 ? 'text-emerald-500' :
                                 progress.percent === 0 ? 'text-slate-400' :
