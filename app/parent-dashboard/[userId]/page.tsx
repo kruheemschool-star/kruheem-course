@@ -131,10 +131,10 @@ export default function ParentDashboard() {
 
                 setCourseProgressMap(progressMap);
 
-                // Auto-expand first course
-                if (filteredCourses.length > 0) {
-                    setExpandedCourseId(filteredCourses[0].id);
-                }
+                // Auto-expand first course (Disabled as per user request)
+                // if (filteredCourses.length > 0) {
+                //     setExpandedCourseId(filteredCourses[0].id);
+                // }
             } catch (error) {
                 console.error("Error fetching data:", error);
             } finally {

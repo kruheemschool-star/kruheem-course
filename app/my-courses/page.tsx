@@ -287,18 +287,17 @@ function ProfileHeader({ profile }: { profile: any }) {
             {user && (
                 <Link
                     href={`/parent-dashboard/${user.uid}`}
-                    className="lg:w-72 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 p-6 rounded-[2rem] border border-indigo-100 dark:border-indigo-800 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-lg transition-all group flex flex-col items-center justify-center text-center gap-3"
+                    className="lg:w-72 bg-white dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all group flex flex-col items-center justify-center text-center gap-4"
                 >
-                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform">
+                    {/* Minimal Icon */}
+                    <div className="w-14 h-14 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
                         📊
                     </div>
-                    <div>
-                        <p className="text-lg font-bold text-indigo-700 dark:text-indigo-300">ติดตามผลการเรียน</p>
-                        <p className="text-xs text-indigo-500 dark:text-indigo-400">สำหรับผู้ปกครอง</p>
-                    </div>
-                    <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                        กดเพื่อดูรายงาน → แชร์ลิงก์ให้ผู้ปกครอง
-                    </div>
+
+                    {/* Minimal Text */}
+                    <p className="text-base font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        ติดตามผลการเรียน
+                    </p>
                 </Link>
             )}
         </div>
