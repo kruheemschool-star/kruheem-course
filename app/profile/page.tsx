@@ -15,15 +15,17 @@ import toast, { Toaster } from 'react-hot-toast';
 // Reliable Twemoji CDN for Animals
 // Local Avatar Assets
 const avatarAssets = {
-    male: Array.from({ length: 20 }, (_, i) => `/avatars/male/boy_${i + 1}.png`),
-    female: Array.from({ length: 20 }, (_, i) => `/avatars/female/girl_${i + 1}.png`),
-    animal: Array.from({ length: 20 }, (_, i) => `/avatars/animals/animal_${i + 1}.svg`),
+    kids: Array.from({ length: 8 }, (_, i) => `/avatars/kids/kid_${i + 1}.png`),
+    female: Array.from({ length: 8 }, (_, i) => `/avatars/female/girl_${i + 1}.png`),
+    animal: Array.from({ length: 8 }, (_, i) => `/avatars/animals/animal_${i + 1}.png`),
+    monsters: Array.from({ length: 8 }, (_, i) => `/avatars/monsters/monster_${i + 1}.png`),
 };
 
 const TABS = [
-    { id: 'male', label: '👦 ผู้ชาย' },
+    { id: 'kids', label: '👦 ผู้ชาย' },
     { id: 'female', label: '👧 ผู้หญิง' },
-    { id: 'animal', label: '🦁 สัตว์เลี้ยง' },
+    { id: 'animal', label: '🦁 สัตว์น่ารัก' },
+    { id: 'monsters', label: '👾 สัตว์ประหลาด' },
 ];
 
 const QUOTES = {
@@ -71,7 +73,7 @@ export default function ProfilePage() {
     const [avatar, setAvatar] = useState("");
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'male' | 'female' | 'animal'>('male');
+    const [activeTab, setActiveTab] = useState<'kids' | 'female' | 'animal' | 'monsters'>('kids');
     const [caption, setCaption] = useState("");
     const [showQuoteDrawer, setShowQuoteDrawer] = useState(false);
     const [quoteCategory, setQuoteCategory] = useState<'healing' | 'passion' | 'growth'>('healing');
@@ -85,7 +87,7 @@ export default function ProfilePage() {
             if (userProfile?.caption) setCaption(userProfile.caption);
 
             // Set default avatar if none exists
-            setAvatar(userProfile?.avatar || user?.photoURL || avatarAssets.male[0]);
+            setAvatar(userProfile?.avatar || user?.photoURL || avatarAssets.kids[0]);
         }
     }, [user, userProfile]);
 
