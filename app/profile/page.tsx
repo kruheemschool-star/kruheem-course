@@ -104,7 +104,8 @@ export default function ProfilePage() {
             const userRef = doc(db, "users", user.uid);
             await setDoc(userRef, {
                 displayName: fullName,
-                photoURL: avatar,
+                avatar: avatar, // FIX: Navbar checks 'avatar', not 'photoURL' from Firestore
+                photoURL: avatar, // Keep for compatibility
                 updatedAt: new Date()
             }, { merge: true });
 
