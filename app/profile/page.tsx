@@ -9,7 +9,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { User, Camera, Save, Loader2, Check, ArrowLeft } from 'lucide-react';
+import { User, Camera, Save, Loader2, Check, ArrowLeft, Lightbulb } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 // Reliable Twemoji CDN for Animals
@@ -26,6 +26,45 @@ const TABS = [
     { id: 'animal', label: '🦁 สัตว์เลี้ยง' },
 ];
 
+const QUOTES = {
+    healing: [
+        "เหนื่อยก็พัก ไม่ต้องรักดีตลอดก็ได้",
+        "ไม่ต้องเก่งที่สุด แค่ดีที่สุดในแบบเรา",
+        "ผิดพลาด = การเรียนรู้ (ไม่ใช่ล้มเหลว)",
+        "วันนี้ทำได้แค่นี้ ก็เก่งมากแล้ว",
+        "อนุญาตให้ตัวเองพักบ้างนะ",
+        "ช้าหน่อยไม่เป็นไร ขอแค่ไม่หยุดเดิน",
+        "อย่ากดดันตัวเองจนลืมมีความสุข",
+        "ทุกคนมีเวลาของตัวเอง ดอกไม้บานไม่พร้อมกัน",
+        "เก่งมากแล้วนะ ที่ผ่านวันนี้มาได้",
+        "ล้มได้ก็ลุกได้ ร้องไห้แล้วไปต่อ"
+    ],
+    passion: [
+        "ยาก... ไม่ได้แปลว่าทำไม่ได้",
+        "อุปสรรคมีไว้ให้ข้าม ไม่ใช่ให้กลัว",
+        "ความพยายามไม่เคยทรยศใคร",
+        "อนาคตเปลี่ยนได้ ด้วยมือเราตอนนี้",
+        "ฝันให้ไกล ไปให้ถึง (แม้จะคลานไปก็ตาม)",
+        "ยิ่งโจทย์ยาก ยิ่งทำให้เราเก่งขึ้น",
+        "คู่แข่งที่น่ากลัวที่สุด คือตัวเราในเมื่อวาน",
+        "ไม่มีคำว่าสาย สำหรับการเริ่มต้น",
+        "อย่าเพิ่งบอกว่าทำไม่ได้ ถ้ายังไม่ได้ลอง",
+        "เป้าหมายมีไว้พุ่งชน (ไม่ใช่มีไว้พุ่งหนี)"
+    ],
+    growth: [
+        "วินัย คือสะพานเชื่อมความฝัน",
+        "ทุกก้าวเล็กๆ คือส่วนหนึ่งของความสำเร็จ",
+        "เก่งขึ้นวันละ 1% ครบปีก็เทพแล้ว",
+        "โฟกัสที่ \"ความก้าวหน้า\" ไม่ใช่ \"ความสมบูรณ์แบบ\"",
+        "ความรู้คือสมบัติที่ใครก็ขโมยไม่ได้",
+        "เปลี่ยน \"ทำไม่ได้\" เป็น \"ทำยังไงถึงจะได้\"",
+        "โอกาสมักมาในคราบของงานยากเสมอ",
+        "เชื่อในตัวเองหน่อย เธอทำได้!",
+        "การเรียนรู้ไม่มีวันสิ้นสุด",
+        "จงภูมิใจในความพยายามของตัวเอง"
+    ]
+};
+
 export default function ProfilePage() {
     const { user, userProfile, setUserProfile } = useUserAuth();
     const [firstName, setFirstName] = useState("");
@@ -33,6 +72,9 @@ export default function ProfilePage() {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [activeTab, setActiveTab] = useState<'male' | 'female' | 'animal'>('male');
+    const [caption, setCaption] = useState("");
+    const [showQuoteDrawer, setShowQuoteDrawer] = useState(false);
+    const [quoteCategory, setQuoteCategory] = useState<'healing' | 'passion' | 'growth'>('healing');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Load initial data
@@ -40,6 +82,7 @@ export default function ProfilePage() {
         if (userProfile || user) {
             const displayName = userProfile?.displayName || user?.displayName || "";
             if (displayName) setFirstName(displayName);
+            if (userProfile?.caption) setCaption(userProfile.caption);
 
             // Set default avatar if none exists
             setAvatar(userProfile?.avatar || user?.photoURL || avatarAssets.male[0]);
@@ -68,6 +111,7 @@ export default function ProfilePage() {
             const userRef = doc(db, "users", user.uid);
             const userUpdateData = {
                 displayName: fullName,
+                caption: caption.trim(),
                 avatar: avatar,
                 photoURL: avatar,
                 updatedAt: new Date()
@@ -79,6 +123,7 @@ export default function ProfilePage() {
             setUserProfile({
                 ...userProfile,
                 displayName: fullName,
+                caption: caption.trim(),
                 avatar: avatar
             });
 
@@ -123,37 +168,81 @@ export default function ProfilePage() {
                     กลับไปหน้าคอร์สเรียน
                 </Link>
 
-                <div className="mx-auto p-4 sm:p-6 space-y-8 min-h-screen pb-24 font-['Sarabun']">
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <div className="mx-auto p-4 sm:p-6 space-y-6 min-h-screen pb-24 font-['Sarabun']">
+                    <h1 className="text-3xl font-bold text-slate-800 leading-relaxed">
                         แก้ไขข้อมูลส่วนตัว
                     </h1>
 
                     {/* Top Section: Name Input & Save Button */}
-                    <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-xl border border-white/50 dark:border-slate-700/50">
-                        <div className="flex flex-col sm:flex-row gap-4 items-end sm:items-center">
+                    <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        <div className="flex flex-col sm:flex-row gap-4 items-end">
                             <div className="flex-1 w-full">
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                <label className="block text-sm font-medium text-slate-600 mb-1.5">
                                     ชื่อแสดงผล (Display Name)
                                 </label>
                                 <input
                                     type="text"
                                     value={firstName}
                                     onChange={(e) => setFirstName(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-lg"
+                                    className="w-full h-12 px-4 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-slate-200 focus:border-slate-400 transition-all font-medium text-slate-800 placeholder-slate-400"
                                     placeholder="กรอกชื่อของคุณ"
                                 />
+                            </div>
+                            <div className="flex-1 w-full relative">
+                                <label className="block text-sm font-medium text-slate-600 mb-1.5 flex justify-between">
+                                    <span>แคปชั่นประจำตัว (Personal Caption)</span>
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={caption}
+                                        onChange={(e) => setCaption(e.target.value)}
+                                        className="w-full h-12 px-4 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-slate-200 focus:border-slate-400 transition-all font-medium text-slate-800 placeholder-slate-400"
+                                        placeholder="เขียนแคปชั่นเท่ๆ หรือเลือกคำคม..."
+                                    />
+                                    <button
+                                        onClick={() => setShowQuoteDrawer(!showQuoteDrawer)}
+                                        className={`h-12 w-12 flex items-center justify-center rounded-lg border border-slate-200 transition-all ${showQuoteDrawer ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white text-slate-400 hover:text-indigo-500 hover:border-indigo-200'}`}
+                                        title="เลือกคำคม"
+                                    >
+                                        <Lightbulb size={20} />
+                                    </button>
+                                </div>
+
+                                {/* Hidden Quote Drawer */}
+                                <div className={`absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden transition-all duration-300 origin-top ${showQuoteDrawer ? 'opacity-100 scale-y-100 max-h-[400px]' : 'opacity-0 scale-y-95 max-h-0 pointer-events-none'}`}>
+                                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex gap-2 overflow-x-auto no-scrollbar">
+                                        <button onClick={() => setQuoteCategory('healing')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${quoteCategory === 'healing' ? 'bg-rose-100 text-rose-600' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>❤️ ฮีลใจ</button>
+                                        <button onClick={() => setQuoteCategory('passion')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${quoteCategory === 'passion' ? 'bg-amber-100 text-amber-600' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>🔥 ปลุกไฟ</button>
+                                        <button onClick={() => setQuoteCategory('growth')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${quoteCategory === 'growth' ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>🌟 Growth Mindset</button>
+                                    </div>
+                                    <div className="p-2 max-h-[250px] overflow-y-auto">
+                                        {QUOTES[quoteCategory].map((q, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => {
+                                                    setCaption(q);
+                                                    setShowQuoteDrawer(false);
+                                                }}
+                                                className="w-full text-left px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-700 text-sm font-medium transition-colors border-b border-slate-50 last:border-0"
+                                            >
+                                                {q}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                             <button
                                 onClick={handleSave}
                                 disabled={loading}
-                                className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed h-[52px] flex items-center justify-center whitespace-nowrap"
+                                className="w-full sm:w-auto px-8 h-12 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 active:bg-slate-950 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center whitespace-nowrap shadow-sm"
                             >
                                 {loading ? (
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 ) : (
                                     <>
                                         <Save className="w-5 h-5 mr-2" />
-                                        บันทึกการเปลี่ยนแปลง
+                                        บันทึก
                                     </>
                                 )}
                             </button>
@@ -161,22 +250,22 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Main Content Area: 2-Column Layout */}
-                    <div className="flex flex-col lg:flex-row gap-8 items-start">
+                    <div className="flex flex-col lg:flex-row gap-6 items-start">
 
                         {/* LEFT COLUMN: Preview & Upload (Sticky on Desktop) */}
-                        <div className="w-full lg:w-80 flex flex-col gap-6 lg:sticky lg:top-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm p-6 rounded-3xl border border-white/50 dark:border-slate-700/50 shadow-xl text-center">
-                            <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center justify-center gap-2">
-                                <span className="text-2xl">📸</span> รูปโปรไฟล์
+                        <div className="w-full lg:w-80 flex flex-col gap-6 lg:sticky lg:top-8 bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-center">
+                            <h2 className="text-lg font-bold text-slate-800 flex items-center justify-center gap-2">
+                                <span className="text-xl">📸</span> รูปโปรไฟล์
                             </h2>
 
                             {/* Center Preview */}
                             <div className="relative group mx-auto">
-                                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border-4 border-white dark:border-slate-700 shadow-xl bg-slate-50 dark:bg-slate-900 transition-transform duration-500 hover:scale-105">
+                                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border border-slate-200 shadow-sm bg-slate-50 transition-transform duration-500 hover:scale-105">
                                     {avatar ? (
                                         // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={avatar} alt="Profile Preview" className="w-full h-full object-contain p-2 bg-white dark:bg-slate-800" />
+                                        <img src={avatar} alt="Profile Preview" className="w-full h-full object-contain p-2" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-600">
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
                                             <User size={64} />
                                         </div>
                                     )}
@@ -187,7 +276,7 @@ export default function ProfilePage() {
                                     )}
                                 </div>
                                 {/* Edit Badge overlay */}
-                                <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-indigo-600 text-white p-2 rounded-full shadow-lg border-2 border-white dark:border-slate-800 hover:bg-indigo-700 transition cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                                <div className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 bg-slate-800 text-white p-2 rounded-full shadow-md hover:bg-black transition cursor-pointer border border-white" onClick={() => fileInputRef.current?.click()}>
                                     <Camera size={16} />
                                 </div>
                             </div>
@@ -204,31 +293,31 @@ export default function ProfilePage() {
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading}
-                                    className="mx-auto px-6 py-3 bg-white dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 border border-slate-100 dark:border-slate-600"
+                                    className="mx-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-all flex items-center justify-center gap-2"
                                 >
                                     <Camera className="w-4 h-4" />
-                                    <span>อัปโหลดรูปเอง</span>
+                                    <span>อัปโหลด</span>
                                 </button>
                             </div>
                         </div>
 
                         {/* RIGHT COLUMN: Selection Grid */}
-                        <div className="flex-1 w-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-3xl p-6 sm:p-8 shadow-xl border border-white/50 dark:border-slate-700/50">
+                        <div className="flex-1 w-full bg-white rounded-xl p-6 sm:p-8 shadow-sm border border-slate-200">
                             <div className="flex flex-col items-center gap-6 mb-8">
-                                <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                    <span className="text-2xl">🎭</span> เลือกรูปประจำตัว
+                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <span className="text-xl">🎭</span> เลือกรูปประจำตัว
                                 </h2>
 
-                                {/* Tabs - Pill Style */}
-                                <div className="flex flex-wrap justify-center gap-3">
+                                {/* Tabs - Pill Style (Notion-like) */}
+                                <div className="flex flex-wrap justify-center gap-2">
                                     {TABS.map((tab) => (
                                         <button
                                             key={tab.id}
                                             /* @ts-ignore */
                                             onClick={() => setActiveTab(tab.id as any)}
-                                            className={`px-6 py-3 rounded-full font-bold text-base transition-all shadow-sm hover:scale-105 active:scale-95 ${activeTab === tab.id
-                                                ? 'bg-indigo-600 text-white shadow-indigo-200'
-                                                : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200'
+                                            className={`px-5 py-2 rounded-lg font-medium text-sm transition-all ${activeTab === tab.id
+                                                ? 'bg-slate-800 text-white shadow-sm'
+                                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                                                 }`}
                                         >
                                             {tab.label}
@@ -243,9 +332,9 @@ export default function ProfilePage() {
                                     <button
                                         key={index}
                                         onClick={() => setAvatar(src)}
-                                        className={`group relative p-2 rounded-2xl transition-all duration-300 border-2 ${avatar === src
-                                            ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-500 shadow-md scale-105"
-                                            : "bg-white dark:bg-slate-700 border-transparent hover:border-indigo-200 hover:shadow-lg hover:-translate-y-1"
+                                        className={`group relative p-2 rounded-xl transition-all duration-200 border ${avatar === src
+                                            ? "bg-slate-50 border-slate-400 ring-1 ring-slate-400"
+                                            : "bg-white border-transparent hover:border-slate-200 hover:bg-slate-50 hover:shadow-sm"
                                             }`}
                                     >
                                         <div className="aspect-square w-full flex items-center justify-center min-w-[80px]">
@@ -253,7 +342,7 @@ export default function ProfilePage() {
                                             <img
                                                 src={src}
                                                 alt={`Avatar ${index + 1}`}
-                                                className="w-full h-full object-contain filter drop-shadow-sm group-hover:drop-shadow-md transition-all"
+                                                className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform duration-300"
                                                 onError={(e) => {
                                                     e.currentTarget.style.display = 'none';
                                                 }}
@@ -262,7 +351,7 @@ export default function ProfilePage() {
 
                                         {avatar === src && (
                                             <div className="absolute top-2 right-2">
-                                                <div className="bg-indigo-600 text-white p-1 rounded-full shadow-lg animate-in zoom-in">
+                                                <div className="bg-slate-800 text-white p-1 rounded-full shadow-sm animate-in zoom-in">
                                                     <Check className="w-2.5 h-2.5" />
                                                 </div>
                                             </div>

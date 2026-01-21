@@ -252,7 +252,11 @@ function ProfileHeader({ profile }: { profile: any }) {
                     🎓 นักเรียนของ KruHeem
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-1">{profile.displayName || 'นักเรียน'}</h2>
-                <p className="text-slate-500 dark:text-slate-400">พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?</p>
+                {profile.caption ? (
+                    <p className="text-slate-500 dark:text-slate-400 italic text-sm font-medium">"{profile.caption}"</p>
+                ) : (
+                    <p className="text-slate-500 dark:text-slate-400">พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?</p>
+                )}
 
                 {/* Edit Profile Link (Optional restoration) */}
                 <Link href="/profile" className="mt-3 text-xs font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 justify-center md:justify-start transition">
