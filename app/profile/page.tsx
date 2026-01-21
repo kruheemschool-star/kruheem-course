@@ -299,6 +299,17 @@ export default function ProfilePage() {
                                     <span>อัปโหลด</span>
                                 </button>
                             </div>
+
+                            {/* Parent Dashboard Link */}
+                            {user && (
+                                <Link
+                                    href={`/parent-dashboard/${user.uid}`}
+                                    className="mt-4 w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 text-indigo-700 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-indigo-100 hover:border-indigo-200"
+                                >
+                                    <span className="text-lg">📊</span>
+                                    <span>ติดตามผลการเรียน (สำหรับผู้ปกครอง)</span>
+                                </Link>
+                            )}
                         </div>
 
                         {/* RIGHT COLUMN: Selection Grid */}
