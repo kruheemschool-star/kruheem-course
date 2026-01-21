@@ -11,6 +11,18 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'firebasestorage.googleapis.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'api.dicebear.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'robohash.org',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdnjs.cloudflare.com',
+      },
     ],
   },
 };

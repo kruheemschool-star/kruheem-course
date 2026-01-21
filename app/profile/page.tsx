@@ -12,55 +12,64 @@ import Link from "next/link";
 import { ArrowLeft, Camera, Loader2, Save, User } from "lucide-react";
 import toast, { Toaster } from 'react-hot-toast';
 
-// Helper to encode SVG to Data URI safely (No Base64 needed for simple SVGs)
-const svgToDataUri = (emoji: string) => {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${emoji}</text></svg>`;
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-};
+// Reliable Twemoji CDN for Animals
+const ANIMAL_URLS = [
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f436.svg", // Dog
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f431.svg", // Cat
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f430.svg", // Rabbit
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f439.svg", // Hamster
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f424.svg", // Chick
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f438.svg", // Frog
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f414.svg", // Chicken
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f986.svg", // Duck
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f985.svg", // Eagle
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f989.svg", // Owl
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f984.svg", // Unicorn
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f41d.svg", // Bee
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f41b.svg", // Bug
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f98b.svg", // Butterfly
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f40c.svg", // Snail
+    "https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/1f41e.svg", // Ladybug
+];
 
 const AVATAR_COLLECTIONS = {
     boys: [
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&top=shortHairShortFlat&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Brian&top=shortHairTheCaesar&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Chris&top=shortHairShortCurly&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=David&top=shortHairShortRound&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Eric&top=shortHairShortWaved&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&top=shortHairSides&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=George&top=shortHairTheCaesarSidePart&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Harry&top=shortHairDreads01&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Ivan&top=shortHairFrizzle&accessories=glasses&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jack&top=shortHairShaggyMullet&accessories=goggles&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Kevin&top=shortHairShortFlat&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo&top=shortHairShortRound&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Max&top=shortHairShortWaved&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Nick&top=shortHairSides&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Oscar&top=shortHairTheCaesar&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Paul&top=shortHairTheCaesarSidePart&facialHairProbability=0",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Felix",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Aneka",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Jake",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Mason",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Liam",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Noah",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Ethan",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Oliver",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=James",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Lucas",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Henry",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Alexander",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Sebastian",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Jack",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Owen",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Theodore",
     ],
     girls: [
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Anna&top=longHairBigHair&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Bella&top=longHairBob&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Cathy&top=longHairBun&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Diana&top=longHairCurly&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Eliza&top=longHairCurvy&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Fiona&top=longHairStraight&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Grace&top=longHairStraight2&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Hannah&top=longHairStraightStrand&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Iris&top=longHairFrida&accessories=glasses&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Jane&top=longHairFro&accessories=goggles&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Kelly&top=longHairMiaWallace&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Lily&top=longHairNotTooLong&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Molly&top=longHairShavedSides&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Nora&top=longHairStraight&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Olivia&top=longHairStraight2&facialHairProbability=0",
-        "https://api.dicebear.com/7.x/avataaars/svg?seed=Penny&top=longHairStraightStrand&facialHairProbability=0",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Sophia",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Amelia",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Isabella",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Mia",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Charlotte",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Ava",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Harper",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Evelyn",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Abigail",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Emily",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Ella",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Elizabeth",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Camila",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Luna",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Sofia",
+        "https://api.dicebear.com/9.x/avataaars/svg?seed=Avery",
     ],
-    animals: [
-        svgToDataUri("🐶"), svgToDataUri("🐱"), svgToDataUri("🐰"), svgToDataUri("🐹"),
-        svgToDataUri("🐤"), svgToDataUri("🐸"), svgToDataUri("🐔"), svgToDataUri("🦆"),
-        svgToDataUri("🦅"), svgToDataUri("🦉"), svgToDataUri("🦄"), svgToDataUri("🐝"),
-        svgToDataUri("🐛"), svgToDataUri("🦋"), svgToDataUri("🐌"), svgToDataUri("🐞"),
-    ],
+    animals: ANIMAL_URLS,
     monsters: [
         "https://robohash.org/monst1?set=set2",
         "https://robohash.org/monst2?set=set2",
