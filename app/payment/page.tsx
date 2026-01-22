@@ -218,9 +218,41 @@ export default function PaymentPage() {
     }
   };
 
+  // Custom course ordering for ประถม category
+  const courseOrder: Record<string, number> = {
+    "คอร์ส ป.6 สอบเข้าชั้น ม.1": 1,
+    "ติวเข้มสอบเข้า Gifted ม.1": 2,
+    "คอร์สการเทียบบัญญัติไตรยางค์": 3,
+    "คอร์สเก่งสมการ": 4,
+  };
+
+  const getCourseOrder = (title: string): number => {
+    // Check for partial match
+    for (const [key, order] of Object.entries(courseOrder)) {
+      if (title.includes(key) || key.includes(title)) {
+        return order;
+      }
+    }
+    // Check for specific keywords
+    if (title.includes("ป.6") && title.includes("สอบเข้า")) return 1;
+    if (title.includes("Gifted") || title.includes("กิฟ")) return 2;
+    if (title.includes("บัญญัติไตรยางค์")) return 3;
+    if (title.includes("สมการ")) return 4;
+    return 99; // Default order for other courses
+  };
+
   const filteredCourses = courses
     .filter(c => (c.category || "อื่นๆ") === selectedCategory)
-    .sort((a, b) => a.title.localeCompare(b.title, 'th'));
+    .sort((a, b) => {
+      // Use custom order for ประถม category
+      if (selectedCategory.includes("ประถม")) {
+        const orderA = getCourseOrder(a.title);
+        const orderB = getCourseOrder(b.title);
+        return orderA - orderB;
+      }
+      // Default alphabetical sort for other categories
+      return a.title.localeCompare(b.title, 'th');
+    });
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center text-slate-500">กำลังตรวจสอบสิทธิ์...</div>;
 
