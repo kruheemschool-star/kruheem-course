@@ -130,55 +130,17 @@ export default function CourseSalesPage() {
     // Check if this course should use the new Grand Slam Offer page
     const grandSlamContent = getGrandSlamContent(course.title);
     if (grandSlamContent) {
-        // Admin sees the new Grand Slam page (preview mode)
-        if (isAdmin) {
-            return (
-                <GrandSlamPage
-                    content={grandSlamContent}
-                    courseId={courseId}
-                    courseTitle={course.title}
-                    enrollmentStatus={enrollmentStatus}
-                    attendanceStatus={attendanceStatus}
-                    user={user}
-                    onLogin={handleLogin}
-                />
-            );
-        }
-
-        // Non-admin users see "Under Construction" page
+        // Show the Grand Slam page to everyone
         return (
-            <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
-                <Navbar />
-                <div className="pt-32 pb-20">
-                    <div className="max-w-3xl mx-auto px-6 text-center">
-                        <div className="text-7xl mb-8">🚧</div>
-                        <h1 className="text-4xl md:text-5xl font-black text-slate-800 mb-6">
-                            กำลังปรับปรุงเนื้อหา
-                        </h1>
-                        <p className="text-xl text-slate-600 mb-4 leading-relaxed">
-                            คอร์ส <span className="font-bold text-amber-600">{course.title}</span> กำลังอยู่ในระหว่างการปรับปรุงและพัฒนาเนื้อหาใหม่
-                        </p>
-                        <p className="text-lg text-slate-500 mb-8">
-                            เพื่อมอบประสบการณ์การเรียนรู้ที่ดีที่สุดให้กับน้องๆ กรุณารอสักครู่นะครับ
-                        </p>
-
-                        <div className="inline-flex items-center gap-3 px-6 py-4 bg-amber-100/50 rounded-2xl border border-amber-200/50 mb-8">
-                            <span className="text-2xl">⏳</span>
-                            <span className="text-amber-700 font-semibold">คาดว่าจะพร้อมให้บริการเร็วๆ นี้</span>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                            <Link href="/" className="px-8 py-4 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition-colors">
-                                กลับหน้าหลัก
-                            </Link>
-                            <Link href="/courses" className="px-8 py-4 bg-white border-2 border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-colors">
-                                ดูคอร์สอื่นๆ
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-                <Footer />
-            </div>
+            <GrandSlamPage
+                content={grandSlamContent}
+                courseId={courseId}
+                courseTitle={course.title}
+                enrollmentStatus={enrollmentStatus}
+                attendanceStatus={attendanceStatus}
+                user={user}
+                onLogin={handleLogin}
+            />
         );
     }
 

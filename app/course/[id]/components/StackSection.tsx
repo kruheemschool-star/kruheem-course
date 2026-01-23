@@ -10,9 +10,42 @@ export default function StackSection({ content }: StackSectionProps) {
     return (
         <section className="py-20 bg-slate-50">
             <div className="max-w-3xl mx-auto px-6">
+                {/* Fresh Course Image */}
+                {content.freshCourseImage && (
+                    <div className="mb-8 mx-auto max-w-4xl">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={content.freshCourseImage}
+                            alt="Fresh Course Comparison"
+                            className="w-full h-auto rounded-xl"
+                        />
+                    </div>
+                )}
+
+                {/* Fresh Course Info - Clean & Minimal */}
+                {content.freshCourseInfo && (
+                    <div className="mb-12 max-w-2xl mx-auto space-y-3 text-left">
+                        {content.freshCourseInfo.map((line, index) => (
+                            <p
+                                key={index}
+                                className={`text-xl leading-relaxed ${index <= 1
+                                    ? "text-center text-slate-800 font-bold text-2xl md:text-3xl"
+                                    : line.startsWith("✅")
+                                        ? "text-slate-700 font-semibold mt-4"
+                                        : "text-slate-600"
+                                    }`}
+                            >
+                                {line}
+                            </p>
+                        ))}
+                    </div>
+                )}
+
                 {/* Section Header */}
                 <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-10 text-center">
-                    {content.intro}
+                    <span className="bg-green-200 px-4 py-2 leading-relaxed decoration-clone box-decoration-clone rounded-lg">
+                        {content.intro}
+                    </span>
                 </h2>
 
                 {/* Stack Items - Simple Table-like */}

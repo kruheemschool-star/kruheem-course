@@ -261,11 +261,14 @@ export default function ParentDashboard() {
                                         />
                                     </button>
 
-                                    {/* Expanded Content */}
-                                    {isExpanded && progress && (
+                                    {/* Expanded Content with Animation */}
+                                    <div
+                                        className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                                            }`}
+                                    >
                                         <div className="border-t border-slate-100">
                                             {/* Last Updated */}
-                                            {progress.lastUpdated && (
+                                            {progress?.lastUpdated && (
                                                 <div className="px-4 py-3 bg-slate-50/50 flex items-center gap-2 text-sm text-slate-500">
                                                     <Clock size={14} />
                                                     <span>อัปเดตล่าสุด: {formatDate(progress.lastUpdated)}</span>
@@ -274,12 +277,12 @@ export default function ParentDashboard() {
 
                                             {/* Lessons List */}
                                             <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto">
-                                                {progress.lessons.length === 0 ? (
+                                                {progress?.lessons.length === 0 ? (
                                                     <div className="p-6 text-center text-slate-400 text-sm">
                                                         ยังไม่มีบทเรียนในคอร์สนี้
                                                     </div>
                                                 ) : (
-                                                    progress.lessons.map((lesson, index) => {
+                                                    progress?.lessons.map((lesson, index) => {
                                                         const isCompleted = progress.completed.includes(lesson.id);
                                                         const isInProgress = !isCompleted && index <= completedCount;
 
@@ -306,7 +309,7 @@ export default function ParentDashboard() {
                                                 )}
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             );
                         })

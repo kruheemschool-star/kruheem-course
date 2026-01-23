@@ -26,10 +26,26 @@ export default function GuaranteeSection({ content, price }: GuaranteeSectionPro
                         {content.promise}
                     </p>
 
-                    {/* Zero Risk - BIG */}
-                    <p className="text-4xl md:text-5xl font-black text-slate-900">
-                        {content.zeroRiskText}
-                    </p>
+                    {/* Zero Risk - Custom Layout */}
+                    <div className="flex flex-col items-center justify-center pt-2">
+                        {content.zeroRiskText.split('<br>').map((text, index, arr) => {
+                            if (index === arr.length - 1) {
+                                // The "0" - MASSIVE & BLACK (Even Bigger)
+                                return (
+                                    <p key={index} className="text-[15rem] md:text-[20rem] leading-[0.8] font-black text-slate-900 tracking-tighter mt-4 mb-8">
+                                        {text}
+                                    </p>
+                                );
+                            }
+                            // Text lines
+                            return (
+                                <p key={index} className={`font-black text-slate-900 ${index === 0 ? "text-2xl md:text-3xl text-slate-600 mb-2 font-bold" : "text-3xl md:text-5xl"
+                                    }`}>
+                                    {text}
+                                </p>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {/* Link Warnings - Full text */}
@@ -38,7 +54,7 @@ export default function GuaranteeSection({ content, price }: GuaranteeSectionPro
                         <p
                             key={index}
                             className={`text-center ${index === 0
-                                ? 'text-2xl font-bold text-amber-600'
+                                ? 'text-2xl font-bold text-slate-900'
                                 : 'text-xl text-slate-600'
                                 } leading-relaxed`}
                         >

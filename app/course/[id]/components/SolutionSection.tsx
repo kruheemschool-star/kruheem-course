@@ -4,9 +4,10 @@ import { GrandSlamContent } from '../grandSlamContent';
 
 interface SolutionSectionProps {
     content: GrandSlamContent['solution'];
+    onCTAClick?: () => void;
 }
 
-export default function SolutionSection({ content }: SolutionSectionProps) {
+export default function SolutionSection({ content, onCTAClick }: SolutionSectionProps) {
     return (
         <section className="py-20 bg-white">
             <div className="max-w-3xl mx-auto px-6">
@@ -56,6 +57,34 @@ export default function SolutionSection({ content }: SolutionSectionProps) {
                             </div>
                         </div>
                     ))}
+                </div>
+
+                {/* YouTube Video Section */}
+                <div className="mt-16 text-center">
+                    <p className="text-2xl md:text-3xl text-slate-700 mb-8 leading-relaxed font-medium">
+                        "ลองกดดูคลิปสั้นๆ นี้แค่ 2 นาทีครับ...<br />
+                        แล้วคุณจะเข้าใจว่าทำไมเด็กๆ ถึงบอกว่า 'รู้งี้มาเรียนกับครูฮีมตั้งนานแล้ว'<br />
+                        <span className="text-slate-500 text-xl">(นี่คือตัวอย่างสไตล์การสอนจริงในคอร์ส)</span>"
+                    </p>
+                    <div className="relative w-full aspect-video rounded-3xl overflow-hidden shadow-xl shadow-slate-300/50">
+                        <iframe
+                            src="https://www.youtube.com/embed/hJYJf2FHxIQ"
+                            title="ตัวอย่างการสอนครูฮีม"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className="absolute inset-0 w-full h-full"
+                        />
+                    </div>
+
+                    {/* CTA Button after Video */}
+                    {onCTAClick && (
+                        <button
+                            onClick={onCTAClick}
+                            className="mt-10 w-full max-w-md mx-auto block py-4 bg-white text-slate-900 text-lg font-medium rounded-lg hover:bg-slate-50 transition-colors border border-slate-200"
+                        >
+                            สมัครเลย
+                        </button>
+                    )}
                 </div>
             </div>
         </section>

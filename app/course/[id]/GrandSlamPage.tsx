@@ -8,10 +8,12 @@ import { GrandSlamContent } from './grandSlamContent';
 import HookSection from './components/HookSection';
 import ProblemSection from './components/ProblemSection';
 import SolutionSection from './components/SolutionSection';
+import AnatomySection from './components/AnatomySection';
 import StackSection from './components/StackSection';
 import PriceDropSection from './components/PriceDropSection';
 import ScarcitySection from './components/ScarcitySection';
 import GuaranteeSection from './components/GuaranteeSection';
+import FAQSection from './components/FAQSection';
 import CTASection from './components/CTASection';
 
 interface GrandSlamPageProps {
@@ -149,42 +151,51 @@ export default function GrandSlamPage({
             {/* Section 1: The Hook */}
             <HookSection content={content.hook} />
 
-            {/* Section 2: The Problem */}
-            <ProblemSection content={content.problem} />
+            {/* Content Container - Slides over the sticky hero */}
+            <div className="relative z-10 bg-white">
+                {/* Section 2: The Problem */}
+                <ProblemSection content={content.problem} />
 
-            {/* Section 3: The Solution */}
-            <SolutionSection content={content.solution} />
+                {/* Section 3: The Solution */}
+                <SolutionSection content={content.solution} onCTAClick={handlePaymentClick} />
 
-            {/* Section 4: The Stack */}
-            <StackSection content={content.stack} />
+                {/* Section 3.5: Document Anatomy */}
+                <AnatomySection />
 
-            {/* Section 5: Price Drop */}
-            <PriceDropSection
-                content={content.pricing}
-                stack={content.stack}
-                onCTAClick={handlePaymentClick}
-            />
+                {/* Section 4: The Stack */}
+                <StackSection content={content.stack} />
 
-            {/* Section 6: Scarcity */}
-            <ScarcitySection
-                content={content.scarcity}
-                regularPrice={content.pricing.regularPrice}
-            />
+                {/* Section 5: Price Drop */}
+                <PriceDropSection
+                    content={content.pricing}
+                    stack={content.stack}
+                    onCTAClick={handlePaymentClick}
+                />
 
-            {/* Section 7: Guarantee */}
-            <GuaranteeSection
-                content={content.guarantee}
-                price={displayPrice}
-            />
+                {/* Section 6: Scarcity */}
+                <ScarcitySection
+                    content={content.scarcity}
+                    regularPrice={content.pricing.regularPrice}
+                />
 
-            {/* Section 8: CTA */}
-            <CTASection
-                content={content.cta}
-                price={displayPrice}
-                onCTAClick={handlePaymentClick}
-            />
+                {/* Section 7: Guarantee */}
+                <GuaranteeSection
+                    content={content.guarantee}
+                    price={displayPrice}
+                />
 
-            <Footer />
+                {/* Section 7.5: FAQ */}
+                <FAQSection />
+
+                {/* Section 8: CTA */}
+                <CTASection
+                    content={content.cta}
+                    price={displayPrice}
+                    onCTAClick={handlePaymentClick}
+                />
+
+                <Footer />
+            </div>
         </div>
     );
 }

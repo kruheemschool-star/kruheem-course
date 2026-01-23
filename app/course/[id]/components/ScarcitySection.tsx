@@ -30,7 +30,7 @@ export default function ScarcitySection({ content, regularPrice }: ScarcitySecti
 
                     {/* Reason */}
                     <div className="p-5 bg-slate-50 rounded-lg mb-6">
-                        <p className="text-xl text-slate-700 leading-relaxed">
+                        <p className="text-xl text-slate-700 leading-relaxed text-center">
                             {content.reason}
                         </p>
                     </div>

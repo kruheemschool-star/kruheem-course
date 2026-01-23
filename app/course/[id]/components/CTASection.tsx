@@ -13,9 +13,22 @@ export default function CTASection({ content, price, onCTAClick }: CTASectionPro
         <section className="py-20 bg-slate-50">
             <div className="max-w-3xl mx-auto px-6">
                 {/* Headline */}
-                <h2 className="text-4xl md:text-5xl font-black text-slate-900 text-center mb-12">
-                    {content.headline}
-                </h2>
+                <div className="text-center mb-12">
+                    <p className="text-3xl md:text-5xl font-black text-slate-900 leading-snug tracking-tight">
+                        <span className="bg-green-200 px-4 py-1 box-decoration-clone rounded-sm">
+                            ความเสี่ยงเดียวที่คุณมีตอนนี้
+                        </span><br className="mb-2 block" />
+                        <span className="bg-green-200 px-4 py-1 box-decoration-clone rounded-sm">
+                            คือการปิดหน้านี้ทิ้งไป
+                        </span><br className="mb-2 block" />
+                        <span className="bg-green-200 px-4 py-1 box-decoration-clone rounded-sm">
+                            แล้วปล่อยให้ลูกต้องทนเรียนแบบงงๆ ต่อไป
+                        </span><br className="mb-2 block" />
+                        <span className="bg-green-200 px-4 py-1 box-decoration-clone rounded-sm">
+                            แถมยังพลาดราคาที่ดีที่สุดไปตลอดกาล
+                        </span>
+                    </p>
+                </div>
 
                 {/* Steps - Simple */}
                 <div className="bg-white rounded-lg border border-slate-200 p-6 md:p-8 mb-10">

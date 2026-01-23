@@ -26,8 +26,11 @@ export default function PriceDropSection({ content, stack, onCTAClick }: PriceDr
                 </p>
 
                 {/* Price Drop Intro */}
-                <p className="text-2xl text-slate-600 mb-8 leading-relaxed">
-                    {content.priceDropIntro}
+                <p className="text-3xl md:text-4xl text-slate-700 mb-8 leading-normal font-bold">
+                    แต่เดี๋ยวก่อน...<br />
+                    ผมไม่ได้ทำคอร์สนี้มา<br />
+                    เพื่อจะรวยจากการขายแพงๆ<br />
+                    แต่ผมต้องการสร้าง "ผลลัพธ์"
                 </p>
 
                 {/* Not Pay Text */}
@@ -41,11 +44,12 @@ export default function PriceDropSection({ content, stack, onCTAClick }: PriceDr
                 </p>
 
                 {/* Early Bird Label */}
-                <p className="text-xl text-slate-500 mb-4">สำหรับรุ่น Early Bird ผมเปิดราคาที่:</p>
+                <p className="text-xl text-slate-500 mb-4">สำหรับรุ่น Early Bird ราคาที่เพียง</p>
 
                 {/* Final Price - Big and Bold */}
-                <p className="text-7xl md:text-8xl font-black text-slate-900 mb-2">
-                    💥 {displayPrice.toLocaleString()} บาท เท่านั้น! 💥
+                <p className="text-7xl md:text-8xl font-black text-slate-900 mb-2 leading-tight">
+                    {displayPrice.toLocaleString()} บาท<br />
+                    เท่านั้น!
                 </p>
                 <p className="text-2xl text-slate-500 mb-8">
                     (ประหยัดทันที {savings.toLocaleString()} บาท!)

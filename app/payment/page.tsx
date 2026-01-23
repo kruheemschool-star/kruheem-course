@@ -288,18 +288,21 @@ export default function PaymentPage() {
                 <span className="text-xs font-medium text-orange-500 bg-orange-50 px-2 py-1 rounded-lg border border-orange-100">* อย่างน้อย 1 คอร์ส</span>
               </div>
 
-              {/* Glass Dropdown */}
-              <div className="relative">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full p-4 bg-white/50 border border-white/60 rounded-2xl font-bold text-teal-700 outline-none focus:ring-2 focus:ring-teal-400/50 transition cursor-pointer shadow-sm appearance-none hover:bg-white/70"
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-teal-500">▼</div>
+              {/* Segmented Control Buttons */}
+              <div className="flex flex-wrap gap-2">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-4 py-3 rounded-xl font-bold transition-all duration-200 ${selectedCategory === cat
+                        ? 'bg-teal-600 text-white shadow-lg shadow-teal-200'
+                        : 'bg-white/50 text-slate-600 border border-slate-200 hover:bg-white/80 hover:border-teal-300'
+                      }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
 
               {/* Course List */}
