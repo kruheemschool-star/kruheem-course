@@ -61,6 +61,13 @@ export default function HomePage() {
   const [badgeText, setBadgeText] = useState("คอร์สยอดนิยม");
   const [badgeIcon, setBadgeIcon] = useState("Star");
 
+  // Banner Content State
+  const [bannerTitle, setBannerTitle] = useState("ติวเข้มสอบเข้า Gifted ม.1");
+  const [bannerDescription, setBannerDescription] = useState("40 แนวข้อสอบที่ต้องรู้ก่อนเดินเข้าห้องสอบ เพราะที่นั่งในห้องเรียนอัจฉริยะ มีจำกัด");
+  const [bannerPrice, setBannerPrice] = useState("1,900");
+  const [bannerFullPrice, setBannerFullPrice] = useState("");
+  const [bannerLinkUrl, setBannerLinkUrl] = useState("/payment");
+
 
 
   useEffect(() => {
@@ -91,6 +98,14 @@ export default function HomePage() {
           }
           if (data.badgeText) setBadgeText(data.badgeText);
           if (data.badgeIcon) setBadgeIcon(data.badgeIcon);
+
+          if (data.bannerTitle) setBannerTitle(data.bannerTitle);
+          if (data.bannerDescription) setBannerDescription(data.bannerDescription);
+          if (data.bannerTitle) setBannerTitle(data.bannerTitle);
+          if (data.bannerDescription) setBannerDescription(data.bannerDescription);
+          if (data.bannerPrice) setBannerPrice(data.bannerPrice);
+          if (data.bannerFullPrice) setBannerFullPrice(data.bannerFullPrice);
+          if (data.bannerLinkUrl) setBannerLinkUrl(data.bannerLinkUrl);
         } else {
           setBannerImages(["/images/course-promo-banner.png"]);
         }
@@ -232,51 +247,88 @@ export default function HomePage() {
             {/* Promotional Image Section (Slideshow) */}
 
             {/* Promotional Image Section (Slideshow) */}
-            <div className="mt-16 w-full animate-fade-in" style={{ animationDelay: '0.5s' }}>
-              <div className="relative aspect-[21/9] w-full rounded-[2.5rem] overflow-hidden shadow-2xl group cursor-pointer hover:shadow-orange-200/50 transition-all duration-500 bg-stone-100">
-
-                {bannerLoading ? (
-                  <div className="w-full h-full bg-stone-200 animate-pulse flex items-center justify-center">
-                    <Loader2 className="w-10 h-10 text-stone-400 animate-spin" />
-                  </div>
-                ) : (
-                  <>
-                    {bannerImages.map((url, index) => (
-                      <BannerImage
-                        key={index}
-                        url={url}
-                        index={index}
-                        isActive={index === currentSlide}
-                      />
-                    ))}
-
-                    {/* Navigation Dots */}
-                    {bannerImages.length > 1 && (
-                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex gap-2">
-                        {bannerImages.map((_, index) => (
-                          <button
-                            key={index}
-                            onClick={() => setCurrentSlide(index)}
-                            className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentSlide ? 'w-8 bg-white' : 'bg-white/50 hover:bg-white/80'}`}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Optional: Overlay Text/Badge */}
-                    <div className="absolute bottom-6 left-8 z-20 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-lg transform md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 transition-all duration-500">
-                      <span className="text-amber-600 font-bold flex items-center gap-2">
-                        {badgeIcon === "Star" && <Star size={20} fill="currentColor" />}
-                        {badgeIcon === "Heart" && <Heart size={20} fill="currentColor" />}
-                        {badgeIcon === "Flame" && <Flame size={20} fill="currentColor" />}
-                        {badgeIcon === "Trophy" && <Trophy size={20} fill="currentColor" />}
-                        {badgeIcon === "Sparkles" && <Sparkles size={20} fill="currentColor" />}
-                        {badgeText}
-                      </span>
+            {/* Promotional Image Section (Vertical Card Style) */}
+            <div className="mt-16 w-full animate-fade-in flex justify-center" style={{ animationDelay: '0.5s' }}>
+              <Link
+                href={bannerLinkUrl}
+                className="group relative bg-white rounded-[2.5rem] shadow-2xl hover:shadow-orange-200/50 hover:-translate-y-2 transition-all duration-500 flex flex-col overflow-hidden w-full mx-auto border border-stone-100"
+              >
+                {/* Image Header */}
+                <div className="aspect-[21/9] w-full bg-stone-100 relative overflow-hidden">
+                  {bannerLoading ? (
+                    <div className="w-full h-full bg-stone-200 animate-pulse flex items-center justify-center">
+                      <Loader2 className="w-10 h-10 text-stone-400 animate-spin" />
                     </div>
-                  </>
-                )}
-              </div>
+                  ) : (
+                    <>
+                      {bannerImages.map((url, index) => (
+                        <BannerImage
+                          key={index}
+                          url={url}
+                          index={index}
+                          isActive={index === currentSlide}
+                        />
+                      ))}
+
+                      {/* Navigation Dots */}
+                      {bannerImages.length > 1 && (
+                        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex gap-2">
+                          {bannerImages.map((_, index) => (
+                            <button
+                              key={index}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentSlide(index);
+                              }}
+                              className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentSlide ? 'w-8 bg-white' : 'bg-white/50 hover:bg-white/80'}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Content Body */}
+                <div className="p-8 flex flex-col bg-white text-left relative z-20">
+
+                  {/* Badge */}
+                  <div className="mb-4 inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-orange-50 text-orange-600 font-bold text-sm w-fit">
+                    {badgeIcon === "Star" && <Star size={16} fill="currentColor" />}
+                    {badgeIcon === "Heart" && <Heart size={16} fill="currentColor" />}
+                    {badgeIcon === "Flame" && <Flame size={16} fill="currentColor" />}
+                    {badgeIcon === "Trophy" && <Trophy size={16} fill="currentColor" />}
+                    {badgeIcon === "Sparkles" && <Sparkles size={16} fill="currentColor" />}
+                    {badgeText}
+                  </div>
+
+                  <h3 className="text-2xl font-black text-slate-800 mb-3 leading-tight group-hover:text-amber-600 transition-colors">
+                    {bannerTitle}
+                  </h3>
+                  <p className="text-slate-500 text-base mb-8 leading-relaxed font-medium line-clamp-3">
+                    {bannerDescription}
+                  </p>
+
+                  <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100 w-full">
+                    <div className="flex flex-col">
+                      <span className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">Course Price</span>
+                      <div className="flex items-center gap-3">
+                        {bannerFullPrice && (
+                          <span className="text-lg font-bold text-slate-400 line-through decoration-slate-400/50 decoration-2">
+                            ฿{bannerFullPrice}
+                          </span>
+                        )}
+                        <span className="text-4xl md:text-5xl font-black text-rose-500 tracking-tight drop-shadow-sm animate-heartbeat">
+                          {bannerPrice ? (bannerPrice === "Free" || bannerPrice === "ฟรี" ? "Free" : `฿${bannerPrice}`) : "คลิกดูรายละเอียด"}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all duration-500 shadow-sm group-hover:shadow-lg group-hover:scale-110">
+                      <ArrowRight size={24} strokeWidth={3} />
+                    </span>
+                  </div>
+                </div>
+              </Link>
             </div>
           </div>
         </header>
@@ -578,6 +630,15 @@ export default function HomePage() {
         @keyframes shimmer {
             100% { transform: translateX(100%); }
         }
+        
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            14% { transform: scale(1.1); }
+            28% { transform: scale(1); }
+            42% { transform: scale(1.1); }
+            70% { transform: scale(1); }
+        }
+        .animate-heartbeat { animation: heartbeat 1.5s infinite ease-in-out; }
       `}</style>
     </div >
   );

@@ -4,7 +4,7 @@ import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import Link from "next/link";
-import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2, Trash2, Star, Heart, Flame, Trophy, Sparkles } from "lucide-react";
+import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2, Trash2, Star, Heart, Flame, Trophy, Sparkles, FileText, Link as LinkIcon, DollarSign } from "lucide-react";
 
 // File validation constants
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -17,6 +17,15 @@ export default function AdminBanners() {
     const [badgeText, setBadgeText] = useState("คอร์สยอดนิยม");
     const [badgeIcon, setBadgeIcon] = useState("Star");
     const [isSavingBadge, setIsSavingBadge] = useState(false);
+
+    // New fields for Banner Content
+    const [bannerTitle, setBannerTitle] = useState("");
+    const [bannerDescription, setBannerDescription] = useState("");
+    const [bannerPrice, setBannerPrice] = useState("");
+    const [bannerFullPrice, setBannerFullPrice] = useState("");
+    const [bannerLinkUrl, setBannerLinkUrl] = useState("/course/1");
+    const [isSavingDetails, setIsSavingDetails] = useState(false);
+
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
     useEffect(() => {
@@ -37,6 +46,13 @@ export default function AdminBanners() {
                 }
                 if (data.badgeText) setBadgeText(data.badgeText);
                 if (data.badgeIcon) setBadgeIcon(data.badgeIcon);
+
+                // Fetch banner content
+                if (data.bannerTitle) setBannerTitle(data.bannerTitle);
+                if (data.bannerDescription) setBannerDescription(data.bannerDescription);
+                if (data.bannerPrice) setBannerPrice(data.bannerPrice);
+                if (data.bannerFullPrice) setBannerFullPrice(data.bannerFullPrice);
+                if (data.bannerLinkUrl) setBannerLinkUrl(data.bannerLinkUrl);
             }
         } catch (error) {
             console.error("Error fetching banners:", error);
@@ -109,6 +125,25 @@ export default function AdminBanners() {
             alert("เกิดข้อผิดพลาดในการลบรูปภาพ ❌");
         } finally {
             setDeletingId(null);
+        }
+    };
+
+    const handleSaveDetails = async () => {
+        try {
+            setIsSavingDetails(true);
+            await setDoc(doc(db, "system", "banners"), {
+                bannerTitle,
+                bannerDescription,
+                bannerPrice,
+                bannerFullPrice,
+                bannerLinkUrl
+            }, { merge: true });
+            alert("บันทึกข้อมูลรายละเอียดเรียบร้อยแล้ว ✅");
+        } catch (error) {
+            console.error("Error saving details:", error);
+            alert("บันทึกข้อมูลไม่สำเร็จ ❌");
+        } finally {
+            setIsSavingDetails(false);
         }
     };
 
@@ -200,7 +235,7 @@ export default function AdminBanners() {
                         <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-stone-50 p-6 rounded-3xl">
                             <div className="text-center md:text-left">
                                 <p className="font-bold text-stone-700 mb-1">อัปโหลดรูปภาพใหม่</p>
-                                <p className="text-xs text-stone-400">ขนาดที่แนะนำ: <span className="text-amber-600 font-bold">1200 x 500 px</span> (อัตราส่วน 21:9)</p>
+                                <p className="text-xs text-stone-400">ขนาดที่แนะนำ: <span className="text-amber-600 font-bold">1920 x 820 px</span> (อัตราส่วน 21:9)</p>
                             </div>
 
                             <label className={`
@@ -217,6 +252,97 @@ export default function AdminBanners() {
                                     disabled={uploading}
                                 />
                             </label>
+                        </div>
+                    </div>
+                </div>
+
+
+                {/* Banner Content Details Card */}
+                <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100 mt-8">
+                    <div className="flex items-center gap-4 mb-6 border-b border-stone-100 pb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-600">
+                            <FileText size={24} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold text-stone-800">รายละเอียดโฆษณา (Content)</h2>
+                            <p className="text-stone-400 text-sm">ข้อมูลที่จะแสดงบนการ์ดโฆษณา</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-bold text-stone-700 mb-2">หัวข้อ (Title)</label>
+                            <input
+                                type="text"
+                                value={bannerTitle}
+                                onChange={(e) => setBannerTitle(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition font-bold text-lg"
+                                placeholder="เช่น ติวเข้มสอบเข้า Gifted ม.1"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-stone-700 mb-2">รายละเอียด (Description)</label>
+                            <textarea
+                                value={bannerDescription}
+                                onChange={(e) => setBannerDescription(e.target.value)}
+                                rows={3}
+                                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition resize-none"
+                                placeholder="คำอธิบายสั้นๆ เกี่ยวกับคอร์สหรือโปรโมชั่น..."
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-stone-700 mb-2 flex items-center gap-2">
+                                    <DollarSign size={16} /> ราคา (ปล่อยว่างได้)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={bannerPrice}
+                                    onChange={(e) => setBannerPrice(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition"
+                                    placeholder="เช่น 1,900"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-stone-700 mb-2 flex items-center gap-2">
+                                    <DollarSign size={16} /> ราคาเต็ม (ขีดฆ่า)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={bannerFullPrice}
+                                    onChange={(e) => setBannerFullPrice(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition text-stone-400"
+                                    placeholder="เช่น 2,900"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <div>
+                                <label className="block text-sm font-bold text-stone-700 mb-2 flex items-center gap-2">
+                                    <LinkIcon size={16} /> ลิงก์ปลายทาง (Link URL)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={bannerLinkUrl}
+                                    onChange={(e) => setBannerLinkUrl(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition"
+                                    placeholder="เช่น /payment หรือ /course/abc"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-stone-100 flex justify-end">
+                            <button
+                                onClick={handleSaveDetails}
+                                disabled={isSavingDetails}
+                                className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition shadow-lg shadow-teal-200 disabled:opacity-50"
+                            >
+                                {isSavingDetails ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+                                <span>บันทึกรายละเอียด</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -273,7 +399,7 @@ export default function AdminBanners() {
                     </div>
                 </div>
 
-            </main>
-        </div>
+            </main >
+        </div >
     );
 }

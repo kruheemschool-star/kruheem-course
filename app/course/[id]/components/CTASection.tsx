@@ -13,21 +13,19 @@ export default function CTASection({ content, price, onCTAClick }: CTASectionPro
         <section className="py-20 bg-slate-50">
             <div className="max-w-3xl mx-auto px-6">
                 {/* Headline */}
-                <div className="text-center mb-12">
-                    <p className="text-3xl md:text-5xl font-black text-slate-900 leading-snug tracking-tight">
-                        <span className="bg-green-200 px-4 py-1 box-decoration-clone rounded-sm">
-                            ความเสี่ยงเดียวที่คุณมีตอนนี้
-                        </span><br className="mb-2 block" />
-                        <span className="bg-green-200 px-4 py-1 box-decoration-clone rounded-sm">
-                            คือการปิดหน้านี้ทิ้งไป
-                        </span><br className="mb-2 block" />
-                        <span className="bg-green-200 px-4 py-1 box-decoration-clone rounded-sm">
-                            แล้วปล่อยให้ลูกต้องทนเรียนแบบงงๆ ต่อไป
-                        </span><br className="mb-2 block" />
-                        <span className="bg-green-200 px-4 py-1 box-decoration-clone rounded-sm">
-                            แถมยังพลาดราคาที่ดีที่สุดไปตลอดกาล
-                        </span>
-                    </p>
+                <div className="text-center mb-12 flex flex-col items-center gap-3">
+                    <span className="bg-green-200 px-4 py-1 rounded-md text-2xl md:text-4xl font-black text-slate-900 tracking-tight">
+                        ความเสี่ยงเดียวที่คุณมีตอนนี้
+                    </span>
+                    <span className="bg-green-200 px-4 py-1 rounded-md text-2xl md:text-4xl font-black text-slate-900 tracking-tight">
+                        คือการปิดหน้านี้ทิ้งไป
+                    </span>
+                    <span className="bg-green-200 px-4 py-1 rounded-md text-2xl md:text-4xl font-black text-slate-900 tracking-tight">
+                        แล้วปล่อยให้เด็กๆต้องทนเรียนแบบงงๆต่อไป
+                    </span>
+                    <span className="bg-green-200 px-4 py-1 rounded-md text-2xl md:text-4xl font-black text-slate-900 tracking-tight">
+                        แถมยังพลาดราคาที่ดีที่สุดไปตลอดกาล
+                    </span>
                 </div>
 
                 {/* Steps - Simple */}
