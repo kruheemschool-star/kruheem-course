@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { Search, X } from 'lucide-react';
 import { Lesson } from './types';
@@ -45,6 +45,9 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
     isAdmin,
     user
 }) => {
+    // ✅ Local State for Exams Accordion (Default Collapsed)
+    const [isExamsOpen, setIsExamsOpen] = useState(false);
+
     return (
         <aside className={`
             ${isSidebarCollapsed ? 'w-0 border-r-0' : 'w-80 border-r'} 
@@ -57,32 +60,15 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
             <div className="p-5 pb-4 border-b border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 z-20 flex flex-col items-center flex-shrink-0 shadow-sm relative">
 
                 {/* ปุ่มการ์ดย้อนกลับ */}
-                <Link href="/my-courses" className="w-full flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border-2 border-indigo-100 dark:border-indigo-900/50 hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/50 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 px-4 py-3 rounded-2xl font-bold transition-all mb-4 shadow-sm group transform hover:-translate-y-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 transform group-hover:-translate-x-1 transition-transform text-indigo-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400"><path fillRule="evenodd" d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z" clipRule="evenodd" /></svg>
-                    <span>กลับหน้ารวมคอร์ส</span>
-                </Link>
 
-                {/* ✅ Search Bar */}
-                <div className="w-full relative mb-4 group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="h-4 w-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+
+                {/* ✅ Minimalist Back Button (Refined & Balanced) */}
+                <Link href="/my-courses" className="w-full flex items-center justify-center gap-3 text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white py-4 px-6 bg-gray-50 hover:bg-gray-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-gray-100 dark:border-slate-700/50 rounded-xl transition-all group mb-6 shadow-sm hover:shadow-md">
+                    <div className="flex-shrink-0 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transform group-hover:-translate-x-1 transition-transform opacity-60 group-hover:opacity-100"><path d="m15 18-6-6 6-6" /></svg>
                     </div>
-                    <input
-                        type="text"
-                        placeholder="ค้นหาบทเรียน..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 dark:border-slate-700 rounded-xl leading-5 bg-gray-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-gray-400 focus:outline-none focus:bg-white dark:focus:bg-slate-700 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 focus:border-indigo-300 sm:text-sm transition-all shadow-sm"
-                    />
-                    {searchQuery && (
-                        <button
-                            onClick={() => setSearchQuery("")}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                        >
-                            <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-                        </button>
-                    )}
-                </div>
+                    <span className="font-bold text-lg tracking-normal">กลับหน้ารวมคอร์ส</span>
+                </Link>
 
                 <div className="w-4/5 aspect-video rounded-xl overflow-hidden shadow-lg bg-gray-100 dark:bg-slate-800 mb-3 border border-gray-100 dark:border-slate-800">
                     {course.image ?
@@ -121,19 +107,25 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                         </a>
                     )}
 
-                    {/* ✅ SPECIAL EXAM SECTION (Pastel Theme) */}
-                    <div className="mt-6 w-full animate-in slide-in-from-left-4 fade-in duration-500">
-                        <div className="bg-gradient-to-br from-violet-100 via-indigo-100 to-cyan-100 rounded-2xl p-5 shadow-lg shadow-indigo-100 border border-indigo-50 text-indigo-900 relative overflow-hidden group">
+                    {/* ✅ SPECIAL EXAM SECTION (Notion Style) */}
+                    <div className="mt-6 w-full animate-in slide-in-from-left-4 fade-in duration-500 px-2">
+                        <button
+                            onClick={() => setIsExamsOpen(!isExamsOpen)}
+                            className="w-full flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors group text-slate-600 dark:text-slate-300 mb-1"
+                        >
+                            <span className={`transform transition-transform duration-200 ${isExamsOpen ? 'rotate-90' : ''}`}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50 group-hover:opacity-100"><path d="m9 18 6-6-6-6" /></svg>
+                            </span>
+                            <span className="font-semibold text-sm flex items-center gap-2">
+                                ⚡️ ตะลุยโจทย์ (Exams)
+                            </span>
+                            <span className="ml-auto text-xs text-slate-400 font-normal opacity-0 group-hover:opacity-100 transition-opacity">
+                                {examLessons.length} ชุด
+                            </span>
+                        </button>
 
-                            {/* Decorative Background Elements */}
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-white/40 rounded-full -mr-6 -mt-6 blur-xl"></div>
-                            <div className="absolute bottom-0 left-0 w-20 h-20 bg-fuchsia-200/20 rounded-full -ml-6 -mb-6 blur-xl"></div>
-
-                            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 relative z-10 text-indigo-800 border-b border-indigo-200/60 pb-2">
-                                <span className="text-xl drop-shadow-sm">⚡️</span> <span className="tracking-wide">ตะลุยโจทย์ (Exams)</span>
-                            </h3>
-
-                            <div className="space-y-2 relative z-10 max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
+                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExamsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div className="pl-4 space-y-0.5 border-l border-gray-100 dark:border-slate-800 ml-3.5 my-1">
                                 {examLessons.length > 0 ? (
                                     examLessons.map((exam: Lesson) => {
                                         const isActive = activeLesson?.id === exam.id;
@@ -148,23 +140,22 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                                                     }
                                                 }}
                                                 disabled={!isUnlocked}
-                                                className={`w-full text-left text-xs font-bold py-3 px-3.5 rounded-xl transition-all flex items-center justify-between group/btn border
+                                                className={`w-full text-left text-sm py-1.5 px-3 rounded-md transition-all flex items-center gap-2
                                                 ${isActive
-                                                        ? 'bg-white text-indigo-700 shadow-md border-indigo-100 ring-2 ring-indigo-50'
-                                                        : 'bg-white/40 hover:bg-white text-slate-600 hover:text-indigo-600 border-indigo-50/50 hover:shadow-sm'}
+                                                        ? 'bg-indigo-50 text-indigo-700 font-medium'
+                                                        : 'hover:bg-gray-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}
                                                 ${!isUnlocked ? 'opacity-50 cursor-not-allowed grayscale' : ''}
                                             `}
                                             >
                                                 <span className="truncate flex-1">{exam.title}</span>
-                                                {isActive && <span className="text-indigo-500 animate-pulse text-[10px]">●</span>}
+                                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>}
                                                 {!isUnlocked && <span className="text-[10px]">🔒</span>}
                                             </button>
                                         );
                                     })
                                 ) : (
-                                    <div className="text-center py-6 bg-white/30 rounded-xl border border-white/50 border-dashed backdrop-blur-sm">
-                                        <p className="text-xs text-indigo-400 font-medium">✨ ยังไม่มีชุดข้อสอบ</p>
-                                        <p className="text-[10px] text-indigo-300 mt-1">(รอติดตามเร็วๆ นี้)</p>
+                                    <div className="py-2 pl-3 text-xs text-slate-400 italic">
+                                        ยังไม่มีชุดข้อสอบ
                                     </div>
                                 )}
                             </div>

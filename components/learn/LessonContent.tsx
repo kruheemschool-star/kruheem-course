@@ -5,6 +5,7 @@ import { SmartContentRenderer } from "@/components/ContentRenderer";
 import { FlashcardPlayer } from './FlashcardPlayer';
 import { ExamRunner } from './ExamRunner';
 import { tryParseQuestions } from './utils';
+import LessonSummaryRenderer from './LessonSummaryRenderer';
 
 interface LessonContentProps {
     activeLesson: Lesson | null;
@@ -37,8 +38,78 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     markAsComplete,
     handleNextLesson
 }) => {
+    const [showSummary, setShowSummary] = React.useState(false);
+
     return (
         <div className="flex-1 overflow-y-auto bg-[#F9FAFB] dark:bg-slate-950 relative">
+            {/* ✅ Summary Modal */}
+            {showSummary && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#191919]/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#202020] w-full max-w-3xl max-h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-300 ring-1 ring-black/5 dark:ring-white/10">
+                        {/* Header */}
+                        <div className="p-6 border-b border-[#E9E9E7] dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#202020] z-10 sticky top-0">
+                            <h3 className="text-lg font-bold flex items-center gap-2 text-[#37352F] dark:text-gray-200">
+                                <span className="text-xl">📝</span> สรุปเนื้อหา
+                            </h3>
+                            <button
+                                onClick={() => setShowSummary(false)}
+                                className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 overflow-y-auto custom-scrollbar">
+                            <div className="prose dark:prose-invert max-w-none text-slate-600 dark:text-slate-300 leading-relaxed">
+                                {activeLesson?.content ? (
+                                    (() => {
+                                        // 🧠 Smart Content Rendering Logic
+                                        try {
+                                            // 1. Try Direct Parse
+                                            const parsed = JSON.parse(activeLesson.content);
+                                            if (parsed && (parsed.documentMetadata || parsed.sections)) {
+                                                return <LessonSummaryRenderer data={parsed} />;
+                                            }
+                                        } catch (e) {
+                                            // 2. Try Smart Extraction (Mixed Content)
+                                            // Find JSON block starting with { "documentMetadata" ...
+                                            const match = activeLesson.content.match(/(\{[\s\S]*"documentMetadata"[\s\S]*"sections"[\s\S]*\})/);
+                                            if (match) {
+                                                const jsonPart = match[1];
+                                                const textPart = activeLesson.content.replace(jsonPart, "");
+                                                try {
+                                                    const parsed = JSON.parse(jsonPart);
+                                                    return (
+                                                        <>
+                                                            {/* Render Intro Text if any */}
+                                                            {textPart && <div dangerouslySetInnerHTML={{ __html: textPart }} className="mb-8 border-b pb-4" />}
+                                                            {/* Render Rich Summary */}
+                                                            <LessonSummaryRenderer data={parsed} />
+                                                        </>
+                                                    );
+                                                } catch (err) {
+                                                    // Extraction failed to parse
+                                                }
+                                            }
+                                        }
+                                        // Fallback to Standard HTML
+                                        return <div dangerouslySetInnerHTML={{ __html: activeLesson.content }} />;
+                                    })()
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400 opacity-70">
+                                        <div className="text-4xl mb-4">📄</div>
+                                        <p>ยังไม่มีสรุปเนื้อหาสำหรับบทเรียนนี้</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    {/* Backdrop click to close */}
+                    <div className="absolute inset-0 -z-10" onClick={() => setShowSummary(false)}></div>
+                </div>
+            )}
+
             {isHeaderMode ? (
                 <div className="h-full flex items-center justify-center p-10">
                     {activeLesson?.image ?
@@ -184,17 +255,15 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                     ></iframe>
                                 </div>
 
-                                {/* Fallback Help Button (Visible on hover or if video fails) */}
-                                <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <a
-                                        href={`https://www.youtube.com/watch?v=${currentVideoId}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2 bg-black/50 hover:bg-black/80 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/20 transition-all"
+                                {/* ✅ Floating Summary Button */}
+                                <div className="absolute top-4 right-4 z-20">
+                                    <button
+                                        onClick={() => setShowSummary(true)}
+                                        className="flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white text-base font-bold px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all backdrop-blur-md border border-white/20"
                                     >
-                                        <span>⚠️ วิดีโอเล่นไม่ได้?</span>
-                                        <span className="underline">ดูบน YouTube</span>
-                                    </a>
+                                        <span className="text-xl">📝</span>
+                                        <span>สรุปเนื้อหา</span>
+                                    </button>
                                 </div>
                             </>
                         ) : (

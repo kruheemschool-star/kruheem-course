@@ -1291,7 +1291,78 @@ export default function ManageLessonsPage() {
                                                 <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition ${isFree ? 'bg-teal-500 border-teal-500' : 'bg-white border-teal-300'}`}>{isFree && <span className="text-white text-xs font-bold">✓</span>}</div>
                                                 <label className="text-teal-800 font-bold text-sm cursor-pointer">ใจดี! เปิดให้ดูฟรี (Free Preview) 🎁</label>
                                             </div>
-                                            <textarea placeholder="📝 คำอธิบายวิดีโอ..." className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none min-h-[120px]" value={lessonContent} onChange={(e) => setLessonContent(e.target.value)} />
+                                            <div className="bg-slate-100 p-4 rounded-3xl border-2 border-slate-200">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="bg-indigo-500 text-white p-1.5 rounded-lg">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M11.25 4.533A9.707 9.707 0 006 3.75a9.753 9.753 0 00-3 10.284C5.232 16.48 8.354 18 12 18s6.768-1.52 9-3.966a9.753 9.753 0 00-3-10.284 9.707 9.707 0 00-5.25.783zm-2.025 8.318a.375.375 0 00.525.525l2.433-2.434a.375.375 0 00-.53-.53l-2.428 2.44z" /></svg>
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="text-sm font-black text-slate-700">Rich Summary (JSON)</h4>
+                                                            <p className="text-[10px] text-slate-400 font-medium">วางโค้ดที่นี่เพื่อแสดงผลแบบสวยงาม</p>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            let statusMsg = "";
+                                                            let contentToProcess = lessonContent;
+
+                                                            // 1. Pre-cleaning
+                                                            contentToProcess = contentToProcess.replace(/```json/gi, '').replace(/```/g, '').trim();
+                                                            contentToProcess = contentToProcess.replace(/\[cite_start\]/g, "").replace(/\[cite:\s*[^\]]+\]/g, "");
+
+                                                            // 2. Smart Healing
+                                                            try {
+                                                                let healed = contentToProcess.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3');
+                                                                healed = healed.replace(/,(\s*[}\]])/g, '$1');
+
+                                                                let parsed = JSON5.parse(healed);
+
+                                                                // 3. Schema Validation
+                                                                const validationErrors = [];
+                                                                if (!parsed.documentMetadata) validationErrors.push("ขาด 'documentMetadata'");
+                                                                if (!parsed.sections || !Array.isArray(parsed.sections)) validationErrors.push("ขาด 'sections'");
+
+                                                                if (validationErrors.length > 0) {
+                                                                    statusMsg = `⚠️ โครงสร้างไม่ครบ: ${validationErrors.join(", ")}`;
+                                                                    showToast(statusMsg, "error");
+                                                                } else {
+                                                                    statusMsg = "✅ โครงสร้าง Rich Summary สมบูรณ์!";
+                                                                    showToast(statusMsg);
+                                                                }
+
+                                                                setLessonContent(JSON.stringify(parsed, null, 2));
+
+                                                            } catch (e) {
+                                                                console.error("Healing Failed:", e);
+                                                                showToast("❌ ไม่สามารถซ่อมแซมได้: " + (e as Error).message, "error");
+                                                            }
+                                                        }}
+                                                        className="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 transition flex items-center gap-1"
+                                                    >
+                                                        <span>🪄</span> Smart Fix & Clean
+                                                    </button>
+                                                </div>
+                                                <div className="relative group/editor">
+                                                    <div className="absolute top-0 right-0 p-2 opacity-0 group-hover/editor:opacity-100 transition pointer-events-none">
+                                                        <span className="bg-black/50 text-white text-[10px] px-2 py-1 rounded backdrop-blur-md">Code Editor</span>
+                                                    </div>
+                                                    <textarea
+                                                        placeholder={`// วาง Code JSON ที่นี่...\n{\n  "documentMetadata": { ... },\n  "sections": [ ... ]\n}`}
+                                                        className="w-full p-4 bg-slate-800 text-green-400 border-2 border-slate-700 focus:border-indigo-500 rounded-2xl outline-none min-h-[250px] font-mono text-xs leading-relaxed shadow-inner"
+                                                        value={lessonContent}
+                                                        onChange={(e) => setLessonContent(e.target.value)}
+                                                        spellCheck={false}
+                                                    />
+                                                    {tryParseJson(lessonContent) && (
+                                                        <div className="absolute bottom-4 right-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-lg flex items-center gap-1">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                                            Valid JSON
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
 
@@ -1316,36 +1387,68 @@ export default function ManageLessonsPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => {
+                                                            let statusMsg = "";
+                                                            let contentToProcess = lessonContent;
+
+                                                            // 1. Pre-cleaning (Raw Text Handler)
+                                                            // Remove Markdown code blocks
+                                                            contentToProcess = contentToProcess.replace(/```json/gi, '').replace(/```/g, '').trim();
+                                                            // Remove AI artifacts
+                                                            contentToProcess = contentToProcess.replace(/\[cite_start\]/g, "").replace(/\[cite:\s*[^\]]+\]/g, "");
+
+                                                            // 2. Smart Healing (JSON5 + Custom Regex)
                                                             try {
-                                                                // 1. Remove [cite_start] artifacts globally
-                                                                let cleaned = lessonContent.replace(/\[cite_start\]/g, "");
-                                                                // 2. Remove [cite: ...] tags
-                                                                cleaned = cleaned.replace(/\[cite:\s*[^\]]+\]/g, "");
-                                                                // 3. Remove "Based on..." preambles
-                                                                cleaned = cleaned.replace(/^Based on the provided[\s\S]*?\[/, "[");
-                                                                // 4. Try to parse and pretty print
-                                                                const parsed = JSON.parse(cleaned);
+                                                                // Simple Regex Fixes before parsing
+                                                                // Fix missing quotes on keys: { key: "val" } -> { "key": "val" }
+                                                                let healed = contentToProcess.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3');
+                                                                // Fix trailing commas: , } -> }
+                                                                healed = healed.replace(/,(\s*[}\]])/g, '$1');
+
+                                                                // Parse using JSON5 (allowing comments, trailing commas, single quotes)
+                                                                let parsed = JSON5.parse(healed);
+
+                                                                // 3. Schema Validation
+                                                                const validationErrors = [];
+                                                                if (!parsed.documentMetadata) validationErrors.push("ขาดส่วน 'documentMetadata'");
+                                                                if (!parsed.sections || !Array.isArray(parsed.sections)) validationErrors.push("ขาดส่วน 'sections' หรือไม่ใช่ Array");
+
+                                                                if (validationErrors.length > 0) {
+                                                                    // Soft Warning
+                                                                    statusMsg = `⚠️ โครงสร้างไม่ครบ: ${validationErrors.join(", ")}`;
+                                                                    showToast(statusMsg, "error");
+                                                                } else {
+                                                                    statusMsg = "✅ โครงสร้างถูกต้องสมบูรณ์ (Rich Summary)";
+                                                                    showToast(statusMsg);
+                                                                }
+
+                                                                // 4. Save & Format
                                                                 setLessonContent(JSON.stringify(parsed, null, 2));
-                                                                showToast("✨ ล้างโค้ดและจัดรูปแบบเรียบร้อย!");
+
                                                             } catch (e) {
-                                                                // Fallback: Just simple replace if JSON parse fails
-                                                                let cleaned = lessonContent.replace(/\[cite_start\]/g, "").replace(/\[cite:\s*[^\]]+\]/g, "");
-                                                                setLessonContent(cleaned);
-                                                                showToast("⚠️ ล้างโค้ดบางส่วนแล้ว (JSON ยังไม่สมบูรณ์)", "error");
+                                                                // Final Fallback: Force formatting if possible, else show error
+                                                                console.error("Healing Failed:", e);
+                                                                showToast("❌ ไม่สามารถซ่อมแซม JSON ได้ กรุณาตรวจสอบ Syntax", "error");
                                                             }
                                                         }}
                                                         className="text-[10px] bg-pink-100 text-pink-600 px-2 py-1 rounded-lg font-bold hover:bg-pink-200 transition flex items-center gap-1"
                                                     >
-                                                        ✨ ล้างโค้ด (Clean Code)
+                                                        🪄 Smart Fix & Validate
                                                     </button>
                                                 </div>
-                                                <textarea
-                                                    placeholder={`เขียนเนื้อหาบทเรียน หรือวาง JSON Code ที่นี่...\n\nตัวอย่าง JSON:\n[\n  { "type": "header", "content": "หัวข้อเรื่อง" },\n  { "type": "definition", "title": "นิยาม", "content": "เนื้อหา..." }\n]`}
-                                                    className="w-full p-6 bg-slate-50 border-2 border-pink-100 focus:border-pink-400 rounded-2xl outline-none min-h-[300px] font-mono text-sm text-slate-700 leading-relaxed"
-                                                    value={lessonContent}
-                                                    onChange={(e) => setLessonContent(e.target.value)}
-                                                    spellCheck={false}
-                                                />
+                                                <div className="relative">
+                                                    <textarea
+                                                        placeholder={`วางโค้ดสรุปเนื้อหาที่นี่ (รองรับ Raw Text & JSON5) ...\nระบบจะช่วยซ่อมแซมอัตโนมัติเมื่อกดปุ่ม "Smart Fix & Validate"`}
+                                                        className="w-full p-6 bg-slate-50 border-2 border-pink-100 focus:border-pink-400 rounded-2xl outline-none min-h-[300px] font-mono text-sm text-slate-700 leading-relaxed"
+                                                        value={lessonContent}
+                                                        onChange={(e) => setLessonContent(e.target.value)}
+                                                        spellCheck={false}
+                                                    />
+                                                    {tryParseJson(lessonContent) && (
+                                                        <div className="absolute bottom-4 right-4 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200 shadow-sm opacity-80 pointer-events-none">
+                                                            JSON Valid ✅
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="flex items-center gap-3 p-4 bg-teal-50 rounded-2xl border-2 border-teal-100 cursor-pointer hover:bg-teal-100 transition" onClick={() => setIsFree(!isFree)}>
