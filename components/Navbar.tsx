@@ -35,12 +35,12 @@ export default function Navbar() {
         if (!isAdmin) return;
 
         const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
-        // const unsubscribe = onSnapshot(q, (snapshot) => {
-        //     setPendingCount(snapshot.size);
-        // });
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setPendingCount(snapshot.size);
+        });
 
         return () => {
-            // unsubscribe();
+            unsubscribe();
         };
     }, [isAdmin]);
 
@@ -296,7 +296,7 @@ export default function Navbar() {
                                 <Settings size={20} />
                                 <span>Admin Panel</span>
                                 {pendingCount > 0 && (
-                                    <span className="ml-auto px-2 py-0.5 bg-rose-500 text-white text-xs font-bold rounded-full">
+                                    <span className="ml-auto px-2 py-0.5 bg-rose-500 text-white text-xs font-bold rounded-full animate-pulse shadow-sm shadow-rose-200">
                                         {pendingCount}
                                     </span>
                                 )}

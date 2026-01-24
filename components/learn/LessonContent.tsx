@@ -6,6 +6,7 @@ import { FlashcardPlayer } from './FlashcardPlayer';
 import { ExamRunner } from './ExamRunner';
 import { tryParseQuestions } from './utils';
 import LessonSummaryRenderer from './LessonSummaryRenderer';
+import YouTube from 'react-youtube'; // ✅ Import YouTube
 
 interface LessonContentProps {
     activeLesson: Lesson | null;
@@ -21,6 +22,9 @@ interface LessonContentProps {
     setIsAnswered: (answered: boolean) => void;
     markAsComplete: (lessonId: string) => void;
     handleNextLesson: () => void;
+    // ✅ New Props for Smart Resume
+    onVideoProgress?: (seconds: number) => void;
+    initialTime?: number;
 }
 
 export const LessonContent: React.FC<LessonContentProps> = ({
@@ -36,23 +40,43 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     setSelectedAnswer,
     setIsAnswered,
     markAsComplete,
-    handleNextLesson
+    handleNextLesson,
+    onVideoProgress,
+    initialTime
 }) => {
     const [showSummary, setShowSummary] = React.useState(false);
+    const [isClosing, setIsClosing] = React.useState(false);
+
+    // Handle close with animation
+    const handleCloseSummary = () => {
+        setIsClosing(true);
+        setTimeout(() => {
+            setShowSummary(false);
+            setIsClosing(false);
+        }, 700); // Match animation duration (slower for visible effect)
+    };
 
     return (
         <div className="flex-1 overflow-y-auto bg-[#F9FAFB] dark:bg-slate-950 relative">
-            {/* ✅ Summary Modal */}
+            {/* ✅ Summary Modal with Fade In/Out */}
             {showSummary && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#191919]/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-[#202020] w-full max-w-3xl max-h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-300 ring-1 ring-black/5 dark:ring-white/10">
+                <div
+                    className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#191919]/50 backdrop-blur-sm transition-opacity duration-700 ease-out ${isClosing ? 'opacity-0' : 'opacity-100 animate-in fade-in duration-700'
+                        }`}
+                >
+                    <div
+                        className={`bg-white dark:bg-[#202020] w-full max-w-4xl max-h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden relative ring-1 ring-black/5 dark:ring-white/10 transition-all duration-700 ease-out ${isClosing
+                            ? 'opacity-0 scale-95'
+                            : 'opacity-100 scale-100 animate-in zoom-in-95 duration-700'
+                            }`}
+                    >
                         {/* Header */}
                         <div className="p-6 border-b border-[#E9E9E7] dark:border-slate-800 flex items-center justify-between bg-white dark:bg-[#202020] z-10 sticky top-0">
                             <h3 className="text-lg font-bold flex items-center gap-2 text-[#37352F] dark:text-gray-200">
                                 <span className="text-xl">📝</span> สรุปเนื้อหา
                             </h3>
                             <button
-                                onClick={() => setShowSummary(false)}
+                                onClick={handleCloseSummary}
                                 className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center transition-colors"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
@@ -106,7 +130,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                         </div>
                     </div>
                     {/* Backdrop click to close */}
-                    <div className="absolute inset-0 -z-10" onClick={() => setShowSummary(false)}></div>
+                    <div className="absolute inset-0 -z-10" onClick={handleCloseSummary}></div>
                 </div>
             )}
 
@@ -242,24 +266,56 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                         </div>
                     </div>
                 ) : (
-                    // Video Player with Error Handling Fallback
+                    // Video Player with Error Handling Fallback & Smart Resume Support
                     <div className="w-full h-full bg-black flex flex-col items-center justify-center relative group">
                         {currentVideoId ? (
                             <>
-                                <div className="w-full aspect-video max-h-full relative">
-                                    <iframe
-                                        src={`https://www.youtube.com/embed/${currentVideoId}?autoplay=0&rel=0`}
+                                <div className="w-full aspect-video max-h-full relative flex items-center justify-center bg-black">
+                                    <YouTube
+                                        videoId={currentVideoId}
                                         className="w-full h-full absolute inset-0 z-10"
-                                        allowFullScreen
-                                        title="Video Player"
-                                    ></iframe>
+                                        iframeClassName="w-full h-full"
+                                        opts={{
+                                            playerVars: {
+                                                autoplay: 0,
+                                                rel: 0,
+                                                start: initialTime || 0,
+                                            },
+                                        }}
+                                        onReady={(event) => {
+                                            // Store player instance if needed, but we use event.target in handlers usually.
+                                            // If we need external control, we might need a ref, but for now local interval is fine
+                                        }}
+                                        onStateChange={(event) => {
+                                            const player = event.target;
+                                            const state = event.data;
+
+                                            // Clear any existing interval
+                                            if ((window as any).videoInterval) clearInterval((window as any).videoInterval);
+
+                                            // 1 = Playing
+                                            if (state === 1) {
+                                                // Save immediately on start/resume
+                                                if (onVideoProgress) onVideoProgress(player.getCurrentTime());
+
+                                                // Start Heartbeat (Every 15s)
+                                                (window as any).videoInterval = setInterval(() => {
+                                                    const time = player.getCurrentTime();
+                                                    if (onVideoProgress) onVideoProgress(time);
+                                                }, 15000);
+                                            } else {
+                                                // Paused (2) or Ended (0) -> Save immediately & Stop Heartbeat
+                                                if (onVideoProgress) onVideoProgress(player.getCurrentTime());
+                                            }
+                                        }}
+                                    />
                                 </div>
 
                                 {/* ✅ Floating Summary Button */}
-                                <div className="absolute top-4 right-4 z-20">
+                                <div className="absolute top-4 right-4 z-20 pointer-events-none">
                                     <button
                                         onClick={() => setShowSummary(true)}
-                                        className="flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white text-base font-bold px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all backdrop-blur-md border border-white/20"
+                                        className="pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white text-base font-bold px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all backdrop-blur-md border border-white/20"
                                     >
                                         <span className="text-xl">📝</span>
                                         <span>สรุปเนื้อหา</span>

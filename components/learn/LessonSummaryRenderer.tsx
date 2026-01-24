@@ -45,6 +45,25 @@ interface LessonSummaryProps {
             title?: string;
             prerequisites?: string[];
             content?: string;
+            // 💡 Core Concept (สรุปมโนทัศน์)
+            coreConcept?: {
+                title: string;
+                content: string;
+            };
+            // 🛣️ Step by Step (วิธีการทำ)
+            stepByStep?: {
+                title: string;
+                steps: string[];
+            };
+            // ⚠️ Danger Zone (จุดอันตราย)
+            dangerZone?: {
+                title: string;
+                warnings: Array<{
+                    mistake: string;
+                    why: string;
+                    prevention: string;
+                }>;
+            };
             examples?: Array<{ problem: string; solution: string }>;
             practiceProblems?: Array<{ problem: string; hint?: string; solution: string }>;
             keyTakeaways?: string[];
@@ -109,6 +128,64 @@ export default function LessonSummaryRenderer({ data }: LessonSummaryProps) {
                         {section.content && (
                             <div className="mb-10">
                                 <MarkdownRenderer content={section.content} />
+                            </div>
+                        )}
+
+                        {/* 💡 Core Concept (สรุปมโนทัศน์) - Notion Style */}
+                        {section.coreConcept && (
+                            <div className="mb-8 bg-[#F7F6F3] dark:bg-slate-800/40 p-6 rounded-md">
+                                <h3 className="font-semibold text-[#37352F] dark:text-slate-100 mb-4 text-lg">
+                                    {section.coreConcept.title || '💡 สรุปมโนทัศน์'}
+                                </h3>
+                                <div className="text-[#37352F] dark:text-slate-300 text-base leading-[1.8]">
+                                    <MarkdownRenderer content={section.coreConcept.content} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 🛣️ Step by Step (วิธีการทำ) - Notion Style */}
+                        {section.stepByStep && section.stepByStep.steps && section.stepByStep.steps.length > 0 && (
+                            <div className="mb-8 bg-[#F7F6F3] dark:bg-slate-800/40 p-6 rounded-md">
+                                <h3 className="font-semibold text-[#37352F] dark:text-slate-100 mb-5 text-lg">
+                                    {section.stepByStep.title || '🛣️ วิธีการทำ'}
+                                </h3>
+                                <ol className="space-y-4">
+                                    {section.stepByStep.steps.map((step, i) => (
+                                        <li key={i} className="flex items-start gap-4">
+                                            <span className="flex-shrink-0 w-7 h-7 bg-[#37352F] dark:bg-slate-600 text-white rounded text-sm flex items-center justify-center font-semibold">
+                                                {i + 1}
+                                            </span>
+                                            <div className="flex-1 text-[#37352F] dark:text-slate-300 text-base leading-[1.8] pt-0.5">
+                                                <MarkdownRenderer content={step} />
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ol>
+                            </div>
+                        )}
+
+                        {/* ⚠️ Danger Zone (จุดอันตรายที่ต้องระวัง) - Notion Style */}
+                        {section.dangerZone && section.dangerZone.warnings && section.dangerZone.warnings.length > 0 && (
+                            <div className="mb-8 bg-[#FDEBEC] dark:bg-red-900/20 p-6 rounded-md">
+                                <h3 className="font-semibold text-[#37352F] dark:text-slate-100 mb-5 text-lg">
+                                    {section.dangerZone.title || '⚠️ จุดอันตรายที่ต้องระวัง'}
+                                </h3>
+                                <div className="space-y-5">
+                                    {section.dangerZone.warnings.map((warning, i) => (
+                                        <div key={i} className="border-l-2 border-[#E03E3E] pl-4 py-1">
+                                            <div className="font-medium text-[#37352F] dark:text-slate-200 text-base mb-2">
+                                                <MarkdownRenderer content={warning.mistake} />
+                                            </div>
+                                            <div className="text-gray-600 dark:text-slate-400 text-[15px] mb-2">
+                                                <MarkdownRenderer content={warning.why} />
+                                            </div>
+                                            <div className="text-[#0F7B6C] dark:text-emerald-400 text-[15px]">
+                                                <span className="mr-1">✓</span>
+                                                <MarkdownRenderer content={warning.prevention} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 

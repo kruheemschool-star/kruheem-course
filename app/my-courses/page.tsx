@@ -67,6 +67,7 @@ export default function MyCoursesPage() {
     const { user, userProfile, loading: authLoading } = useUserAuth();
     const [courses, setCourses] = useState<Course[]>([]);
     const [progressMap, setProgressMap] = useState<Record<string, Progress>>({});
+    const [lastSession, setLastSession] = useState<any>(null); // ✅ Smart Resume State
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -81,12 +82,28 @@ export default function MyCoursesPage() {
                 setLoading(true);
                 const uid = user.uid;
 
-                // 1. Parallel Fetch: Enrollments, All Courses, User Progress Collection
-                const [enrollSnap, coursesSnap, progressSnap] = await Promise.all([
+                // 1. Parallel Fetch: Enrollments, All Courses, User Progress Collection, Last Session States
+                const [enrollSnap, coursesSnap, progressSnap, statesSnap] = await Promise.all([
                     getDocs(query(collection(db, "enrollments"), where("userId", "==", uid))),
                     getDocs(collection(db, "courses")),
-                    getDocs(collection(db, "users", uid, "progress"))
+                    getDocs(collection(db, "users", uid, "progress")),
+                    getDocs(collection(db, "users", uid, "course_states"))
                 ]);
+
+                // Process Resume State
+                if (!statesSnap.empty) {
+                    const states = statesSnap.docs.map(d => ({ courseId: d.id, ...d.data() } as any));
+                    // Sort by lastUpdated desc
+                    states.sort((a, b) => {
+                        const tA = a.lastUpdated?.seconds || 0;
+                        const tB = b.lastUpdated?.seconds || 0;
+                        return tB - tA;
+                    });
+                    if (states.length > 0) {
+                        setLastSession(states[0]);
+                    }
+                }
+
 
                 // 2. Process Enrollments
                 const enrollments = enrollSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
@@ -238,6 +255,69 @@ export default function MyCoursesPage() {
                 <ProfileHeader profile={userProfile || user} />
 
                 <div className="h-8"></div>
+
+                <div className="h-8"></div>
+
+                {/* ✅ Resume Learning Compass (Notion Style Minimalist) */}
+                {lastSession && (
+                    <div className="mb-10 w-full animate-in slide-in-from-top-4 duration-700 delay-200">
+                        <Link href={`/learn/${lastSession.courseId}?lessonId=${lastSession.lessonId}&t=${lastSession.timestamp}`}>
+                            <div className="group relative w-full bg-white dark:bg-[#191919] rounded-xl p-5 border border-[#E6E6E6] dark:border-[#2F2F2F] shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer">
+
+                                <div className="flex items-center gap-5 w-full md:w-auto">
+                                    {/* Flat Icon Design */}
+                                    <div className="w-14 h-14 bg-[#F7F6F3] dark:bg-[#2A2A2A] rounded-lg flex items-center justify-center shrink-0 border border-[#EBEBEB] dark:border-[#333]">
+                                        <div className="relative">
+                                            {/* Base Circle */}
+                                            <div className="w-8 h-8 rounded-full bg-[#FFD400] border-2 border-[#37352F] dark:border-white shadow-[2px_2px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_rgba(255,255,255,0.5)] flex items-center justify-center">
+                                                {/* Needle */}
+                                                <div className="w-1 h-3 bg-[#EB5757] absolute -top-1 left-1/2 -ml-0.5 rotate-45 transform origin-bottom"></div>
+                                                <div className="w-1 h-3 bg-white absolute top-1/2 left-1/2 -ml-0.5 rotate-45 transform origin-top"></div>
+                                                <div className="w-1.5 h-1.5 bg-[#37352F] rounded-full z-10"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1.5">
+                                            {/* ✅ Pulsing Green Dot */}
+                                            <span className="relative flex h-2.5 w-2.5 mr-1">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                                            </span>
+                                            <span className="text-[#EB5757] text-[10px] font-bold uppercase tracking-widest bg-[#FFEBEB] dark:bg-[#3E1F1F] px-2 py-0.5 rounded-sm">Resume</span>
+                                            <span className="text-[#9B9A97] text-xs font-medium">เรียนต่อจากจุดเดิม</span>
+                                        </div>
+                                        <h2 className="text-xl md:text-3xl font-black text-[#37352F] dark:text-[#EBEBEB] truncate leading-tight group-hover:text-[#EB5757] transition-colors">{lastSession.lessonTitle}</h2>
+                                        {lastSession.courseTitle && (
+                                            <p className="text-[#787774] dark:text-[#9B9A97] text-sm mt-0.5 truncate flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-[#D3D3D3]"></span>
+                                                {lastSession.courseTitle}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right: Time & Action */}
+                                <div className="flex flex-col md:items-end gap-3 w-full md:w-auto mt-4 md:mt-0 pl-[76px] md:pl-0">
+                                    <div className="flex items-center gap-2 bg-[#F5F5F3] dark:bg-[#2F2F2F] px-3 py-1.5 rounded-md self-start md:self-end border border-[#E0E0E0] dark:border-[#404040]">
+                                        <span className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">⏱️ ค้างอยู่ที่นาที</span>
+                                        <span className="text-[#37352F] dark:text-[#E0E0E0] font-mono font-bold text-base">
+                                            {Math.floor(lastSession.timestamp / 60)}:{String(lastSession.timestamp % 60).padStart(2, '0')}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-[#9B9A97] group-hover:text-[#EB5757] transition-colors text-sm font-semibold">
+                                        <span>คลิกเพื่อไปต่อ</span>
+                                        <div className="w-6 h-6 rounded-full border border-current flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </Link>
+                    </div>
+                )}
 
                 <CourseList courses={courses} progressMap={progressMap} />
             </main>

@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { db } from "@/lib/firebase";
 import { logLearningActivity } from "@/lib/activityTracking";
 import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, onSnapshot, where, serverTimestamp } from "firebase/firestore";
@@ -372,6 +372,41 @@ export default function CoursePlayer() {
     const currentVideoId = canWatchCurrent ? (activeLesson ? activeLesson.videoId : course.videoId) : "";
     const isHeaderMode = activeLesson?.type === 'header';
 
+    // ✅ Smart Resume Logic
+    const tParam = searchParams.get('t');
+    const initialTimestamp = tParam ? parseInt(tParam) : 0;
+
+    // We use a ref to track the last saved time to avoid duplicate writes if called too frequently
+    const lastSavedTimeRef = useRef<number>(-1);
+
+    const saveProgress = async (seconds: number) => {
+        if (!user || !activeLesson || !courseId) return;
+
+        const currentTime = Math.floor(seconds);
+
+        // Optimization: Don't save if time hasn't changed or changed very little (< 5s) from last save
+        // Exception: Always save if it's the first save (-1)
+        if (lastSavedTimeRef.current !== -1 && Math.abs(currentTime - lastSavedTimeRef.current) < 5) {
+            return;
+        }
+
+        try {
+            lastSavedTimeRef.current = currentTime; // Update local ref immediately
+
+            const docRef = doc(db, "users", user.uid, "course_states", courseId);
+            await setDoc(docRef, {
+                lessonId: activeLesson.id,
+                lessonTitle: activeLesson.title,
+                timestamp: currentTime,
+                lastUpdated: serverTimestamp(),
+                courseTitle: course.title,
+                courseImage: course.image || ""
+            }, { merge: true });
+        } catch (err) {
+            console.error("Failed to save progress", err);
+        }
+    };
+
     if (authLoading || dataLoading) return <LearnPageSkeleton />;
     if (!course) return <div className="min-h-screen bg-white flex items-center justify-center">ไม่พบคอร์สเรียนนี้</div>;
 
@@ -494,6 +529,8 @@ export default function CoursePlayer() {
                     setIsAnswered={setIsAnswered}
                     markAsComplete={markAsComplete}
                     handleNextLesson={handleNextLesson}
+                    onVideoProgress={saveProgress}
+                    initialTime={initialTimestamp}
                 />
             </main>
             {/* Toast Notification */}
