@@ -64,7 +64,7 @@ interface Progress {
 }
 
 // Module-level guard to prevent multiple fetches during remounts
-let isGlobalFetching = false;
+
 
 export default function MyCoursesPage() {
     const { user, userProfile, loading: authLoading } = useUserAuth();
@@ -73,12 +73,7 @@ export default function MyCoursesPage() {
     const [lastSession, setLastSession] = useState<any>(null); // ✅ Smart Resume State
     const [loading, setLoading] = useState(true);
 
-    // Reset global flag if user is explicitly null (logged out) - allowing re-fetch on next login
-    useEffect(() => {
-        if (!user) {
-            isGlobalFetching = false;
-        }
-    }, [user]);
+
 
     useEffect(() => {
         if (authLoading) return;
@@ -87,20 +82,31 @@ export default function MyCoursesPage() {
             return;
         }
 
-        // Strict Guard: If already fetching or fetched in this session context, skip.
-        // We rely on the initial state being empty to know if we need data?
-        // Actually, if we use module var, we just block entry.
-        if (isGlobalFetching) return;
-        isGlobalFetching = true;
-
         const fetchData = async () => {
+            const uid = user.uid;
+            const cacheKey = `kruheem_courses_${uid}`;
 
+            // 1. Try Cache
+            const cached = sessionStorage.getItem(cacheKey);
+            if (cached) {
+                try {
+                    const data = JSON.parse(cached);
+                    setCourses(data.courses);
+                    setProgressMap(data.progressMap);
+                    setLastSession(data.lastSession);
+                    setLoading(false);
+                    return; // ✅ Stop fetch
+                } catch (e) {
+                    console.error("Cache parse error", e);
+                    sessionStorage.removeItem(cacheKey);
+                }
+            }
 
+            // 2. Network Fetch (Only if no cache)
             try {
                 setLoading(true);
-                const uid = user.uid;
 
-                // 1. Parallel Fetch: Enrollments, All Courses, User Progress Collection, Last Session States
+                // Parallel Fetch: Enrollments, All Courses, User Progress Collection, Last Session States
                 const [enrollSnap, coursesSnap, progressSnap, statesSnap] = await Promise.all([
                     getDocs(query(collection(db, "enrollments"), where("userId", "==", uid))),
                     getDocs(collection(db, "courses")),
@@ -108,133 +114,96 @@ export default function MyCoursesPage() {
                     getDocs(collection(db, "users", uid, "course_states"))
                 ]);
 
+                // ... Processing Logic (Keep existing map/reduce logic) ...
+
+                // Note: We need to reconstruct the processing logic here or copy it carefully. 
+                // Since I am replacing the block, I must include the logic logic.
+
                 // Process Resume State
+                let loadedLastSession = null;
                 if (!statesSnap.empty) {
                     const states = statesSnap.docs.map(d => ({ courseId: d.id, ...d.data() } as any));
-                    // Sort by lastUpdated desc
-                    states.sort((a, b) => {
-                        const tA = a.lastUpdated?.seconds || 0;
-                        const tB = b.lastUpdated?.seconds || 0;
-                        return tB - tA;
-                    });
-                    if (states.length > 0) {
-                        setLastSession(states[0]);
-                    }
+                    states.sort((a, b) => (b.lastUpdated?.seconds || 0) - (a.lastUpdated?.seconds || 0));
+                    if (states.length > 0) loadedLastSession = states[0];
                 }
 
-
-                // 2. Process Enrollments
+                // Process Enrollments
                 const enrollments = enrollSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
                 const enrolledCourseIds = new Set(enrollments.map(e => e.courseId));
 
-                // 3. Process Courses (Logic: Admin vs Student)
+                // Process Courses
                 const allCoursesData = coursesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
-                // Fix: properties on userProfile might need specific typing, but user.email (Auth) is sufficient and safer.
                 const isAdmin = user?.email === "kruheemschool@gmail.com";
-
                 let myCourses: Course[];
 
                 if (isAdmin) {
-                    // Admin: Show ALL courses
                     myCourses = allCoursesData.map(c => {
                         const enroll = enrollments.find(e => e.courseId === c.id);
                         return {
                             ...c,
-                            status: enroll?.status || 'approved', // Admin sees content as approved
+                            status: enroll?.status || 'approved',
                             expiryDate: enroll?.expiryDate,
-                            startedAt: enroll?.createdAt, // Map enrollment date
+                            startedAt: enroll?.createdAt,
                             isAdminView: true
                         };
                     });
                 } else {
-                    // Student: Show only Enrolled courses
                     myCourses = allCoursesData
                         .filter(c => enrolledCourseIds.has(c.id))
                         .map(c => {
                             const enroll = enrollments.find(e => e.courseId === c.id);
-
-                            // Logic: Default 5 Years expiry if not present
                             let expiry = enroll?.expiryDate;
                             let start = enroll?.createdAt;
-
                             if (start && !expiry) {
-                                // Calculate 5 years from start
                                 const startDate = start.toDate ? start.toDate() : new Date(start.seconds * 1000);
                                 const expiryDate = new Date(startDate);
                                 expiryDate.setFullYear(expiryDate.getFullYear() + 5);
                                 expiry = expiryDate;
                             }
-
-                            return {
-                                ...c,
-                                status: enroll?.status,
-                                expiryDate: expiry,
-                                startedAt: start
-                            };
+                            return { ...c, status: enroll?.status, expiryDate: expiry, startedAt: start };
                         });
                 }
 
-                setCourses(myCourses);
-
-                // 4. Fetch video lessons for each course (in parallel)
+                // Fetch video lessons for progress calc
                 const videoCountMap: Record<string, { videoIds: string[], total: number }> = {};
-
                 await Promise.all(myCourses.map(async (course) => {
                     const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
                     const videoLessons = lessonsSnap.docs
                         .map(d => ({ id: d.id, ...d.data() }))
-                        .filter((l: any) => l.type === 'video' && !l.isHidden);
-
-                    videoCountMap[course.id] = {
-                        videoIds: videoLessons.map(l => l.id),
-                        total: videoLessons.length
-                    };
+                        .filter((l: any) => l.type === 'video' && !l.isHidden); // Keep any typing loose for compatibility
+                    videoCountMap[course.id] = { videoIds: videoLessons.map(l => l.id), total: videoLessons.length };
                 }));
 
-                // 5. Process Progress (Map by Course ID)
+                // Process Progress
                 const pMap: Record<string, Progress> = {};
-
-                // Initialize defaults for ALL enrolled courses
                 myCourses.forEach(c => {
                     const courseVideoData = videoCountMap[c.id] || { videoIds: [], total: 0 };
-                    pMap[c.id] = {
-                        completed: 0,
-                        total: courseVideoData.total,
-                        percent: 0
-                    };
+                    pMap[c.id] = { completed: 0, total: courseVideoData.total, percent: 0 };
                 });
 
-                // Overwrite with actual progress from Firestore
                 progressSnap.docs.forEach(doc => {
                     const data = doc.data();
-                    const courseId = doc.id;
+                    const cId = doc.id;
                     const completedIds: string[] = data.completed || [];
-
-                    const courseVideoData = videoCountMap[courseId] || { videoIds: [], total: 0 };
-
-                    // Count only completed items that are videos
-                    const completedVideoCount = completedIds.filter(id =>
-                        courseVideoData.videoIds.includes(id)
-                    ).length;
-
+                    const courseVideoData = videoCountMap[cId] || { videoIds: [], total: 0 };
+                    const completedVideoCount = completedIds.filter(id => courseVideoData.videoIds.includes(id)).length;
                     const total = courseVideoData.total;
-
                     let percent = 0;
-                    if (total > 0) {
-                        percent = Math.round((completedVideoCount / total) * 100);
-                    }
-
-                    pMap[courseId] = {
-                        completed: completedVideoCount,
-                        total,
-                        percent: percent > 100 ? 100 : percent
-                    };
+                    if (total > 0) percent = Math.round((completedVideoCount / total) * 100);
+                    pMap[cId] = { completed: completedVideoCount, total, percent: percent > 100 ? 100 : percent };
                 });
+
+                // Set State
+                setCourses(myCourses);
                 setProgressMap(pMap);
+                setLastSession(loadedLastSession);
+
+                // Cache Result
+                const cacheData = { courses: myCourses, progressMap: pMap, lastSession: loadedLastSession };
+                sessionStorage.setItem(cacheKey, JSON.stringify(cacheData));
 
             } catch (err) {
                 console.error("Error fetching my courses:", err);
-                isGlobalFetching = false; // Allow retry on error
             } finally {
                 setLoading(false);
             }

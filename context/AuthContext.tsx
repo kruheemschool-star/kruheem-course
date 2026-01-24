@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useMemo, useRef, ReactNode } from "react";
 import {
     signInWithPopup,
     signOut,
@@ -49,6 +49,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     const [daysSinceLastActive, setDaysSinceLastActive] = useState<number | null>(null);
     const [pendingCount, setPendingCount] = useState(0); // ✅
     const [hasCheckedActivity, setHasCheckedActivity] = useState(false);
+    const lastProfileStr = useRef<string>("");
 
     const googleSignIn = async () => {
         const provider = new GoogleAuthProvider();
@@ -141,6 +142,12 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         const unsubscribeProfile = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data() as UserProfile;
+
+                // Optimization: Deep compare to prevent redundant updates
+                const dataStr = JSON.stringify(data);
+                if (lastProfileStr.current === dataStr) return;
+                lastProfileStr.current = dataStr;
+
                 setUserProfile(data);
 
                 // Calculate Days Since Last Active (Only once per session)
