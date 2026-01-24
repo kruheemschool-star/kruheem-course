@@ -197,7 +197,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         });
 
         return () => unsubscribeProfile();
-    }, [user]);
+    }, [user?.uid]);
 
     return (
         <AuthContext.Provider value={{

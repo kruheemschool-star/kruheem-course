@@ -216,7 +216,7 @@ export default function CoursePlayer() {
         } else {
             setCompletedLessons([]);
         }
-    }, [user, courseId]);
+    }, [user?.uid, courseId]);
 
     const progressPercent = useMemo(() => {
         if (visibleLessons.length === 0) return 0;
