@@ -223,7 +223,7 @@ export default function MyCoursesPage() {
 
         fetchData();
 
-    }, [user, authLoading]);
+    }, [user?.uid, authLoading]);
 
     if (authLoading || loading) {
         return (
