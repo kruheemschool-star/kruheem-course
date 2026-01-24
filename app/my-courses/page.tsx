@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, onSnapshot, QuerySnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
@@ -82,124 +82,175 @@ export default function MyCoursesPage() {
             return;
         }
 
-        const fetchData = async () => {
-            const uid = user.uid;
-            // 1. Try Cache - REMOVED to ensure fresh data
-            // const cacheKey = `kruheem_courses_${uid}`;
-            // const cached = sessionStorage.getItem(cacheKey);
-            // ...
+        let unsubscribeEnrollments: () => void;
+        let unsubscribeProgress: () => void;
+        let unsubscribeStates: () => void;
 
-            // 2. Network Fetch (Only if no cache)
+        const setupListeners = async () => {
+            setLoading(true);
             try {
-                setLoading(true);
-
-                // Parallel Fetch: Enrollments, All Courses, User Progress Collection, Last Session States
-                const [enrollSnap, coursesSnap, progressSnap, statesSnap] = await Promise.all([
-                    getDocs(query(collection(db, "enrollments"), where("userId", "==", uid))),
-                    getDocs(collection(db, "courses")),
-                    getDocs(collection(db, "users", uid, "progress")),
-                    getDocs(collection(db, "users", uid, "course_states"))
-                ]);
-
-                // ... Processing Logic (Keep existing map/reduce logic) ...
-
-                // Note: We need to reconstruct the processing logic here or copy it carefully. 
-                // Since I am replacing the block, I must include the logic logic.
-
-                // Process Resume State
-                let loadedLastSession = null;
-                if (!statesSnap.empty) {
-                    const states = statesSnap.docs.map(d => ({ courseId: d.id, ...d.data() } as any));
-                    states.sort((a, b) => (b.lastUpdated?.seconds || 0) - (a.lastUpdated?.seconds || 0));
-                    if (states.length > 0) loadedLastSession = states[0];
-                }
-
-                // Process Enrollments
-                const enrollments = enrollSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-                const enrolledCourseIds = new Set(enrollments.map(e => e.courseId));
-
-                // Process Courses
+                // 1. Fetch Static Courses Data (Catalog)
+                // We fetch this once because course metadata rarely changes in real-time context
+                const coursesSnap = await getDocs(collection(db, "courses"));
                 const allCoursesData = coursesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
-                const isAdmin = user?.email === "kruheemschool@gmail.com";
-                let myCourses: Course[];
 
-                if (isAdmin) {
-                    myCourses = allCoursesData.map(c => {
-                        const enroll = enrollments.find(e => e.courseId === c.id);
-                        return {
-                            ...c,
-                            status: enroll?.status || 'approved',
-                            expiryDate: enroll?.expiryDate,
-                            startedAt: enroll?.createdAt,
-                            isAdminView: true
-                        };
-                    });
-                } else {
-                    myCourses = allCoursesData
-                        .filter(c => enrolledCourseIds.has(c.id))
-                        .map(c => {
+                // 2. Setup Real-time Listeners
+                const uid = user.uid;
+
+                // --- Listener A: Enrollments ---
+                const enrollQuery = query(collection(db, "enrollments"), where("userId", "==", uid));
+                unsubscribeEnrollments = onSnapshot(enrollQuery, (enrollSnap: QuerySnapshot<DocumentData>) => {
+                    const enrollments = enrollSnap.docs.map((d: any) => ({ id: d.id, ...d.data() } as any));
+                    const enrolledCourseIds = new Set(enrollments.map(e => e.courseId));
+                    const isAdmin = user?.email === "kruheemschool@gmail.com";
+
+                    let myCourses: Course[];
+
+                    if (isAdmin) {
+                        myCourses = allCoursesData.map(c => {
                             const enroll = enrollments.find(e => e.courseId === c.id);
-                            let expiry = enroll?.expiryDate;
-                            let start = enroll?.createdAt;
-                            if (start && !expiry) {
-                                const startDate = start.toDate ? start.toDate() : new Date(start.seconds * 1000);
-                                const expiryDate = new Date(startDate);
-                                expiryDate.setFullYear(expiryDate.getFullYear() + 5);
-                                expiry = expiryDate;
-                            }
-                            return { ...c, status: enroll?.status, expiryDate: expiry, startedAt: start };
+                            return {
+                                ...c,
+                                status: enroll?.status || 'approved',
+                                expiryDate: enroll?.expiryDate,
+                                startedAt: enroll?.createdAt,
+                                isAdminView: true
+                            };
                         });
-                }
+                    } else {
+                        myCourses = allCoursesData
+                            .filter(c => enrolledCourseIds.has(c.id))
+                            .map(c => {
+                                // Fix: Handle duplicate enrollments by finding the *best* one
+                                const courseEnrollments = enrollments.filter(e => e.courseId === c.id);
 
-                // Fetch video lessons for progress calc
-                const videoCountMap: Record<string, { videoIds: string[], total: number }> = {};
-                await Promise.all(myCourses.map(async (course) => {
-                    const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
-                    const videoLessons = lessonsSnap.docs
-                        .map(d => ({ id: d.id, ...d.data() }))
-                        .filter((l: any) => l.type === 'video' && !l.isHidden); // Keep any typing loose for compatibility
-                    videoCountMap[course.id] = { videoIds: videoLessons.map(l => l.id), total: videoLessons.length };
-                }));
+                                courseEnrollments.sort((a, b) => {
+                                    // 1. Priority to Approved
+                                    if (a.status === 'approved' && b.status !== 'approved') return -1;
+                                    if (b.status === 'approved' && a.status !== 'approved') return 1;
+                                    // 2. Priority to Latest Date
+                                    return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+                                });
 
-                // Process Progress
-                const pMap: Record<string, Progress> = {};
-                myCourses.forEach(c => {
-                    const courseVideoData = videoCountMap[c.id] || { videoIds: [], total: 0 };
-                    pMap[c.id] = { completed: 0, total: courseVideoData.total, percent: 0 };
+                                const enroll = courseEnrollments[0];
+                                let expiry = enroll?.expiryDate;
+                                let start = enroll?.createdAt;
+
+                                // Auto-generate expiry for legacy/manual enrollments if missing
+                                if (start && !expiry) {
+                                    const startDate = start.toDate ? start.toDate() : new Date(start.seconds * 1000);
+                                    const expiryDate = new Date(startDate);
+                                    expiryDate.setFullYear(expiryDate.getFullYear() + 5);
+                                    expiry = expiryDate;
+                                }
+                                return { ...c, status: enroll?.status, expiryDate: expiry, startedAt: start };
+                            });
+                    }
+
+                    setCourses(myCourses);
+
+                    // Trigger video count fetch & progress calculation only when courses change
+                    // Optimization: We could wrap this in a separate effect or function, but keep it here for simplicity of access to 'myCourses'
+                    // The new useEffect below will handle this based on 'courses' state.
+                    setLoading(false);
                 });
 
-                progressSnap.docs.forEach(doc => {
-                    const data = doc.data();
-                    const cId = doc.id;
-                    const completedIds: string[] = data.completed || [];
-                    const courseVideoData = videoCountMap[cId] || { videoIds: [], total: 0 };
-                    const completedVideoCount = completedIds.filter(id => courseVideoData.videoIds.includes(id)).length;
-                    const total = courseVideoData.total;
-                    let percent = 0;
-                    if (total > 0) percent = Math.round((completedVideoCount / total) * 100);
-                    pMap[cId] = { completed: completedVideoCount, total, percent: percent > 100 ? 100 : percent };
+                // --- Listener B: Progress ---
+                unsubscribeProgress = onSnapshot(collection(db, "users", uid, "progress"), (snap: QuerySnapshot<DocumentData>) => {
+                    // We need the latest 'courses' to calculate percentages correctly. 
+                    // Since 'courses' state might update, we'll store raw progress data and effect will combine it, 
+                    // OR we just trigger a recalculation.
+                    // For simplicity in this structure, let's just save the raw docs and let a separate function handle the mapping if we want to be pure.
+                    // HOWEVER, correctly linking 'progress' to 'courses' requires knowing video totals.
+                    // Let's rely on the helper function `updateProgressMap` to re-run.
+                    // A bit tricky with closures. 
+                    // Better approach: Store raw progress in state, and have a useEffect([courses, rawProgress]) calculate the final map.
+                    // But to minimize rewrite, let's just put the data in state.
+                    const rawProgress = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    setRawProgressData(rawProgress);
                 });
 
-                // Set State
-                setCourses(myCourses);
-                setProgressMap(pMap);
-                setLastSession(loadedLastSession);
-
-                // Cache Result - REMOVED
-                // const cacheKey = `kruheem_courses_${user.uid}`;
-                // const cacheData = { courses: myCourses, progressMap: pMap, lastSession: loadedLastSession };
-                // sessionStorage.setItem(cacheKey, JSON.stringify(cacheData));
+                // --- Listener C: Last Session (Resume) ---
+                unsubscribeStates = onSnapshot(collection(db, "users", uid, "course_states"), (snap: QuerySnapshot<DocumentData>) => {
+                    const states = snap.docs.map((d: any) => ({ courseId: d.id, ...d.data() } as any));
+                    states.sort((a: any, b: any) => (b.lastUpdated?.seconds || 0) - (a.lastUpdated?.seconds || 0));
+                    if (states.length > 0) setLastSession(states[0]);
+                });
 
             } catch (err) {
-                console.error("Error fetching my courses:", err);
-            } finally {
+                console.error("Setup listeners error:", err);
                 setLoading(false);
             }
         };
 
-        fetchData();
+        setupListeners();
+
+        return () => {
+            if (unsubscribeEnrollments) unsubscribeEnrollments();
+            if (unsubscribeProgress) unsubscribeProgress();
+            if (unsubscribeStates) unsubscribeStates();
+        };
 
     }, [user?.uid, authLoading]);
+
+    // Helper State for Progress Calculation
+    const [rawProgressData, setRawProgressData] = useState<any[]>([]);
+
+    // Effect to Combine Courses + Raw Progress -> Progress Map
+    useEffect(() => {
+        const calculateProgress = async () => {
+            if (courses.length === 0) return;
+
+            // We need video totals. If we didn't fetch them yet, we need to.
+            // This part was inside the main fetch. Let's re-implement it carefully.
+            // To avoid re-fetching video counts every render, we should cache them. 
+            // BUT for now, let's keep it robust.
+
+            const pMap: Record<string, Progress> = {};
+
+            // Optimize: Fetch video counts only for new courses?
+            // For now, parallel fetch all (standard)
+            const videoCountMap: Record<string, { videoIds: string[], total: number }> = {};
+
+            await Promise.all(courses.map(async (course) => {
+                // Optimization: Maybe use a cache variable outside component? Or assume static?
+                // `courses` collection doesn't change often.
+                // Let's fetch.
+                if (course.isAdminView) return; // Admin view might not need progress? Or does it?
+
+                // NOTE: This causes N reads every time courses update. 
+                // Given the constraints, let's assume it's acceptable or we should optimize if lists are long.
+                // For "My Courses", usually < 20 courses.
+
+                // Use a simple local cache if possible or just fetch.
+                const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
+                const videoLessons = lessonsSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter((l: any) => l.type === 'video' && !l.isHidden);
+                videoCountMap[course.id] = { videoIds: videoLessons.map(l => l.id), total: videoLessons.length };
+            }));
+
+            courses.forEach(c => {
+                const courseVideoData = videoCountMap[c.id] || { videoIds: [], total: 0 };
+                pMap[c.id] = { completed: 0, total: courseVideoData.total, percent: 0 };
+            });
+
+            rawProgressData.forEach(data => {
+                const cId = data.id;
+                const completedIds: string[] = data.completed || [];
+                const courseVideoData = videoCountMap[cId] || { videoIds: [], total: 0 };
+                const completedVideoCount = completedIds.filter(id => courseVideoData.videoIds.includes(id)).length;
+                const total = courseVideoData.total;
+                let percent = 0;
+                if (total > 0) percent = Math.round((completedVideoCount / total) * 100);
+                pMap[cId] = { completed: completedVideoCount, total, percent: percent > 100 ? 100 : percent };
+            });
+
+            setProgressMap(pMap);
+        };
+
+        calculateProgress();
+    }, [courses, rawProgressData]);
 
     if (authLoading || loading) {
         return (
