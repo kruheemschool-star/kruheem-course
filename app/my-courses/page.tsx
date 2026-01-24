@@ -84,23 +84,10 @@ export default function MyCoursesPage() {
 
         const fetchData = async () => {
             const uid = user.uid;
-            const cacheKey = `kruheem_courses_${uid}`;
-
-            // 1. Try Cache
-            const cached = sessionStorage.getItem(cacheKey);
-            if (cached) {
-                try {
-                    const data = JSON.parse(cached);
-                    setCourses(data.courses);
-                    setProgressMap(data.progressMap);
-                    setLastSession(data.lastSession);
-                    setLoading(false);
-                    return; // ✅ Stop fetch
-                } catch (e) {
-                    console.error("Cache parse error", e);
-                    sessionStorage.removeItem(cacheKey);
-                }
-            }
+            // 1. Try Cache - REMOVED to ensure fresh data
+            // const cacheKey = `kruheem_courses_${uid}`;
+            // const cached = sessionStorage.getItem(cacheKey);
+            // ...
 
             // 2. Network Fetch (Only if no cache)
             try {
@@ -198,9 +185,10 @@ export default function MyCoursesPage() {
                 setProgressMap(pMap);
                 setLastSession(loadedLastSession);
 
-                // Cache Result
-                const cacheData = { courses: myCourses, progressMap: pMap, lastSession: loadedLastSession };
-                sessionStorage.setItem(cacheKey, JSON.stringify(cacheData));
+                // Cache Result - REMOVED
+                // const cacheKey = `kruheem_courses_${user.uid}`;
+                // const cacheData = { courses: myCourses, progressMap: pMap, lastSession: loadedLastSession };
+                // sessionStorage.setItem(cacheKey, JSON.stringify(cacheData));
 
             } catch (err) {
                 console.error("Error fetching my courses:", err);
