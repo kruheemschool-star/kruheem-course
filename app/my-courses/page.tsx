@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUserAuth } from "@/context/AuthContext";
@@ -70,6 +70,13 @@ export default function MyCoursesPage() {
     const [lastSession, setLastSession] = useState<any>(null); // ✅ Smart Resume State
     const [loading, setLoading] = useState(true);
 
+    const hasFetched = useRef(false);
+
+    // Reset fetch flag when user changes
+    useEffect(() => {
+        hasFetched.current = false;
+    }, [user?.uid]);
+
     useEffect(() => {
         if (authLoading) return;
         if (!user) {
@@ -77,7 +84,12 @@ export default function MyCoursesPage() {
             return;
         }
 
+        if (hasFetched.current) return;
+        hasFetched.current = true;
+
         const fetchData = async () => {
+
+
             try {
                 setLoading(true);
                 const uid = user.uid;
