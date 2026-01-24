@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from "react";
 import {
     signInWithPopup,
     signOut,
@@ -11,7 +11,7 @@ import {
     createUserWithEmailAndPassword,
     sendPasswordResetEmail
 } from "firebase/auth";
-import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, where } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
@@ -36,6 +36,7 @@ interface AuthContextType {
     resetPassword: (email: string) => Promise<void>;
     logOut: () => Promise<void>;
     updateProfile: (data: UserProfile) => Promise<void>;
+    pendingCount: number; // ✅
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -46,6 +47,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
     const [daysSinceLastActive, setDaysSinceLastActive] = useState<number | null>(null);
+    const [pendingCount, setPendingCount] = useState(0); // ✅
     const [hasCheckedActivity, setHasCheckedActivity] = useState(false);
 
     const googleSignIn = async () => {
@@ -199,21 +201,41 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         return () => unsubscribeProfile();
     }, [user?.uid]);
 
+    // 3. Admin Pending Count Listener
+    useEffect(() => {
+        if (!isAdmin) {
+            setPendingCount(0);
+            return;
+        }
+
+        const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setPendingCount(snapshot.size);
+        }, (error) => {
+            console.error("Error fetching pending count:", error);
+        });
+
+        return () => unsubscribe();
+    }, [isAdmin]);
+
+    const contextValue = useMemo(() => ({
+        user,
+        userProfile,
+        setUserProfile,
+        isAdmin,
+        loading,
+        daysSinceLastActive,
+        pendingCount, // ✅ Exposed
+        googleSignIn,
+        emailSignIn,
+        emailSignUp,
+        resetPassword,
+        logOut,
+        updateProfile
+    }), [user, userProfile, isAdmin, loading, daysSinceLastActive, pendingCount]);
+
     return (
-        <AuthContext.Provider value={{
-            user,
-            userProfile,
-            setUserProfile, // Expose setter for immediate updates
-            isAdmin,
-            loading,
-            daysSinceLastActive,
-            googleSignIn,
-            emailSignIn,
-            emailSignUp,
-            resetPassword,
-            logOut,
-            updateProfile
-        }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );

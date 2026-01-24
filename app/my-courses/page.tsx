@@ -63,6 +63,9 @@ interface Progress {
     percent: number;
 }
 
+// Module-level guard to prevent multiple fetches during remounts
+let isGlobalFetching = false;
+
 export default function MyCoursesPage() {
     const { user, userProfile, loading: authLoading } = useUserAuth();
     const [courses, setCourses] = useState<Course[]>([]);
@@ -70,12 +73,12 @@ export default function MyCoursesPage() {
     const [lastSession, setLastSession] = useState<any>(null); // ✅ Smart Resume State
     const [loading, setLoading] = useState(true);
 
-    const hasFetched = useRef(false);
-
-    // Reset fetch flag when user changes
+    // Reset global flag if user is explicitly null (logged out) - allowing re-fetch on next login
     useEffect(() => {
-        hasFetched.current = false;
-    }, [user?.uid]);
+        if (!user) {
+            isGlobalFetching = false;
+        }
+    }, [user]);
 
     useEffect(() => {
         if (authLoading) return;
@@ -84,8 +87,11 @@ export default function MyCoursesPage() {
             return;
         }
 
-        if (hasFetched.current) return;
-        hasFetched.current = true;
+        // Strict Guard: If already fetching or fetched in this session context, skip.
+        // We rely on the initial state being empty to know if we need data?
+        // Actually, if we use module var, we just block entry.
+        if (isGlobalFetching) return;
+        isGlobalFetching = true;
 
         const fetchData = async () => {
 
@@ -228,6 +234,7 @@ export default function MyCoursesPage() {
 
             } catch (err) {
                 console.error("Error fetching my courses:", err);
+                isGlobalFetching = false; // Allow retry on error
             } finally {
                 setLoading(false);
             }

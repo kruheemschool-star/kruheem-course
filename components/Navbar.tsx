@@ -21,28 +21,12 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { ModeToggle } from "@/components/ModeToggle";
 
 export default function Navbar() {
-    const { user, userProfile, isAdmin, logOut, googleSignIn } = useUserAuth();
+    const { user, userProfile, isAdmin, logOut, googleSignIn, pendingCount } = useUserAuth();
     const router = useRouter();
-    const [pendingCount, setPendingCount] = useState(0);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-    useEffect(() => {
-        if (!isAdmin) return;
-
-        const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setPendingCount(snapshot.size);
-        });
-
-        return () => {
-            unsubscribe();
-        };
-    }, [isAdmin]);
 
     const handleLogin = () => {
         router.push("/login");
