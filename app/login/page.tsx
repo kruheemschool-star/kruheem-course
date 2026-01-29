@@ -3,7 +3,7 @@ import { useState, Suspense } from "react";
 import { useUserAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, AlertCircle, ArrowRight } from "lucide-react";
+import { Mail, Lock, AlertCircle, ArrowRight, ChevronDown } from "lucide-react";
 
 function LoginContent() {
     const { emailSignIn, googleSignIn } = useUserAuth();
@@ -15,6 +15,7 @@ function LoginContent() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [isSignUpOpen, setIsSignUpOpen] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -68,19 +69,45 @@ function LoginContent() {
                 )}
 
                 <div className="mb-8 pt-0">
-                    <div className="bg-gradient-to-br from-indigo-50 to-white border-2 border-indigo-100 rounded-3xl p-6 text-center shadow-sm">
-                        <h3 className="text-slate-800 font-black text-xl mb-2">
-                            ยังไม่มีบัญชีใช่ไหม? 😲
-                        </h3>
-                        <p className="text-slate-500 mb-6">
-                            ต้อง <span className="text-indigo-600 font-bold">สมัครสมาชิก</span> ก่อนเริ่มเรียนนะครับ
-                        </p>
-                        <Link
-                            href="/register"
-                            className="block w-full py-4 bg-white border-2 border-indigo-600 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-2xl font-bold text-lg transition-all duration-300 shadow-sm hover:shadow-indigo-200 hover:-translate-y-1"
+                    <div className={`bg-white border-2 ${isSignUpOpen ? 'border-indigo-400 ring-4 ring-indigo-50/50' : 'border-slate-100'} rounded-3xl overflow-hidden shadow-sm transition-all duration-500`}>
+                        <button
+                            onClick={() => setIsSignUpOpen(!isSignUpOpen)}
+                            className="w-full p-5 text-center flex flex-col items-center justify-center cursor-pointer outline-none hover:bg-slate-50 transition-colors group"
                         >
-                            สมัครสมาชิกใหม่ที่นี่ 🚀
-                        </Link>
+                            <div className="flex items-center justify-center gap-2 mb-1">
+                                <span className="bg-indigo-100/50 text-indigo-600 p-2 rounded-full group-hover:scale-110 transition-transform duration-300">
+                                    <ChevronDown
+                                        className={`w-5 h-5 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isSignUpOpen ? 'rotate-180' : ''}`}
+                                    />
+                                </span>
+                                <h3 className="text-slate-800 font-bold text-lg">
+                                    ยังไม่มีบัญชีใช่ไหม? <span className="text-xl">😲</span>
+                                </h3>
+                            </div>
+                            <p className={`text-slate-500 text-sm transition-all duration-500 ${isSignUpOpen ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100 h-auto'}`}>
+                                กดเพื่อ <span className="text-indigo-600 font-bold underline decoration-indigo-200 underline-offset-2">สมัครสมาชิก</span> ก่อนเริ่มเรียนนะครับ
+                            </p>
+                        </button>
+
+                        <div
+                            className={`grid transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isSignUpOpen ? 'grid-rows-[1fr] opacity-100 pb-6' : 'grid-rows-[0fr] opacity-0'
+                                }`}
+                        >
+                            <div className="overflow-hidden px-6">
+                                <p className="text-center text-slate-500 text-sm mb-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                                    การสมัครสมาชิกจะช่วยให้คุณเข้าถึงบทเรียนและติดตามความคืบหน้าได้ครับ
+                                </p>
+                                <Link
+                                    href="/register"
+                                    className="relative block w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-lg text-center shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-0.5 transition-all duration-300 group overflow-hidden"
+                                >
+                                    <span className="relative z-10 flex items-center justify-center gap-2">
+                                        สมัครสมาชิกใหม่ที่นี่ <span className="text-2xl group-hover:animate-bounce">🚀</span>
+                                    </span>
+                                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-xl"></div>
+                                </Link>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
