@@ -11,7 +11,7 @@ import SolutionSection from './components/SolutionSection';
 import AnatomySection from './components/AnatomySection';
 import StackSection from './components/StackSection';
 import PriceDropSection from './components/PriceDropSection';
-import ScarcitySection from './components/ScarcitySection';
+
 import GuaranteeSection from './components/GuaranteeSection';
 import FAQSection from './components/FAQSection';
 import CTASection from './components/CTASection';
@@ -172,11 +172,7 @@ export default function GrandSlamPage({
                     onCTAClick={handlePaymentClick}
                 />
 
-                {/* Section 6: Scarcity */}
-                <ScarcitySection
-                    content={content.scarcity}
-                    regularPrice={content.pricing.regularPrice}
-                />
+
 
                 {/* Section 7: Guarantee */}
                 <GuaranteeSection
