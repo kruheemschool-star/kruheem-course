@@ -13,6 +13,7 @@ export async function GET() {
             slug: doc.data().slug,
             status: doc.data().status,
             order: doc.data().order,
+            category: doc.data().category,
         }));
 
         return NextResponse.json({

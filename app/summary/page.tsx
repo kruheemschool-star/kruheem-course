@@ -12,7 +12,8 @@ export const metadata: Metadata = {
 };
 
 // ISR: Revalidate every 5 minutes (300 seconds) instead of force-dynamic
-export const revalidate = 300;
+// ISR: Revalidate immediately to show new content instantly
+export const revalidate = 0;
 
 interface Summary {
     id: string;
