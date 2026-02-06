@@ -21,6 +21,7 @@ interface UserProfile {
     role?: string;
     lastActive?: any;
     caption?: string;
+    authProvider?: 'google' | 'email';
 }
 
 interface AuthContextType {
@@ -55,7 +56,13 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
         try {
-            await signInWithPopup(auth, provider);
+            const result = await signInWithPopup(auth, provider);
+            // Save authProvider to user profile
+            if (result.user) {
+                await setDoc(doc(db, "users", result.user.uid), {
+                    authProvider: 'google'
+                }, { merge: true });
+            }
         } catch (error) {
             console.error("Google Sign In Error:", error);
             throw error;
@@ -64,7 +71,13 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
 
     const emailSignIn = async (email: string, password: string) => {
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            const result = await signInWithEmailAndPassword(auth, email, password);
+            // Save authProvider to user profile
+            if (result.user) {
+                await setDoc(doc(db, "users", result.user.uid), {
+                    authProvider: 'email'
+                }, { merge: true });
+            }
         } catch (error) {
             throw error;
         }
@@ -72,7 +85,13 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
 
     const emailSignUp = async (email: string, password: string) => {
         try {
-            await createUserWithEmailAndPassword(auth, email, password);
+            const result = await createUserWithEmailAndPassword(auth, email, password);
+            // Save authProvider to user profile
+            if (result.user) {
+                await setDoc(doc(db, "users", result.user.uid), {
+                    authProvider: 'email'
+                }, { merge: true });
+            }
         } catch (error) {
             console.error("Email Sign Up Error:", error);
             throw error;
