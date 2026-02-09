@@ -59,5 +59,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         console.error("Error generating sitemap for exams:", error)
     }
 
-    return [...staticRoutes, ...examRoutes]
+    // Dynamic Courses Routes
+    let courseRoutes: MetadataRoute.Sitemap = []
+
+    try {
+        const q = query(collection(db, "courses"), orderBy("createdAt", "desc"))
+        const querySnapshot = await getDocs(q)
+
+        courseRoutes = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                url: `${baseUrl}/course/${doc.id}`,
+                lastModified: data.updatedAt?.toDate() || new Date(),
+                changeFrequency: 'weekly',
+                priority: 0.9, // Higher priority for main product pages
+            }
+        })
+    } catch (error) {
+        console.error("Error generating sitemap for courses:", error)
+    }
+
+    return [...staticRoutes, ...courseRoutes, ...examRoutes]
 }

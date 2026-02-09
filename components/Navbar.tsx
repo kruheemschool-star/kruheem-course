@@ -125,7 +125,7 @@ export default function Navbar() {
                                             /* eslint-disable-next-line @next/next/no-img-element */
                                             <img
                                                 src={userProfile?.avatar || user.photoURL || ''}
-                                                alt="Profile"
+                                                alt={userProfile?.displayName || user.displayName || "User Profile"}
                                                 className="w-full h-full object-cover"
                                             />
                                         ) : (
@@ -160,7 +160,7 @@ export default function Navbar() {
                                 <span>คอร์สของฉัน</span>
                             </Link>
 
-                            <button onClick={logOut} className="w-8 h-8 flex items-center justify-center rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 transition-all hover:-translate-y-0.5" title="ออกจากระบบ">
+                            <button onClick={logOut} className="w-8 h-8 flex items-center justify-center rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 transition-all hover:-translate-y-0.5 active:scale-95" title="ออกจากระบบ">
                                 <LogOut size={16} />
                             </button>
                         </div>
@@ -297,7 +297,7 @@ export default function Navbar() {
                                         /* eslint-disable-next-line @next/next/no-img-element */
                                         <img
                                             src={userProfile?.avatar || user.photoURL || ''}
-                                            alt="Profile"
+                                            alt={userProfile?.displayName || user.displayName || "User Profile"}
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (

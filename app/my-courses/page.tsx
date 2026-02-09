@@ -285,64 +285,78 @@ export default function MyCoursesPage() {
 
                 <div className="h-8"></div>
 
-                {/* ✅ Resume Learning Compass (Notion Style Minimalist) */}
+                {/* ✅ Resume Learning Compass (Visual Card) */}
                 {lastSession && (
-                    <div className="mb-10 w-full animate-in slide-in-from-top-4 duration-700 delay-200">
-                        <Link href={`/learn/${lastSession.courseId}?lessonId=${lastSession.lessonId}&t=${lastSession.timestamp}`}>
-                            <div className="group relative w-full bg-white dark:bg-[#191919] rounded-xl p-5 border border-[#E6E6E6] dark:border-[#2F2F2F] shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer">
+                    <div className="mb-12 w-full animate-in slide-in-from-top-4 duration-700 delay-200">
+                        {(() => {
+                            const resumeCourse = courses.find(c => c.id === lastSession.courseId);
+                            // If course not found in list yet (loading or stale), fallback gracefully or just show icon
+                            // But usually it should be there.
 
-                                <div className="flex items-center gap-5 w-full md:w-auto">
-                                    {/* Flat Icon Design */}
-                                    <div className="w-14 h-14 bg-[#F7F6F3] dark:bg-[#2A2A2A] rounded-lg flex items-center justify-center shrink-0 border border-[#EBEBEB] dark:border-[#333]">
-                                        <div className="relative">
-                                            {/* Base Circle */}
-                                            <div className="w-8 h-8 rounded-full bg-[#FFD400] border-2 border-[#37352F] dark:border-white shadow-[2px_2px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_rgba(255,255,255,0.5)] flex items-center justify-center">
-                                                {/* Needle */}
-                                                <div className="w-1 h-3 bg-[#EB5757] absolute -top-1 left-1/2 -ml-0.5 rotate-45 transform origin-bottom"></div>
-                                                <div className="w-1 h-3 bg-white absolute top-1/2 left-1/2 -ml-0.5 rotate-45 transform origin-top"></div>
-                                                <div className="w-1.5 h-1.5 bg-[#37352F] rounded-full z-10"></div>
+                            return (
+                                <Link href={`/learn/${lastSession.courseId}?lessonId=${lastSession.lessonId}&t=${lastSession.timestamp}`}>
+                                    <div className="group relative w-full bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 md:p-8 border border-slate-100 dark:border-slate-800 shadow-lg hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-500 overflow-hidden cursor-pointer">
+
+                                        {/* Background Decoration */}
+                                        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/10 dark:to-purple-900/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none group-hover:scale-110 transition-transform duration-700"></div>
+
+                                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+
+                                            {/* Course Cover Image (Hero) */}
+                                            <div className="w-full md:w-64 aspect-video rounded-2xl overflow-hidden shadow-md relative group-hover:shadow-lg transition-all duration-500 shrink-0 border border-slate-100 dark:border-slate-700">
+                                                {resumeCourse?.image ? (
+                                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                                    <img src={resumeCourse.image} alt={resumeCourse.title} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                                                ) : (
+                                                    <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-5xl">📚</div>
+                                                )}
+
+                                                {/* Play Button Overlay */}
+                                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[1px]">
+                                                    <div className="w-14 h-14 bg-white/90 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transform scale-50 group-hover:scale-100 transition-all duration-300">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-indigo-600 pl-1"><path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" /></svg>
+                                                    </div>
+                                                </div>
                                             </div>
+
+                                            {/* Info Content */}
+                                            <div className="flex-1 min-w-0 text-center md:text-left space-y-3">
+                                                <div className="flex items-center justify-center md:justify-start gap-3 mb-1">
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-bold uppercase tracking-wider">
+                                                        <span className="relative flex h-2 w-2">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                                                        </span>
+                                                        Resume History
+                                                    </span>
+                                                    <span className="text-slate-400 text-xs font-bold">•</span>
+                                                    <span className="text-slate-500 dark:text-slate-400 text-xs font-bold font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                                                        {Math.floor(lastSession.timestamp / 60)}:{String(lastSession.timestamp % 60).padStart(2, '0')}
+                                                    </span>
+                                                </div>
+
+                                                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 leading-relaxed group-hover:text-indigo-600 transition-colors line-clamp-2">
+                                                    {lastSession.lessonTitle}
+                                                </h2>
+
+                                                <div className="flex items-center justify-center md:justify-start gap-2 text-slate-500 dark:text-slate-400 font-medium text-sm">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0"></span>
+                                                    <span className="line-clamp-1">{lastSession.courseTitle || resumeCourse?.title}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* CTA Arrow */}
+                                            <div className="hidden md:flex items-center justify-center pr-4">
+                                                <div className="w-16 h-16 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 group-hover:bg-indigo-600 group-hover:border-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-indigo-200">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                                                </div>
+                                            </div>
+
                                         </div>
                                     </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1.5">
-                                            {/* ✅ Pulsing Green Dot */}
-                                            <span className="relative flex h-2.5 w-2.5 mr-1">
-                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                                            </span>
-                                            <span className="text-[#EB5757] text-[10px] font-bold uppercase tracking-widest bg-[#FFEBEB] dark:bg-[#3E1F1F] px-2 py-0.5 rounded-sm">Resume</span>
-                                            <span className="text-[#9B9A97] text-xs font-medium">เรียนต่อจากจุดเดิม</span>
-                                        </div>
-                                        <h2 className="text-xl md:text-3xl font-black text-[#37352F] dark:text-[#EBEBEB] truncate leading-tight group-hover:text-[#EB5757] transition-colors">{lastSession.lessonTitle}</h2>
-                                        {lastSession.courseTitle && (
-                                            <p className="text-[#787774] dark:text-[#9B9A97] text-sm mt-0.5 truncate flex items-center gap-1.5">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-[#D3D3D3]"></span>
-                                                {lastSession.courseTitle}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Right: Time & Action */}
-                                <div className="flex flex-col md:items-end gap-3 w-full md:w-auto mt-4 md:mt-0 pl-[76px] md:pl-0">
-                                    <div className="flex items-center gap-2 bg-[#F5F5F3] dark:bg-[#2F2F2F] px-3 py-1.5 rounded-md self-start md:self-end border border-[#E0E0E0] dark:border-[#404040]">
-                                        <span className="text-xs font-bold text-[#787774] dark:text-[#9B9A97]">⏱️ ค้างอยู่ที่นาที</span>
-                                        <span className="text-[#37352F] dark:text-[#E0E0E0] font-mono font-bold text-base">
-                                            {Math.floor(lastSession.timestamp / 60)}:{String(lastSession.timestamp % 60).padStart(2, '0')}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 text-[#9B9A97] group-hover:text-[#EB5757] transition-colors text-sm font-semibold">
-                                        <span>คลิกเพื่อไปต่อ</span>
-                                        <div className="w-6 h-6 rounded-full border border-current flex items-center justify-center">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </Link>
+                                </Link>
+                            );
+                        })()}
                     </div>
                 )}
 
@@ -366,7 +380,7 @@ function ProfileHeader({ profile }: { profile: any }) {
                     <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-4xl shadow-inner overflow-hidden">
                         {profile.avatar || profile.photoURL ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={profile.avatar || profile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                            <img src={profile.avatar || profile.photoURL} alt={profile.name || "User Avatar"} className="w-full h-full object-cover" />
                         ) : (
                             <span className="select-none">{profile.displayName?.[0] || 'U'}</span>
                         )}

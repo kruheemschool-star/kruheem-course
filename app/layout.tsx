@@ -1,27 +1,24 @@
-// ไฟล์: app/layout.tsx
+// File: app/layout.tsx
 import "./globals.css";
+// import dynamic from "next/dynamic"; // No longer needed here
 import { AuthContextProvider } from "@/context/AuthContext";
-import ChatWidget from "@/components/ChatWidget";
-import VisitorTracker from "@/components/VisitorTracker";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import localFont from 'next/font/local'
+import { Mitr, IBM_Plex_Sans_Thai_Looped } from 'next/font/google';
+import { DynamicVisitorTracker, DynamicChatWidget } from "@/components/ClientWrappers";
 
-const prompt = localFont({
-  src: [
-    {
-      path: '../public/fonts/Prompt-Regular.ttf',
-      weight: '400',
-      style: 'normal',
-    },
-    {
-      path: '../public/fonts/Prompt-Bold.ttf',
-      weight: '700',
-      style: 'normal',
-    },
-  ],
-  variable: '--font-prompt',
+const mitr = Mitr({
+  weight: ['200', '300', '400', '500', '600', '700'],
+  subsets: ['thai', 'latin'],
+  variable: '--font-mitr',
   display: 'swap',
-})
+});
+
+const ibmLoop = IBM_Plex_Sans_Thai_Looped({
+  weight: ['100', '200', '300', '400', '500', '600', '700'],
+  subsets: ['thai', 'latin'],
+  variable: '--font-ibm-loop',
+  display: 'swap',
+});
 
 import type { Metadata } from "next";
 
@@ -74,17 +71,18 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" suppressHydrationWarning>
-      <body className={`${prompt.variable} font-sans`}>
+      <body className={`${mitr.variable} ${ibmLoop.variable} font-sans`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
+          <div className="noise-overlay"></div>
           <AuthContextProvider>
-            <VisitorTracker />
+            <DynamicVisitorTracker />
             {children}
-            {/* <ChatWidget /> */}
+            {/* <DynamicChatWidget /> */}
           </AuthContextProvider>
         </ThemeProvider>
       </body>

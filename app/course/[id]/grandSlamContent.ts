@@ -28,6 +28,7 @@ export interface GrandSlamContent {
         secondaryHeadline?: string;
         subHeadline: string;
         blueprintImage?: string;
+        sampleVideoId?: string; // YouTube Video ID for Free Sample
     };
     problem: {
         intro: string;
@@ -94,6 +95,7 @@ export const m1Term1Content: GrandSlamContent = {
         secondaryHeadline: 'โดยที่คุณไม่ต้องเคี่ยวเข็ญจนบ้านแตก และไม่ต้องจ้างติวเตอร์ชั่วโมงละ 500 บาท',
         subHeadline: 'ระบบการเรียนรู้แบบใหม่ ที่ออกแบบมาแก้ปัญหา "รอยต่อ ม.1" โดยเฉพาะ... ออกแบบมาเพื่อให้เข้าใจง่ายกว่าการเรียนในห้องเรียน',
         blueprintImage: '/images/blueprint-m1.png',
+        sampleVideoId: 'hJYJf2FHxIQ', // Real sample video from SolutionSection 
     },
     problem: {
         intro: 'คุณกำลังเจอปัญหาเหล่านี้อยู่ใช่ไหม?',

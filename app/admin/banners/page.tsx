@@ -202,7 +202,7 @@ export default function AdminBanners() {
                             <div className="grid grid-cols-1 gap-6">
                                 {bannerImages.map((img, index) => (
                                     <div key={img.id || index} className="relative group rounded-3xl overflow-hidden border-2 border-stone-100 shadow-sm">
-                                        <div className="aspect-[21/9]">
+                                        <div className="aspect-[4/5]">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img src={img.url} alt={`Banner ${index + 1}`} className="w-full h-full object-cover" />
                                         </div>
@@ -223,7 +223,7 @@ export default function AdminBanners() {
                                 ))}
                             </div>
                         ) : (
-                            <div className="w-full aspect-[21/9] bg-stone-50 rounded-3xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center">
+                            <div className="w-full aspect-[4/5] bg-stone-50 rounded-3xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center">
                                 <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4 text-stone-300">
                                     <ImageIcon size={32} />
                                 </div>
@@ -235,7 +235,7 @@ export default function AdminBanners() {
                         <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-stone-50 p-6 rounded-3xl">
                             <div className="text-center md:text-left">
                                 <p className="font-bold text-stone-700 mb-1">อัปโหลดรูปภาพใหม่</p>
-                                <p className="text-xs text-stone-400">ขนาดที่แนะนำ: <span className="text-amber-600 font-bold">1920 x 820 px</span> (อัตราส่วน 21:9)</p>
+                                <p className="text-xs text-stone-400">ขนาดที่แนะนำ: <span className="text-amber-600 font-bold">800 x 950 px</span> (อัตราส่วน 800:950)</p>
                             </div>
 
                             <label className={`

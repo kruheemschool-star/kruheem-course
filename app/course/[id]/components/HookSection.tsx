@@ -9,6 +9,7 @@ interface HookSectionProps {
 
 export default function HookSection({ content }: HookSectionProps) {
     const [scrollProgress, setScrollProgress] = useState(0);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const sectionRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
@@ -37,7 +38,7 @@ export default function HookSection({ content }: HookSectionProps) {
         >
             <div className="max-w-3xl mx-auto px-6 text-center">
                 {/* Main Headline */}
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-slate-800 mb-8">
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-relaxed tracking-tight text-slate-800 mb-8">
                     {Array.isArray(content.headline) ? (
                         content.headline.map((line, i) => (
                             <span key={i} className="block">
@@ -63,12 +64,59 @@ export default function HookSection({ content }: HookSectionProps) {
                     {content.subHeadline}
                 </p>
 
+                {/* Free Sample Button (Endowment Effect) */}
+                {content.sampleVideoId && (
+                    <div className="mt-8">
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="group relative inline-flex items-center gap-3 px-8 py-4 bg-white border-2 border-slate-200 rounded-full text-slate-700 font-bold text-lg hover:border-indigo-600 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md"
+                        >
+                            <span className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+                                <svg className="w-5 h-5 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                            </span>
+                            <span>ทดลองเรียนบทที่ 1 ฟรี</span>
+                        </button>
+                        <p className="text-sm text-slate-400 mt-3">
+                            (คลิกเพื่อดูตัวอย่างการสอนจริง - ไม่ต้องสมัครสมาชิก)
+                        </p>
+                    </div>
+                )}
+
                 {/* Blueprint System Badge - Minimal */}
-                <div className="mt-12 inline-flex items-center gap-2 text-lg text-slate-500">
+                <div className="mt-12 inline-flex items-center gap-2 text-lg text-slate-500 opacity-60">
                     <span className="text-xl">🎯</span>
                     <span className="font-medium">The Blueprint System</span>
                 </div>
             </div>
+
+            {/* Video Modal */}
+            <VideoModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                videoId={content.sampleVideoId || ''}
+            />
         </section>
+    );
+}
+
+function VideoModal({ isOpen, onClose, videoId }: { isOpen: boolean; onClose: () => void; videoId: string }) {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+            <div className="relative w-full max-w-4xl bg-black rounded-2xl overflow-hidden shadow-2xl aspect-video transform transition-all animate-scale-up" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/50 hover:bg-black/70 text-white rounded-full flex items-center justify-center transition-colors">
+                    ✕
+                </button>
+                <iframe
+                    width="100%"
+                    height="100%"
+                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+                    title="YouTube video player"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full"
+                ></iframe>
+            </div>
+        </div>
     );
 }

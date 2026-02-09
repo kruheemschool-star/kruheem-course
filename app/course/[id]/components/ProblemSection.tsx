@@ -28,7 +28,7 @@ export default function ProblemSection({ content }: ProblemSectionProps) {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={content.image}
-                            alt="Problem Illustration"
+                            alt={`Problem: ${content.intro}`}
                             className="w-full h-auto object-cover"
                         />
                     </div>
@@ -60,7 +60,7 @@ export default function ProblemSection({ content }: ProblemSectionProps) {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={content.warningImage}
-                            alt="Warning Illustration"
+                            alt={`Warning: ${content.warning}`}
                             className="w-full h-auto object-cover"
                         />
                     </div>

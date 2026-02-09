@@ -3,7 +3,7 @@ import { useState, Suspense } from "react";
 import { useUserAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, AlertCircle, ArrowRight } from "lucide-react";
+import { Mail, Lock, AlertCircle, ArrowRight, Play } from "lucide-react";
 
 function RegisterContent() {
     const { emailSignUp, googleSignIn } = useUserAuth();
@@ -61,7 +61,7 @@ function RegisterContent() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[#F5F2EB] p-4 font-sans">
+        <div className="min-h-screen flex items-center justify-center bg-cream p-4 font-sans">
             {/* Background Blobs */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-purple-200/30 rounded-full blur-[100px] mix-blend-multiply"></div>
@@ -72,9 +72,7 @@ function RegisterContent() {
                 <div className="text-center mb-10">
                     <Link href="/" className="inline-block mb-6 hover:scale-105 transition-transform">
                         <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mx-auto">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-white">
-                                <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
-                            </svg>
+                            <Play className="w-8 h-8 text-white" fill="currentColor" />
                         </div>
                     </Link>
                     <h1 className="text-3xl font-black text-slate-800 mb-2">สร้างบัญชีใหม่ 🚀</h1>
@@ -101,9 +99,9 @@ function RegisterContent() {
 
                     <button
                         onClick={handleGoogleSignIn}
-                        className="w-full py-4 bg-white border-2 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 text-slate-700 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center gap-3 group shadow-sm hover:shadow-md hover:-translate-y-1"
+                        className="w-full py-4 bg-white border-2 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 text-slate-700 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center gap-3 group shadow-sm hover:shadow-md hover:-translate-y-1 active:scale-[0.98]"
                     >
-                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Sign up with Google" className="w-6 h-6 group-hover:scale-110 transition-transform" />
                         สมัครด้วย Google
                     </button>
                 </div>
@@ -169,7 +167,7 @@ function RegisterContent() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {loading ? (
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -194,7 +192,7 @@ function RegisterContent() {
 
 export default function RegisterPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F5F2EB] text-slate-500">กำลังโหลด...</div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-cream text-slate-500">กำลังโหลด...</div>}>
             <RegisterContent />
         </Suspense>
     );

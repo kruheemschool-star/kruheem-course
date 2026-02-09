@@ -2223,7 +2223,7 @@ export default function CourseSalesPage() {
                         </div>
 
                         {/* Title */}
-                        <h1 className="text-5xl md:text-7xl font-black leading-tight tracking-tight text-slate-800 drop-shadow-sm">
+                        <h1 className="text-5xl md:text-7xl font-black leading-relaxed tracking-tight text-slate-800 drop-shadow-sm">
                             {course.title}
                         </h1>
 
@@ -2392,7 +2392,7 @@ export default function CourseSalesPage() {
                         <div className={`absolute top-0 left-0 w-64 h-64 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 ${content.painPoint.blobs[0]}`}></div>
                         <div className={`absolute bottom-0 right-0 w-64 h-64 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 ${content.painPoint.blobs[1]}`}></div>
 
-                        <h2 className="text-4xl md:text-5xl font-black text-slate-800 leading-tight mb-6 relative z-10">
+                        <h2 className="text-4xl md:text-5xl font-black text-slate-800 leading-relaxed mb-6 relative z-10">
                             {content.painPoint.title}
                         </h2>
                         <p className="text-xl text-slate-600 mb-12 font-medium relative z-10">{content.painPoint.subtitle}</p>
@@ -2643,7 +2643,7 @@ export default function CourseSalesPage() {
                 {/* 5. FAQ */}
                 <section className="max-w-3xl mx-auto px-6 pb-24 mt-32">
                     <div className="text-center mb-12">
-                        <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-6 leading-tight">
+                        <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-6 leading-relaxed">
                             🔥 ถามตรง-ตอบเคลียร์! <br className="hidden md:block" />เรื่องที่ใจอยากรู้ ก่อนตัดสินใจลุย 🔥
                         </h2>
                         <p className="text-slate-600 text-xl">

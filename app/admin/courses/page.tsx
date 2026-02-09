@@ -26,6 +26,10 @@ export default function CourseManagerPage() {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [newKeyword, setNewKeyword] = useState("");
 
+  // Tags State (for Recommendation System)
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
+
   const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -113,6 +117,8 @@ export default function CourseManagerPage() {
     setImageFile(null);
     setKeywords(course.keywords || []);
     setNewKeyword("");
+    setTags(course.tags || []);
+    setNewTag("");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -130,6 +136,8 @@ export default function CourseManagerPage() {
     setImageFile(null);
     setKeywords([]);
     setNewKeyword("");
+    setTags([]);
+    setNewTag("");
   };
 
   const deleteCourseWithAllData = async (courseId: string, imageUrl: string) => {
@@ -191,6 +199,7 @@ export default function CourseManagerPage() {
         videoId,
         docUrl,
         keywords,
+        tags, // Add tags to saving data
         updatedAt: new Date()
       };
 
@@ -437,6 +446,71 @@ export default function CourseManagerPage() {
             <div className="space-y-2">
               <label className="text-base font-bold text-blue-600">ลิงก์ Google Drive (รวมเอกสารทั้งคอร์ส)</label>
               <input type="text" className="w-full p-4 bg-blue-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition font-mono text-base text-blue-700" value={docUrl} onChange={(e) => setDocUrl(e.target.value)} />
+            </div>
+
+            {/* ✅ Tags Field (System Filtering) */}
+            <div className="bg-pink-50 p-6 rounded-2xl border-2 border-pink-100 space-y-3">
+              <label className="block text-sm font-bold text-pink-600 uppercase tracking-wider">🏷️ Tags (ระบบค้นหา) - สำหรับ Course Finder e.g. ระดับ:ป.6, เป้าหมาย:สอบเข้า ม.1</label>
+
+              {/* Display existing tags */}
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {tags.map((tag, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-pink-200 text-pink-700 rounded-full text-sm font-medium">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setTags(tags.filter((_, i) => i !== idx))}
+                        className="ml-1 text-pink-400 hover:text-red-500 transition"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Add new tag */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (newTag.trim() && !tags.includes(newTag.trim())) {
+                        setTags([...tags, newTag.trim()]);
+                        setNewTag("");
+                      }
+                    }
+                  }}
+                  placeholder="พิมพ์ Tag e.g. ระดับ:ป.6 แล้วกด Enter"
+                  className="flex-1 p-3 bg-white border-2 border-pink-200 rounded-xl focus:border-pink-500 outline-none transition text-pink-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newTag.trim() && !tags.includes(newTag.trim())) {
+                      setTags([...tags, newTag.trim()]);
+                      setNewTag("");
+                    }
+                  }}
+                  className="px-4 py-2 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition flex items-center gap-2"
+                >
+                  <Plus size={18} /> เพิ่ม
+                </button>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <p className="text-xs text-pink-500 font-bold">แนะนำ:</p>
+                <div className="flex flex-wrap gap-1">
+                  {['ระดับ:ป.4', 'ระดับ:ป.5', 'ระดับ:ป.6', 'ระดับ:ม.1', 'ระดับ:ม.2', 'ระดับ:ม.3', 'ระดับ:ม.4', 'ระดับ:ม.5', 'ระดับ:ม.6', 'เป้าหมาย:เพิ่มเกรด', 'เป้าหมาย:สอบเข้า ม.1', 'เป้าหมาย:สอบเข้า ม.4', 'เป้าหมาย:สอบเข้ามหาวิทยาลัย'].map(t => (
+                    <button key={t} type="button" onClick={() => !tags.includes(t) && setTags([...tags, t])} className="text-xs px-2 py-1 bg-white border border-pink-200 rounded-md text-pink-600 hover:bg-pink-100 transition">
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Keywords Field */}

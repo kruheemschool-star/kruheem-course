@@ -93,16 +93,17 @@ export default function GrandSlamPage({
                             คุณลงทะเบียนคอร์ส <span className="font-bold text-indigo-600">{courseTitle}</span> เรียบร้อยแล้ว
                         </p>
 
-                        <Link href={`/learn/${courseId}`}>
-                            <button className="group relative px-12 py-5 rounded-2xl font-bold text-xl text-white overflow-hidden transition-all hover:scale-105 shadow-xl shadow-emerald-200/50">
-                                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500" />
-                                <div className="relative flex items-center justify-center gap-3">
-                                    <span>เข้าสู่ห้องเรียน</span>
-                                    <svg className="w-6 h-6 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                    </svg>
-                                </div>
-                            </button>
+                        <Link
+                            href={`/learn/${courseId}`}
+                            className="group relative inline-block px-12 py-5 rounded-2xl font-bold text-xl text-white overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-xl shadow-emerald-200/50"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500" />
+                            <div className="relative flex items-center justify-center gap-3">
+                                <span>เข้าสู่ห้องเรียน</span>
+                                <svg className="w-6 h-6 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                            </div>
                         </Link>
                     </div>
                 </div>
@@ -132,7 +133,7 @@ export default function GrandSlamPage({
 
                         <button
                             onClick={() => router.push('/payment')}
-                            className="mt-8 px-8 py-4 rounded-2xl font-bold bg-white border border-amber-200 text-amber-700 shadow-lg hover:shadow-xl transition-all"
+                            className="mt-8 px-8 py-4 rounded-2xl font-bold bg-white border border-amber-200 text-amber-700 shadow-lg hover:shadow-xl transition-all active:scale-95"
                         >
                             ดูสถานะการลงทะเบียน
                         </button>
@@ -188,6 +189,7 @@ export default function GrandSlamPage({
                     content={content.cta}
                     price={displayPrice}
                     onCTAClick={handlePaymentClick}
+                    courseTitle={courseTitle}
                 />
 
                 <Footer />

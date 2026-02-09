@@ -47,7 +47,7 @@ export default function PriceDropSection({ content, stack, onCTAClick }: PriceDr
                 <p className="text-xl text-slate-500 mb-4">สำหรับรุ่น Early Bird ราคาที่เพียง</p>
 
                 {/* Final Price - Big and Bold */}
-                <p className="text-7xl md:text-8xl font-black text-slate-900 mb-2 leading-tight">
+                <p className="text-7xl md:text-8xl font-black text-slate-900 mb-2 leading-relaxed">
                     {displayPrice.toLocaleString()} บาท<br />
                     เท่านั้น!
                 </p>
@@ -63,9 +63,14 @@ export default function PriceDropSection({ content, stack, onCTAClick }: PriceDr
                     จองสิทธิ์ราคา {displayPrice.toLocaleString()} บาท
                 </button>
 
-                <p className="text-slate-400 text-lg mt-4">
-                    🔒 ชำระเงินอย่างปลอดภัย • เริ่มเรียนได้ทันที
-                </p>
+                <div className="flex items-center justify-center gap-2 mt-4 text-slate-500 text-sm md:text-base">
+                    <span className="flex items-center gap-1 text-emerald-600 font-bold">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        การันตีคืนเงิน 100%
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <span>🔒 ชำระเงินปลอดภัย</span>
+                </div>
             </div>
         </section>
     );

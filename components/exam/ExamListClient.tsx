@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb, Loader2 } from "lucide-react";
 
 interface ExamListClientProps {
@@ -356,9 +357,11 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                                 <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-slate-800">
                                                     {result.examCoverImage ? (
                                                         /* eslint-disable-next-line @next/next/no-img-element */
-                                                        <img
+                                                        <Image
                                                             src={result.examCoverImage}
                                                             alt={result.examTitle}
+                                                            width={64}
+                                                            height={64}
                                                             className="w-full h-full object-cover"
                                                         />
                                                     ) : (
@@ -476,9 +479,11 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                         {/* Logo Badge */}
                                         <div className="absolute top-4 left-4 z-30 drop-shadow-lg opacity-80 group-hover:opacity-100 transition-opacity">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
+                                            <Image
                                                 src="/logo.png"
                                                 alt="Math School Logo"
+                                                width={40}
+                                                height={40}
                                                 className="w-10 h-10 object-contain filter drop-shadow-md"
                                             />
                                         </div>
@@ -487,10 +492,14 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                         <div className="absolute inset-0 z-0 bg-slate-800 overflow-hidden">
                                             {exam.coverImage ? (
                                                 /* eslint-disable-next-line @next/next/no-img-element */
-                                                <img
+                                                <Image
                                                     src={exam.coverImage}
                                                     alt={exam.title}
+                                                    width={0}
+                                                    height={0}
+                                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
                                                     className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110 group-hover:blur-sm"
+                                                    style={{ width: '100%', height: '100%' }}
                                                 />
                                             ) : (
                                                 <div className="w-full h-full bg-slate-800 flex items-center justify-center p-6 text-center transition-all duration-700 group-hover:scale-110 group-hover:blur-sm">

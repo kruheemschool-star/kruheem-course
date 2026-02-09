@@ -7,6 +7,7 @@ import { Home, LogOut, Loader2 } from "lucide-react";
 
 // Components
 import StatsOverview from "@/components/admin/StatsOverview";
+import RevenueAnalytics from "@/components/admin/RevenueAnalytics"; // New Component
 import MenuGrid from "@/components/admin/MenuGrid";
 import ActionCenter from "@/components/admin/ActionCenter";
 import OnlineUsersWidget from "@/components/admin/OnlineUsersWidget";
@@ -161,91 +162,12 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
-                    {/* Stats Cards */}
-                    <StatsOverview stats={stats} selectedYear={selectedYear} />
-
-                    {/* Visual Charts */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
-                        {/* Monthly Summary */}
-                        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
-                            <div className="flex items-center gap-2 text-sm text-slate-500 mb-5">
-                                <span>📅</span>
-                                <span>สรุปรายได้และจำนวนนักเรียนรายเดือน</span>
-                            </div>
-
-                            <div className="space-y-3">
-                                {stats.monthlyData.map((m, index) => {
-                                    const maxRevenue = stats.maxMonthlyRevenue || 1;
-                                    const widthPercent = m.revenue > 0 ? (m.revenue / maxRevenue) * 100 : 0;
-
-                                    return (
-                                        <div key={index} className="flex items-center gap-4">
-                                            <div className="w-8 text-sm text-slate-400 font-medium">{m.month}</div>
-                                            <div className="flex-1">
-                                                <div className="flex flex-wrap items-center gap-0.5 min-h-[24px]">
-                                                    {m.students > 0 ? (
-                                                        Array.from({ length: m.students }).map((_, i) => (
-                                                            <span key={i} className="text-[10px] text-emerald-500/80 leading-none" title={`คนที่ ${i + 1}`}>
-                                                                👤
-                                                            </span>
-                                                        ))
-                                                    ) : (
-                                                        <span className="text-sm text-slate-300 italic pt-0.5">-</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="w-16 text-right">
-                                                {m.students > 0 ? (
-                                                    <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 block w-fit ml-auto">
-                                                        {m.students} คน
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-sm text-slate-300">-</span>
-                                                )}
-                                            </div>
-                                            <div className="w-24 text-right">
-                                                <span className={`text-sm font-medium ${m.revenue > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
-                                                    {m.revenue > 0 ? `฿${m.revenue.toLocaleString()}` : '-'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Course Ranking */}
-                        <div className="bg-white rounded-xl border border-slate-200 p-5">
-                            <div className="flex items-center gap-2 text-sm text-slate-500 mb-5">
-                                <span>🏆</span>
-                                <span>อันดับคอร์สขายดี</span>
-                            </div>
-
-                            <div className="space-y-2">
-                                {stats.courseData.slice(0, 5).map((c, index) => (
-                                    <div key={index} className="flex items-center gap-3 py-2">
-                                        <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold
-                                            ${index === 0 ? 'bg-amber-100 text-amber-700' : index === 1 ? 'bg-slate-100 text-slate-600' : index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-50 text-slate-400'}`}
-                                        >
-                                            {index + 1}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-slate-700 truncate">{c.title}</p>
-                                            <p className="text-xs text-slate-400">{c.students} คน</p>
-                                        </div>
-                                        <div className="text-sm font-medium text-slate-700">
-                                            ฿{c.revenue.toLocaleString()}
-                                        </div>
-                                    </div>
-                                ))}
-                                {stats.courseData.length === 0 && (
-                                    <div className="text-center py-6 text-slate-400 italic text-sm">
-                                        ยังไม่มีข้อมูลคอร์ส
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                    {/* Stats & Analytics */}
+                    <div className="mb-6">
+                        <RevenueAnalytics stats={stats} selectedYear={selectedYear} />
                     </div>
+
+                    {/* Old Chart Removed - Replaced by RevenueAnalytics */}
                 </div>
 
             </main>

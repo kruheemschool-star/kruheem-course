@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import Navbar from "@/components/Navbar";
@@ -9,9 +10,9 @@ import ExamListClient from "@/components/exam/ExamListClient";
 
 // SEO Metadata
 export const metadata: Metadata = {
-    title: "คลังข้อสอบคณิตศาสตร์ออนไลน์ | KruHeem Course",
-    description: "รวมข้อสอบคณิตศาสตร์ ป.1 - ม.6 และข้อสอบเข้ามหาลัย พร้อมเฉลยละเอียด ฝึกทำโจทย์ได้ทันที",
-    keywords: ["ข้อสอบคณิตศาสตร์", "คลังข้อสอบ", "แบบฝึกหัดคณิต", "ข้อสอบ O-NET", "ข้อสอบ A-Level"],
+    title: "คลังข้อสอบคณิตศาสตร์ออนไลน์ (Practice Mode) | KruHeem Course",
+    description: "ฝึกทำโจทย์คณิตศาสตร์ ป.1 - ม.6 จับเวลาจำลองสอบจริง พร้อมเฉลยละเอียด ตะลุยโจทย์ O-NET, A-Level เพื่อวัดระดับความรู้",
+    keywords: ["ฝึกทำโจทย์คณิต", "คลังข้อสอบ", "จับเวลาทำข้อสอบ", "จำลองสอบ", "ตะลุยโจทย์", "ข้อสอบ A-Level"],
 };
 
 // Cache for 5 minutes (300 seconds)
@@ -81,7 +82,16 @@ export default async function ExamHubPage() {
                 <div className="relative w-full max-w-7xl mx-auto rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-900 text-white min-h-[400px] flex items-center group transition-all duration-500 hover:shadow-indigo-500/20">
                     {/* Background Art */}
                     <div className="absolute inset-0 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900"></div>
-                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=3270&auto=format&fit=crop')] bg-cover bg-center opacity-30 mix-blend-overlay transition-transform duration-1000 group-hover:scale-105"></div>
+                    <div className="absolute inset-0 opacity-30 mix-blend-overlay transition-transform duration-1000 group-hover:scale-105">
+                        <Image
+                            src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=3270&auto=format&fit=crop"
+                            alt="Math Practice Background"
+                            fill
+                            className="object-cover object-center"
+                            priority
+                            sizes="(max-width: 768px) 100vw, 80vw"
+                        />
+                    </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
                     <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent"></div>
 

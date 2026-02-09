@@ -11,10 +11,10 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
     useEffect(() => {
         if (!loading) {
             if (!user) {
-                router.push("/");
+                router.replace("/");
             } else if (!isAdmin) {
                 alert("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                router.push("/");
+                router.replace("/");
             }
         }
     }, [user, isAdmin, loading, router]);

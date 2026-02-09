@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
@@ -15,9 +15,26 @@ import {
   Flame,
   Trophy,
   Loader2,
+  XCircle,
+  AlertCircle,
+  Check,
 } from "lucide-react";
+import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+// import CourseFinder from "@/components/CourseFinder";
+
+// Type definitions
+interface Course {
+  id: string;
+  title: string;
+  desc?: string;
+  category?: string;
+  image?: string;
+  price?: number;
+  fullPrice?: number;
+  createdAt?: Date;
+}
 
 
 const BannerImage = ({ url, isActive, index }: { url: string, isActive: boolean, index: number }) => {
@@ -53,7 +70,7 @@ const BannerImage = ({ url, isActive, index }: { url: string, isActive: boolean,
 };
 
 export default function HomePage() {
-  const [courses, setCourses] = useState<any[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [bannerImages, setBannerImages] = useState<string[]>([]);
   const [bannerLoading, setBannerLoading] = useState(true);
@@ -75,7 +92,7 @@ export default function HomePage() {
       try {
         const q = query(collection(db, "courses"), orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
-        setCourses(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setCourses(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Course[]);
       } catch (error) {
         console.error("Error fetching courses:", error);
       } finally {
@@ -98,9 +115,6 @@ export default function HomePage() {
           }
           if (data.badgeText) setBadgeText(data.badgeText);
           if (data.badgeIcon) setBadgeIcon(data.badgeIcon);
-
-          if (data.bannerTitle) setBannerTitle(data.bannerTitle);
-          if (data.bannerDescription) setBannerDescription(data.bannerDescription);
           if (data.bannerTitle) setBannerTitle(data.bannerTitle);
           if (data.bannerDescription) setBannerDescription(data.bannerDescription);
           if (data.bannerPrice) setBannerPrice(data.bannerPrice);
@@ -117,8 +131,8 @@ export default function HomePage() {
       }
     };
 
-    fetchCourses();
-    fetchBanner();
+    // Execute both fetches in parallel
+    Promise.all([fetchCourses(), fetchBanner()]);
   }, []);
 
   // Auto-play slideshow
@@ -130,14 +144,14 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [bannerImages]);
 
-  const groupedCourses = courses.reduce((acc: Record<string, any[]>, course: any) => {
+  const groupedCourses = courses.reduce((acc: Record<string, Course[]>, course: Course) => {
     const category = course.category || "คอร์สเรียนทั่วไป";
     if (!acc[category]) {
       acc[category] = [];
     }
     acc[category].push(course);
     return acc;
-  }, {} as Record<string, any[]>);
+  }, {} as Record<string, Course[]>);
 
   // Sort courses within each category
   Object.keys(groupedCourses).forEach(category => {
@@ -184,154 +198,149 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {/* Dynamic Mesh Gradient Background */}
+      {/* Static Gradient Background */}
       <div className="fixed inset-0 z-0 dark:hidden">
-        <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-teal-100/30 rounded-full blur-[120px] mix-blend-multiply animate-blob"></div>
-        <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-cyan-100/30 rounded-full blur-[120px] mix-blend-multiply animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-slate-100/40 rounded-full blur-[120px] mix-blend-multiply animate-blob animation-delay-4000"></div>
+        <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-teal-100/30 rounded-full blur-[120px] mix-blend-multiply"></div>
+        <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-cyan-100/30 rounded-full blur-[120px] mix-blend-multiply"></div>
+        <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-slate-100/40 rounded-full blur-[120px] mix-blend-multiply"></div>
       </div>
       {/* Dark mode background */}
       <div className="fixed inset-0 z-0 hidden dark:block">
-        <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-teal-900/20 rounded-full blur-[120px] animate-blob"></div>
-        <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-cyan-900/20 rounded-full blur-[120px] animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-slate-900/30 rounded-full blur-[120px] animate-blob animation-delay-4000"></div>
+        <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] bg-teal-900/20 rounded-full blur-[120px]"></div>
+        <div className="absolute top-[10%] right-[-10%] w-[60vw] h-[60vw] bg-cyan-900/20 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-slate-900/30 rounded-full blur-[120px]"></div>
       </div>
 
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
 
         {/* Hero Section */}
-        <header className="pt-48 pb-16 px-6 text-center relative">
-          <div className="max-w-5xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-md border border-slate-200/60 dark:border-slate-700 shadow-sm mb-8 animate-fade-in hover:bg-white/80 dark:hover:bg-slate-800/80 transition-colors cursor-default max-w-3xl">
-              <span className="flex-shrink-0 flex w-2 h-2 rounded-full bg-teal-500 animate-pulse shadow-[0_0_10px_rgba(20,184,166,0.6)]"></span>
-              <span className="text-sm md:text-base font-bold text-slate-700 dark:text-slate-300 tracking-wide drop-shadow-sm text-left md:text-center">
-                เปลี่ยนความกังวลเรื่องการเรียนของลูก ให้เป็นความมั่นใจเต็ม 100%
-              </span>
-            </div>
+        {/* Hero Section - Asymmetrical Split */}
+        <header className="pt-32 pb-16 px-6 relative overflow-visible z-10">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-6 items-center">
 
-            <h1 className="font-mero text-3xl md:text-5xl lg:text-6xl font-black text-slate-900 dark:text-slate-50 mb-8 tracking-tight leading-tight drop-shadow-md max-w-6xl mx-auto py-2">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 block mb-1 leading-tight">
-                ในขณะที่เรากำลังลังเล
-              </span>
-              <span className="block text-slate-800 dark:text-slate-200 mb-1 leading-tight">
-                มีเด็กคนอื่น ๆ ที่กำลังเรียนอยู่
-              </span>
-              <span className="block text-slate-700 dark:text-slate-300 leading-tight">
-                และกำลังก้าวไปข้างหน้าอย่างไม่หยุดยั้ง
-              </span>
-            </h1>
+            {/* Left Column: Text Content */}
+            <div className="lg:col-span-7 flex flex-col items-start text-left relative z-20 pt-10">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-50 dark:bg-teal-900/30 border border-teal-100 dark:border-teal-800 text-teal-700 dark:text-teal-300 font-bold text-sm mb-6 shadow-sm hover:shadow-md transition-all cursor-default w-fit">
+                <span className="flex w-2 h-2 rounded-full bg-teal-500"></span>
+                <span>คอร์สเรียนคณิตศาสตร์อันดับ 1 ในใจเด็ก Gifted</span>
+              </div>
 
-            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-12 max-w-3xl mx-auto leading-relaxed font-medium">
-              การเรียนคณิตศาสตร์เหมือนการเติมน้ำใส่แก้วที่รั่ว <br className="hidden md:block" />
-              ถ้าไม่เติมให้มากพอและต่อเนื่อง น้ำก็ไม่มีวันเต็มแก้ว
-            </p>
+              <h1 className="sr-only">
+                คอร์สเรียนคณิตศาสตร์ออนไลน์ ติวสอบเข้า ม.1 ม.4 โดยครูฮีม สอนเทคนิคคิดลัด เข้าใจง่าย
+              </h1>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <button
-                onClick={() => document.getElementById('courses')?.scrollIntoView({ behavior: 'smooth' })}
-                className="group relative px-10 py-5 rounded-[2rem] bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-bold text-lg shadow-[0_10px_30px_rgba(20,184,166,0.3)] hover:shadow-[0_20px_40px_rgba(20,184,166,0.4)] hover:scale-105 transition-all duration-500 overflow-hidden"
-              >
-                <span className="relative z-10 flex items-center gap-3">
-                  <Rocket className="group-hover:-translate-y-1 group-hover:translate-x-1 transition-transform" />
-                  คอร์สเรียนทั้งหมด
+              <h2 className="font-mero text-4xl sm:text-5xl lg:text-7xl font-bold text-slate-900 dark:text-slate-50 mb-6 tracking-tight leading-snug drop-shadow-sm">
+                <span className="block mb-2 text-slate-400 dark:text-slate-500 text-2xl lg:text-4xl font-bold font-sans tracking-normal">
+                  ในขณะที่เรากำลังลังเล...
                 </span>
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
-              </button>
-              <Link href="/my-courses" className="px-10 py-5 rounded-[2rem] bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-lg hover:bg-white dark:hover:bg-slate-800 transition-all shadow-sm hover:shadow-md flex items-center gap-3 group">
-                <BookOpen className="group-hover:scale-110 transition-transform text-teal-600" />
-                เข้าสู่บทเรียน
-              </Link>
+                <span className="block bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300">
+                  มีเด็กคนอื่นกำลัง
+                </span>
+                <span className="block bg-clip-text text-transparent bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 pb-2">
+                  ก้าวไปข้างหน้า
+                </span>
+              </h2>
+
+              <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-10 max-w-2xl leading-relaxed font-sans font-medium">
+                การเรียนคณิตศาสตร์เหมือนการเติมน้ำใส่แก้วที่รั่ว <br className="hidden md:block" />
+                ถ้าไม่เติมให้มากพอและต่อเนื่อง... <span className="text-rose-500 font-bold decoration-wavy underline decoration-rose-200">ไม่มีวันเต็ม</span>
+              </p>
+
+              <div className="flex flex-wrap gap-4 w-full">
+                <button
+                  onClick={() => document.getElementById('courses')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="group relative px-8 py-4 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-bold text-lg shadow-[0_10px_30px_rgba(20,184,166,0.2)] hover:shadow-[0_20px_40px_rgba(20,184,166,0.3)] hover:-translate-y-1 transition-all duration-300 overflow-hidden"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <Rocket className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                    ดูคอร์สเรียนทั้งหมด
+                  </span>
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+                </button>
+                <Link href="/my-courses" className="px-8 py-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-lg hover:border-teal-200 dark:hover:border-teal-800 hover:shadow-lg hover:-translate-y-1 transition-all flex items-center gap-2 group">
+                  <BookOpen className="w-5 h-5 group-hover:text-teal-500 transition-colors" />
+                  เข้าสู่บทเรียน
+                </Link>
+              </div>
+
+              {/* Social Proof / Stats */}
+              <div className="mt-12 flex items-center gap-6 text-sm font-bold text-slate-500 dark:text-slate-400">
+                <div className="flex -space-x-3">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className={`w-10 h-10 rounded-full border-2 border-white dark:border-slate-900 bg-slate-200 flex items-center justify-center overflow-hidden relative z-[${5 - i}]`}>
+                      {/* Placeholder Avatars */}
+                      <div className={`w-full h-full bg-gradient-to-br ${i % 2 === 0 ? 'from-blue-200 to-indigo-200' : 'from-rose-200 to-pink-200'}`}></div>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <div className="flex text-amber-500 mb-0.5">
+                    <Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" /><Star size={14} fill="currentColor" />
+                  </div>
+                  <p>มั่นใจแล้วกว่า <span className="text-slate-900 dark:text-white">1,000+</span> ครอบครัว</p>
+                </div>
+              </div>
             </div>
 
-            {/* Promotional Image Section (Slideshow) */}
+            {/* Right Column: Visual & 3D Tilt */}
+            <div className="lg:col-span-5 relative z-10 perspective-1000 mt-12 lg:mt-0">
+              {/* Static Background Glow */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-gradient-to-br from-amber-200/20 to-teal-200/20 rounded-full blur-3xl"></div>
 
-            {/* Promotional Image Section (Slideshow) */}
-            {/* Promotional Image Section (Vertical Card Style) */}
-            <div className="mt-16 w-full animate-fade-in flex justify-center" style={{ animationDelay: '0.5s' }}>
-              <Link
-                href={bannerLinkUrl}
-                className="group relative bg-white rounded-[2.5rem] shadow-2xl hover:shadow-orange-200/50 hover:-translate-y-2 transition-all duration-500 flex flex-col overflow-hidden w-full mx-auto border border-stone-100"
-              >
-                {/* Image Header */}
-                <div className="aspect-[21/9] w-full bg-stone-100 relative overflow-hidden">
+              {/* Main Card Container */}
+              <div className="relative w-full aspect-[800/950] max-h-[950px] mx-auto transform hover:rotate-y-6 hover:rotate-x-6 transition-transform duration-700 ease-out preserve-3d group">
+
+
+                {/* 1. Main Banner Image - Now Clickable */}
+                <Link href={bannerLinkUrl} className="absolute inset-0 rounded-[2.5rem] overflow-hidden shadow-2xl backdrop-blur-sm z-20 bg-white dark:bg-slate-800 cursor-pointer hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300 group">
+                  {/* Glass Shine Effect */}
+                  <div className="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-25deg] group-hover:animate-glass-shine z-30 pointer-events-none filter blur-sm"></div>
+
                   {bannerLoading ? (
-                    <div className="w-full h-full bg-stone-200 animate-pulse flex items-center justify-center">
-                      <Loader2 className="w-10 h-10 text-stone-400 animate-spin" />
+                    <div className="w-full h-full bg-slate-100 dark:bg-slate-800 animate-pulse flex items-center justify-center">
+                      <Loader2 className="w-10 h-10 text-slate-400 animate-spin" />
                     </div>
                   ) : (
                     <>
                       {bannerImages.map((url, index) => (
-                        <BannerImage
-                          key={index}
-                          url={url}
-                          index={index}
-                          isActive={index === currentSlide}
-                        />
-                      ))}
-
-                      {/* Navigation Dots */}
-                      {bannerImages.length > 1 && (
-                        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex gap-2">
-                          {bannerImages.map((_, index) => (
-                            <button
-                              key={index}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setCurrentSlide(index);
-                              }}
-                              className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentSlide ? 'w-8 bg-white' : 'bg-white/50 hover:bg-white/80'}`}
+                        url && (
+                          <div key={index} className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}>
+                            <Image
+                              src={url}
+                              alt={`คอร์สเรียนคณิตศาสตร์ครูฮีม ติวสอบเข้า ม.1 และ ม.4 - ${bannerTitle}`}
+                              fill
+                              priority={index === 0}
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                              className="object-cover"
                             />
-                          ))}
-                        </div>
-                      )}
+                            {/* Reveal-on-Hover Overlay */}
+                            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out"></div>
+
+                            <div className="absolute bottom-0 left-0 p-8 w-full translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out">
+                              <span className="inline-block px-3 py-1.5 bg-white/20 backdrop-blur-md text-white text-xs font-bold rounded-full mb-3 shadow-lg border border-white/30">
+                                {badgeText}
+                              </span>
+                              <h3 className="text-white font-bold text-xl md:text-2xl line-clamp-2 drop-shadow-lg mb-3 bg-clip-text text-transparent bg-gradient-to-r from-white via-amber-200 to-amber-500">{bannerTitle}</h3>
+                              <div className="flex items-center gap-3">
+                                <span className="text-3xl font-black text-amber-400 drop-shadow-lg">฿{bannerPrice}</span>
+                                {bannerFullPrice && <span className="text-white/60 line-through text-sm bg-black/20 px-2 py-0.5 rounded-full">฿{bannerFullPrice}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      ))}
                     </>
                   )}
-                </div>
+                </Link>
 
-                {/* Content Body */}
-                <div className="p-8 flex flex-col bg-white text-left relative z-20">
-
-                  {/* Badge */}
-                  <div className="mb-4 inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-orange-50 text-orange-600 font-bold text-sm w-fit">
-                    {badgeIcon === "Star" && <Star size={16} fill="currentColor" />}
-                    {badgeIcon === "Heart" && <Heart size={16} fill="currentColor" />}
-                    {badgeIcon === "Flame" && <Flame size={16} fill="currentColor" />}
-                    {badgeIcon === "Trophy" && <Trophy size={16} fill="currentColor" />}
-                    {badgeIcon === "Sparkles" && <Sparkles size={16} fill="currentColor" />}
-                    {badgeText}
-                  </div>
-
-                  <h3 className="text-2xl font-black text-slate-800 mb-3 leading-tight group-hover:text-amber-600 transition-colors">
-                    {bannerTitle}
-                  </h3>
-                  <p className="text-slate-500 text-base mb-8 leading-relaxed font-medium line-clamp-3">
-                    {bannerDescription}
-                  </p>
-
-                  <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100 w-full">
-                    <div className="flex flex-col">
-                      <span className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">Course Price</span>
-                      <div className="flex items-center gap-3">
-                        {bannerFullPrice && (
-                          <span className="text-lg font-bold text-slate-400 line-through decoration-slate-400/50 decoration-2">
-                            ฿{bannerFullPrice}
-                          </span>
-                        )}
-                        <span className="text-4xl md:text-5xl font-black text-rose-500 tracking-tight drop-shadow-sm animate-heartbeat">
-                          {bannerPrice ? (bannerPrice === "Free" || bannerPrice === "ฟรี" ? "Free" : `฿${bannerPrice}`) : "คลิกดูรายละเอียด"}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all duration-500 shadow-sm group-hover:shadow-lg group-hover:scale-110">
-                      <ArrowRight size={24} strokeWidth={3} />
-                    </span>
-                  </div>
-                </div>
-              </Link>
+              </div>
             </div>
           </div>
         </header>
+
+        {/* Course Finder Section - Solution to Paradox of Choice */}
+        {/* <CourseFinder /> */}
 
         {/* Content Cards Section */}
         <section className="py-12 px-6 relative z-10">
@@ -348,7 +357,7 @@ export default function HomePage() {
                   <Trophy size={40} className="text-amber-500" />
                 </div>
 
-                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-4 tracking-tight leading-tight">
+                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-4 tracking-tight leading-relaxed">
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-500">คลังข้อสอบออนไลน์</span>
                 </h2>
                 <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
@@ -401,7 +410,7 @@ export default function HomePage() {
               </div>
 
               <div className="relative z-10 space-y-8 text-slate-700 dark:text-slate-300 leading-relaxed text-lg md:text-xl font-medium">
-                <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 mb-8 leading-tight">
+                <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 mb-8 leading-relaxed">
                   ผมเคยเกือบยอมแพ้... <br />
                   <span className="text-amber-600">จนวันที่ค้นพบ &quot;ความจริง&quot; ของการเรียนเลขให้เก่ง</span>
                 </h2>
@@ -448,46 +457,109 @@ export default function HomePage() {
         </section>
 
         {/* Choices Section */}
-        <section className="py-16 px-6 relative z-10">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl md:text-5xl font-black text-slate-800 mb-12 text-center tracking-tight">
+        <section className="py-24 px-6 relative z-10 overflow-hidden">
+          {/* Background Decorations */}
+          <div className="absolute top-1/2 left-0 w-[500px] h-[500px] bg-red-100/40 rounded-full blur-[128px] -translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+          <div className="absolute top-1/2 right-0 w-[500px] h-[500px] bg-emerald-100/40 rounded-full blur-[128px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+          <div className="max-w-6xl mx-auto relative z-10">
+            <h2 className="text-3xl md:text-5xl font-black text-slate-800 mb-16 text-center tracking-tight">
               ทางเลือกมีแค่ 2 ทาง... อยู่ที่คุณจะเลือก
             </h2>
 
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-start">
               {/* Option 1: Red Pastel - Old Path */}
               <div
                 onClick={() => setShowRobloxModal(true)}
-                className="bg-red-50/80 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-12 shadow-lg hover:shadow-xl transition-all duration-500 cursor-pointer group hover:-translate-y-1"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 border border-red-100 shadow-xl hover:shadow-2xl hover:shadow-red-500/10 transition-all duration-500 cursor-pointer group hover:-translate-y-2 relative overflow-hidden"
               >
-                <h3 className="text-2xl md:text-3xl font-bold text-red-900 mb-6 group-hover:text-red-700 transition-colors">
-                  ทางเลือกที่ 1: เส้นทางเดิม
-                </h3>
-                <p className="text-red-900/70 text-lg leading-relaxed">
-                  ปล่อยให้ความสับสนและความกังวลกัดกินหัวใจของน้องต่อไป... ทุกๆ วันที่ผ่านไปคือการปล่อยให้เขาเผชิญหน้ากับโจทย์ที่ไม่เข้าใจอยู่ลำพัง ความมั่นใจที่เคยมีค่อยๆ เลือนหายไป กลายเป็นความกลัวที่จะยกมือถาม ปล่อยให้ช่องว่างระหว่างเขากับเพื่อนร่วมห้องถ่างกว้างขึ้นเรื่อยๆ จนตามไม่ทัน และที่น่าเสียดายที่สุด คือการปล่อยให้โอกาสทองในการสร้างอนาคตทางการศึกษาที่ดีที่สุด... ค่อยๆ หลุดลอยไปกับความท้อแท้
-                </p>
-                <div className="mt-8 flex items-center text-red-600 font-bold group-hover:gap-2 transition-all">
-                  <span>เลือกเส้นทางนี้</span>
-                  <ArrowRight size={20} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none transform group-hover:scale-110 transition-transform duration-700">
+                  <XCircle size={120} className="text-red-500" />
+                </div>
+
+                <div className="relative z-10">
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-50 text-red-600 text-sm font-bold mb-6 border border-red-100">
+                    <AlertCircle size={16} />
+                    <span>เส้นทางเดิม</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-slate-800 mb-6 group-hover:text-red-600 transition-colors">
+                    ปล่อยให้ปัญหาคาราคาซัง
+                  </h3>
+
+                  <ul className="space-y-4 mb-8">
+                    {[
+                      'ความสับสนและความกังวลกัดกินใจน้องต่อไป',
+                      'ปล่อยให้เขาเผชิญโจทย์ที่ไม่เข้าใจอยู่ลำพัง',
+                      'ความมั่นใจลดลง เลือนหายจนกลัวการถาม',
+                      'ช่องว่างกับเพื่อนห่างขึ้นเรื่อยๆ จนตามไม่ทัน'
+                    ].map((item, i) => (
+                      <li key={i} className="flex items-start gap-3 text-slate-600 group-hover:text-slate-700 transition-colors">
+                        <div className="mt-1 min-w-[20px] text-red-400">
+                          <XCircle size={20} />
+                        </div>
+                        <span className="leading-relaxed">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="pt-6 border-t border-red-50 flex items-center text-red-500 font-bold group-hover:gap-2 transition-all">
+                    <span>เลือกเส้นทางนี้ (ไม่แนะนำ)</span>
+                    <ArrowRight size={20} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
               </div>
 
               {/* Option 2: Green Pastel - Success Path */}
-              <div className="bg-emerald-50/80 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-12 shadow-lg hover:shadow-xl transition-all duration-500 relative overflow-hidden">
-                <div className="relative z-10">
-                  <h3 className="text-2xl md:text-3xl font-bold text-emerald-900 mb-6">
-                    ทางเลือกที่ 2: เส้นทางสู่ความสำเร็จ
-                  </h3>
-                  <p className="text-emerald-900/70 text-lg leading-relaxed mb-8">
-                    เลือกระบบที่พิสูจน์แล้วว่าได้ผลจริง ประหยัดเวลาไปหลายร้อยชั่วโมง สร้างความมั่นใจให้ลูกด้วยแผนการที่ชัดเจน และเปลี่ยนอนาคตการเรียนคณิตศาสตร์ของพวกเขาไปตลอดกาล นี่ไม่ใช่แค่การลงทุนเพื่อการสอบ แต่คือการลงทุนเพื่อทักษะที่จะติดตัวเขาไปตลอดชีวิต
-                  </p>
+              <div className="relative transform md:-translate-y-4 lg:-translate-y-8">
+                <div className="absolute inset-0 bg-emerald-500 blur-2xl opacity-20 rounded-[3rem] animate-pulse"></div>
+                <div className="bg-gradient-to-br from-white to-emerald-50/50 dark:from-slate-900 dark:to-emerald-950/30 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 border-2 border-emerald-100 dark:border-emerald-900 shadow-2xl hover:shadow-[0_20px_60px_-15px_rgba(16,185,129,0.3)] transition-all duration-500 relative overflow-hidden group">
 
-                  <Link
-                    href="/payment"
-                    className="block w-full text-center py-4 rounded-2xl bg-emerald-600 text-white font-bold text-xl shadow-lg hover:bg-emerald-700 hover:shadow-emerald-500/30 hover:scale-[1.02] transition-all duration-300"
-                  >
-                    เลือกเส้นทางสู่ความสำเร็จ
-                  </Link>
+                  {/* Decorative Elements */}
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-emerald-100/40 to-transparent rounded-bl-[10rem] -mr-16 -mt-16 pointer-events-none"></div>
+                  <div className="absolute top-6 right-6 p-2 rounded-full bg-emerald-100 text-emerald-600 animate-bounce shadow-sm">
+                    <Star size={24} fill="currentColor" />
+                  </div>
+
+                  <div className="relative z-10">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold mb-6 border border-emerald-200 shadow-sm">
+                      <Sparkles size={16} />
+                      <span>ทางเลือกสำหรับผู้ชนะ</span>
+                    </div>
+
+                    <h3 className="text-2xl md:text-3xl font-black text-slate-800 mb-6 bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-teal-600">
+                      เส้นทางสู่ความสำเร็จที่แน่นอน
+                    </h3>
+
+                    <ul className="space-y-4 mb-10">
+                      {[
+                        'ระบบที่พิสูจน์แล้วว่าได้ผลจริง (Proven System)',
+                        'ประหยัดเวลาลองผิดลองถูกไปหลายร้อยชั่วโมง',
+                        'สร้างความมั่นใจถาวร ด้วยแผนการที่ชัดเจน',
+                        'ทักษะติดตัวไปตลอดชีวิต (Lifetime Skill)'
+                      ].map((item, i) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="mt-1 min-w-[24px] w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm group-hover:scale-110 transition-transform bg-gradient-to-br from-emerald-400 to-teal-500 text-white border border-emerald-200">
+                            <Check size={14} strokeWidth={3} />
+                          </div>
+                          <span className="text-lg font-medium text-slate-700 leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <Link
+                      href="/payment"
+                      className="group/btn relative block w-full text-center py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-[1.02] transition-all duration-300 overflow-hidden"
+                    >
+                      <span className="relative z-10 flex items-center justify-center gap-2">
+                        เลือกเส้นทางสู่ความสำเร็จ <ArrowRight size={20} className="group-hover/btn:translate-x-1 transition-transform" />
+                      </span>
+                      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-out"></div>
+                    </Link>
+
+                    <p className="text-center text-emerald-600/70 text-sm mt-4 font-medium">
+                      *รับประกันความพอใจ 100%
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -548,12 +620,15 @@ export default function HomePage() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {groupedCourses[category].map((course: any) => (
+                    {groupedCourses[category].map((course: Course) => (
                       <Link
                         href={`/course/${course.id}`}
                         key={course.id}
-                        className="group relative bg-white rounded-[2.5rem] shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex flex-col h-full overflow-hidden"
+                        className="group relative bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl hover:shadow-glow hover:-translate-y-2 transition-all duration-500 flex flex-col h-full overflow-hidden border border-slate-100 dark:border-slate-800"
                       >
+                        {/* Shine Effect Overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/30 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-20" style={{ transform: 'skewX(-20deg) translateX(-150%)', animation: 'shine-slide 1s' }}></div>
+
                         {/* Image Header */}
                         <div className="aspect-[4/3] w-full bg-gradient-to-br from-amber-50 to-orange-50 relative overflow-hidden">
                           {course.image ? (
@@ -567,21 +642,21 @@ export default function HomePage() {
                         </div>
 
                         {/* Content Body */}
-                        <div className="p-8 flex flex-col flex-1 bg-white">
-                          <h3 className="text-2xl font-bold text-slate-800 mb-3 line-clamp-2 leading-tight group-hover:text-amber-600 transition-colors">{course.title}</h3>
-                          <p className="text-slate-500 text-base line-clamp-2 mb-8 leading-relaxed font-medium">{course.desc || "ไม่มีรายละเอียด"}</p>
+                        <div className="p-8 flex flex-col flex-1 bg-white dark:bg-slate-900 relative z-10">
+                          <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3 line-clamp-2 leading-relaxed group-hover:text-amber-600 transition-colors">{course.title}</h3>
+                          <p className="text-slate-500 dark:text-slate-400 text-base line-clamp-2 mb-8 leading-relaxed font-medium">{course.desc || "ไม่มีรายละเอียด"}</p>
 
-                          <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100">
+                          <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100 dark:border-slate-800">
                             <div className="flex flex-col">
-                              <span className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">Course Price</span>
+                              <span className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">ราคาคอร์ส</span>
                               <div className="flex items-center gap-2">
-                                {course.fullPrice > 0 && (
-                                  <span className="text-sm font-bold text-slate-400 line-through">฿{course.fullPrice.toLocaleString()}</span>
+                                {(course.fullPrice ?? 0) > 0 && (
+                                  <span className="text-sm font-bold text-slate-400 line-through">฿{course.fullPrice?.toLocaleString()}</span>
                                 )}
-                                <span className="text-3xl font-black text-slate-800 tracking-tight">{course.price ? `฿${course.price.toLocaleString()}` : "Free"}</span>
+                                <span className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{course.price ? `฿${course.price.toLocaleString()}` : "ฟรี"}</span>
                               </div>
                             </div>
-                            <span className="w-14 h-14 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all duration-500 shadow-sm group-hover:shadow-lg group-hover:scale-110">
+                            <span className="w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all duration-500 shadow-sm group-hover:shadow-lg group-hover:scale-110">
                               <ArrowRight size={24} strokeWidth={3} />
                             </span>
                           </div>
@@ -599,8 +674,8 @@ export default function HomePage() {
               <div className="w-24 h-24 bg-white/40 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Search size={40} />
               </div>
-              <h3 className="text-2xl font-bold text-slate-600 mb-2">No Courses Found</h3>
-              <p className="text-slate-500">Please check back later.</p>
+              <h3 className="text-2xl font-bold text-slate-600 mb-2">ไม่พบคอร์สเรียน</h3>
+              <p className="text-slate-500">โปรดติดตามเร็วๆ นี้</p>
             </div>
           )}
         </main>
@@ -639,6 +714,13 @@ export default function HomePage() {
             70% { transform: scale(1); }
         }
         .animate-heartbeat { animation: heartbeat 1.5s infinite ease-in-out; }
+
+        @keyframes glass-shine {
+            0% { left: -100%; opacity: 0; }
+            50% { opacity: 1; }
+            100% { left: 200%; opacity: 0; }
+        }
+        .animate-glass-shine { animation: glass-shine 0.7s ease-in-out forwards; }
       `}</style>
     </div >
   );

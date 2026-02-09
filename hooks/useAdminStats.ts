@@ -167,21 +167,33 @@ export const useAdminStats = (selectedYear: number) => {
 
     // Calculate Financial Stats
     const stats = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        const isCurrentYear = selectedYear === currentYear;
+        const currentMonthIndex = new Date().getMonth();
+
+        // 1. Filter Enrollments by Year
         const filteredByYear = enrollments.filter(item => {
             if (!item.approvedAt && !item.createdAt) return false;
             const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
             return date.getFullYear() === selectedYear;
         });
 
-        const totalRevenue = filteredByYear.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-        const totalStudents = filteredByYear.length;
+        // 2. Filter Previous Year for Comparison
+        const filteredPrevYear = enrollments.filter(item => {
+            if (!item.approvedAt && !item.createdAt) return false;
+            const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
+            return date.getFullYear() === selectedYear - 1;
+        });
 
+        // --- Monthly Data Construction ---
         const monthlyData = Array(12).fill(0).map((_, i) => ({
             month: new Date(0, i).toLocaleString('th-TH', { month: 'short' }),
             revenue: 0,
-            students: 0
+            students: 0,
+            prevRevenue: 0 // For comparison
         }));
 
+        // Current Year Data
         filteredByYear.forEach(item => {
             const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
             const monthIndex = date.getMonth();
@@ -189,6 +201,63 @@ export const useAdminStats = (selectedYear: number) => {
             monthlyData[monthIndex].students += 1;
         });
 
+        // Previous Year Data
+        filteredPrevYear.forEach(item => {
+            const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
+            const monthIndex = date.getMonth();
+            monthlyData[monthIndex].prevRevenue += (Number(item.price) || 0);
+        });
+
+        // --- KPI Calculations ---
+
+        // A. Revenue Growth (Month-over-Month)
+        const currentMonthRevenue = monthlyData[currentMonthIndex].revenue;
+        const lastMonthRevenue = currentMonthIndex > 0 ? monthlyData[currentMonthIndex - 1].revenue : 0;
+        const revenueGrowth = lastMonthRevenue > 0
+            ? ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
+            : 0;
+
+        // B. Total Stats
+        const totalRevenue = filteredByYear.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+        const totalStudents = filteredByYear.length;
+
+        // C. Student Analytics (LTV, Retention)
+        const studentMap: Record<string, { totalSpent: number, courses: number, name: string, lastActive: any }> = {};
+
+        enrollments.forEach(item => { // Use ALL time enrollments for LTV
+            if (!item.userEmail) return;
+            if (!studentMap[item.userEmail]) {
+                studentMap[item.userEmail] = {
+                    totalSpent: 0,
+                    courses: 0,
+                    name: item.userName || 'Unknown',
+                    lastActive: item.approvedAt // Approximation
+                };
+            }
+            studentMap[item.userEmail].totalSpent += (Number(item.price) || 0);
+            studentMap[item.userEmail].courses += 1;
+        });
+
+        const studentList = Object.values(studentMap);
+        const uniqueStudentsCount = studentList.length || 1;
+
+        // Avg Order Value (AOV)
+        const aov = totalStudents > 0 ? totalRevenue / totalStudents : 0; // Per Order (Enrollment)
+
+        // Lifetime Value (LTV) -> Avg revenue per unique student
+        // Here we calculate average LTV across all students
+        const globalLTV = studentList.reduce((sum, s) => sum + s.totalSpent, 0) / uniqueStudentsCount;
+
+        // Retention Rate -> % of students with > 1 course
+        const retainedStudents = studentList.filter(s => s.courses > 1).length;
+        const retentionRate = (retainedStudents / uniqueStudentsCount) * 100;
+
+        // Top Students (Whales)
+        const topStudents = studentList
+            .sort((a, b) => b.totalSpent - a.totalSpent)
+            .slice(0, 5);
+
+        // --- Course Performance ---
         const courseMap: Record<string, { title: string, revenue: number, students: number }> = {};
         filteredByYear.forEach(item => {
             const title = item.courseTitle || "ไม่ระบุชื่อคอร์ส";
@@ -200,9 +269,21 @@ export const useAdminStats = (selectedYear: number) => {
         });
 
         const courseData = Object.values(courseMap).sort((a, b) => b.revenue - a.revenue);
-        const maxMonthlyRevenue = Math.max(...monthlyData.map(m => m.revenue), 1);
+        const maxMonthlyRevenue = Math.max(...monthlyData.map(m => m.revenue), ...monthlyData.map(m => m.prevRevenue), 1);
 
-        return { totalRevenue, totalStudents, monthlyData, courseData, maxMonthlyRevenue };
+        return {
+            totalRevenue,
+            totalStudents,
+            monthlyData,
+            courseData,
+            maxMonthlyRevenue,
+            // New Metrics
+            revenueGrowth,
+            aov,
+            ltv: globalLTV,
+            retentionRate,
+            topStudents
+        };
     }, [enrollments, selectedYear]);
 
     return {

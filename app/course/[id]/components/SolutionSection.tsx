@@ -31,7 +31,7 @@ export default function SolutionSection({ content, onCTAClick }: SolutionSection
                     <div className="mb-12 rounded-xl overflow-hidden shadow-2xl border-4 border-white mx-auto max-w-4xl">
                         <img
                             src={content.diagramImage}
-                            alt="Blueprint System Diagram"
+                            alt={`System Diagram: ${content.systemName}`}
                             className="w-full h-auto object-cover"
                         />
                     </div>
