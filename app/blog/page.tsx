@@ -56,10 +56,10 @@ export default function BlogIndexPage() {
                     {/* Header Section */}
                     <div className="text-center mb-16 relative">
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-teal-200/20 rounded-full blur-[100px] pointer-events-none"></div>
-                        <h1 className="text-4xl md:text-5xl font-black text-slate-800 mb-4 relative z-10 tracking-tight">
+                        <h1 className="text-4xl md:text-5xl font-black text-slate-800 dark:text-slate-100 mb-4 relative z-10 tracking-tight">
                             สาระน่ารู้จาก <span className="text-teal-600">ครูฮีม</span> 🎓
                         </h1>
-                        <p className="text-lg text-slate-500 max-w-2xl mx-auto relative z-10 font-medium">
+                        <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto relative z-10 font-medium">
                             รวมเทคนิคคณิตศาสตร์ ข่าวสารการสอบ และเรื่องราวดีๆ ที่จะช่วยให้น้องๆ เก่งขึ้น
                         </p>
                     </div>
@@ -67,11 +67,11 @@ export default function BlogIndexPage() {
                     {loading ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {[1, 2, 3].map((i) => (
-                                <div key={i} className="bg-white rounded-[2rem] h-[400px] animate-pulse shadow-sm"></div>
+                                <div key={i} className="bg-white dark:bg-slate-800 rounded-[2rem] h-[400px] animate-pulse shadow-sm"></div>
                             ))}
                         </div>
                     ) : posts.length === 0 ? (
-                        <div className="text-center py-20 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-200">
+                        <div className="text-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
                             <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
                             <h3 className="text-xl font-bold text-slate-400">ยังไม่มีบทความในตอนนี้</h3>
                             <p className="text-slate-400 mt-2">โปรดติดตามตอนต่อไป...</p>
@@ -79,9 +79,9 @@ export default function BlogIndexPage() {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {posts.map((post) => (
-                                <Link href={`/blog/${post.slug}`} key={post.id} className="group flex flex-col bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-slate-100">
+                                <Link href={`/blog/${post.slug}`} key={post.id} className="group flex flex-col bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-slate-100 dark:border-slate-800">
                                     {/* Image */}
-                                    <div className="h-56 bg-slate-100 relative overflow-hidden">
+                                    <div className="h-56 bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
                                         {post.coverImage ? (
                                             /* eslint-disable-next-line @next/next/no-img-element */
                                             <img
@@ -90,12 +90,12 @@ export default function BlogIndexPage() {
                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-teal-50 text-teal-200">
+                                            <div className="w-full h-full flex items-center justify-center bg-teal-50 dark:bg-teal-900/20 text-teal-200">
                                                 <BookOpen size={48} />
                                             </div>
                                         )}
                                         {/* Date Badge */}
-                                        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-slate-600 shadow-sm flex items-center gap-1">
+                                        <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm flex items-center gap-1">
                                             <Calendar size={12} className="text-teal-500" />
                                             {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : 'Recently'}
                                         </div>
@@ -103,7 +103,7 @@ export default function BlogIndexPage() {
 
                                     {/* Content */}
                                     <div className="p-6">
-                                        <h2 className="text-xl font-bold text-slate-800 group-hover:text-teal-600 transition-colors leading-tight">
+                                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-tight">
                                             {post.title}
                                         </h2>
                                     </div>

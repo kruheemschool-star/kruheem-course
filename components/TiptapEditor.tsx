@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
@@ -11,10 +11,38 @@ import {
     Bold, Italic, List, Heading1, Heading2,
     Image as ImageIcon, Link as LinkIcon, Code,
     AlignLeft, AlignCenter, AlignRight, Underline as UnderlineIcon,
-    Undo, Redo, Quote, Trash2, Sigma, Loader2
+    Undo, Redo, Quote, Trash2, Sigma, Loader2, X
 } from 'lucide-react';
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
+// Custom Image Node View with delete button
+const ImageNodeView = ({ node, deleteNode }: any) => {
+    return (
+        <NodeViewWrapper className="relative inline-block group my-4 max-w-full">
+            <img
+                src={node.attrs.src}
+                alt={node.attrs.alt || ''}
+                className="rounded-xl shadow-md max-w-full block"
+            />
+            <button
+                type="button"
+                onClick={deleteNode}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
+                title="ลบรูปภาพ"
+            >
+                <X size={14} />
+            </button>
+        </NodeViewWrapper>
+    );
+};
+
+// Extended Image extension with custom node view
+const ImageWithDelete = Image.extend({
+    addNodeView() {
+        return ReactNodeViewRenderer(ImageNodeView);
+    },
+});
 
 interface TiptapEditorProps {
     content: string;
@@ -52,7 +80,7 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
                     class: 'text-teal-600 underline cursor-pointer',
                 },
             }),
-            Image.configure({
+            ImageWithDelete.configure({
                 HTMLAttributes: {
                     class: 'rounded-xl shadow-md max-w-full my-4',
                 },

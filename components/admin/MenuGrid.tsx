@@ -53,6 +53,14 @@ const menuItems = [
         coverColor: 'from-cyan-100 to-sky-100',
     },
     {
+        key: 'posts',
+        href: '/admin/posts',
+        icon: '📰',
+        title: 'จัดการบทความ',
+        description: 'เขียน/แก้ไข เทคนิคการเรียน',
+        coverColor: 'from-emerald-100 to-green-100',
+    },
+    {
         key: 'notifications',
         href: '/admin/notifications',
         icon: '📢',

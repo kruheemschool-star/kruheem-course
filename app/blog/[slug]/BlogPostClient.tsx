@@ -94,10 +94,10 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
 
     if (!post) {
         return (
-            <div className="min-h-screen bg-[#FDFBF7] flex flex-col items-center justify-center text-center px-6">
+            <div className="min-h-screen bg-[#FDFBF7] dark:bg-slate-950 flex flex-col items-center justify-center text-center px-6 transition-colors">
                 <Navbar />
-                <h1 className="text-4xl font-black text-slate-800 mb-4">404</h1>
-                <p className="text-xl text-slate-500 mb-8">ไม่พบบทความที่คุณค้นหา</p>
+                <h1 className="text-4xl font-black text-slate-800 dark:text-slate-100 mb-4">404</h1>
+                <p className="text-xl text-slate-500 dark:text-slate-400 mb-8">ไม่พบบทความที่คุณค้นหา</p>
                 <Link href="/blog" className="bg-teal-600 text-white px-8 py-3 rounded-full font-bold hover:bg-teal-700 transition shadow-lg">
                     กลับไปหน้าบทความ
                 </Link>
@@ -111,7 +111,7 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
     );
 
     return (
-        <div className="min-h-screen bg-[#FDFBF7] font-sans selection:bg-teal-100 selection:text-teal-900">
+        <div className="min-h-screen bg-[#FDFBF7] dark:bg-slate-950 font-sans selection:bg-teal-100 selection:text-teal-900 transition-colors">
             <Navbar />
 
             {/* Legacy MathJax Support for Old HTML Posts */}
@@ -145,14 +145,11 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
                 </>
             )}
 
-            {/* Tailwind Play CDN for arbitrary values in dynamic content */}
-            <Script src="https://cdn.tailwindcss.com" strategy="afterInteractive" />
-
             <main className="pt-24 pb-20">
                 <article className="max-w-4xl mx-auto px-6">
                     {/* Header */}
                     <div className="text-center mb-10">
-                        <div className="inline-flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm text-sm text-slate-500 mb-6 mt-6">
+                        <div className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-1.5 rounded-full border border-slate-100 dark:border-slate-700 shadow-sm text-sm text-slate-500 dark:text-slate-400 mb-6 mt-6">
                             <Calendar size={14} className="text-teal-500" />
                             {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('th-TH', { dateStyle: 'long' }) : 'Unknown Date'}
                             {post.views !== undefined && (
@@ -163,7 +160,7 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
                                 </>
                             )}
                         </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-slate-800 leading-tight mb-8">
+                        <h1 className="text-3xl md:text-5xl font-black text-slate-800 dark:text-slate-100 leading-tight mb-8">
                             {post.title}
                         </h1>
                     </div>
@@ -184,15 +181,15 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
                     <div className="max-w-4xl mx-auto">
                         {isSmartContent ? (
                             // ✅ New Smart Content Renderer
-                            <div className="bg-white/80 backdrop-blur-xl border border-white/50 shadow-xl rounded-[2.5rem] p-8 md:p-12 min-h-[400px]">
+                            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/50 dark:border-slate-700/50 shadow-xl rounded-[2.5rem] p-8 md:p-12 min-h-[400px]">
                                 <SmartContentRenderer content={post.content} />
                             </div>
                         ) : (
                             // 🍂 Legacy HTML Renderer
                             <div
                                 ref={contentRef}
-                                className="math-content-area prose prose-lg prose-slate prose-headings:font-bold prose-headings:text-slate-800 prose-p:text-slate-600 prose-a:text-teal-600 hover:prose-a:text-teal-700 prose-img:rounded-2xl max-w-none 
-                                bg-white/80 backdrop-blur-xl border border-white/50 shadow-xl rounded-[2.5rem] p-8 md:p-12
+                                className="math-content-area prose prose-lg prose-slate dark:prose-invert prose-headings:font-bold prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-a:text-teal-600 hover:prose-a:text-teal-700 prose-img:rounded-2xl max-w-none 
+                                bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/50 dark:border-slate-700/50 shadow-xl rounded-[2.5rem] p-8 md:p-12
                                 overflow-x-auto leading-8 md:leading-9"
                                 dangerouslySetInnerHTML={{ __html: post.content }}
                             />
@@ -200,8 +197,8 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
                     </div>
 
                     {/* Share / Tags section */}
-                    <div className="max-w-3xl mx-auto mt-16 pt-10 border-t border-slate-200 flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-slate-500 font-bold">
+                    <div className="max-w-3xl mx-auto mt-16 pt-10 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-bold">
                             <Share2 size={20} />
                             <span>แชร์บทความ</span>
                         </div>

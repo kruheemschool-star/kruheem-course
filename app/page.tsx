@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, getDoc, limit } from "firebase/firestore";
 import Link from "next/link";
 import {
   BookOpen,
@@ -18,6 +18,8 @@ import {
   XCircle,
   AlertCircle,
   Check,
+  Newspaper,
+  Calendar,
 } from "lucide-react";
 import Image from "next/image";
 import Navbar from "@/components/Navbar";
@@ -85,8 +87,7 @@ export default function HomePage() {
   const [bannerFullPrice, setBannerFullPrice] = useState("");
   const [bannerLinkUrl, setBannerLinkUrl] = useState("/payment");
 
-
-
+  
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -344,7 +345,7 @@ export default function HomePage() {
 
         {/* Content Cards Section */}
         <section className="py-12 px-6 relative z-10">
-          <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-6">
+          <div className="max-w-7xl mx-auto grid md:grid-cols-3 gap-6">
 
             {/* Exam Card - Softer Glassmorphism */}
             <div className="relative overflow-hidden bg-gradient-to-br from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 text-center shadow-lg border border-amber-100/50 dark:border-amber-800/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-500 group">
@@ -393,6 +394,32 @@ export default function HomePage() {
 
                 <Link href="/summary" className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold text-base shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300">
                   <span>อ่านสรุปเนื้อหา</span>
+                  <ArrowRight size={18} />
+                </Link>
+              </div>
+            </div>
+
+            {/* เทคนิคการเรียน Card */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50/80 to-green-50/80 dark:from-emerald-900/20 dark:to-green-900/20 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-10 text-center shadow-lg border border-emerald-100/50 dark:border-emerald-800/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-500 group">
+              {/* Background Decoration */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-200/30 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none group-hover:bg-emerald-300/40 transition-colors duration-500"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-green-200/30 rounded-full blur-3xl -ml-12 -mb-12 pointer-events-none"></div>
+
+              <div className="relative z-10">
+                <div className="inline-block p-4 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-md mb-5 border border-emerald-200/50 shadow-sm">
+                  <Newspaper size={40} className="text-emerald-500" />
+                </div>
+
+                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-4 tracking-tight leading-tight">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-green-500">เทคนิคการเรียน</span>
+                </h2>
+                <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+                  รวมสาระดีๆ เคล็ดลับ และเทคนิคการเรียน<br className="hidden md:block" />
+                  จากครูฮีม ช่วยให้น้องๆ เก่งขึ้นทุกวัน
+                </p>
+
+                <Link href="/blog" className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-emerald-500 to-green-500 text-white font-bold text-base shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300">
+                  <span>อ่านบทความ</span>
                   <ArrowRight size={18} />
                 </Link>
               </div>
@@ -679,8 +706,6 @@ export default function HomePage() {
             </div>
           )}
         </main>
-
-
 
         <Footer />
       </div >

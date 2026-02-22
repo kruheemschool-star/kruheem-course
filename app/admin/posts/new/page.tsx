@@ -3,14 +3,14 @@
 import { useState, useEffect } from "react";
 import AdminGuard from "@/components/AdminGuard";
 import Link from "next/link";
-import { ArrowLeft, Save, Image as ImageIcon, Eye, Code, Layout, Trash2, Wand2, FileJson } from "lucide-react";
+import { ArrowLeft, Save, Image as ImageIcon, Eye, Code, Layout, Trash2, FileJson } from "lucide-react";
 import TiptapEditor from "@/components/TiptapEditor";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
-import JSON5 from "json5"; // You might need to install this if not available, or use refined JSON.parse
+import SmartJsonEditor from "@/components/admin/SmartJsonEditor";
 
 export default function NewPostPage() {
     const router = useRouter();
@@ -40,38 +40,6 @@ export default function NewPostPage() {
             setCoverImage(e.target.files[0]);
             // Create preview URL
             setCoverImageUrl(URL.createObjectURL(e.target.files[0]));
-        }
-    };
-
-    // 🪄 Auto-Fix JSON Logic
-    const handleAutoFixJson = () => {
-        try {
-            let cleanJson = content.trim();
-            if (!cleanJson) return;
-
-            // 1. Remove Markdown Code Blocks
-            cleanJson = cleanJson.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "");
-
-            // 2. Remove AI Artifacts
-            cleanJson = cleanJson
-                .replace(/\[cite(_start|_end)?(:.*?)?\]/gi, '')
-                .replace(/^Based on the provided[\s\S]*?\[/, "[");
-
-            // 3. Fix Common Syntax Errors
-            // Fix unquoted keys: { key: "value" } -> { "key": "value" }
-            cleanJson = cleanJson.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1\"$2\"$3');
-            // Fix trailing commas: , } -> }
-            cleanJson = cleanJson.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-
-            // 4. Try parsing with flexible JSON5 (if available) or strict JSON
-            // Since we don't have JSON5 imported yet, we rely on cleaned JSON
-            const parsed = JSON.parse(cleanJson); // Test parse
-
-            // Re-format nicely
-            setContent(JSON.stringify(parsed, null, 2));
-            alert("🪄 Auto-Fix Complete! JSON format is valid.");
-        } catch (e) {
-            alert("❌ Could not auto-fix. Please check syntax manually.\n" + (e as Error).message);
         }
     };
 
@@ -258,21 +226,7 @@ export default function NewPostPage() {
                                     contentType === 'html' ? (
                                         <TiptapEditor content={content} onChange={setContent} />
                                     ) : (
-                                        <div className="relative h-[600px]">
-                                            <textarea
-                                                value={content}
-                                                onChange={(e) => setContent(e.target.value)}
-                                                className="w-full h-full p-6 text-sm font-mono bg-slate-900 text-slate-200 rounded-3xl focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none leading-relaxed"
-                                                placeholder={`[\n  {\n    "type": "header",\n    "content": "บทนำ"\n  },\n  {\n    "type": "definition",\n    "title": "สูตรลับ",\n    "content": "E = mc^2"\n  }\n]`}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleAutoFixJson}
-                                                className="absolute bottom-4 right-4 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition"
-                                            >
-                                                <Wand2 size={16} /> Auto Fix JSON
-                                            </button>
-                                        </div>
+                                        <SmartJsonEditor content={content} onChange={setContent} />
                                     )
                                 ) : (
                                     <div className="h-[600px] overflow-y-auto p-6 bg-slate-50/50 rounded-3xl border border-slate-200">

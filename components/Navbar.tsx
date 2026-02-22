@@ -18,6 +18,7 @@ import {
     Target,
     Menu,
     UserPlus,
+    Newspaper,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -84,16 +85,6 @@ export default function Navbar() {
                         <Link href="/reviews" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
                             <Sparkles size={16} />
                             <span>รีวิว</span>
-                        </Link>
-
-                        <Link href="/exam" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-amber-50 dark:hover:bg-amber-900/20">
-                            <BookOpen size={16} />
-                            <span>คลังข้อสอบ</span>
-                        </Link>
-
-                        <Link href="/summary" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
-                            <BookOpen size={16} />
-                            <span>สรุปเนื้อหา</span>
                         </Link>
 
                         <Link href="/how-to-apply" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
@@ -209,24 +200,6 @@ export default function Navbar() {
                         >
                             <Sparkles size={20} />
                             <span>รีวิว</span>
-                        </Link>
-
-                        <Link
-                            href="/exam"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-xl text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 dark:hover:text-amber-400 transition-colors font-medium"
-                        >
-                            <BookOpen size={20} />
-                            <span>คลังข้อสอบ</span>
-                        </Link>
-
-                        <Link
-                            href="/summary"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-xl text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium"
-                        >
-                            <BookOpen size={20} />
-                            <span>สรุปเนื้อหา</span>
                         </Link>
 
                         <Link
