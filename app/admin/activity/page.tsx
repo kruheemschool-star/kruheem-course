@@ -54,29 +54,40 @@ export default function ActivityLogPage() {
 
             try {
                 const enrollmentSnap = await getDocs(enrollmentQuery);
+                
+                // Fetch user info for all enrollment users in parallel
+                const enrollUserIds = enrollmentSnap.docs.map(d => d.data().userId).filter(Boolean);
+                const uniqueEnrollUserIds = [...new Set(enrollUserIds)];
+                const enrollUserMap = new Map<string, { name: string, lastName: string, email: string }>();
+                
+                await Promise.all(uniqueEnrollUserIds.map(async (uid) => {
+                    try {
+                        const userDoc = await getDoc(doc(db, "users", uid));
+                        if (userDoc.exists()) {
+                            const uData = userDoc.data();
+                            enrollUserMap.set(uid, {
+                                name: uData.displayName || uData.email?.split('@')[0] || '',
+                                lastName: uData.lastName || '',
+                                email: uData.email || ''
+                            });
+                        }
+                    } catch (err) {
+                        console.log('Failed to fetch enrollment user:', err);
+                    }
+                }));
+
                 for (const enrollDoc of enrollmentSnap.docs) {
                     const data = enrollDoc.data();
-                    
-                    // Fetch user info for lastName
-                    let userLastName = '';
-                    if (data.userId) {
-                        try {
-                            const userDoc = await getDoc(doc(db, "users", data.userId));
-                            if (userDoc.exists()) {
-                                userLastName = userDoc.data().lastName || '';
-                            }
-                        } catch (err) {
-                            console.log('Failed to fetch user lastName:', err);
-                        }
-                    }
+                    const userInfo = enrollUserMap.get(data.userId) || { name: '', lastName: '', email: '' };
+                    const displayName = userInfo.name || data.userName || data.userEmail?.split('@')[0] || 'ไม่ระบุชื่อ';
                     
                     activityList.push({
                         id: `enrollment-${enrollDoc.id}`,
                         type: 'enrollment',
                         userId: data.userId || '',
-                        userName: data.userName || data.userEmail || 'Unknown',
-                        userLastName,
-                        userEmail: data.userEmail || '',
+                        userName: displayName,
+                        userLastName: userInfo.lastName,
+                        userEmail: userInfo.email || data.userEmail || '',
                         courseTitle: data.courseTitle,
                         courseId: data.courseId,
                         timestamp: data.approvedAt?.toDate() || new Date(),
@@ -93,19 +104,39 @@ export default function ActivityLogPage() {
                     : query(collection(db, "users"), orderBy("lastActive", "desc"), limit(20));
 
                 const usersSnap = await getDocs(usersQuery);
-                usersSnap.docs.forEach(doc => {
-                    const data = doc.data();
-                    if (data.lastActive) {
-                        activityList.push({
-                            id: `login-${doc.id}`,
-                            type: 'login',
-                            userId: doc.id,
-                            userName: data.displayName || data.email || 'Unknown',
-                            userLastName: data.lastName || '',
-                            userEmail: data.email || '',
-                            timestamp: data.lastActive?.toDate() || new Date(),
-                        });
-                    }
+                
+                // Fetch enrolled courses for each login user in parallel
+                const loginUsers = usersSnap.docs.filter(d => d.data().lastActive);
+                const loginEnrollments = await Promise.all(
+                    loginUsers.map(async (userDoc) => {
+                        try {
+                            const enrollQ = query(
+                                collection(db, "enrollments"),
+                                where("userId", "==", userDoc.id),
+                                where("status", "==", "approved"),
+                                limit(3)
+                            );
+                            const enrollSnap = await getDocs(enrollQ);
+                            return enrollSnap.docs.map(d => d.data().courseTitle || '').filter(Boolean);
+                        } catch {
+                            return [];
+                        }
+                    })
+                );
+
+                loginUsers.forEach((userDoc, index) => {
+                    const data = userDoc.data();
+                    const enrolledCourses = loginEnrollments[index] || [];
+                    activityList.push({
+                        id: `login-${userDoc.id}`,
+                        type: 'login',
+                        userId: userDoc.id,
+                        userName: data.displayName || data.email?.split('@')[0] || 'ไม่ระบุชื่อ',
+                        userLastName: data.lastName || '',
+                        userEmail: data.email || '',
+                        courseTitle: enrolledCourses.length > 0 ? enrolledCourses.join(', ') : undefined,
+                        timestamp: data.lastActive?.toDate() || new Date(),
+                    });
                 });
             } catch (e) {
                 console.log("Users query error:", e);
@@ -152,7 +183,7 @@ export default function ActivityLogPage() {
                             if (userDoc.exists()) {
                                 const uData = userDoc.data();
                                 userMap.set(uid, {
-                                    name: uData.displayName || uData.email || 'Unknown',
+                                    name: uData.displayName || uData.email?.split('@')[0] || 'ไม่ระบุชื่อ',
                                     lastName: uData.lastName || '',
                                     email: uData.email || ''
                                 });
@@ -163,9 +194,30 @@ export default function ActivityLogPage() {
                     }));
                 }
 
+                // Fetch last completed lesson title for each progress event
+                const lessonTitleMap = new Map<string, string>();
+                await Promise.all(progressEvents.map(async (event) => {
+                    try {
+                        if (event.data.completed?.length > 0) {
+                            const lastLessonId = event.data.completed[event.data.completed.length - 1];
+                            const lessonDoc = await getDoc(doc(db, "courses", event.courseId, "lessons", lastLessonId));
+                            if (lessonDoc.exists()) {
+                                const lessonData = lessonDoc.data();
+                                lessonTitleMap.set(
+                                    `${event.userId}-${event.courseId}`,
+                                    lessonData.title || lessonData.name || `บทที่ ${event.data.completed.length}`
+                                );
+                            }
+                        }
+                    } catch (err) {
+                        console.log('Failed to fetch lesson title:', err);
+                    }
+                }));
+
                 // Add to activity list
                 progressEvents.forEach(event => {
-                    const userInfo = userMap.get(event.userId) || { name: 'นักเรียน', lastName: '', email: '' };
+                    const userInfo = userMap.get(event.userId) || { name: 'ไม่ระบุชื่อ', lastName: '', email: '' };
+                    const lastLessonTitle = lessonTitleMap.get(`${event.userId}-${event.courseId}`);
                     activityList.push({
                         id: `progress-${event.docId}-${event.userId}`,
                         type: 'lesson_complete',
@@ -175,7 +227,9 @@ export default function ActivityLogPage() {
                         userEmail: userInfo.email,
                         courseId: event.courseId,
                         courseTitle: event.courseId,
-                        lessonTitle: `เรียนครบ ${event.data.completed.length} บท`,
+                        lessonTitle: lastLessonTitle
+                            ? `บทล่าสุด: ${lastLessonTitle} (${event.data.completed.length} บท)`
+                            : `เรียนครบ ${event.data.completed.length} บท`,
                         timestamp: event.updateTime,
                         metadata: { completed: event.data.completed.length }
                     });
@@ -419,18 +473,20 @@ export default function ActivityLogPage() {
 
                                     {/* Content */}
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
+                                        <div className="flex items-center gap-2 mb-0.5">
                                             <span className="font-bold text-slate-800 truncate">
                                                 {activity.userName}{activity.userLastName ? ` ${activity.userLastName}` : ''}
                                             </span>
-                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${getActivityColor(activity.type)}`}>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border flex-shrink-0 ${getActivityColor(activity.type)}`}>
                                                 {getActivityLabel(activity.type)}
                                             </span>
                                         </div>
+                                        {activity.userEmail && (
+                                            <p className="text-xs text-slate-400 truncate mb-0.5">{activity.userEmail}</p>
+                                        )}
                                         <p className="text-sm text-slate-500 truncate">
                                             {activity.courseTitle && `📚 ${activity.courseTitle}`}
                                             {activity.lessonTitle && ` • ${activity.lessonTitle}`}
-                                            {!activity.courseTitle && activity.userEmail}
                                         </p>
                                     </div>
 
