@@ -27,6 +27,7 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
     const { slug } = use(params);
     const [post, setPost] = useState<Post | null>(null);
     const [loading, setLoading] = useState(true);
+    const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
 
     // MathJax specific state and ref (for Legacy HTML content)
     const [isMathJaxLoaded, setIsMathJaxLoaded] = useState(false);
@@ -149,19 +150,52 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
             <main className="pt-24 pb-20">
                 <article className="max-w-4xl mx-auto px-6">
                     {/* Header */}
-                    <div className="text-center mb-10">
-                        <div className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-1.5 rounded-full border border-slate-100 dark:border-slate-700 shadow-sm text-sm text-slate-500 dark:text-slate-400 mb-6 mt-6">
-                            <Calendar size={14} className="text-teal-500" />
-                            {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('th-TH', { dateStyle: 'long' }) : 'Unknown Date'}
-                            {post.views !== undefined && (
-                                <>
-                                    <div className="w-1 h-1 rounded-full bg-slate-300 mx-1"></div>
-                                    <Eye size={14} className="text-slate-400" />
-                                    <span>{post.views.toLocaleString()} views</span>
-                                </>
-                            )}
+                    <div className="mb-10">
+                        <div className="flex items-center justify-between mt-6 mb-6">
+                            {/* Date & Views */}
+                            <div className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-1.5 rounded-full border border-slate-100 dark:border-slate-700 shadow-sm text-sm text-slate-500 dark:text-slate-400">
+                                <Calendar size={14} className="text-teal-500" />
+                                {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('th-TH', { dateStyle: 'long' }) : 'Unknown Date'}
+                                {post.views !== undefined && (
+                                    <>
+                                        <div className="w-1 h-1 rounded-full bg-slate-300 mx-1"></div>
+                                        <Eye size={14} className="text-slate-400" />
+                                        <span>{post.views.toLocaleString()} views</span>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Font Size Controls */}
+                            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-2 py-1.5 rounded-full border border-slate-100 dark:border-slate-700 shadow-sm">
+                                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 px-2 hidden sm:inline-block">ขนาดตัวอักษร</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setFontSize('sm')}
+                                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${fontSize === 'sm' ? 'bg-teal-500 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                                    title="ขนาดเล็ก"
+                                >
+                                    <span className="text-xs font-bold leading-none">A</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFontSize('base')}
+                                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${fontSize === 'base' ? 'bg-teal-500 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                                    title="ขนาดปกติ"
+                                >
+                                    <span className="text-sm font-bold leading-none">A</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFontSize('lg')}
+                                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${fontSize === 'lg' ? 'bg-teal-500 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                                    title="ขนาดใหญ่"
+                                >
+                                    <span className="text-base font-bold leading-none">A</span>
+                                </button>
+                            </div>
                         </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-slate-800 dark:text-slate-100 leading-tight mb-8">
+
+                        <h1 className="text-3xl md:text-5xl font-black text-slate-800 dark:text-slate-100 leading-tight mb-8 text-center">
                             {post.title}
                         </h1>
                     </div>
@@ -181,19 +215,21 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
                     )}
 
                     {/* Content Body */}
-                    <div className="max-w-4xl mx-auto">
+                    <div className="max-w-4xl mx-auto transition-all duration-300">
+
                         {isSmartContent ? (
                             // ✅ New Smart Content Renderer
                             <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/50 dark:border-slate-700/50 shadow-xl rounded-[2.5rem] p-8 md:p-12 min-h-[400px]">
-                                <SmartContentRenderer content={post.content} />
+                                <SmartContentRenderer content={post.content} fontSize={fontSize} />
                             </div>
                         ) : (
                             // 🍂 Legacy HTML Renderer
                             <div
                                 ref={contentRef}
-                                className="math-content-area prose prose-lg prose-slate dark:prose-invert prose-headings:font-bold prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-a:text-teal-600 hover:prose-a:text-teal-700 prose-img:rounded-2xl max-w-none 
+                                className={`math-content-area prose ${fontSize === 'sm' ? 'prose-base' : fontSize === 'lg' ? 'prose-xl' : 'prose-lg'} prose-slate dark:prose-invert prose-headings:font-bold prose-headings:text-slate-800 dark:prose-headings:text-slate-100 prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-a:text-teal-600 hover:prose-a:text-teal-700 prose-img:rounded-2xl max-w-none 
                                 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/50 dark:border-slate-700/50 shadow-xl rounded-[2.5rem] p-8 md:p-12
-                                overflow-x-auto leading-8 md:leading-9"
+                                overflow-x-auto transition-all duration-300`}
+                                style={{ fontSize: fontSize === 'sm' ? '0.95rem' : fontSize === 'lg' ? '1.35rem' : '1.125rem', lineHeight: fontSize === 'sm' ? '1.75' : fontSize === 'lg' ? '2' : '1.875' }}
                                 dangerouslySetInnerHTML={{ __html: post.content }}
                             />
                         )}

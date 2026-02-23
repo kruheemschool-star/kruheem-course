@@ -349,10 +349,50 @@ export const renderNotionStyleContent = (text: string, fontSizeClass: string = "
 };
 
 // --- Main Smart Content Component ---
-export const SmartContentRenderer = ({ content }: { content: string }) => {
+export type FontSize = 'sm' | 'base' | 'lg';
+
+export const SmartContentRenderer = ({ content, fontSize = 'base' }: { content: string, fontSize?: FontSize }) => {
     // 1. Check if it's JSON Smart Content
     let blocks: ContentBlock[] = [];
     let isSmart = false;
+
+    const getFontSizeClasses = () => {
+        switch (fontSize) {
+            case 'sm':
+                return {
+                    headerEmoji: 'text-2xl',
+                    headerText: 'text-2xl md:text-3xl',
+                    subEmoji: 'text-xl',
+                    subTitle: 'text-lg md:text-xl',
+                    content: 'text-base',
+                    formula: 'text-base md:text-lg',
+                    prose: 'prose prose-base text-base'
+                };
+            case 'lg':
+                return {
+                    headerEmoji: 'text-4xl',
+                    headerText: 'text-4xl md:text-5xl',
+                    subEmoji: 'text-3xl',
+                    subTitle: 'text-2xl md:text-3xl',
+                    content: 'text-xl',
+                    formula: 'text-xl md:text-2xl',
+                    prose: 'prose prose-2xl text-xl'
+                };
+            case 'base':
+            default:
+                return {
+                    headerEmoji: 'text-3xl',
+                    headerText: 'text-3xl md:text-4xl',
+                    subEmoji: 'text-2xl',
+                    subTitle: 'text-xl md:text-2xl',
+                    content: 'text-lg',
+                    formula: 'text-lg md:text-xl',
+                    prose: 'prose prose-xl text-lg'
+                };
+        }
+    };
+
+    const styles = getFontSizeClasses();
 
     if (content && (content.trim().startsWith('[') || content.trim().startsWith('{'))) {
         try {
@@ -388,8 +428,8 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {/* Header Block - MAIN HEADING */}
                         {block.type === 'header' && (
                             <div className="mt-14 mb-8">
-                                <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-3 border-l-4 border-slate-800 dark:border-slate-400 pl-5 py-2">
-                                    <span className="text-3xl">{getEmojiForHeader(block.content)}</span>
+                                <h2 className={`${styles.headerText} font-black text-slate-900 dark:text-slate-100 flex items-center gap-3 border-l-4 border-slate-800 dark:border-slate-400 pl-5 py-2`}>
+                                    <span className={`${styles.headerEmoji} shrink-0`}>{getEmojiForHeader(block.content)}</span>
                                     {block.content}
                                 </h2>
                             </div>
@@ -399,13 +439,13 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {block.type === 'definition' && (
                             <div className="my-6 group bg-slate-50/50 dark:bg-slate-800/50 p-5 rounded-xl border border-slate-100 dark:border-slate-700">
                                 <div className="flex gap-3 items-start">
-                                    <div className="text-2xl select-none shrink-0 mt-0.5">
+                                    <div className={`${styles.subEmoji} select-none shrink-0 mt-0.5`}>
                                         {block.title && getEmojiForHeader(block.title) ? getEmojiForHeader(block.title) : '💡'}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        {block.title && <div className="font-semibold text-slate-700 dark:text-slate-200 text-xl md:text-2xl mb-3">{block.title}</div>}
+                                        {block.title && <div className={`font-semibold text-slate-700 dark:text-slate-200 ${styles.subTitle} mb-3`}>{block.title}</div>}
                                         <div className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                                            {renderNotionStyleContent(block.content, "text-lg")}
+                                            {renderNotionStyleContent(block.content, styles.content)}
                                         </div>
                                     </div>
                                 </div>
@@ -416,12 +456,12 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {block.type === 'formula' && (
                             <div className="my-6 py-6 px-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 text-center">
                                 {block.title && (
-                                    <div className="text-xl font-semibold text-slate-600 dark:text-slate-300 mb-4 flex items-center justify-center gap-2">
-                                        <span className="text-2xl">{getEmojiForHeader(block.title) || '📐'}</span>
+                                    <div className={`${styles.subTitle} font-semibold text-slate-600 dark:text-slate-300 mb-4 flex items-center justify-center gap-2`}>
+                                        <span className={styles.subEmoji}>{getEmojiForHeader(block.title) || '📐'}</span>
                                         <span>{block.title}</span>
                                     </div>
                                 )}
-                                <div className="text-lg md:text-xl text-slate-700 dark:text-slate-200 leading-loose">
+                                <div className={`${styles.formula} text-slate-700 dark:text-slate-200 leading-loose`}>
                                     {renderWithLatex(block.content)}
                                 </div>
                             </div>
@@ -430,9 +470,9 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {/* Example Block - SUB SECTION */}
                         {block.type === 'example' && (
                             <div className="my-6 pl-4 border-l-2 border-slate-200 dark:border-slate-600 py-1">
-                                {block.title && <div className="text-xl font-semibold text-slate-600 dark:text-slate-300 mb-3 flex items-center gap-2"><span className="text-xl">📝</span> {block.title}</div>}
+                                {block.title && <div className={`${styles.subTitle} font-semibold text-slate-600 dark:text-slate-300 mb-3 flex items-center gap-2`}><span className={styles.subEmoji}>📝</span> {block.title}</div>}
                                 <div className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                                    {renderNotionStyleContent(block.content, "text-lg")}
+                                    {renderNotionStyleContent(block.content, styles.content)}
                                 </div>
                             </div>
                         )}
@@ -440,11 +480,11 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
                         {/* Note/Warning Block - SUB SECTION */}
                         {block.type === 'note' && (
                             <div className="my-6 p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl flex gap-3 text-slate-700 dark:text-slate-200">
-                                <div className="text-2xl select-none shrink-0">⚠️</div>
+                                <div className={`${styles.subEmoji} select-none shrink-0`}>⚠️</div>
                                 <div className="flex-1">
-                                    <div className="font-semibold text-slate-700 dark:text-slate-200 text-xl mb-2">ข้อควรระวัง</div>
+                                    <div className={`font-semibold text-slate-700 dark:text-slate-200 ${styles.subTitle} mb-2`}>ข้อควรระวัง</div>
                                     <div className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                                        {renderNotionStyleContent(block.content, "text-lg")}
+                                        {renderNotionStyleContent(block.content, styles.content)}
                                     </div>
                                 </div>
                             </div>
@@ -469,8 +509,8 @@ export const SmartContentRenderer = ({ content }: { content: string }) => {
 
     // 3. Fallback to Normal Text Rendering
     return (
-        <div className="prose prose-2xl dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed font-medium notion-content">
-            {renderNotionStyleContent(content)}
+        <div className={`prose dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed font-medium notion-content ${styles.prose}`}>
+            {renderNotionStyleContent(content, styles.content)}
         </div>
     );
 };
