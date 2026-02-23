@@ -10,8 +10,10 @@ interface ActivityItem {
     type: 'lesson_complete' | 'course_start' | 'login' | 'enrollment' | 'exam_submit';
     userId: string;
     userName: string;
+    userLastName?: string;
     userEmail: string;
     courseTitle?: string;
+    courseId?: string;
     lessonTitle?: string;
     examTitle?: string;
     timestamp: Date;
@@ -47,23 +49,39 @@ export default function ActivityLogPage() {
 
             // 1. Fetch Recent Enrollments (course_start)
             const enrollmentQuery = startDate
-                ? query(collection(db, "enrollments"), where("status", "==", "approved"), where("approvedAt", ">=", Timestamp.fromDate(startDate)), orderBy("approvedAt", "desc"), limit(50))
-                : query(collection(db, "enrollments"), where("status", "==", "approved"), orderBy("approvedAt", "desc"), limit(50));
+                ? query(collection(db, "enrollments"), where("status", "==", "approved"), where("approvedAt", ">=", Timestamp.fromDate(startDate)), orderBy("approvedAt", "desc"), limit(20))
+                : query(collection(db, "enrollments"), where("status", "==", "approved"), orderBy("approvedAt", "desc"), limit(20));
 
             try {
                 const enrollmentSnap = await getDocs(enrollmentQuery);
-                enrollmentSnap.docs.forEach(doc => {
-                    const data = doc.data();
+                for (const enrollDoc of enrollmentSnap.docs) {
+                    const data = enrollDoc.data();
+                    
+                    // Fetch user info for lastName
+                    let userLastName = '';
+                    if (data.userId) {
+                        try {
+                            const userDoc = await getDoc(doc(db, "users", data.userId));
+                            if (userDoc.exists()) {
+                                userLastName = userDoc.data().lastName || '';
+                            }
+                        } catch (err) {
+                            console.log('Failed to fetch user lastName:', err);
+                        }
+                    }
+                    
                     activityList.push({
-                        id: `enrollment-${doc.id}`,
+                        id: `enrollment-${enrollDoc.id}`,
                         type: 'enrollment',
                         userId: data.userId || '',
                         userName: data.userName || data.userEmail || 'Unknown',
+                        userLastName,
                         userEmail: data.userEmail || '',
                         courseTitle: data.courseTitle,
+                        courseId: data.courseId,
                         timestamp: data.approvedAt?.toDate() || new Date(),
                     });
-                });
+                }
             } catch (e) {
                 console.log("Enrollment query error (index may be missing):", e);
             }
@@ -71,8 +89,8 @@ export default function ActivityLogPage() {
             // 2. Fetch Recent Login Activity (from users collection)
             try {
                 const usersQuery = startDate
-                    ? query(collection(db, "users"), where("lastActive", ">=", Timestamp.fromDate(startDate)), orderBy("lastActive", "desc"), limit(50))
-                    : query(collection(db, "users"), orderBy("lastActive", "desc"), limit(30));
+                    ? query(collection(db, "users"), where("lastActive", ">=", Timestamp.fromDate(startDate)), orderBy("lastActive", "desc"), limit(20))
+                    : query(collection(db, "users"), orderBy("lastActive", "desc"), limit(20));
 
                 const usersSnap = await getDocs(usersQuery);
                 usersSnap.docs.forEach(doc => {
@@ -83,6 +101,7 @@ export default function ActivityLogPage() {
                             type: 'login',
                             userId: doc.id,
                             userName: data.displayName || data.email || 'Unknown',
+                            userLastName: data.lastName || '',
                             userEmail: data.email || '',
                             timestamp: data.lastActive?.toDate() || new Date(),
                         });
@@ -96,7 +115,7 @@ export default function ActivityLogPage() {
 
             // 3. Fetch Progress Updates (lesson completions)
             try {
-                const progressQuery = query(collectionGroup(db, "progress"), limit(50)); // Reduced limit for performance
+                const progressQuery = query(collectionGroup(db, "progress"), limit(20));
                 const progressSnap = await getDocs(progressQuery);
 
                 // Collect userIds to fetch names
@@ -125,7 +144,7 @@ export default function ActivityLogPage() {
                 }
 
                 // Fetch User Profiles (optimized with Promise.all)
-                const userMap = new Map<string, { name: string, email: string }>();
+                const userMap = new Map<string, { name: string, lastName: string, email: string }>();
                 if (userIdsToFetch.size > 0) {
                     await Promise.all(Array.from(userIdsToFetch).map(async (uid) => {
                         try {
@@ -134,6 +153,7 @@ export default function ActivityLogPage() {
                                 const uData = userDoc.data();
                                 userMap.set(uid, {
                                     name: uData.displayName || uData.email || 'Unknown',
+                                    lastName: uData.lastName || '',
                                     email: uData.email || ''
                                 });
                             }
@@ -145,13 +165,15 @@ export default function ActivityLogPage() {
 
                 // Add to activity list
                 progressEvents.forEach(event => {
-                    const userInfo = userMap.get(event.userId) || { name: 'นักเรียน', email: '' };
+                    const userInfo = userMap.get(event.userId) || { name: 'นักเรียน', lastName: '', email: '' };
                     activityList.push({
                         id: `progress-${event.docId}-${event.userId}`,
                         type: 'lesson_complete',
                         userId: event.userId,
-                        userName: userInfo.name, // Use fetched name
+                        userName: userInfo.name,
+                        userLastName: userInfo.lastName,
                         userEmail: userInfo.email,
+                        courseId: event.courseId,
                         courseTitle: event.courseId,
                         lessonTitle: `เรียนครบ ${event.data.completed.length} บท`,
                         timestamp: event.updateTime,
@@ -163,10 +185,39 @@ export default function ActivityLogPage() {
                 console.log("Progress query error:", e);
             }
 
+            // Fetch course names for all courseIds
+            const courseIds = new Set<string>();
+            activityList.forEach(activity => {
+                if (activity.courseId) {
+                    courseIds.add(activity.courseId);
+                }
+            });
+
+            const courseMap = new Map<string, string>();
+            if (courseIds.size > 0) {
+                await Promise.all(Array.from(courseIds).map(async (courseId) => {
+                    try {
+                        const courseDoc = await getDoc(doc(db, "courses", courseId));
+                        if (courseDoc.exists()) {
+                            courseMap.set(courseId, courseDoc.data().title || courseId);
+                        }
+                    } catch (err) {
+                        console.log(`Failed to fetch course ${courseId}:`, err);
+                    }
+                }));
+            }
+
+            // Replace courseId with actual course title
+            activityList.forEach(activity => {
+                if (activity.courseId && courseMap.has(activity.courseId)) {
+                    activity.courseTitle = courseMap.get(activity.courseId);
+                }
+            });
+
             // Sort by timestamp
             activityList.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-            setActivities(activityList.slice(0, 100));
+            setActivities(activityList.slice(0, 20));
         } catch (error) {
             console.error("Error fetching activities:", error);
         } finally {
@@ -370,7 +421,7 @@ export default function ActivityLogPage() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className="font-bold text-slate-800 truncate">
-                                                {activity.userName}
+                                                {activity.userName}{activity.userLastName ? ` ${activity.userLastName}` : ''}
                                             </span>
                                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${getActivityColor(activity.type)}`}>
                                                 {getActivityLabel(activity.type)}
@@ -386,10 +437,10 @@ export default function ActivityLogPage() {
                                     {/* Time */}
                                     <div className="text-right flex-shrink-0">
                                         <p className="text-sm font-medium text-slate-600">
-                                            {formatTime(activity.timestamp)}
+                                            {activity.timestamp.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
                                         </p>
-                                        <p className="text-[10px] text-slate-400">
-                                            {activity.timestamp.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                                        <p className="text-xs text-slate-500">
+                                            {activity.timestamp.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
                                         </p>
                                     </div>
                                 </div>
