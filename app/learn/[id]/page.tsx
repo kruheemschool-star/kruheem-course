@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { db } from "@/lib/firebase";
 import { logLearningActivity } from "@/lib/activityTracking";
 import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, onSnapshot, where, serverTimestamp } from "firebase/firestore";
@@ -24,7 +24,15 @@ import { CheckIcon } from "@/components/learn/Icons";
 
 
 
-export default function CoursePlayer() {
+export default function CoursePlayerPage() {
+    return (
+        <Suspense fallback={<LearnPageSkeleton />}>
+            <CoursePlayer />
+        </Suspense>
+    );
+}
+
+function CoursePlayer() {
     const { id } = useParams();
     // ... (start of component)
     const searchParams = useSearchParams();

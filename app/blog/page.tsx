@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs, where } from "firebase/firestore";
 import Navbar from "@/components/Navbar";
 import { Calendar, ArrowRight, BookOpen } from "lucide-react";
+import Image from "next/image";
 
 interface Post {
     id: string;
@@ -83,11 +84,12 @@ export default function BlogIndexPage() {
                                     {/* Image */}
                                     <div className="h-56 bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
                                         {post.coverImage ? (
-                                            /* eslint-disable-next-line @next/next/no-img-element */
-                                            <img
+                                            <Image
                                                 src={post.coverImage}
                                                 alt={post.title}
-                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                                fill
+                                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                className="object-cover group-hover:scale-110 transition-transform duration-700"
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center bg-teal-50 dark:bg-teal-900/20 text-teal-200">

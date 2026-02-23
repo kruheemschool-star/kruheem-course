@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useUserAuth } from "@/context/AuthContext";
 import {
     LogIn,
@@ -47,8 +48,7 @@ export default function Navbar() {
                 <Link href="/" className="flex items-center gap-3 group">
                     {/* Logo: Math Teacher Concept */}
                     <div className="relative w-12 h-12 group-hover:scale-110 transition-transform duration-300 animate-heartbeat">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/logo.png" alt="KruHeem Logo" className="w-full h-full object-contain drop-shadow-md rounded-xl" />
+                        <Image src="/logo.png" alt="KruHeem Logo" width={48} height={48} priority className="object-contain drop-shadow-md rounded-xl" />
                     </div>
                     <style jsx>{`
                     @keyframes heartbeat {

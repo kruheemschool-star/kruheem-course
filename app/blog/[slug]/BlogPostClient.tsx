@@ -7,6 +7,7 @@ import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { Calendar, Share2, Facebook, Link as LinkIcon, Eye } from "lucide-react";
 import Link from "next/link";
 import Script from "next/script";
+import Image from "next/image";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
 
 interface Post {
@@ -167,11 +168,13 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
 
                     {/* Cover Image */}
                     {post.coverImage && (
-                        <div className="rounded-[2.5rem] overflow-hidden shadow-xl shadow-teal-900/5 mb-12 border-4 border-white">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
+                        <div className="rounded-[2.5rem] overflow-hidden shadow-xl shadow-teal-900/5 mb-12 border-4 border-white relative w-full" style={{ maxHeight: 500 }}>
+                            <Image
                                 src={post.coverImage}
                                 alt={post.title}
+                                width={1200}
+                                height={500}
+                                priority
                                 className="w-full max-h-[500px] object-cover"
                             />
                         </div>

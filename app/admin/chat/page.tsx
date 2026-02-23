@@ -1,12 +1,20 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, Clock, User, Send, X, Phone, Smartphone, Trash2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Clock, User, Send, X, Phone, Smartphone, Trash2, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 export default function AdminChatPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-teal-500" size={32} /></div>}>
+            <AdminChatContent />
+        </Suspense>
+    );
+}
+
+function AdminChatContent() {
     const searchParams = useSearchParams();
     const targetedChatId = searchParams.get('chatId');
 
