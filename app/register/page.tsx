@@ -3,7 +3,7 @@ import { useState, Suspense } from "react";
 import { useUserAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, AlertCircle, ArrowRight, Play } from "lucide-react";
+import { Mail, Lock, AlertCircle, ArrowRight, Play, ArrowLeft } from "lucide-react";
 
 function RegisterContent() {
     const { emailSignUp, googleSignIn } = useUserAuth();
@@ -69,6 +69,12 @@ function RegisterContent() {
             </div>
 
             <div className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white/50 p-8 md:p-12 relative z-10 animate-in fade-in zoom-in duration-500">
+                <div className="mb-4">
+                    <Link href="/login" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-indigo-600 transition-colors group">
+                        <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                        กลับเข้าสู่ระบบ
+                    </Link>
+                </div>
                 <div className="text-center mb-10">
                     <Link href="/" className="inline-block mb-6 hover:scale-105 transition-transform">
                         <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mx-auto">

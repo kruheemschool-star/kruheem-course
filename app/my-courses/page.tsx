@@ -7,7 +7,7 @@ import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { Settings } from "lucide-react"; // Re-import Settings for Edit Profile button
+import { Settings, ArrowLeft } from "lucide-react";
 
 // Helpers
 const formatDate = (date: any) => {
@@ -268,6 +268,14 @@ export default function MyCoursesPage() {
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans pb-20 transition-colors">
             <Navbar />
             <main className="container mx-auto px-4 py-8 pt-24 max-w-5xl">
+
+                {/* Back Button */}
+                <div className="mb-4">
+                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors group">
+                        <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                        กลับหน้าแรก
+                    </Link>
+                </div>
 
                 {/* Header Section */}
                 <div className="mb-8 flex items-center gap-4">

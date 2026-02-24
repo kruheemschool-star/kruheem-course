@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next'
 import { db } from '@/lib/firebase'
-import { collection, getDocs, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const baseUrl = 'https://www.kruheemmath.com'
@@ -14,10 +14,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             priority: 1,
         },
         {
-            url: `${baseUrl}/my-courses`,
+            url: `${baseUrl}/blog`,
             lastModified: new Date(),
-            changeFrequency: 'weekly',
-            priority: 0.8,
+            changeFrequency: 'daily',
+            priority: 0.9,
         },
         {
             url: `${baseUrl}/exam`,
@@ -26,18 +26,74 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             priority: 0.9,
         },
         {
+            url: `${baseUrl}/reviews`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly',
+            priority: 0.8,
+        },
+        {
+            url: `${baseUrl}/faq`,
+            lastModified: new Date(),
+            changeFrequency: 'monthly',
+            priority: 0.7,
+        },
+        {
+            url: `${baseUrl}/how-to-apply`,
+            lastModified: new Date(),
+            changeFrequency: 'monthly',
+            priority: 0.7,
+        },
+        {
+            url: `${baseUrl}/summary`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly',
+            priority: 0.8,
+        },
+        {
+            url: `${baseUrl}/practice`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly',
+            priority: 0.7,
+        },
+        {
+            url: `${baseUrl}/my-courses`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly',
+            priority: 0.6,
+        },
+        {
             url: `${baseUrl}/login`,
             lastModified: new Date(),
             changeFrequency: 'monthly',
-            priority: 0.5,
+            priority: 0.4,
         },
         {
             url: `${baseUrl}/register`,
             lastModified: new Date(),
             changeFrequency: 'monthly',
-            priority: 0.5,
+            priority: 0.4,
         },
     ]
+
+    // Dynamic Blog Post Routes
+    let blogRoutes: MetadataRoute.Sitemap = []
+
+    try {
+        const q = query(collection(db, "posts"), where("status", "==", "published"), orderBy("createdAt", "desc"))
+        const querySnapshot = await getDocs(q)
+
+        blogRoutes = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                url: `${baseUrl}/blog/${data.slug}`,
+                lastModified: data.updatedAt?.toDate() || data.createdAt?.toDate() || new Date(),
+                changeFrequency: 'weekly' as const,
+                priority: 0.8,
+            }
+        })
+    } catch (error) {
+        console.error("Error generating sitemap for blog posts:", error)
+    }
 
     // Dynamic Exams Routes
     let examRoutes: MetadataRoute.Sitemap = []
@@ -51,7 +107,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             return {
                 url: `${baseUrl}/exam/${doc.id}`,
                 lastModified: data.updatedAt?.toDate() || new Date(),
-                changeFrequency: 'weekly',
+                changeFrequency: 'weekly' as const,
                 priority: 0.7,
             }
         })
@@ -71,13 +127,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             return {
                 url: `${baseUrl}/course/${doc.id}`,
                 lastModified: data.updatedAt?.toDate() || new Date(),
-                changeFrequency: 'weekly',
-                priority: 0.9, // Higher priority for main product pages
+                changeFrequency: 'weekly' as const,
+                priority: 0.9,
             }
         })
     } catch (error) {
         console.error("Error generating sitemap for courses:", error)
     }
 
-    return [...staticRoutes, ...courseRoutes, ...examRoutes]
+    // Dynamic Summary Routes
+    let summaryRoutes: MetadataRoute.Sitemap = []
+
+    try {
+        const q = query(collection(db, "summaries"), orderBy("createdAt", "desc"))
+        const querySnapshot = await getDocs(q)
+
+        summaryRoutes = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                url: `${baseUrl}/summary/${data.slug || doc.id}`,
+                lastModified: data.updatedAt?.toDate() || data.createdAt?.toDate() || new Date(),
+                changeFrequency: 'weekly' as const,
+                priority: 0.7,
+            }
+        })
+    } catch (error) {
+        console.error("Error generating sitemap for summaries:", error)
+    }
+
+    return [...staticRoutes, ...courseRoutes, ...blogRoutes, ...summaryRoutes, ...examRoutes]
 }

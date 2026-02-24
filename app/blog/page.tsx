@@ -5,7 +5,7 @@ import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs, where } from "firebase/firestore";
 import Navbar from "@/components/Navbar";
-import { Calendar, ArrowRight, BookOpen } from "lucide-react";
+import { Calendar, ArrowRight, BookOpen, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 
 interface Post {
@@ -54,6 +54,14 @@ export default function BlogIndexPage() {
 
             <main className="pt-28 pb-20 px-6">
                 <div className="max-w-7xl mx-auto">
+                    {/* Back Button */}
+                    <div className="mb-6">
+                        <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors group">
+                            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                            กลับหน้าแรก
+                        </Link>
+                    </div>
+
                     {/* Header Section */}
                     <div className="text-center mb-16 relative">
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] bg-teal-200/20 rounded-full blur-[100px] pointer-events-none"></div>

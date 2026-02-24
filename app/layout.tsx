@@ -68,9 +68,47 @@ export const metadata: Metadata = {
   },
 };
 
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'EducationalOrganization',
+  name: 'KruHeem Course',
+  alternateName: 'ครูฮีม',
+  url: 'https://www.kruheemmath.com',
+  logo: 'https://www.kruheemmath.com/logo.png',
+  description: 'คอร์สเรียนคณิตศาสตร์ออนไลน์ โดยครูฮีม ติวสอบเข้า ม.1, ม.4, มหาวิทยาลัย เทคนิคคิดลัด เข้าใจง่าย',
+  sameAs: [],
+  contactPoint: {
+    '@type': 'ContactPoint',
+    contactType: 'customer service',
+    availableLanguage: 'Thai',
+  },
+};
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'KruHeem Course',
+  url: 'https://www.kruheemmath.com',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: 'https://www.kruheemmath.com/blog?q={search_term_string}',
+    'query-input': 'required name=search_term_string',
+  },
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
+      </head>
       <body className={`${mitr.variable} ${ibmLoop.variable} font-sans`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"

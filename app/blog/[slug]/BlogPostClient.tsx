@@ -4,11 +4,12 @@ import { useState, useEffect, useRef, use } from "react";
 import Navbar from "@/components/Navbar";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
-import { Calendar, Share2, Facebook, Link as LinkIcon, Eye } from "lucide-react";
+import { Calendar, Share2, Facebook, Link as LinkIcon, Eye, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import Script from "next/script";
 import Image from "next/image";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
+import BlogEngagement from "@/components/BlogEngagement";
 
 interface Post {
     id: string;
@@ -149,9 +150,17 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
 
             <main className="pt-24 pb-20">
                 <article className="max-w-4xl mx-auto px-6">
+                    {/* Back Button */}
+                    <div className="mt-4 mb-6">
+                        <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors group">
+                            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                            กลับบทความทั้งหมด
+                        </Link>
+                    </div>
+
                     {/* Header */}
                     <div className="mb-10">
-                        <div className="flex items-center justify-between mt-6 mb-6">
+                        <div className="flex items-center justify-between mb-6">
                             {/* Date & Views */}
                             <div className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-1.5 rounded-full border border-slate-100 dark:border-slate-700 shadow-sm text-sm text-slate-500 dark:text-slate-400">
                                 <Calendar size={14} className="text-teal-500" />
@@ -246,6 +255,9 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
                             <button className="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center hover:scale-110 transition" onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Copied link!') }}><LinkIcon size={20} /></button>
                         </div>
                     </div>
+
+                    {/* Rating & Comments */}
+                    <BlogEngagement postId={post.id} postTitle={post.title} />
                 </article>
             </main>
         </div >

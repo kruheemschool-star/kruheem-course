@@ -4,6 +4,8 @@
 import ReviewList from "./ReviewList";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function ReviewsPage() {
     return (
@@ -17,6 +19,14 @@ export default function ReviewsPage() {
                 <div className="absolute bottom-[0] left-[-200px] w-[800px] h-[800px] bg-blue-200/20 rounded-full blur-[120px] pointer-events-none"></div>
 
                 <div className="max-w-7xl mx-auto relative z-10">
+
+                    {/* Back Button */}
+                    <div className="mb-6">
+                        <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors group">
+                            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                            กลับหน้าแรก
+                        </Link>
+                    </div>
 
                     {/* Header Section */}
                     <div className="text-center mb-16 space-y-4">

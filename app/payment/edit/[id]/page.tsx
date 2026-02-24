@@ -8,6 +8,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
+import { ArrowLeft } from "lucide-react";
 
 export default function EditPaymentPage() {
 
@@ -123,6 +124,12 @@ export default function EditPaymentPage() {
       <Navbar />
       <div className="flex-grow flex justify-center items-center p-6 pt-24 pb-24">
         <div className="bg-white p-8 rounded-[2.5rem] shadow-xl w-full max-w-xl border border-slate-100">
+          <div className="mb-4">
+            <Link href="/my-courses" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-teal-600 transition-colors group">
+              <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+              กลับคอร์สของฉัน
+            </Link>
+          </div>
           <div className="text-center mb-8">
             <h1 className="text-2xl font-black text-slate-800 mb-2">✏️ แก้ไขข้อมูล / ส่งสลิปใหม่</h1>
             <p className="text-slate-500 text-sm">ปรับปรุงข้อมูลให้ถูกต้องเพื่อให้เจ้าหน้าที่ตรวจสอบได้ง่ายขึ้น</p>

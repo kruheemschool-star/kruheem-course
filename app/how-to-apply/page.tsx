@@ -2,7 +2,7 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { UserPlus, BookOpen, CreditCard, CheckCircle } from "lucide-react";
+import { UserPlus, BookOpen, CreditCard, CheckCircle, ArrowLeft } from "lucide-react";
 
 export default function HowToApplyPage() {
     return (
@@ -17,6 +17,14 @@ export default function HowToApplyPage() {
 
                 {/* Content Container */}
                 <div className="relative z-10 w-full max-w-4xl space-y-8">
+                    {/* Back Button */}
+                    <div>
+                        <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors group">
+                            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                            กลับหน้าแรก
+                        </Link>
+                    </div>
+
                     <div className="text-center space-y-4">
                         <h1 className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400">
                             วิธีสมัครเรียน
