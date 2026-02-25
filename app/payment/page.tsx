@@ -1,13 +1,76 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, addDoc, where, updateDoc, doc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const UPLOAD_TIMEOUT = 60_000; // 60 seconds
+
+/** Compress image client-side before upload */
+function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<File> {
+  return new Promise((resolve, reject) => {
+    // Skip non-image or already small files
+    if (!file.type.startsWith('image/') || file.size < 200_000) {
+      return resolve(file);
+    }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width <= maxWidth) return resolve(file); // Already small enough
+      const ratio = maxWidth / width;
+      width = maxWidth;
+      height = Math.round(height * ratio);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(file);
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) return resolve(file);
+          const compressed = new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() });
+          resolve(compressed);
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+/** Upload with progress tracking and timeout */
+function uploadWithProgress(
+  storageRef: ReturnType<typeof ref>,
+  file: File,
+  onProgress: (pct: number) => void,
+  timeoutMs: number
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file);
+    const timer = setTimeout(() => { task.cancel(); reject(new Error('UPLOAD_TIMEOUT')); }, timeoutMs);
+    task.on(
+      'state_changed',
+      (snap) => { onProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)); },
+      (err) => { clearTimeout(timer); reject(err); },
+      async () => {
+        clearTimeout(timer);
+        try { const url = await getDownloadURL(task.snapshot.ref); resolve(url); }
+        catch (e) { reject(e); }
+      }
+    );
+  });
+}
 
 export default function PaymentPage() {
   const { user, loading: authLoading } = useUserAuth();
@@ -24,6 +87,8 @@ export default function PaymentPage() {
   const [categories, setCategories] = useState<string[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [submitStatus, setSubmitStatus] = useState<string>('');
   const router = useRouter();
 
   const categoryOrder: Record<string, number> = {
@@ -157,11 +222,32 @@ export default function PaymentPage() {
     if (!phoneNumber.trim()) return alert("⚠️ กรุณากรอกเบอร์โทรศัพท์");
     if (!slipFile) return alert("⚠️ กรุณาแนบสลิปโอนเงิน");
 
+    // Validate file size
+    if (slipFile.size > MAX_FILE_SIZE) {
+      return alert(`⚠️ ไฟล์สลิปใหญ่เกินไป (${(slipFile.size / 1024 / 1024).toFixed(1)}MB)\nกรุณาเลือกรูปที่มีขนาดไม่เกิน 5MB`);
+    }
+
     setIsSubmitting(true);
+    setUploadProgress(0);
+    setSubmitStatus('กำลังบีบอัดรูปภาพ...');
+
     try {
+      // 1. Compress image before upload
+      const compressedFile = await compressImage(slipFile);
+
+      // 2. Upload with progress tracking & timeout
+      setSubmitStatus('กำลังอัปโหลดสลิป...');
       const storageRef = ref(storage, `slips/${user.uid}_${Date.now()}`);
-      const snapshot = await uploadBytes(storageRef, slipFile);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      const downloadURL = await uploadWithProgress(
+        storageRef,
+        compressedFile,
+        (pct) => setUploadProgress(pct),
+        UPLOAD_TIMEOUT
+      );
+
+      // 3. Create enrollment docs
+      setSubmitStatus('กำลังบันทึกข้อมูล...');
+      setUploadProgress(100);
 
       const promises = selectedCourses.map(async (courseId) => {
         const courseInfo = courses.find(c => c.id === courseId);
@@ -195,7 +281,7 @@ export default function PaymentPage() {
 
       await Promise.all(promises);
 
-      // ✅ Update Coupon Status to 'Used' immediately to prevent reuse
+      // 4. Update Coupon Status to 'Used' immediately to prevent reuse
       if (discount) {
         const qCoupon = query(collection(db, "coupons"), where("code", "==", discount.code));
         const couponSnap = await getDocs(qCoupon);
@@ -210,11 +296,21 @@ export default function PaymentPage() {
       alert("✅ แจ้งโอนเงินเรียบร้อย! ข้อมูลถูกส่งไปยัง Admin แล้วครับ");
       router.push("/my-courses");
 
-    } catch (error) {
-      console.error("Error:", error);
-      alert("เกิดข้อผิดพลาด กรุณาลองใหม่");
+    } catch (error: any) {
+      console.error("Payment Error:", error);
+      if (error?.message === 'UPLOAD_TIMEOUT') {
+        alert("⏳ การอัปโหลดสลิปใช้เวลานานเกินไป\nอาจเกิดจากอินเทอร์เน็ตช้า กรุณาลองใหม่อีกครั้ง");
+      } else if (error?.code === 'storage/canceled') {
+        alert("❌ การอัปโหลดถูกยกเลิก กรุณาลองใหม่");
+      } else if (error?.code === 'storage/unauthorized') {
+        alert("❌ ไม่มีสิทธิ์อัปโหลดไฟล์ กรุณาเข้าสู่ระบบใหม่");
+      } else {
+        alert("เกิดข้อผิดพลาด กรุณาลองใหม่");
+      }
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
+      setSubmitStatus('');
     }
   };
 
@@ -550,8 +646,19 @@ export default function PaymentPage() {
               disabled={isSubmitting}
               className="w-full py-5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white font-bold text-xl rounded-[1.5rem] shadow-lg shadow-teal-500/30 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none relative overflow-hidden group"
             >
+              {/* Progress bar background */}
+              {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
+                <div
+                  className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-300 ease-out"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              )}
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              <span className="relative">{isSubmitting ? '⏳ กำลังส่งข้อมูล...' : '✨ ยืนยันการแจ้งโอน'}</span>
+              <span className="relative">
+                {isSubmitting
+                  ? `⏳ ${submitStatus}${uploadProgress > 0 && uploadProgress < 100 ? ` (${uploadProgress}%)` : ''}`
+                  : '✨ ยืนยันการแจ้งโอน'}
+              </span>
             </button>
 
             <Link href="/" className="block text-center text-slate-400 font-bold hover:text-teal-500 transition text-sm">ยกเลิก / กลับหน้าหลัก</Link>

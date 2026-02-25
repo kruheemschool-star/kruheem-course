@@ -7,20 +7,12 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
 import Certificate from "@/app/components/Certificate";
-import "katex/dist/katex.min.css";
-import { InlineMath, BlockMath } from "react-katex";
-import { ExamSystem } from "@/components/exam/ExamSystem";
-import { QuestionCard } from "@/components/exam/QuestionCard";
 import { LearnPageSkeleton } from "@/components/skeletons/LearnPageSkeleton";
-import { Menu, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { LessonSidebar } from "@/components/learn/LessonSidebar";
 import { LessonContent } from "@/components/learn/LessonContent";
 import { Lesson } from "@/components/learn/types";
 import { CheckIcon } from "@/components/learn/Icons";
-// ✅ Now using imported versions from "@/components/ContentRenderer"
-
-
-
 
 
 
@@ -377,7 +369,7 @@ function CoursePlayer() {
     // ✅ เช็คสิทธิ์บทเรียนปัจจุบัน
     const canWatchCurrent = activeLesson ? isLessonUnlocked(activeLesson) : false;
 
-    const currentVideoId = canWatchCurrent ? (activeLesson ? activeLesson.videoId : course.videoId) : "";
+    const currentVideoId = canWatchCurrent ? (activeLesson?.videoId || course?.videoId || "") : "";
     const isHeaderMode = activeLesson?.type === 'header';
 
     // ✅ Smart Resume Logic
@@ -386,6 +378,11 @@ function CoursePlayer() {
 
     // We use a ref to track the last saved time to avoid duplicate writes if called too frequently
     const lastSavedTimeRef = useRef<number>(-1);
+
+    // Reset saved time ref when lesson changes
+    useEffect(() => {
+        lastSavedTimeRef.current = -1;
+    }, [activeLesson?.id]);
 
     const saveProgress = async (seconds: number) => {
         if (!user || !activeLesson || !courseId) return;

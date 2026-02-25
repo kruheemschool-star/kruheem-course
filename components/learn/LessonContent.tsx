@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Lesson } from './types';
 import { SmartContentRenderer } from "@/components/ContentRenderer";
@@ -6,7 +6,7 @@ import { FlashcardPlayer } from './FlashcardPlayer';
 import { ExamRunner } from './ExamRunner';
 import { tryParseQuestions } from './utils';
 import LessonSummaryRenderer from './LessonSummaryRenderer';
-import YouTube from 'react-youtube'; // ✅ Import YouTube
+import YouTube from 'react-youtube';
 
 interface LessonContentProps {
     activeLesson: Lesson | null;
@@ -46,6 +46,32 @@ export const LessonContent: React.FC<LessonContentProps> = ({
 }) => {
     const [showSummary, setShowSummary] = React.useState(false);
     const [isClosing, setIsClosing] = React.useState(false);
+    const videoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const hasUsedInitialTime = useRef(false);
+
+    // Cleanup video progress interval on unmount or lesson change
+    useEffect(() => {
+        return () => {
+            if (videoIntervalRef.current) {
+                clearInterval(videoIntervalRef.current);
+                videoIntervalRef.current = null;
+            }
+            // Also clean legacy global interval
+            if ((window as any).videoInterval) {
+                clearInterval((window as any).videoInterval);
+                (window as any).videoInterval = null;
+            }
+        };
+    }, [activeLesson?.id]);
+
+    // Compute the start time: only use initialTime for the very first load
+    const startTime = React.useMemo(() => {
+        if (!hasUsedInitialTime.current && initialTime && initialTime > 0) {
+            hasUsedInitialTime.current = true;
+            return initialTime;
+        }
+        return 0;
+    }, [activeLesson?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Handle close with animation
     const handleCloseSummary = () => {
@@ -272,6 +298,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                             <>
                                 <div className="w-full aspect-video max-h-full relative flex items-center justify-center bg-black">
                                     <YouTube
+                                        key={currentVideoId}
                                         videoId={currentVideoId}
                                         className="w-full h-full absolute inset-0 z-10"
                                         iframeClassName="w-full h-full"
@@ -279,19 +306,27 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                             playerVars: {
                                                 autoplay: 0,
                                                 rel: 0,
-                                                start: initialTime || 0,
+                                                start: startTime,
                                             },
                                         }}
                                         onReady={(event) => {
-                                            // Store player instance if needed, but we use event.target in handlers usually.
-                                            // If we need external control, we might need a ref, but for now local interval is fine
+                                            // Ensure the player is valid and loaded
+                                            try {
+                                                event.target.setPlaybackQuality('default');
+                                            } catch (_) { /* ignore */ }
+                                        }}
+                                        onError={(event) => {
+                                            console.error('YouTube Player Error:', event.data);
                                         }}
                                         onStateChange={(event) => {
                                             const player = event.target;
                                             const state = event.data;
 
                                             // Clear any existing interval
-                                            if ((window as any).videoInterval) clearInterval((window as any).videoInterval);
+                                            if (videoIntervalRef.current) {
+                                                clearInterval(videoIntervalRef.current);
+                                                videoIntervalRef.current = null;
+                                            }
 
                                             // 1 = Playing
                                             if (state === 1) {
@@ -299,13 +334,23 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                                 if (onVideoProgress) onVideoProgress(player.getCurrentTime());
 
                                                 // Start Heartbeat (Every 15s)
-                                                (window as any).videoInterval = setInterval(() => {
-                                                    const time = player.getCurrentTime();
-                                                    if (onVideoProgress) onVideoProgress(time);
+                                                videoIntervalRef.current = setInterval(() => {
+                                                    try {
+                                                        const time = player.getCurrentTime();
+                                                        if (onVideoProgress) onVideoProgress(time);
+                                                    } catch (_) {
+                                                        // Player may have been destroyed
+                                                        if (videoIntervalRef.current) {
+                                                            clearInterval(videoIntervalRef.current);
+                                                            videoIntervalRef.current = null;
+                                                        }
+                                                    }
                                                 }, 15000);
                                             } else {
-                                                // Paused (2) or Ended (0) -> Save immediately & Stop Heartbeat
-                                                if (onVideoProgress) onVideoProgress(player.getCurrentTime());
+                                                // Paused (2) or Ended (0) -> Save immediately
+                                                try {
+                                                    if (onVideoProgress) onVideoProgress(player.getCurrentTime());
+                                                } catch (_) { /* Player destroyed */ }
                                             }
                                         }}
                                     />
