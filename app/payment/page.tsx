@@ -10,8 +10,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const UPLOAD_TIMEOUT = 60_000; // 60 seconds
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (before compression)
+const UPLOAD_TIMEOUT = 120_000; // 120 seconds
 
 /** Upload with progress tracking and timeout */
 function uploadWithProgress(
@@ -51,6 +51,7 @@ export default function PaymentPage() {
   const [categories, setCategories] = useState<string[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [submitStatus, setSubmitStatus] = useState<string>('');
   const [compressionInfo, setCompressionInfo] = useState<{ original: number; compressed: number } | null>(null);
@@ -174,30 +175,67 @@ export default function PaymentPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('⚠️ กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      e.target.value = '';
+      return;
+    }
+
+    // Validate file size before compression
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`⚠️ ไฟล์ใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(1)}MB)\nกรุณาเลือกรูปที่มีขนาดไม่เกิน 10MB`);
+      e.target.value = '';
+      return;
+    }
+
     const originalSize = file.size;
     setCompressionInfo(null);
+    setIsCompressing(true);
+
+    // Revoke old preview URL to prevent memory leak
+    if (slipPreview) URL.revokeObjectURL(slipPreview);
 
     try {
-      // Compress slip image using browser-image-compression
-      const options = {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-        fileType: 'image/jpeg' as const,
-        initialQuality: 0.8
-      };
+      let compressedFile: File | Blob = file;
 
-      const compressedFile = await imageCompression(file, options);
+      // Only compress if file is larger than 500KB
+      if (originalSize > 500 * 1024) {
+        const options = {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          initialQuality: 0.8
+        };
+
+        try {
+          compressedFile = await imageCompression(file, options);
+        } catch (workerErr) {
+          // Web Worker failed (common in LINE/Facebook in-app browsers)
+          // Retry WITHOUT Web Worker
+          console.warn('Web Worker compression failed, retrying without:', workerErr);
+          try {
+            compressedFile = await imageCompression(file, { ...options, useWebWorker: false });
+          } catch (fallbackErr) {
+            // All compression failed — use original file
+            console.warn('All compression failed, using original:', fallbackErr);
+            compressedFile = file;
+          }
+        }
+      }
+
       console.log(`Slip: ${(originalSize / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB`);
 
       setSlipFile(compressedFile as File);
       setSlipPreview(URL.createObjectURL(compressedFile));
       setCompressionInfo({ original: originalSize, compressed: compressedFile.size });
     } catch (err) {
-      console.error('Compression error, using original:', err);
+      console.error('File handling error, using original:', err);
       setSlipFile(file);
       setSlipPreview(URL.createObjectURL(file));
       setCompressionInfo({ original: originalSize, compressed: originalSize });
+    } finally {
+      setIsCompressing(false);
     }
   };
 
@@ -210,14 +248,14 @@ export default function PaymentPage() {
     if (!phoneNumber.trim()) return alert("⚠️ กรุณากรอกเบอร์โทรศัพท์");
     if (!slipFile) return alert("⚠️ กรุณาแนบสลิปโอนเงิน");
 
-    // Validate file size
-    if (slipFile.size > MAX_FILE_SIZE) {
-      return alert(`⚠️ ไฟล์สลิปใหญ่เกินไป (${(slipFile.size / 1024 / 1024).toFixed(1)}MB)\nกรุณาเลือกรูปที่มีขนาดไม่เกิน 5MB`);
+    // Validate file size (after compression)
+    if (slipFile.size > 5 * 1024 * 1024) {
+      return alert(`⚠️ ไฟล์สลิปยังใหญ่เกินไปหลังบีบอัด (${(slipFile.size / 1024 / 1024).toFixed(1)}MB)\nกรุณาเลือกรูปที่มีขนาดเล็กลง`);
     }
 
     setIsSubmitting(true);
     setUploadProgress(0);
-    setSubmitStatus('กำลังบีบอัดรูปภาพ...');
+    setSubmitStatus('กำลังเตรียมข้อมูล...');
 
     try {
       // 1. Upload with progress tracking & timeout (file already compressed in handleFileChange)
@@ -284,13 +322,15 @@ export default function PaymentPage() {
     } catch (error: any) {
       console.error("Payment Error:", error);
       if (error?.message === 'UPLOAD_TIMEOUT') {
-        alert("⏳ การอัปโหลดสลิปใช้เวลานานเกินไป\nอาจเกิดจากอินเทอร์เน็ตช้า กรุณาลองใหม่อีกครั้ง");
+        alert("⏳ การอัปโหลดสลิปใช้เวลานานเกินไป\n\nวิธีแก้ไข:\n• ลองเชื่อมต่อ WiFi แล้วลองใหม่\n• ลองถ่ายรูปสลิปด้วยกล้องแทนการ Screenshot");
       } else if (error?.code === 'storage/canceled') {
-        alert("❌ การอัปโหลดถูกยกเลิก กรุณาลองใหม่");
+        alert("❌ การอัปโหลดถูกยกเลิก\nกรุณาลองใหม่อีกครั้ง");
       } else if (error?.code === 'storage/unauthorized') {
-        alert("❌ ไม่มีสิทธิ์อัปโหลดไฟล์ กรุณาเข้าสู่ระบบใหม่");
+        alert("❌ ไม่มีสิทธิ์อัปโหลดไฟล์\nกรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่");
+      } else if (error?.code === 'storage/retry-limit-exceeded' || error?.code === 'storage/server-file-wrong-size') {
+        alert("❌ เกิดข้อผิดพลาดในการอัปโหลด\n\nวิธีแก้ไข:\n• ปิดแอปแล้วเปิดใหม่\n• ลองใช้ browser อื่น (Chrome/Safari)");
       } else {
-        alert("เกิดข้อผิดพลาด กรุณาลองใหม่");
+        alert(`เกิดข้อผิดพลาด กรุณาลองใหม่\n\n(${error?.code || error?.message || 'unknown error'})`);
       }
     } finally {
       setIsSubmitting(false);
@@ -610,9 +650,15 @@ export default function PaymentPage() {
               <label className="block text-sm font-bold text-slate-700">3. แนบหลักฐานการโอน (สลิป)</label>
 
               <div className="relative group">
-                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="slip-upload" required />
-                <label htmlFor="slip-upload" className="w-full h-48 bg-white/40 border-2 border-dashed border-teal-200/50 rounded-3xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-white/60 hover:border-teal-400 hover:scale-[1.01] transition-all duration-300 text-slate-400 hover:text-teal-500 shadow-sm backdrop-blur-sm">
-                  {slipPreview ? (
+                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="slip-upload" />
+                <label htmlFor="slip-upload" className={`w-full h-48 bg-white/40 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-white/60 hover:scale-[1.01] transition-all duration-300 shadow-sm backdrop-blur-sm ${isCompressing ? 'border-amber-300 bg-amber-50/30' : 'border-teal-200/50 hover:border-teal-400 text-slate-400 hover:text-teal-500'}`}>
+                  {isCompressing ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-10 h-10 border-3 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="font-bold text-amber-600 text-sm">กำลังบีบอัดรูปภาพ...</span>
+                      <span className="text-xs text-amber-500">รอสักครู่</span>
+                    </div>
+                  ) : slipPreview ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={slipPreview} alt="Preview" className="h-full w-full object-contain rounded-2xl shadow-md" />
                   ) : (
@@ -643,7 +689,7 @@ export default function PaymentPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isCompressing}
               className="w-full py-5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white font-bold text-xl rounded-[1.5rem] shadow-lg shadow-teal-500/30 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none relative overflow-hidden group"
             >
               {/* Progress bar background */}

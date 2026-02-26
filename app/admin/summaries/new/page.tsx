@@ -265,7 +265,10 @@ export default function NewSummaryPage() {
                                                 };
                                                 
                                                 const compressedFile = await imageCompression(file, options);
-                                                console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB → Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+                                                const originalSize = file.size;
+                                                const compressedSize = compressedFile.size;
+                                                const savedPercent = ((1 - compressedSize / originalSize) * 100).toFixed(0);
+                                                console.log(`Original: ${(originalSize / 1024).toFixed(0)}KB → Compressed: ${(compressedSize / 1024).toFixed(0)}KB (saved ${savedPercent}%)`);
 
                                                 // Upload compressed image
                                                 const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
@@ -273,6 +276,14 @@ export default function NewSummaryPage() {
                                                 const snapshot = await uploadBytes(storageRef, compressedFile);
                                                 const url = await getDownloadURL(snapshot.ref);
                                                 setCoverImage(url);
+
+                                                // Show compression stats
+                                                alert(
+                                                    `✅ อัปโหลดรูปปกสำเร็จ!\n\n` +
+                                                    `📦 ขนาดต้นฉบับ: ${(originalSize / 1024).toFixed(0)} KB\n` +
+                                                    `📦 ขนาดหลังบีบอัด: ${(compressedSize / 1024).toFixed(0)} KB\n` +
+                                                    `💾 ประหยัดพื้นที่: ${savedPercent}%`
+                                                );
                                             } catch (err) {
                                                 console.error('Cover upload error:', err);
                                                 alert('อัปโหลดรูปปกไม่สำเร็จ');

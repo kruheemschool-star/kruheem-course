@@ -25,6 +25,7 @@ export default function EditPaymentPage() {
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [compressionInfo, setCompressionInfo] = useState<{ original: number; compressed: number } | null>(null);
@@ -76,20 +77,54 @@ export default function EditPaymentPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('⚠️ กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      e.target.value = '';
+      return;
+    }
+
+    // Validate file size
+    if (file.size > 10 * 1024 * 1024) {
+      alert(`⚠️ ไฟล์ใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(1)}MB)\nกรุณาเลือกรูปที่มีขนาดไม่เกิน 10MB`);
+      e.target.value = '';
+      return;
+    }
+
     const originalSize = file.size;
     setCompressionInfo(null);
+    setIsCompressing(true);
+
+    // Revoke old preview URL to prevent memory leak
+    if (slipPreview) URL.revokeObjectURL(slipPreview);
 
     try {
-      const options = {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-        fileType: 'image/jpeg' as const,
-        initialQuality: 0.8
-      };
+      let compressedFile: File | Blob = file;
 
-      const compressedFile = await imageCompression(file, options);
-      console.log(`Slip edit: ${(originalSize / 1024).toFixed(0)}KB \u2192 ${(compressedFile.size / 1024).toFixed(0)}KB`);
+      // Only compress if file is larger than 500KB
+      if (originalSize > 500 * 1024) {
+        const options = {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          initialQuality: 0.8
+        };
+
+        try {
+          compressedFile = await imageCompression(file, options);
+        } catch (workerErr) {
+          // Web Worker failed — retry without Web Worker
+          console.warn('Web Worker compression failed, retrying without:', workerErr);
+          try {
+            compressedFile = await imageCompression(file, { ...options, useWebWorker: false });
+          } catch (fallbackErr) {
+            console.warn('All compression failed, using original:', fallbackErr);
+            compressedFile = file;
+          }
+        }
+      }
+
+      console.log(`Slip edit: ${(originalSize / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB`);
 
       setSlipFile(compressedFile as File);
       setSlipPreview(URL.createObjectURL(compressedFile));
@@ -99,6 +134,8 @@ export default function EditPaymentPage() {
       setSlipFile(file);
       setSlipPreview(URL.createObjectURL(file));
       setCompressionInfo({ original: originalSize, compressed: originalSize });
+    } finally {
+      setIsCompressing(false);
     }
   };
 
@@ -120,7 +157,7 @@ export default function EditPaymentPage() {
         const storageRef = ref(storage, `slips/${user?.uid}_${Date.now()}_edited`);
         downloadURL = await new Promise<string>((resolve, reject) => {
           const task = uploadBytesResumable(storageRef, slipFile);
-          const timer = setTimeout(() => { task.cancel(); reject(new Error('UPLOAD_TIMEOUT')); }, 60_000);
+          const timer = setTimeout(() => { task.cancel(); reject(new Error('UPLOAD_TIMEOUT')); }, 120_000);
           task.on(
             'state_changed',
             (snap) => { setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)); },
@@ -146,9 +183,15 @@ export default function EditPaymentPage() {
       alert("✅ แก้ไขข้อมูลเรียบร้อย!");
       router.push("/my-courses");
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Update Error:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึก");
+      if (error?.message === 'UPLOAD_TIMEOUT') {
+        alert("⏳ การอัปโหลดสลิปใช้เวลานานเกินไป\n\nวิธีแก้ไข:\n• ลองเชื่อมต่อ WiFi แล้วลองใหม่\n• ลองถ่ายรูปสลิปด้วยกล้องแทนการ Screenshot");
+      } else if (error?.code === 'storage/unauthorized') {
+        alert("❌ ไม่มีสิทธิ์อัปโหลดไฟล์\nกรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่");
+      } else {
+        alert(`เกิดข้อผิดพลาด กรุณาลองใหม่\n\n(${error?.code || error?.message || 'unknown error'})`);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -225,8 +268,13 @@ export default function EditPaymentPage() {
 
               <div className="relative">
                 <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="slip-upload-edit" />
-                <label htmlFor="slip-upload-edit" className="w-full h-32 bg-white border-2 border-dashed border-indigo-300 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-indigo-50 transition text-indigo-500">
-                  {slipPreview ? (
+                <label htmlFor="slip-upload-edit" className={`w-full h-32 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer transition ${isCompressing ? 'border-amber-300 bg-amber-50' : 'bg-white border-indigo-300 hover:bg-indigo-50 text-indigo-500'}`}>
+                  {isCompressing ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="font-bold text-amber-600 text-sm">กำลังบีบอัดรูปภาพ...</span>
+                    </div>
+                  ) : slipPreview ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={slipPreview} alt="New Preview" className="h-full w-full object-contain rounded-xl" />
                   ) : (
@@ -261,7 +309,7 @@ export default function EditPaymentPage() {
               </Link>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isCompressing}
                 className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all disabled:bg-slate-300 relative overflow-hidden"
               >
                 {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
