@@ -286,20 +286,6 @@ export default function EditPaymentPage() {
                 </label>
               </div>
 
-              {/* Compression Info */}
-              {compressionInfo && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mt-2">
-                  <p className="text-xs font-bold text-emerald-700 mb-1">✅ บีบอัดรูปภาพสำเร็จ</p>
-                  <div className="flex items-center justify-between text-xs text-emerald-600">
-                    <span>ต้นฉบับ: <span className="font-semibold">{(compressionInfo.original / 1024).toFixed(0)} KB</span></span>
-                    <span>→</span>
-                    <span>หลังบีบอัด: <span className="font-semibold">{(compressionInfo.compressed / 1024).toFixed(0)} KB</span></span>
-                  </div>
-                  {compressionInfo.original > compressionInfo.compressed && (
-                    <p className="text-xs text-emerald-500 mt-1">ประหยัด: {((1 - compressionInfo.compressed / compressionInfo.original) * 100).toFixed(0)}% — อัปโหลดเร็วขึ้น!</p>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Submit Button */}
