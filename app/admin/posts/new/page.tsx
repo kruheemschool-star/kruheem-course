@@ -8,6 +8,7 @@ import TiptapEditor from "@/components/TiptapEditor";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
 import SmartJsonEditor from "@/components/admin/SmartJsonEditor";
@@ -27,6 +28,8 @@ export default function NewPostPage() {
     const [coverImageUrl, setCoverImageUrl] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
+    const [originalSize, setOriginalSize] = useState<number>(0);
+    const [compressedSize, setCompressedSize] = useState<number>(0);
 
     // Auto-generate slug from title (simple version)
     useEffect(() => {
@@ -35,11 +38,34 @@ export default function NewPostPage() {
         }
     }, [title, slug]);
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setCoverImage(e.target.files[0]);
-            // Create preview URL
-            setCoverImageUrl(URL.createObjectURL(e.target.files[0]));
+            const file = e.target.files[0];
+            setOriginalSize(file.size);
+
+            try {
+                // Compress image
+                const options = {
+                    maxSizeMB: 0.5,
+                    maxWidthOrHeight: 1320,
+                    useWebWorker: true,
+                    fileType: 'image/jpeg',
+                    initialQuality: 0.85
+                };
+                
+                const compressedFile = await imageCompression(file, options);
+                setCompressedSize(compressedFile.size);
+                console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB → Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+
+                setCoverImage(compressedFile as File);
+                setCoverImageUrl(URL.createObjectURL(compressedFile));
+            } catch (err) {
+                console.error('Image compression error:', err);
+                // Fallback to original if compression fails
+                setCoverImage(file);
+                setCoverImageUrl(URL.createObjectURL(file));
+                setCompressedSize(file.size);
+            }
         }
     };
 
@@ -163,8 +189,17 @@ export default function NewPostPage() {
                             </div>
 
                             {/* Cover Image */}
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-                                <label className="block text-sm font-bold text-slate-700 mb-3">รูปปกบทความ</label>
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+                                <label className="block text-sm font-bold text-slate-700">รูปปกบทความ</label>
+                                
+                                {/* Aspect Ratio Info */}
+                                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1">
+                                    <p className="text-xs font-bold text-slate-600">📐 อัตราส่วนที่แนะนำ: <span className="text-teal-600">15:22</span> (แนวตั้ง)</p>
+                                    <p className="text-xs text-slate-500">💾 ขนาดที่แนะนำ: <span className="font-semibold">750 × 1100 px</span> หรือ <span className="font-semibold">900 × 1320 px</span></p>
+                                    <p className="text-xs text-slate-400">📦 ขนาดไฟล์: ไม่เกิน 500 KB</p>
+                                </div>
+
+                                {/* Image Upload */}
                                 <div className="relative group cursor-pointer border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden min-h-[200px] flex items-center justify-center bg-slate-50 hover:bg-slate-100 transition">
                                     <input type="file" onChange={handleImageChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" accept="image/*" />
                                     {coverImageUrl ? (
@@ -177,6 +212,19 @@ export default function NewPostPage() {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* File Size Info */}
+                                {originalSize > 0 && (
+                                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                                        <p className="text-xs font-bold text-emerald-700 mb-1">✅ บีบอัดรูปภาพสำเร็จ</p>
+                                        <div className="flex items-center justify-between text-xs text-emerald-600">
+                                            <span>ขนาดต้นฉบับ: <span className="font-semibold">{(originalSize / 1024).toFixed(0)} KB</span></span>
+                                            <span>→</span>
+                                            <span>หลังบีบอัด: <span className="font-semibold">{(compressedSize / 1024).toFixed(0)} KB</span></span>
+                                        </div>
+                                        <p className="text-xs text-emerald-500 mt-1">ประหยัด: {((1 - compressedSize / originalSize) * 100).toFixed(0)}%</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

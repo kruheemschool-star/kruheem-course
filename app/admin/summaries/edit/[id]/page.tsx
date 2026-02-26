@@ -6,12 +6,13 @@ import Link from "next/link";
 import { ArrowLeft, Save, Wand2, Eye, Code, Trash2, Info, PenTool, Layers } from "lucide-react";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Image as ImageIcon, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
 import TiptapEditor from "@/components/TiptapEditor";
 import SummaryBlockEditor from "@/components/SummaryBlockEditor";
+import imageCompression from "browser-image-compression";
 
 // Helper to extract metadata from JSON content
 function extractMetadata(jsonContent: string) {
@@ -311,10 +312,15 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                             <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
                                 <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">🖼️ รูปปกสไลด์โชว์</h3>
                                 <p className="text-xs text-slate-400">รูปนี้จะแสดงในสไลด์โชว์หน้าแรก</p>
+                                <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1">
+                                    <p className="text-xs font-bold text-slate-600">📐 อัตราส่วนที่แนะนำ: <span className="text-teal-600">15:22</span> (แนวตั้ง)</p>
+                                    <p className="text-xs text-slate-500">💾 ขนาดที่แนะนำ: <span className="font-semibold">750 × 1100 px</span> หรือ <span className="font-semibold">900 × 1320 px</span></p>
+                                    <p className="text-xs text-slate-400">📦 ขนาดไฟล์: ไม่เกิน 500 KB</p>
+                                </div>
 
                                 {coverImage && (
                                     <div className="relative rounded-xl overflow-hidden border border-slate-200">
-                                        <img src={coverImage} alt="Cover" className="w-full aspect-[4/3] object-cover" />
+                                        <img src={coverImage} alt="Cover" className="w-full aspect-[3/4.4] object-cover" />
                                         <button
                                             type="button"
                                             onClick={() => setCoverImage("")}
@@ -345,9 +351,32 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                                             if (!file) return;
                                             setUploadingCover(true);
                                             try {
+                                                // Delete old image if exists
+                                                if (coverImage) {
+                                                    try {
+                                                        const oldImageRef = ref(storage, coverImage);
+                                                        await deleteObject(oldImageRef);
+                                                    } catch (delErr) {
+                                                        console.warn('Could not delete old cover image:', delErr);
+                                                    }
+                                                }
+
+                                                // Compress image before upload
+                                                const options = {
+                                                    maxSizeMB: 0.5,          // Max file size 500KB
+                                                    maxWidthOrHeight: 1320,  // Max dimension for 900x1320
+                                                    useWebWorker: true,
+                                                    fileType: 'image/jpeg',  // Convert to JPEG for better compression
+                                                    initialQuality: 0.85     // High quality (85%)
+                                                };
+                                                
+                                                const compressedFile = await imageCompression(file, options);
+                                                console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB → Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
+
+                                                // Upload compressed image
                                                 const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
                                                 const storageRef = ref(storage, `summaries/covers/${filename}`);
-                                                const snapshot = await uploadBytes(storageRef, file);
+                                                const snapshot = await uploadBytes(storageRef, compressedFile);
                                                 const url = await getDownloadURL(snapshot.ref);
                                                 setCoverImage(url);
                                             } catch (err) {

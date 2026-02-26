@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
 import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
@@ -25,6 +26,8 @@ export default function EditPaymentPage() {
   const [slipPreview, setSlipPreview] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [compressionInfo, setCompressionInfo] = useState<{ original: number; compressed: number } | null>(null);
 
   const router = useRouter();
 
@@ -69,11 +72,33 @@ export default function EditPaymentPage() {
     }
   }, [user, authLoading, router]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    const originalSize = file.size;
+    setCompressionInfo(null);
+
+    try {
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+        fileType: 'image/jpeg' as const,
+        initialQuality: 0.8
+      };
+
+      const compressedFile = await imageCompression(file, options);
+      console.log(`Slip edit: ${(originalSize / 1024).toFixed(0)}KB \u2192 ${(compressedFile.size / 1024).toFixed(0)}KB`);
+
+      setSlipFile(compressedFile as File);
+      setSlipPreview(URL.createObjectURL(compressedFile));
+      setCompressionInfo({ original: originalSize, compressed: compressedFile.size });
+    } catch (err) {
+      console.error('Compression error, using original:', err);
       setSlipFile(file);
       setSlipPreview(URL.createObjectURL(file));
+      setCompressionInfo({ original: originalSize, compressed: originalSize });
     }
   };
 
@@ -90,11 +115,23 @@ export default function EditPaymentPage() {
     try {
       let downloadURL = currentSlip;
 
-      // ถ้ามีการเลือกรูปใหม่ ให้อัปโหลดใหม่
+      // ถ้ามีการเลือกรูปใหม่ ให้อัปโหลดใหม่ (file already compressed in handleFileChange)
       if (slipFile) {
         const storageRef = ref(storage, `slips/${user?.uid}_${Date.now()}_edited`);
-        const snapshot = await uploadBytes(storageRef, slipFile);
-        downloadURL = await getDownloadURL(snapshot.ref);
+        downloadURL = await new Promise<string>((resolve, reject) => {
+          const task = uploadBytesResumable(storageRef, slipFile);
+          const timer = setTimeout(() => { task.cancel(); reject(new Error('UPLOAD_TIMEOUT')); }, 60_000);
+          task.on(
+            'state_changed',
+            (snap) => { setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)); },
+            (err) => { clearTimeout(timer); reject(err); },
+            async () => {
+              clearTimeout(timer);
+              try { const url = await getDownloadURL(task.snapshot.ref); resolve(url); }
+              catch (e) { reject(e); }
+            }
+          );
+        });
       }
 
       // ✅ อัปเดตข้อมูลทับอันเดิม (UpdateDoc)
@@ -200,6 +237,21 @@ export default function EditPaymentPage() {
                   )}
                 </label>
               </div>
+
+              {/* Compression Info */}
+              {compressionInfo && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mt-2">
+                  <p className="text-xs font-bold text-emerald-700 mb-1">✅ บีบอัดรูปภาพสำเร็จ</p>
+                  <div className="flex items-center justify-between text-xs text-emerald-600">
+                    <span>ต้นฉบับ: <span className="font-semibold">{(compressionInfo.original / 1024).toFixed(0)} KB</span></span>
+                    <span>→</span>
+                    <span>หลังบีบอัด: <span className="font-semibold">{(compressionInfo.compressed / 1024).toFixed(0)} KB</span></span>
+                  </div>
+                  {compressionInfo.original > compressionInfo.compressed && (
+                    <p className="text-xs text-emerald-500 mt-1">ประหยัด: {((1 - compressionInfo.compressed / compressionInfo.original) * 100).toFixed(0)}% — อัปโหลดเร็วขึ้น!</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}
@@ -210,9 +262,19 @@ export default function EditPaymentPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all disabled:bg-slate-300"
+                className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all disabled:bg-slate-300 relative overflow-hidden"
               >
-                {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+                {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
+                  <div
+                    className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-300 ease-out"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                )}
+                <span className="relative">
+                  {isSubmitting
+                    ? `กำลังบันทึก...${uploadProgress > 0 && uploadProgress < 100 ? ` (${uploadProgress}%)` : ''}`
+                    : 'บันทึกการแก้ไข'}
+                </span>
               </button>
             </div>
 

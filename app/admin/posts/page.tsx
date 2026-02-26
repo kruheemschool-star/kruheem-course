@@ -90,52 +90,59 @@ export default function AdminPostsPage() {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {posts.map((post) => (
-                                <div key={post.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md transition-all group">
-                                    {/* Cover Image Thumbnail */}
-                                    <div className="relative aspect-[3/4.4] bg-slate-100 overflow-hidden">
-                                        {post.coverImage ? (
-                                            <Image
-                                                src={post.coverImage}
-                                                alt={post.title}
-                                                fill
-                                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                                className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-slate-50">
-                                                <ImageIcon size={48} className="text-slate-300" />
+                                <div key={post.id} className="relative bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-100 hover:shadow-md transition-all group">
+                                    {/* Entire card is clickable to edit */}
+                                    <Link href={`/admin/posts/edit/${post.id}`} className="block">
+                                        {/* Cover Image Thumbnail */}
+                                        <div className="relative aspect-[3/4.4] bg-slate-100 overflow-hidden">
+                                            {post.coverImage ? (
+                                                <Image
+                                                    src={post.coverImage}
+                                                    alt={post.title}
+                                                    fill
+                                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center bg-slate-50">
+                                                    <ImageIcon size={48} className="text-slate-300" />
+                                                </div>
+                                            )}
+                                            {/* Status Badge Overlay */}
+                                            <div className="absolute top-3 left-3">
+                                                <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full backdrop-blur-sm ${post.status === 'published' ? 'bg-emerald-500/90 text-white' : 'bg-slate-800/90 text-white'}`}>
+                                                    {post.status === 'published' ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'}
+                                                </span>
                                             </div>
-                                        )}
-                                        {/* Status Badge Overlay */}
-                                        <div className="absolute top-3 left-3">
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full backdrop-blur-sm ${post.status === 'published' ? 'bg-emerald-500/90 text-white' : 'bg-slate-800/90 text-white'}`}>
-                                                {post.status === 'published' ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'}
-                                            </span>
                                         </div>
-                                        {/* Action Buttons Overlay */}
-                                        <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Link href={`/admin/posts/edit/${post.id}`} className="p-2 bg-white/90 backdrop-blur-sm hover:bg-amber-50 rounded-full text-slate-600 hover:text-amber-600 shadow-sm" title="แก้ไข">
-                                                <Edit size={16} />
-                                            </Link>
-                                            <button onClick={() => handleDelete(post.id)} className="p-2 bg-white/90 backdrop-blur-sm hover:bg-rose-50 rounded-full text-slate-600 hover:text-rose-600 shadow-sm" title="ลบ">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
 
-                                    {/* Content */}
-                                    <div className="p-5">
-                                        <h3 className="font-bold text-lg text-slate-800 mb-2 line-clamp-2 leading-tight">
-                                            {post.title}
-                                        </h3>
+                                        {/* Content */}
+                                        <div className="p-5">
+                                            <h3 className="font-bold text-lg text-slate-800 mb-2 line-clamp-2 leading-tight">
+                                                {post.title}
+                                            </h3>
 
-                                        <div className="text-xs text-slate-400 font-mono mt-3">
-                                            /{post.slug}
+                                            <div className="text-xs text-slate-400 font-mono mt-3">
+                                                /{post.slug}
+                                            </div>
+                                            <div className="text-xs text-slate-400 mt-1">
+                                                {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('th-TH') : 'N/A'}
+                                            </div>
                                         </div>
-                                        <div className="text-xs text-slate-400 mt-1">
-                                            {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('th-TH') : 'N/A'}
-                                        </div>
-                                    </div>
+                                    </Link>
+
+                                    {/* Delete Button - Separate from edit link */}
+                                    <button 
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleDelete(post.id);
+                                        }} 
+                                        className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm hover:bg-rose-50 rounded-full text-slate-600 hover:text-rose-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10" 
+                                        title="ลบ"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             ))}
                         </div>

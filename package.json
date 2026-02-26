@@ -23,6 +23,7 @@
     "@tiptap/react": "^3.14.0",
     "@tiptap/starter-kit": "^3.14.0",
     "@types/react-youtube": "^7.6.2",
+    "browser-image-compression": "^2.0.2",
     "firebase": "^12.6.0",
     "framer-motion": "^12.23.24",
     "html2canvas": "^1.4.1",

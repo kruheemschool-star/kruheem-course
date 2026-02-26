@@ -1,8 +1,9 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, addDoc, where, updateDoc, doc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
@@ -11,43 +12,6 @@ import { useUserAuth } from "@/context/AuthContext";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const UPLOAD_TIMEOUT = 60_000; // 60 seconds
-
-/** Compress image client-side before upload */
-function compressImage(file: File, maxWidth = 1200, quality = 0.8): Promise<File> {
-  return new Promise((resolve, reject) => {
-    // Skip non-image or already small files
-    if (!file.type.startsWith('image/') || file.size < 200_000) {
-      return resolve(file);
-    }
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      let { width, height } = img;
-      if (width <= maxWidth) return resolve(file); // Already small enough
-      const ratio = maxWidth / width;
-      width = maxWidth;
-      height = Math.round(height * ratio);
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return resolve(file);
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return resolve(file);
-          const compressed = new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() });
-          resolve(compressed);
-        },
-        'image/jpeg',
-        quality
-      );
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-    img.src = url;
-  });
-}
 
 /** Upload with progress tracking and timeout */
 function uploadWithProgress(
@@ -89,6 +53,7 @@ export default function PaymentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [submitStatus, setSubmitStatus] = useState<string>('');
+  const [compressionInfo, setCompressionInfo] = useState<{ original: number; compressed: number } | null>(null);
   const router = useRouter();
 
   const categoryOrder: Record<string, number> = {
@@ -205,11 +170,34 @@ export default function PaymentPage() {
 
 
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    const originalSize = file.size;
+    setCompressionInfo(null);
+
+    try {
+      // Compress slip image using browser-image-compression
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+        fileType: 'image/jpeg' as const,
+        initialQuality: 0.8
+      };
+
+      const compressedFile = await imageCompression(file, options);
+      console.log(`Slip: ${(originalSize / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB`);
+
+      setSlipFile(compressedFile as File);
+      setSlipPreview(URL.createObjectURL(compressedFile));
+      setCompressionInfo({ original: originalSize, compressed: compressedFile.size });
+    } catch (err) {
+      console.error('Compression error, using original:', err);
       setSlipFile(file);
       setSlipPreview(URL.createObjectURL(file));
+      setCompressionInfo({ original: originalSize, compressed: originalSize });
     }
   };
 
@@ -232,15 +220,12 @@ export default function PaymentPage() {
     setSubmitStatus('กำลังบีบอัดรูปภาพ...');
 
     try {
-      // 1. Compress image before upload
-      const compressedFile = await compressImage(slipFile);
-
-      // 2. Upload with progress tracking & timeout
+      // 1. Upload with progress tracking & timeout (file already compressed in handleFileChange)
       setSubmitStatus('กำลังอัปโหลดสลิป...');
       const storageRef = ref(storage, `slips/${user.uid}_${Date.now()}`);
       const downloadURL = await uploadWithProgress(
         storageRef,
-        compressedFile,
+        slipFile,
         (pct) => setUploadProgress(pct),
         UPLOAD_TIMEOUT
       );
@@ -638,6 +623,21 @@ export default function PaymentPage() {
                   )}
                 </label>
               </div>
+
+              {/* Compression Info */}
+              {compressionInfo && (
+                <div className="bg-emerald-50/80 backdrop-blur-sm border border-emerald-200/50 rounded-2xl p-3 animate-in fade-in slide-in-from-bottom-2">
+                  <p className="text-xs font-bold text-emerald-700 mb-1">✅ บีบอัดรูปภาพสำเร็จ</p>
+                  <div className="flex items-center justify-between text-xs text-emerald-600">
+                    <span>ต้นฉบับ: <span className="font-semibold">{(compressionInfo.original / 1024).toFixed(0)} KB</span></span>
+                    <span>→</span>
+                    <span>หลังบีบอัด: <span className="font-semibold">{(compressionInfo.compressed / 1024).toFixed(0)} KB</span></span>
+                  </div>
+                  {compressionInfo.original > compressionInfo.compressed && (
+                    <p className="text-xs text-emerald-500 mt-1">ประหยัด: {((1 - compressionInfo.compressed / compressionInfo.original) * 100).toFixed(0)}% — อัปโหลดเร็วขึ้น!</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Submit Button */}
