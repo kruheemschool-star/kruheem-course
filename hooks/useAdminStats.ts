@@ -52,22 +52,22 @@ export const useAdminStats = (selectedYear: number) => {
 
     const fetchData = async () => {
         try {
-            // 1. Enrollments & Pending Counts
-            const qApproved = query(collection(db, "enrollments"), where("status", "==", "approved"));
-            const snapApproved = await getDocs(qApproved);
+            // Run ALL independent queries in parallel
+            const [snapApproved, snapPending, snapTickets, statsDoc, pageDoc] = await Promise.all([
+                getDocs(query(collection(db, "enrollments"), where("status", "==", "approved"))),
+                getDocs(query(collection(db, "enrollments"), where("status", "==", "pending"))),
+                getDocs(query(collection(db, "support_tickets"), where("status", "==", "pending"))),
+                getDoc(doc(db, "stats", "daily_visits")),
+                getDoc(doc(db, "stats", "page_views")),
+            ]);
+
+            // Process results
             const approvedData = snapApproved.docs.map(doc => ({ id: doc.id, ...doc.data() } as Enrollment));
             setEnrollments(approvedData);
-
-            const qPending = query(collection(db, "enrollments"), where("status", "==", "pending"));
-            const snapPending = await getDocs(qPending);
             setPendingCount(snapPending.size);
-
-            const qTickets = query(collection(db, "support_tickets"), where("status", "==", "pending"));
-            const snapTickets = await getDocs(qTickets);
             setTicketsCount(snapTickets.size);
 
-            // 2. Stats (Visits, Devices, Sources)
-            const statsDoc = await getDoc(doc(db, "stats", "daily_visits"));
+            // Stats (Visits, Devices, Sources)
             if (statsDoc.exists()) {
                 const data = statsDoc.data();
                 setDailyVisits(data as Record<string, number>);
@@ -86,8 +86,7 @@ export const useAdminStats = (selectedYear: number) => {
                 setSourceStats(sources);
             }
 
-            // 3. Page Views
-            const pageDoc = await getDoc(doc(db, "stats", "page_views"));
+            // Page Views
             if (pageDoc.exists()) {
                 const pageData = pageDoc.data();
                 const pages: Record<string, number> = {};
@@ -101,7 +100,7 @@ export const useAdminStats = (selectedYear: number) => {
                 setPageViewStats(pages);
             }
 
-            // 4. Online Users
+            // Online Users (depends on approvedData)
             await fetchOnlineUsers(approvedData);
 
         } catch (error) {
@@ -114,13 +113,11 @@ export const useAdminStats = (selectedYear: number) => {
     const fetchOnlineUsers = async (approvedData: Enrollment[]) => {
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
-        // Active in Course
-        const qOnlineEnrollments = query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo));
-        const snapOnlineEnrollments = await getDocs(qOnlineEnrollments);
-
-        // Active on Site
-        const qOnlineUsers = query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo));
-        const snapOnlineUsers = await getDocs(qOnlineUsers);
+        // Fetch both online queries in parallel
+        const [snapOnlineEnrollments, snapOnlineUsers] = await Promise.all([
+            getDocs(query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo))),
+            getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo))),
+        ]);
 
         const onlineMap = new Map();
 

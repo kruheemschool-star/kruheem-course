@@ -111,12 +111,12 @@ export const useAdminLearningStats = () => {
             // Fetch courses in batches of 5 to avoid overwhelming Firestore
             await processBatch(courseIds, 5, async (courseId) => {
                 try {
-                    // Fetch course info
-                    const courseDoc = await getDoc(doc(db, "courses", courseId));
+                    // Fetch course info AND lessons in parallel (2 queries at once instead of sequential)
+                    const [courseDoc, lessonsSnap] = await Promise.all([
+                        getDoc(doc(db, "courses", courseId)),
+                        getDocs(collection(db, "courses", courseId, "lessons")),
+                    ]);
                     const courseTitle = courseDoc.exists() ? (courseDoc.data().title || "ไม่ระบุ") : "ไม่ระบุ";
-
-                    // Fetch lessons
-                    const lessonsSnap = await getDocs(collection(db, "courses", courseId, "lessons"));
                     const lessons = lessonsSnap.docs
                         .map(d => ({ id: d.id, ...d.data() }))
                         .filter((l: any) => l.type !== 'header' && !l.isHidden) as any[];
@@ -311,57 +311,59 @@ export const useAdminLearningStats = () => {
 
             // --- COMPUTE: Active Students (last 14 days, max 30 users, batched) ---
             const last14Days = getLastNDays(14);
+            const last14Set = new Set(last14Days);
             const studentActivityMap: Record<string, { activeDays: number; totalLessons: number; lastActive: Date | null; streak: number; dailyDates: Set<string> }> = {};
 
             // Limit to max 30 users to avoid too many requests
             const activityUserIds = userIds.slice(0, 30);
 
-            // Process users in batches of 5 (each user checks 14 days = 70 requests per batch max)
-            await processBatch(activityUserIds, 5, async (userId) => {
-                const activityData: { date: string; lessons: number }[] = [];
+            // Fetch ALL activity docs per user with 1 collection query instead of 14 individual getDoc calls
+            // This reduces 420 reads → 30 reads (93% reduction)
+            await processBatch(activityUserIds, 10, async (userId) => {
+                try {
+                    const actSnap = await getDocs(collection(db, "users", userId, "activity"));
+                    const activityData: { date: string; lessons: number }[] = [];
 
-                // Fetch activity docs sequentially per user to minimize concurrent requests
-                for (const dateStr of last14Days) {
-                    try {
-                        const actDoc = await getDoc(doc(db, "users", userId, "activity", dateStr));
-                        if (actDoc.exists()) {
+                    actSnap.docs.forEach(d => {
+                        // Only include docs within last 14 days
+                        if (last14Set.has(d.id)) {
                             activityData.push({
-                                date: dateStr,
-                                lessons: actDoc.data().lessonsCompleted || 0
+                                date: d.id,
+                                lessons: d.data().lessonsCompleted || 0
                             });
                         }
-                    } catch (_) { /* ignore */ }
-                }
+                    });
 
-                if (activityData.length > 0) {
-                    const activeDays = activityData.length;
-                    const totalLessons = activityData.reduce((sum, d) => sum + d.lessons, 0);
-                    const sortedDates = activityData.map(d => d.date).sort().reverse();
-                    const lastActive = sortedDates.length > 0 ? new Date(sortedDates[0]) : null;
+                    if (activityData.length > 0) {
+                        const activeDays = activityData.length;
+                        const totalLessons = activityData.reduce((sum, d) => sum + d.lessons, 0);
+                        const sortedDates = activityData.map(d => d.date).sort().reverse();
+                        const lastActive = sortedDates.length > 0 ? new Date(sortedDates[0]) : null;
 
-                    // Calculate streak (consecutive days ending today or yesterday)
-                    let streak = 0;
-                    const dateSet = new Set(sortedDates);
-                    const today = getDateStr(new Date());
-                    const yesterday = getDateStr(new Date(Date.now() - 86400000));
+                        // Calculate streak (consecutive days ending today or yesterday)
+                        let streak = 0;
+                        const dateSet = new Set(sortedDates);
+                        const today = getDateStr(new Date());
+                        const yesterday = getDateStr(new Date(Date.now() - 86400000));
 
-                    if (dateSet.has(today) || dateSet.has(yesterday)) {
-                        const startDate = dateSet.has(today) ? today : yesterday;
-                        let checkDate = new Date(startDate);
-                        while (dateSet.has(getDateStr(checkDate))) {
-                            streak++;
-                            checkDate.setDate(checkDate.getDate() - 1);
+                        if (dateSet.has(today) || dateSet.has(yesterday)) {
+                            const startDate = dateSet.has(today) ? today : yesterday;
+                            let checkDate = new Date(startDate);
+                            while (dateSet.has(getDateStr(checkDate))) {
+                                streak++;
+                                checkDate.setDate(checkDate.getDate() - 1);
+                            }
                         }
-                    }
 
-                    studentActivityMap[userId] = {
-                        activeDays,
-                        totalLessons,
-                        lastActive,
-                        streak,
-                        dailyDates: new Set(activityData.map(d => d.date))
-                    };
-                }
+                        studentActivityMap[userId] = {
+                            activeDays,
+                            totalLessons,
+                            lastActive,
+                            streak,
+                            dailyDates: new Set(activityData.map(d => d.date))
+                        };
+                    }
+                } catch (_) { /* ignore */ }
             });
 
             // Top Active Students sorted by activeDays then lessonsCompleted

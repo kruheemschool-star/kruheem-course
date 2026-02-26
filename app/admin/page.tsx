@@ -71,22 +71,10 @@ export default function AdminDashboard() {
 
     const enrollmentHours = enrollments.map(e => (e.createdAt?.toDate ? e.createdAt.toDate().getHours() : new Date().getHours()));
 
-    // Loading State
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-                <div className="flex items-center gap-3 text-slate-500">
-                    <Loader2 className="animate-spin" size={24} />
-                    <span className="font-medium">กำลังโหลด...</span>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-700">
 
-            {/* Header - Clean & Minimal */}
+            {/* Header - Clean & Minimal (always visible immediately) */}
             <header className="sticky top-0 z-20 bg-white border-b border-slate-200">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
                     <div className="flex items-center gap-3">
@@ -119,14 +107,23 @@ export default function AdminDashboard() {
 
             <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-8">
 
-                {/* Top Section: Action Center & Menu Grid */}
+                {/* Top Section: Action Center & Menu Grid (show immediately with loading state) */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-6">
                         {/* 1. Action Center (Pending Tasks) */}
-                        <ActionCenter pendingCount={pendingCount} ticketsCount={ticketsCount} />
+                        {loading ? (
+                            <div className="bg-white rounded-xl border border-slate-200 p-6">
+                                <div className="animate-pulse flex gap-4">
+                                    <div className="h-16 w-32 bg-slate-100 rounded-lg" />
+                                    <div className="h-16 w-32 bg-slate-100 rounded-lg" />
+                                </div>
+                            </div>
+                        ) : (
+                            <ActionCenter pendingCount={pendingCount} ticketsCount={ticketsCount} />
+                        )}
 
-                        {/* 2. Menu Grid */}
-                        <MenuGrid pendingCount={pendingCount} ticketsCount={ticketsCount} />
+                        {/* 2. Menu Grid (always show — no data dependency) */}
+                        <MenuGrid pendingCount={loading ? 0 : pendingCount} ticketsCount={loading ? 0 : ticketsCount} />
                     </div>
 
                     <div className="lg:col-span-1">
@@ -136,24 +133,39 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Section 2: Online Users & Website Traffic (Related) */}
-                <div className="space-y-6">
-                    {/* Online Users */}
-                    <OnlineUsersWidget
-                        onlineUsers={onlineUsers}
-                        formatOnlineDuration={formatOnlineDuration}
-                        todayVisitors={dailyVisits[new Date().toISOString().split('T')[0]] || 0}
-                    />
+                {loading ? (
+                    <div className="space-y-6">
+                        <div className="bg-white rounded-xl border border-slate-200 p-6">
+                            <div className="animate-pulse space-y-3">
+                                <div className="h-5 bg-slate-100 rounded w-40" />
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="h-12 bg-slate-50 rounded-lg" />
+                                    <div className="h-12 bg-slate-50 rounded-lg" />
+                                    <div className="h-12 bg-slate-50 rounded-lg" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Online Users */}
+                        <OnlineUsersWidget
+                            onlineUsers={onlineUsers}
+                            formatOnlineDuration={formatOnlineDuration}
+                            todayVisitors={dailyVisits[new Date().toISOString().split('T')[0]] || 0}
+                        />
 
-                    {/* Traffic Analytics */}
-                    <TrafficAnalytics
-                        dailyVisits={dailyVisits}
-                        totalVisits={totalVisits}
-                        deviceStats={deviceStats}
-                        sourceStats={sourceStats}
-                        pageViewStats={pageViewStats}
-                        enrollmentHours={enrollmentHours}
-                    />
-                </div>
+                        {/* Traffic Analytics */}
+                        <TrafficAnalytics
+                            dailyVisits={dailyVisits}
+                            totalVisits={totalVisits}
+                            deviceStats={deviceStats}
+                            sourceStats={sourceStats}
+                            pageViewStats={pageViewStats}
+                            enrollmentHours={enrollmentHours}
+                        />
+                    </div>
+                )}
 
                 {/* 4. Stats & Analytics */}
                 <div id="report-section">
@@ -178,9 +190,20 @@ export default function AdminDashboard() {
                     </div>
 
                     {/* Revenue Analytics (KPIs + Chart + Active Students) */}
-                    <div className="mb-8">
-                        <RevenueAnalytics stats={stats} selectedYear={selectedYear} topActiveStudents={topActiveStudents} />
-                    </div>
+                    {loading ? (
+                        <div className="mb-8 bg-white rounded-xl border border-slate-200 p-6">
+                            <div className="animate-pulse space-y-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {[1,2,3,4].map(i => <div key={i} className="h-20 bg-slate-50 rounded-lg" />)}
+                                </div>
+                                <div className="h-48 bg-slate-50 rounded-lg" />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mb-8">
+                            <RevenueAnalytics stats={stats} selectedYear={selectedYear} topActiveStudents={topActiveStudents} />
+                        </div>
+                    )}
 
                     {/* Learning Health Section */}
                     {learningLoading ? (
