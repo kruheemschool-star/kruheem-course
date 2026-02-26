@@ -71,6 +71,17 @@ function getLastNDays(n: number): string[] {
     return days;
 }
 
+// Helper: process array in batches to avoid overwhelming Firestore
+async function processBatch<T, R>(items: T[], batchSize: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map(fn));
+        results.push(...batchResults);
+    }
+    return results;
+}
+
 export const useAdminLearningStats = () => {
     const [loading, setLoading] = useState(true);
     const [overallCompletionRate, setOverallCompletionRate] = useState(0);
@@ -97,7 +108,8 @@ export const useAdminLearningStats = () => {
             const courseIds = [...new Set(enrollments.map(e => e.courseId).filter(Boolean))];
             const courseMap: Record<string, { title: string; lessonIds: string[]; lessonTitles: Record<string, string>; lessonOrder: string[] }> = {};
 
-            await Promise.all(courseIds.map(async (courseId) => {
+            // Fetch courses in batches of 5 to avoid overwhelming Firestore
+            await processBatch(courseIds, 5, async (courseId) => {
                 try {
                     // Fetch course info
                     const courseDoc = await getDoc(doc(db, "courses", courseId));
@@ -129,7 +141,7 @@ export const useAdminLearningStats = () => {
                 } catch (err) {
                     console.error(`Error fetching course ${courseId}:`, err);
                 }
-            }));
+            });
 
             // 3. Get all user progress documents
             // Group enrollments by userId
@@ -152,12 +164,12 @@ export const useAdminLearningStats = () => {
 
             const userIds = Object.keys(userCourseMap);
 
-            // Fetch progress for each user-course pair
+            // Fetch progress for each user-course pair (in batches of 10 users)
             const progressData: { userId: string; courseId: string; completed: string[] }[] = [];
 
-            await Promise.all(userIds.map(async (userId) => {
+            await processBatch(userIds, 10, async (userId) => {
                 const courses = userCourseMap[userId];
-                await Promise.all(courses.map(async (courseId) => {
+                for (const courseId of courses) {
                     try {
                         const progressDoc = await getDoc(doc(db, "users", userId, "progress", courseId));
                         if (progressDoc.exists()) {
@@ -173,8 +185,8 @@ export const useAdminLearningStats = () => {
                     } catch (err) {
                         progressData.push({ userId, courseId, completed: [] });
                     }
-                }));
-            }));
+                }
+            });
 
             // --- COMPUTE: Completion Rates ---
             const completionRates: CourseCompletionData[] = [];
@@ -297,14 +309,19 @@ export const useAdminLearningStats = () => {
             dropOffs.sort((a, b) => b.dropOffPercent - a.dropOffPercent);
             setDropOffPoints(dropOffs.slice(0, 8));
 
-            // --- COMPUTE: Active Students (last 30 days) ---
-            const last30Days = getLastNDays(30);
+            // --- COMPUTE: Active Students (last 14 days, max 30 users, batched) ---
+            const last14Days = getLastNDays(14);
             const studentActivityMap: Record<string, { activeDays: number; totalLessons: number; lastActive: Date | null; streak: number; dailyDates: Set<string> }> = {};
 
-            await Promise.all(userIds.map(async (userId) => {
+            // Limit to max 30 users to avoid too many requests
+            const activityUserIds = userIds.slice(0, 30);
+
+            // Process users in batches of 5 (each user checks 14 days = 70 requests per batch max)
+            await processBatch(activityUserIds, 5, async (userId) => {
                 const activityData: { date: string; lessons: number }[] = [];
 
-                await Promise.all(last30Days.map(async (dateStr) => {
+                // Fetch activity docs sequentially per user to minimize concurrent requests
+                for (const dateStr of last14Days) {
                     try {
                         const actDoc = await getDoc(doc(db, "users", userId, "activity", dateStr));
                         if (actDoc.exists()) {
@@ -314,7 +331,7 @@ export const useAdminLearningStats = () => {
                             });
                         }
                     } catch (_) { /* ignore */ }
-                }));
+                }
 
                 if (activityData.length > 0) {
                     const activeDays = activityData.length;
@@ -345,7 +362,7 @@ export const useAdminLearningStats = () => {
                         dailyDates: new Set(activityData.map(d => d.date))
                     };
                 }
-            }));
+            });
 
             // Top Active Students sorted by activeDays then lessonsCompleted
             const activeStudents: ActiveStudent[] = Object.entries(studentActivityMap)
@@ -373,8 +390,8 @@ export const useAdminLearningStats = () => {
                 : 0;
             setAverageActiveDays(Math.round(avgDays * 10) / 10);
 
-            // Active students trend (daily count of unique active students over last 30 days)
-            const trend = last30Days.map(dateStr => {
+            // Active students trend (daily count of unique active students over last 14 days)
+            const trend = last14Days.map((dateStr: string) => {
                 let count = 0;
                 Object.values(studentActivityMap).forEach(s => {
                     if (s.dailyDates.has(dateStr)) count++;

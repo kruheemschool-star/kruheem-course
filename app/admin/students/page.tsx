@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import Link from "next/link";
-import { Search, Edit3, Trash2, Eye, Phone, MessageCircle, ChevronLeft, ChevronRight, GraduationCap, X } from "lucide-react";
+import { Search, Edit3, Trash2, Eye, Phone, MessageCircle, ChevronLeft, ChevronRight, GraduationCap, X, UserX, Loader2 } from "lucide-react";
+import { useUserAuth } from "@/context/AuthContext";
 
 // User Avatar Component with Auth Provider
 const UserAvatar = ({ userId, name, email }: { userId?: string, name?: string, email?: string }) => {
@@ -98,6 +99,7 @@ const UserAvatar = ({ userId, name, email }: { userId?: string, name?: string, e
 const ITEMS_PER_PAGE = 30;
 
 export default function AdminStudentsPage() {
+    const { user } = useUserAuth();
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [filteredEnrollments, setFilteredEnrollments] = useState<any[]>([]);
     const [allCourses, setAllCourses] = useState<any[]>([]);
@@ -109,6 +111,7 @@ export default function AdminStudentsPage() {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
     const [slipModalUrl, setSlipModalUrl] = useState<string | null>(null);
+    const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
     const fetchData = async () => {
         try {
@@ -165,9 +168,57 @@ export default function AdminStudentsPage() {
     const totalPages = Math.ceil(filteredEnrollments.length / ITEMS_PER_PAGE);
 
     const handleDelete = async (id: string) => {
-        if (confirm("ยืนยันการลบข้อมูล?")) {
+        if (confirm("ยืนยันการลบข้อมูลการลงทะเบียนนี้?")) {
             await deleteDoc(doc(db, "enrollments", id));
             fetchData();
+        }
+    };
+
+    const handleDeleteUser = async (item: any) => {
+        if (!item.userId) return alert("ไม่พบ User ID สำหรับรายการนี้");
+        if (!user?.email) return alert("กรุณาเข้าสู่ระบบก่อน");
+
+        const userName = item.userName || item.userEmail || 'ไม่ระบุ';
+        const confirmed = confirm(
+            `⚠️ ลบบัญชีผู้ใช้: ${userName}\n` +
+            `อีเมล: ${item.userEmail || '-'}\n\n` +
+            `การดำเนินการนี้จะ:\n` +
+            `• ลบบัญชี Firebase Authentication\n` +
+            `• ลบข้อมูล Profile ใน Firestore\n` +
+            `• ลบข้อมูลความคืบหน้าการเรียน\n` +
+            `• ลบข้อมูลกิจกรรม\n\n` +
+            `(ข้อมูลการลงทะเบียนจะยังเก็บไว้เป็นหลักฐาน)\n\n` +
+            `ยืนยันการลบบัญชีผู้ใช้นี้?`
+        );
+        if (!confirmed) return;
+
+        setDeletingUserId(item.userId);
+        try {
+            const res = await fetch('/api/admin/delete-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: item.userId,
+                    adminEmail: user.email
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'เกิดข้อผิดพลาด');
+            }
+
+            alert(
+                `✅ ลบบัญชีผู้ใช้สำเร็จ\n\n` +
+                `${data.details?.map((d: any) => `• ${d.step}: ${d.status}`).join('\n') || ''}`
+            );
+            fetchData();
+        } catch (err: any) {
+            console.error('Delete user error:', err);
+            alert(`❌ ลบบัญชีไม่สำเร็จ: ${err.message}`);
+        } finally {
+            setDeletingUserId(null);
         }
     };
 
@@ -409,9 +460,19 @@ export default function AdminStudentsPage() {
                                                 <button onClick={() => handleEdit(item)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded transition" title="แก้ไข">
                                                     <Edit3 size={16} />
                                                 </button>
-                                                <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition" title="ลบ">
+                                                <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition" title="ลบรายการลงทะเบียน">
                                                     <Trash2 size={16} />
                                                 </button>
+                                                {item.userId && (
+                                                    <button
+                                                        onClick={() => handleDeleteUser(item)}
+                                                        disabled={deletingUserId === item.userId}
+                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition disabled:opacity-50"
+                                                        title="ลบบัญชีผู้ใช้ (Auth + Firestore)"
+                                                    >
+                                                        {deletingUserId === item.userId ? <Loader2 size={16} className="animate-spin" /> : <UserX size={16} />}
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

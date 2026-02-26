@@ -42,10 +42,12 @@ export const useAdminStats = (selectedYear: number) => {
     const [pageViewStats, setPageViewStats] = useState<Record<string, number>>({});
 
     useEffect(() => {
-        fetchData();
-        // Refresh online status every minute
-        const interval = setInterval(fetchData, 60000);
-        return () => clearInterval(interval);
+        let interval: NodeJS.Timeout;
+        fetchData().then(() => {
+            // Only start refresh interval after initial load completes
+            interval = setInterval(fetchData, 60000);
+        });
+        return () => { if (interval) clearInterval(interval); };
     }, []);
 
     const fetchData = async () => {

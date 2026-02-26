@@ -105,24 +105,29 @@ export default function ActivityLogPage() {
 
                 const usersSnap = await getDocs(usersQuery);
                 
-                // Fetch enrolled courses for each login user in parallel
+                // Fetch enrolled courses for each login user in batches of 5
                 const loginUsers = usersSnap.docs.filter(d => d.data().lastActive);
-                const loginEnrollments = await Promise.all(
-                    loginUsers.map(async (userDoc) => {
-                        try {
-                            const enrollQ = query(
-                                collection(db, "enrollments"),
-                                where("userId", "==", userDoc.id),
-                                where("status", "==", "approved"),
-                                limit(3)
-                            );
-                            const enrollSnap = await getDocs(enrollQ);
-                            return enrollSnap.docs.map(d => d.data().courseTitle || '').filter(Boolean);
-                        } catch {
-                            return [];
-                        }
-                    })
-                );
+                const loginEnrollments: string[][] = [];
+                for (let i = 0; i < loginUsers.length; i += 5) {
+                    const batch = loginUsers.slice(i, i + 5);
+                    const batchResults = await Promise.all(
+                        batch.map(async (userDoc) => {
+                            try {
+                                const enrollQ = query(
+                                    collection(db, "enrollments"),
+                                    where("userId", "==", userDoc.id),
+                                    where("status", "==", "approved"),
+                                    limit(3)
+                                );
+                                const enrollSnap = await getDocs(enrollQ);
+                                return enrollSnap.docs.map(d => d.data().courseTitle || '').filter(Boolean);
+                            } catch {
+                                return [];
+                            }
+                        })
+                    );
+                    loginEnrollments.push(...batchResults);
+                }
 
                 loginUsers.forEach((userDoc, index) => {
                     const data = userDoc.data();
@@ -174,45 +179,52 @@ export default function ActivityLogPage() {
                     }
                 }
 
-                // Fetch User Profiles (optimized with Promise.all)
+                // Fetch User Profiles (in batches of 5)
                 const userMap = new Map<string, { name: string, lastName: string, email: string }>();
                 if (userIdsToFetch.size > 0) {
-                    await Promise.all(Array.from(userIdsToFetch).map(async (uid) => {
+                    const uidArray = Array.from(userIdsToFetch);
+                    for (let i = 0; i < uidArray.length; i += 5) {
+                        const batch = uidArray.slice(i, i + 5);
+                        await Promise.all(batch.map(async (uid) => {
+                            try {
+                                const userDoc = await getDoc(doc(db, "users", uid));
+                                if (userDoc.exists()) {
+                                    const uData = userDoc.data();
+                                    userMap.set(uid, {
+                                        name: uData.displayName || uData.email?.split('@')[0] || 'ไม่ระบุชื่อ',
+                                        lastName: uData.lastName || '',
+                                        email: uData.email || ''
+                                    });
+                                }
+                            } catch (err) {
+                                console.log(`Failed to fetch user ${uid}`, err);
+                            }
+                        }));
+                    }
+                }
+
+                // Fetch last completed lesson title for each progress event (in batches of 5)
+                const lessonTitleMap = new Map<string, string>();
+                for (let i = 0; i < progressEvents.length; i += 5) {
+                    const batch = progressEvents.slice(i, i + 5);
+                    await Promise.all(batch.map(async (event) => {
                         try {
-                            const userDoc = await getDoc(doc(db, "users", uid));
-                            if (userDoc.exists()) {
-                                const uData = userDoc.data();
-                                userMap.set(uid, {
-                                    name: uData.displayName || uData.email?.split('@')[0] || 'ไม่ระบุชื่อ',
-                                    lastName: uData.lastName || '',
-                                    email: uData.email || ''
-                                });
+                            if (event.data.completed?.length > 0) {
+                                const lastLessonId = event.data.completed[event.data.completed.length - 1];
+                                const lessonDoc = await getDoc(doc(db, "courses", event.courseId, "lessons", lastLessonId));
+                                if (lessonDoc.exists()) {
+                                    const lessonData = lessonDoc.data();
+                                    lessonTitleMap.set(
+                                        `${event.userId}-${event.courseId}`,
+                                        lessonData.title || lessonData.name || `บทที่ ${event.data.completed.length}`
+                                    );
+                                }
                             }
                         } catch (err) {
-                            console.log(`Failed to fetch user ${uid}`, err);
+                            console.log('Failed to fetch lesson title:', err);
                         }
                     }));
                 }
-
-                // Fetch last completed lesson title for each progress event
-                const lessonTitleMap = new Map<string, string>();
-                await Promise.all(progressEvents.map(async (event) => {
-                    try {
-                        if (event.data.completed?.length > 0) {
-                            const lastLessonId = event.data.completed[event.data.completed.length - 1];
-                            const lessonDoc = await getDoc(doc(db, "courses", event.courseId, "lessons", lastLessonId));
-                            if (lessonDoc.exists()) {
-                                const lessonData = lessonDoc.data();
-                                lessonTitleMap.set(
-                                    `${event.userId}-${event.courseId}`,
-                                    lessonData.title || lessonData.name || `บทที่ ${event.data.completed.length}`
-                                );
-                            }
-                        }
-                    } catch (err) {
-                        console.log('Failed to fetch lesson title:', err);
-                    }
-                }));
 
                 // Add to activity list
                 progressEvents.forEach(event => {
@@ -249,16 +261,20 @@ export default function ActivityLogPage() {
 
             const courseMap = new Map<string, string>();
             if (courseIds.size > 0) {
-                await Promise.all(Array.from(courseIds).map(async (courseId) => {
-                    try {
-                        const courseDoc = await getDoc(doc(db, "courses", courseId));
-                        if (courseDoc.exists()) {
-                            courseMap.set(courseId, courseDoc.data().title || courseId);
+                const courseIdArray = Array.from(courseIds);
+                for (let i = 0; i < courseIdArray.length; i += 5) {
+                    const batch = courseIdArray.slice(i, i + 5);
+                    await Promise.all(batch.map(async (courseId) => {
+                        try {
+                            const courseDoc = await getDoc(doc(db, "courses", courseId));
+                            if (courseDoc.exists()) {
+                                courseMap.set(courseId, courseDoc.data().title || courseId);
+                            }
+                        } catch (err) {
+                            console.log(`Failed to fetch course ${courseId}:`, err);
                         }
-                    } catch (err) {
-                        console.log(`Failed to fetch course ${courseId}:`, err);
-                    }
-                }));
+                    }));
+                }
             }
 
             // Replace courseId with actual course title

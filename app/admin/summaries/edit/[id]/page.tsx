@@ -107,10 +107,25 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
 
         setUploadingImage(true);
         try {
-            // 1. Upload to Firebase Storage
+            // 1. Compress image before upload
+            const originalSize = file.size;
+            console.log(`Original image: ${(originalSize / 1024).toFixed(0)}KB`);
+
+            const options = {
+                maxSizeMB: 0.5,
+                maxWidthOrHeight: 1920,
+                useWebWorker: true,
+                fileType: 'image/jpeg' as const,
+                initialQuality: 0.8
+            };
+
+            const compressedFile = await imageCompression(file, options);
+            console.log(`Compressed image: ${(compressedFile.size / 1024).toFixed(0)}KB (saved ${((1 - compressedFile.size / originalSize) * 100).toFixed(0)}%)`);
+
+            // 2. Upload compressed file to Firebase Storage
             const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
             const storageRef = ref(storage, `summaries/images/${filename}`);
-            const snapshot = await uploadBytes(storageRef, file);
+            const snapshot = await uploadBytes(storageRef, compressedFile);
             const url = await getDownloadURL(snapshot.ref);
 
             // 2. Generate JSON Block
@@ -150,11 +165,24 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                     textarea.selectionStart = textarea.selectionEnd = insertPos + jsonBlock.length;
                 }, 0);
 
-                alert("✅ แทรกรูปภาพเรียบร้อย!\\n\\n💡 กรุณากด 'Auto Fix' เพื่อจัด format JSON");
+                const savedPercent = ((1 - compressedFile.size / originalSize) * 100).toFixed(0);
+                alert(
+                    `✅ แทรกรูปภาพเรียบร้อย!\n\n` +
+                    `📦 ขนาดต้นฉบับ: ${(originalSize / 1024).toFixed(0)} KB\n` +
+                    `📦 ขนาดหลังบีบอัด: ${(compressedFile.size / 1024).toFixed(0)} KB\n` +
+                    `� ประหยัดพื้นที่: ${savedPercent}%\n\n` +
+                    `�💡 กรุณากด 'Auto Fix' เพื่อจัด format JSON`
+                );
             } else {
                 // Fallback: Copy to clipboard if not in JSON mode
                 await navigator.clipboard.writeText(jsonBlock);
-                alert("✅ อัปโหลดแล้ว! JSON ถูก Copy ไปยัง Clipboard");
+                const savedPercent = ((1 - compressedFile.size / originalSize) * 100).toFixed(0);
+                alert(
+                    `✅ อัปโหลดแล้ว! JSON ถูก Copy ไปยัง Clipboard\n\n` +
+                    `📦 ขนาดต้นฉบับ: ${(originalSize / 1024).toFixed(0)} KB\n` +
+                    `📦 ขนาดหลังบีบอัด: ${(compressedFile.size / 1024).toFixed(0)} KB\n` +
+                    `💾 ประหยัดพื้นที่: ${savedPercent}%`
+                );
             }
 
             // Clear input

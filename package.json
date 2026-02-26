@@ -25,6 +25,7 @@
     "@types/react-youtube": "^7.6.2",
     "browser-image-compression": "^2.0.2",
     "firebase": "^12.6.0",
+    "firebase-admin": "^13.6.1",
     "framer-motion": "^12.23.24",
     "html2canvas": "^1.4.1",
     "json5": "^2.2.3",
