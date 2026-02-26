@@ -252,10 +252,28 @@ export const useAdminStats = (selectedYear: number) => {
         const retainedStudents = studentList.filter(s => s.courses > 1).length;
         const retentionRate = (retainedStudents / uniqueStudentsCount) * 100;
 
-        // Top Students (Whales)
-        const topStudents = studentList
-            .sort((a, b) => b.totalSpent - a.totalSpent)
-            .slice(0, 5);
+        // --- Daily Data (for 30-day chart view) ---
+        const dailyMap: Record<string, { revenue: number; students: number }> = {};
+        filteredByYear.forEach(item => {
+            const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
+            const dateStr = date.toISOString().split('T')[0];
+            if (!dailyMap[dateStr]) dailyMap[dateStr] = { revenue: 0, students: 0 };
+            dailyMap[dateStr].revenue += (Number(item.price) || 0);
+            dailyMap[dateStr].students += 1;
+        });
+
+        // Fill in last 90 days for complete chart
+        const dailyData: { date: string; revenue: number; students: number }[] = [];
+        for (let i = 89; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            dailyData.push({
+                date: dateStr,
+                revenue: dailyMap[dateStr]?.revenue || 0,
+                students: dailyMap[dateStr]?.students || 0
+            });
+        }
 
         // --- Course Performance ---
         const courseMap: Record<string, { title: string, revenue: number, students: number }> = {};
@@ -282,7 +300,7 @@ export const useAdminStats = (selectedYear: number) => {
             aov,
             ltv: globalLTV,
             retentionRate,
-            topStudents
+            dailyData
         };
     }, [enrollments, selectedYear]);
 

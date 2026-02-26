@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import AdminGuard from "@/components/AdminGuard";
 import Link from "next/link";
 import { ArrowLeft, Save, Wand2, Eye, Code, Info } from "lucide-react";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
+import { Image as ImageIcon, Upload, Trash2 } from "lucide-react";
 
 // Helper to extract metadata from JSON content
 function extractMetadata(jsonContent: string) {
@@ -42,6 +44,10 @@ export default function NewSummaryPage() {
     // Category and settings fields
     const [category, setCategory] = useState("");
     const [readingTime, setReadingTime] = useState("5");
+
+    // Cover image for homepage slideshow
+    const [coverImage, setCoverImage] = useState("");
+    const [uploadingCover, setUploadingCover] = useState(false);
 
     // Auto-detect metadata when content changes
     useEffect(() => {
@@ -103,7 +109,7 @@ export default function NewSummaryPage() {
                 slug: slug.toLowerCase().replace(/\s+/g, '-'),
                 content,
                 contentType: 'json',
-                // Category
+                coverImage: coverImage || '',
                 category: category || '',
                 readingTime: parseInt(readingTime) || 5,
                 // Auto-extracted from metadata
@@ -193,6 +199,62 @@ export default function NewSummaryPage() {
                                         />
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Cover Image for Homepage Slideshow */}
+                            <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
+                                <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">🖼️ รูปปกสไลด์โชว์</h3>
+                                <p className="text-xs text-slate-400">รูปนี้จะแสดงในสไลด์โชว์หน้าแรก</p>
+
+                                {coverImage && (
+                                    <div className="relative rounded-xl overflow-hidden border border-slate-200">
+                                        <img src={coverImage} alt="Cover" className="w-full aspect-[4/3] object-cover" />
+                                        <button
+                                            type="button"
+                                            onClick={() => setCoverImage("")}
+                                            className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                )}
+
+                                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-white hover:bg-slate-50 transition group">
+                                    <div className="flex flex-col items-center justify-center py-3">
+                                        {uploadingCover ? (
+                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-600"></div>
+                                        ) : (
+                                            <>
+                                                <Upload size={20} className="text-slate-400 mb-1 group-hover:text-slate-600 transition" />
+                                                <p className="text-xs text-slate-500 font-medium">{coverImage ? 'เปลี่ยนรูปปก' : 'อัปโหลดรูปปก'}</p>
+                                            </>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            setUploadingCover(true);
+                                            try {
+                                                const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
+                                                const storageRef = ref(storage, `summaries/covers/${filename}`);
+                                                const snapshot = await uploadBytes(storageRef, file);
+                                                const url = await getDownloadURL(snapshot.ref);
+                                                setCoverImage(url);
+                                            } catch (err) {
+                                                console.error('Cover upload error:', err);
+                                                alert('อัปโหลดรูปปกไม่สำเร็จ');
+                                            } finally {
+                                                setUploadingCover(false);
+                                                e.target.value = '';
+                                            }
+                                        }}
+                                        disabled={uploadingCover}
+                                    />
+                                </label>
                             </div>
 
                             {/* Category & Settings */}

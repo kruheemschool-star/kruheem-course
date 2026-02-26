@@ -15,6 +15,26 @@ interface TrafficAnalyticsProps {
 export default function TrafficAnalytics({ dailyVisits, totalVisits, deviceStats, sourceStats, pageViewStats, enrollmentHours }: TrafficAnalyticsProps) {
     const [trafficTimeRange, setTrafficTimeRange] = useState<'week' | 'month' | 'year'>('week');
 
+    // Helper: Convert technical paths to friendly Thai labels
+    const getPageLabel = (path: string): string => {
+        if (path === '/') return '🏠 หน้าแรก';
+        if (path === '/my-courses') return '📚 คอร์สของฉัน';
+        if (path.startsWith('/course/')) return '📖 หน้าคอร์สเรียน';
+        if (path.startsWith('/learn/')) return '🎓 ห้องเรียน';
+        if (path === '/login') return '🔐 หน้าเข้าสู่ระบบ';
+        if (path === '/register') return '✍️ หน้าสมัครสมาชิก';
+        if (path === '/payment') return '💳 หน้าชำระเงิน';
+        if (path === '/profile') return '👤 โปรไฟล์';
+        if (path === '/exam') return '📝 หน้าข้อสอบ';
+        if (path.startsWith('/exam/')) return '📝 ทำข้อสอบ';
+        if (path === '/practice') return '✏️ หน้าฝึกทำโจทย์';
+        if (path === '/reviews') return '⭐ รีวิว';
+        if (path === '/faq') return '❓ คำถามที่พบบ่อย';
+        if (path.startsWith('/blog/')) return '📰 บทความ';
+        if (path.startsWith('/parent-dashboard/')) return '👨‍👩‍👧 แดชบอร์ดผู้ปกครอง';
+        return path; // Fallback to original path
+    };
+
     const chartData = useMemo(() => {
         let dataPoints: { label: string, value: number, fullLabel: string }[] = [];
 
@@ -210,7 +230,7 @@ export default function TrafficAnalytics({ dailyVisits, totalVisits, deviceStats
                                     <div key={path} className="flex items-center justify-between">
                                         <span className="text-sm text-slate-700 truncate max-w-[200px]">
                                             <span className="text-slate-400 mr-2">{idx + 1}.</span>
-                                            {path}
+                                            {getPageLabel(path)}
                                         </span>
                                         <span className="text-sm font-medium text-slate-800">{count.toLocaleString()} views</span>
                                     </div>

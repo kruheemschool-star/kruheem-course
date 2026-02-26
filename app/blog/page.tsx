@@ -86,17 +86,17 @@ export default function BlogIndexPage() {
                             <p className="text-slate-400 mt-2">โปรดติดตามตอนต่อไป...</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
                             {posts.map((post) => (
-                                <Link href={`/blog/${post.slug}`} key={post.id} className="group flex flex-col bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-slate-100 dark:border-slate-800">
-                                    {/* Image */}
-                                    <div className="h-56 bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
+                                <Link href={`/blog/${post.slug}`} key={post.id} className="group flex flex-col bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-300 border border-slate-100 dark:border-slate-800">
+                                    {/* Image - Portrait */}
+                                    <div className="aspect-[3/4.4] bg-slate-100 dark:bg-slate-800 relative overflow-hidden">
                                         {post.coverImage ? (
                                             <Image
                                                 src={post.coverImage}
                                                 alt={post.title}
                                                 fill
-                                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                                                 className="object-cover group-hover:scale-110 transition-transform duration-700"
                                             />
                                         ) : (
@@ -104,16 +104,11 @@ export default function BlogIndexPage() {
                                                 <BookOpen size={48} />
                                             </div>
                                         )}
-                                        {/* Date Badge */}
-                                        <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm flex items-center gap-1">
-                                            <Calendar size={12} className="text-teal-500" />
-                                            {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : 'Recently'}
-                                        </div>
                                     </div>
 
                                     {/* Content */}
-                                    <div className="p-6">
-                                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-tight">
+                                    <div className="p-4">
+                                        <h2 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-snug line-clamp-2">
                                             {post.title}
                                         </h2>
                                     </div>

@@ -3,11 +3,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
 import { useAdminStats } from "@/hooks/useAdminStats";
+import { useAdminLearningStats } from "@/hooks/useAdminLearningStats";
 import { Home, LogOut, Loader2 } from "lucide-react";
 
 // Components
 import StatsOverview from "@/components/admin/StatsOverview";
-import RevenueAnalytics from "@/components/admin/RevenueAnalytics"; // New Component
+import RevenueAnalytics from "@/components/admin/RevenueAnalytics";
+import LearningHealth from "@/components/admin/LearningHealth";
+import ContentPerformance from "@/components/admin/ContentPerformance";
 import MenuGrid from "@/components/admin/MenuGrid";
 import ActionCenter from "@/components/admin/ActionCenter";
 import OnlineUsersWidget from "@/components/admin/OnlineUsersWidget";
@@ -32,6 +35,18 @@ export default function AdminDashboard() {
         pageViewStats,
         stats
     } = useAdminStats(selectedYear);
+
+    // Learning Stats Hook
+    const {
+        loading: learningLoading,
+        overallCompletionRate,
+        courseCompletionRates,
+        averageActiveDays,
+        activeStudentsTrend,
+        mostEngagingLessons,
+        dropOffPoints,
+        topActiveStudents
+    } = useAdminLearningStats();
 
     const handleLogout = async () => {
         if (confirm("ต้องการออกจากระบบใช่ไหม?")) {
@@ -162,12 +177,32 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
-                    {/* Stats & Analytics */}
-                    <div className="mb-6">
-                        <RevenueAnalytics stats={stats} selectedYear={selectedYear} />
+                    {/* Revenue Analytics (KPIs + Chart + Active Students) */}
+                    <div className="mb-8">
+                        <RevenueAnalytics stats={stats} selectedYear={selectedYear} topActiveStudents={topActiveStudents} />
                     </div>
 
-                    {/* Old Chart Removed - Replaced by RevenueAnalytics */}
+                    {/* Learning Health Section */}
+                    {learningLoading ? (
+                        <div className="flex items-center justify-center py-12 text-slate-400 gap-2">
+                            <Loader2 className="animate-spin" size={18} />
+                            <span className="text-sm">กำลังโหลดข้อมูลการเรียน...</span>
+                        </div>
+                    ) : (
+                        <div className="space-y-8">
+                            <LearningHealth
+                                overallCompletionRate={overallCompletionRate}
+                                courseCompletionRates={courseCompletionRates}
+                                averageActiveDays={averageActiveDays}
+                                activeStudentsTrend={activeStudentsTrend}
+                            />
+
+                            <ContentPerformance
+                                mostEngagingLessons={mostEngagingLessons}
+                                dropOffPoints={dropOffPoints}
+                            />
+                        </div>
+                    )}
                 </div>
 
             </main>

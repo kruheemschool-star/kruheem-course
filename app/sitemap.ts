@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next'
 import { db } from '@/lib/firebase'
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const baseUrl = 'https://www.kruheemmath.com'
@@ -79,18 +79,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     let blogRoutes: MetadataRoute.Sitemap = []
 
     try {
-        const q = query(collection(db, "posts"), where("status", "==", "published"), orderBy("createdAt", "desc"))
+        const q = query(collection(db, "posts"), orderBy("createdAt", "desc"))
         const querySnapshot = await getDocs(q)
 
-        blogRoutes = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                url: `${baseUrl}/blog/${data.slug}`,
-                lastModified: data.updatedAt?.toDate() || data.createdAt?.toDate() || new Date(),
-                changeFrequency: 'weekly' as const,
-                priority: 0.8,
-            }
-        })
+        blogRoutes = querySnapshot.docs
+            .filter(doc => {
+                const status = doc.data().status;
+                return status === 'published' || !status;
+            })
+            .map(doc => {
+                const data = doc.data();
+                return {
+                    url: `${baseUrl}/blog/${data.slug}`,
+                    lastModified: data.updatedAt?.toDate() || data.createdAt?.toDate() || new Date(),
+                    changeFrequency: 'weekly' as const,
+                    priority: 0.8,
+                }
+            })
     } catch (error) {
         console.error("Error generating sitemap for blog posts:", error)
     }

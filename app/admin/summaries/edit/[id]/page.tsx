@@ -49,6 +49,10 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
     const [category, setCategory] = useState("");
     const [readingTime, setReadingTime] = useState("5");
 
+    // Cover image for homepage slideshow
+    const [coverImage, setCoverImage] = useState("");
+    const [uploadingCover, setUploadingCover] = useState(false);
+
     // Editor mode: 'blocks' (Visual Block List), 'visual' (TipTap), or 'json' (raw JSON)
     const [editorMode, setEditorMode] = useState<'blocks' | 'visual' | 'json'>('blocks');
     const [htmlContent, setHtmlContent] = useState("");
@@ -72,6 +76,7 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                     setStatus(data.status || 'draft');
                     setCategory(data.category || "");
                     setReadingTime(String(data.readingTime || "5"));
+                    setCoverImage(data.coverImage || "");
                 } else {
                     alert("ไม่พบบทสรุปนี้");
                     router.push("/admin/summaries");
@@ -198,7 +203,7 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                 content,
                 htmlContent,
                 contentType: editorMode === 'visual' ? 'html' : 'json',
-                // Cover image and category
+                coverImage: coverImage || '',
                 category: category || '',
                 readingTime: parseInt(readingTime) || 5,
                 seo_title: meta?.seo_title || title,
@@ -300,6 +305,62 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                                         />
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Cover Image for Homepage Slideshow */}
+                            <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
+                                <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">🖼️ รูปปกสไลด์โชว์</h3>
+                                <p className="text-xs text-slate-400">รูปนี้จะแสดงในสไลด์โชว์หน้าแรก</p>
+
+                                {coverImage && (
+                                    <div className="relative rounded-xl overflow-hidden border border-slate-200">
+                                        <img src={coverImage} alt="Cover" className="w-full aspect-[4/3] object-cover" />
+                                        <button
+                                            type="button"
+                                            onClick={() => setCoverImage("")}
+                                            className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                )}
+
+                                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-white hover:bg-slate-50 transition group">
+                                    <div className="flex flex-col items-center justify-center py-3">
+                                        {uploadingCover ? (
+                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-600"></div>
+                                        ) : (
+                                            <>
+                                                <Upload size={20} className="text-slate-400 mb-1 group-hover:text-slate-600 transition" />
+                                                <p className="text-xs text-slate-500 font-medium">{coverImage ? 'เปลี่ยนรูปปก' : 'อัปโหลดรูปปก'}</p>
+                                            </>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            setUploadingCover(true);
+                                            try {
+                                                const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
+                                                const storageRef = ref(storage, `summaries/covers/${filename}`);
+                                                const snapshot = await uploadBytes(storageRef, file);
+                                                const url = await getDownloadURL(snapshot.ref);
+                                                setCoverImage(url);
+                                            } catch (err) {
+                                                console.error('Cover upload error:', err);
+                                                alert('อัปโหลดรูปปกไม่สำเร็จ');
+                                            } finally {
+                                                setUploadingCover(false);
+                                                e.target.value = '';
+                                            }
+                                        }}
+                                        disabled={uploadingCover}
+                                    />
+                                </label>
                             </div>
 
                             {/* Category & Settings */}

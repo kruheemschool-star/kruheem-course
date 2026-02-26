@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef, use } from "react";
 import Navbar from "@/components/Navbar";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, doc as firestoreDoc, updateDoc, increment } from "firebase/firestore";
 import { Calendar, Share2, Facebook, Link as LinkIcon, Eye, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import Script from "next/script";
 import Image from "next/image";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
 import BlogEngagement from "@/components/BlogEngagement";
+import { useUserAuth } from "@/context/AuthContext";
 
 interface Post {
     id: string;
@@ -29,6 +30,7 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
     const [post, setPost] = useState<Post | null>(null);
     const [loading, setLoading] = useState(true);
     const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
+    const { isAdmin } = useUserAuth();
 
     // MathJax specific state and ref (for Legacy HTML content)
     const [isMathJaxLoaded, setIsMathJaxLoaded] = useState(false);
@@ -46,8 +48,8 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
-                    const doc = querySnapshot.docs[0];
-                    setPost({ id: doc.id, ...doc.data() } as Post);
+                    const docSnap = querySnapshot.docs[0];
+                    setPost({ id: docSnap.id, ...docSnap.data() } as Post);
                 } else {
                     setPost(null);
                 }
@@ -82,6 +84,24 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
         const timer = setTimeout(typeset, 300);
         return () => clearTimeout(timer);
     }, [post, isMathJaxLoaded]);
+
+    // 3. Increment view count on individual post document
+    useEffect(() => {
+        if (!post?.id || isAdmin) return;
+
+        const key = `blog_viewed_${post.id}`;
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, "true");
+
+        // Atomically increment views in Firestore
+        const postRef = firestoreDoc(db, "posts", post.id);
+        updateDoc(postRef, { views: increment(1) }).catch((err) =>
+            console.error("Error incrementing view count:", err)
+        );
+
+        // Optimistically update local state
+        setPost(prev => prev ? { ...prev, views: (prev.views || 0) + 1 } : prev);
+    }, [post?.id, isAdmin]);
 
     if (loading) {
         return (
@@ -209,19 +229,6 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
                         </h1>
                     </div>
 
-                    {/* Cover Image */}
-                    {post.coverImage && (
-                        <div className="rounded-[2.5rem] overflow-hidden shadow-xl shadow-teal-900/5 mb-12 border-4 border-white relative w-full" style={{ maxHeight: 500 }}>
-                            <Image
-                                src={post.coverImage}
-                                alt={post.title}
-                                width={1200}
-                                height={500}
-                                priority
-                                className="w-full max-h-[500px] object-cover"
-                            />
-                        </div>
-                    )}
 
                     {/* Content Body */}
                     <div className="max-w-4xl mx-auto transition-all duration-300">
