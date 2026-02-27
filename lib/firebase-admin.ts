@@ -1,10 +1,16 @@
 import { initializeApp, getApps, cert, App } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getAuth, Auth } from "firebase-admin/auth";
+import { getFirestore, Firestore } from "firebase-admin/firestore";
+
+let _adminApp: App | null = null;
+let _adminAuth: Auth | null = null;
+let _adminDb: Firestore | null = null;
 
 function getAdminApp(): App {
+    if (_adminApp) return _adminApp;
     if (getApps().length > 0) {
-        return getApps()[0];
+        _adminApp = getApps()[0];
+        return _adminApp;
     }
 
     // Use service account from environment variables
@@ -19,15 +25,27 @@ function getAdminApp(): App {
         );
     }
 
-    return initializeApp({
+    _adminApp = initializeApp({
         credential: cert({
             projectId,
             clientEmail,
             privateKey,
         }),
     });
+    return _adminApp;
 }
 
-const adminApp = getAdminApp();
-export const adminAuth = getAuth(adminApp);
-export const adminDb = getFirestore(adminApp);
+// Lazy getters — only initialize when actually called at runtime (not at build time)
+export const adminAuth: Auth = new Proxy({} as Auth, {
+    get(_, prop) {
+        if (!_adminAuth) _adminAuth = getAuth(getAdminApp());
+        return (_adminAuth as any)[prop];
+    }
+});
+
+export const adminDb: Firestore = new Proxy({} as Firestore, {
+    get(_, prop) {
+        if (!_adminDb) _adminDb = getFirestore(getAdminApp());
+        return (_adminDb as any)[prop];
+    }
+});

@@ -12,6 +12,7 @@ interface Summary {
     status?: string;
     excerpt?: string;
     meta_description?: string;
+    coverImage?: string;
     category?: string;
     readingTime?: number;
     viewCount?: number;
@@ -193,49 +194,66 @@ export default function SummaryGrid({ summaries }: { summaries: Summary[] }) {
 
                                 {/* Summaries List */}
                                 {!isCollapsed && (
-                                    <div className="bg-white dark:bg-slate-800 divide-y divide-slate-100 dark:divide-slate-700">
-                                        {groupSummaries.map((summary, index) => (
+                                    <div className="bg-white dark:bg-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                                        {groupSummaries.map((summary) => (
                                             <Link
                                                 key={summary.id}
                                                 href={`/summary/${summary.slug}`}
-                                                className="group flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all duration-200"
+                                                className="group bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden hover:shadow-lg hover:border-slate-200 dark:hover:border-slate-600 hover:-translate-y-1 transition-all duration-300"
                                             >
-                                                {/* Number */}
-                                                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 font-bold text-sm group-hover:bg-slate-800 group-hover:text-white dark:group-hover:bg-slate-600 transition">
-                                                    {index + 1}
-                                                </div>
+                                                {/* Cover Image */}
+                                                <div className="aspect-[3/4.4] w-full bg-slate-100 dark:bg-slate-700 relative overflow-hidden">
+                                                    {summary.coverImage ? (
+                                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                                        <img
+                                                            src={summary.coverImage}
+                                                            alt={summary.title}
+                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                            loading="lazy"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600">
+                                                            <span className="text-5xl mb-2">{style.icon}</span>
+                                                            <span className="text-xs font-bold">ยังไม่มีรูปปก</span>
+                                                        </div>
+                                                    )}
 
-                                                {/* Content */}
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base group-hover:text-slate-900 dark:group-hover:text-white transition leading-snug">
-                                                        {getMainTitle(summary.title)}
-                                                    </h3>
-                                                    {(summary.excerpt || summary.meta_description) && (
-                                                        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed line-clamp-1 mt-0.5">
-                                                            {summary.excerpt || summary.meta_description}
-                                                        </p>
+                                                    {/* Category Badge overlay */}
+                                                    <div className="absolute top-3 left-3">
+                                                        <span className={`${style.bg} ${style.text} ${style.border} border text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-sm shadow-sm`}>
+                                                            {style.icon} {category}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Meta overlay */}
+                                                    {(summary.readingTime || (summary.viewCount !== undefined && summary.viewCount > 0)) && (
+                                                        <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                                                            {summary.readingTime ? (
+                                                                <span className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                                                                    <Clock size={10} />
+                                                                    {summary.readingTime} นาที
+                                                                </span>
+                                                            ) : null}
+                                                            {summary.viewCount !== undefined && summary.viewCount > 0 ? (
+                                                                <span className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                                                                    <Eye size={10} />
+                                                                    {summary.viewCount}
+                                                                </span>
+                                                            ) : null}
+                                                        </div>
                                                     )}
                                                 </div>
 
-                                                {/* Meta Info */}
-                                                <div className="flex-shrink-0 hidden sm:flex items-center gap-3 text-xs text-slate-400">
-                                                    {summary.readingTime ? (
-                                                        <div className="flex items-center gap-1">
-                                                            <Clock size={14} />
-                                                            <span>{summary.readingTime} นาที</span>
-                                                        </div>
-                                                    ) : null}
-                                                    {summary.viewCount !== undefined && summary.viewCount > 0 ? (
-                                                        <div className="flex items-center gap-1">
-                                                            <Eye size={14} />
-                                                            <span>{summary.viewCount}</span>
-                                                        </div>
-                                                    ) : null}
-                                                </div>
-
-                                                {/* Arrow */}
-                                                <div className="flex-shrink-0 text-slate-300 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-300 group-hover:translate-x-1 transition">
-                                                    →
+                                                {/* Content */}
+                                                <div className="p-4">
+                                                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-2">
+                                                        {getMainTitle(summary.title)}
+                                                    </h3>
+                                                    {(summary.excerpt || summary.meta_description) && (
+                                                        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium leading-relaxed line-clamp-2 mt-1.5">
+                                                            {summary.excerpt || summary.meta_description}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </Link>
                                         ))}

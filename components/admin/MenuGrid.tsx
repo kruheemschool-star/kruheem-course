@@ -102,6 +102,14 @@ const menuItems = [
         coverColor: 'from-fuchsia-100 to-pink-100',
     },
     {
+        key: 'coupons',
+        href: '/admin/coupons',
+        icon: '🎫',
+        title: 'จัดการคูปอง',
+        description: 'ดูสถานะ/สร้างโค้ดส่วนลด',
+        coverColor: 'from-amber-100 to-yellow-100',
+    },
+    {
         key: 'poll',
         href: '/admin/poll',
         icon: '📊',

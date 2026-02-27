@@ -1,19 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { useUserAuth } from "@/context/AuthContext";
-import { Star, Send, Gift, CheckCircle, Copy } from "lucide-react";
+import { Star, Send, Gift, CheckCircle, Copy, AlertCircle } from "lucide-react";
 
 interface ReviewFormProps {
     courseId?: string;
     courseName?: string;
     initialCouponCode?: string | null;
     isCouponUsed?: boolean;
+    onReviewSubmitted?: () => void;
 }
 
-export default function ReviewForm({ courseId, courseName, initialCouponCode, isCouponUsed }: ReviewFormProps) {
+const MIN_COMMENT_LENGTH = 20;
+
+export default function ReviewForm({ courseId, courseName, initialCouponCode, isCouponUsed, onReviewSubmitted }: ReviewFormProps) {
     const { user, userProfile } = useUserAuth();
     const [rating, setRating] = useState(5);
     const [hoverRating, setHoverRating] = useState(0);
@@ -22,47 +25,109 @@ export default function ReviewForm({ courseId, courseName, initialCouponCode, is
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [couponCode, setCouponCode] = useState<string | null>(initialCouponCode || null);
     const [isCopied, setIsCopied] = useState(false);
+    const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+    const [checkingReview, setCheckingReview] = useState(true);
+
+    // Check if user already reviewed this course
+    useEffect(() => {
+        const checkExistingReview = async () => {
+            if (!user || !courseId) {
+                setCheckingReview(false);
+                return;
+            }
+            try {
+                const q = query(
+                    collection(db, "reviews"),
+                    where("userId", "==", user.uid),
+                    where("courseId", "==", courseId)
+                );
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    setAlreadyReviewed(true);
+                    // Check if there's a coupon for this review
+                    const couponQ = query(
+                        collection(db, "coupons"),
+                        where("userId", "==", user.uid),
+                        where("courseId", "==", courseId),
+                        where("source", "==", "review_reward")
+                    );
+                    const couponSnap = await getDocs(couponQ);
+                    if (!couponSnap.empty) {
+                        const couponData = couponSnap.docs[0].data();
+                        setCouponCode(couponData.code);
+                    }
+                }
+            } catch (err) {
+                console.error("Error checking existing review:", err);
+            } finally {
+                setCheckingReview(false);
+            }
+        };
+        checkExistingReview();
+    }, [user, courseId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return alert("กรุณาเข้าสู่ระบบก่อนรีวิว");
         if (rating === 0) return alert("กรุณาให้คะแนนดาว");
+        if (comment.trim().length < MIN_COMMENT_LENGTH) {
+            return alert(`กรุณาเขียนรีวิวอย่างน้อย ${MIN_COMMENT_LENGTH} ตัวอักษร เพื่อรับคูปองส่วนลด`);
+        }
 
         setIsSubmitting(true);
 
         try {
-            // 1. Check if user already reviewed (optional, but good practice to prevent spam, allow 1 coupon per review?)
-            // For now, let's allow multiple but maybe limit coupon generation? 
-            // User request: "If they review, they get a coupon". Let's assume every review gets a coupon for now or check duplication.
-            // Let's keep it simple: Write review -> Get coupon.
+            // 1. Double-check duplicate review (prevent race condition)
+            if (courseId) {
+                const dupQ = query(
+                    collection(db, "reviews"),
+                    where("userId", "==", user.uid),
+                    where("courseId", "==", courseId)
+                );
+                const dupSnap = await getDocs(dupQ);
+                if (!dupSnap.empty) {
+                    setAlreadyReviewed(true);
+                    alert("คุณรีวิวคอร์สนี้ไปแล้ว");
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
 
-            // 2. Add Review
+            // 2. Generate Coupon Code
+            const code = `REVIEW-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+            // 3. Add Review
             await addDoc(collection(db, "reviews"), {
                 userId: user.uid,
                 userName: customName.trim() || userProfile?.displayName || user.displayName || "ผู้เรียน",
                 userPhoto: userProfile?.avatar || user.photoURL || "",
-                matchLevel: userProfile?.role || "Student", // Just a badge
+                matchLevel: userProfile?.role || "Student",
                 rating: rating,
-                comment: comment,
+                comment: comment.trim(),
                 createdAt: serverTimestamp(),
                 courseId: courseId || null,
                 courseName: courseName || null,
+                couponCode: code,
             });
 
-            // 3. Generate Coupon
-            const code = `DISCOUNT100-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+            // 4. Create Coupon (bound to userId)
             await addDoc(collection(db, "coupons"), {
                 code: code,
                 discountAmount: 100,
                 userId: user.uid,
+                courseId: courseId || null,
                 isUsed: false,
+                usedAt: null,
+                usedForCourseId: null,
                 createdAt: serverTimestamp(),
                 source: "review_reward"
             });
 
             setCouponCode(code);
+            setAlreadyReviewed(true);
             setRating(0);
             setComment("");
+            onReviewSubmitted?.();
 
         } catch (error) {
             console.error("Error submitting review:", error);
@@ -72,18 +137,28 @@ export default function ReviewForm({ courseId, courseName, initialCouponCode, is
         }
     };
 
-    if (couponCode) {
+    if (checkingReview) {
+        return (
+            <div className="bg-white/60 backdrop-blur-xl border border-white/60 shadow-2xl rounded-[2.5rem] p-8 text-center">
+                <div className="animate-pulse space-y-4">
+                    <div className="h-8 bg-slate-100 rounded-xl w-48 mx-auto" />
+                    <div className="h-4 bg-slate-50 rounded-lg w-64 mx-auto" />
+                </div>
+            </div>
+        );
+    }
+
+    // Already reviewed — show coupon or thank you
+    if (alreadyReviewed && couponCode) {
         if (isCouponUsed) {
             return (
                 <div className="bg-slate-100 rounded-3xl p-8 text-center text-slate-500 shadow-xl relative overflow-hidden animate-in zoom-in duration-300 border border-slate-200">
-                    <div className="relative z-10 font-sans opacity-80 mix-blend-multiply">
+                    <div className="relative z-10 font-sans opacity-80">
                         <div className="w-20 h-20 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
                             <CheckCircle size={40} className="text-slate-400" />
                         </div>
-
                         <h3 className="text-2xl font-black mb-2 tracking-tight text-slate-700">ใช้สิทธิ์แล้ว</h3>
                         <p className="text-slate-400 mb-6 font-medium text-sm">คูปองนี้ถูกใช้งานไปเรียบร้อยแล้ว</p>
-
                         <div className="w-full bg-slate-200 text-slate-400 font-mono text-xl font-bold py-4 px-6 rounded-2xl flex flex-col items-center justify-center gap-2 mb-2 select-none">
                             <span className="line-through decoration-2 decoration-slate-300">{couponCode}</span>
                         </div>
@@ -127,17 +202,27 @@ export default function ReviewForm({ courseId, courseName, initialCouponCode, is
                         </div>
                     </button>
 
-                    {/* Optional: Add button to go to courses or close */}
-                    {/* <button
-                        onClick={() => setCouponCode(null)}
-                        className="text-sm font-bold opacity-80 hover:opacity-100 underline decoration-white/50 hover:decoration-white"
-                    >
-                        เขียนรีวิวเพิ่ม
-                    </button> */}
+                    <div className="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-emerald-100 font-medium">
+                        <p>💡 ไม่ต้องกลัวหาย! ดูโค้ดย้อนหลังได้ที่หน้า <strong className="text-white">&quot;คอร์สเรียนของฉัน&quot;</strong> เสมอ</p>
+                    </div>
                 </div>
             </div>
         );
     }
+
+    // Already reviewed but no coupon found (edge case)
+    if (alreadyReviewed) {
+        return (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-8 text-center">
+                <CheckCircle size={40} className="text-emerald-500 mx-auto mb-3" />
+                <h3 className="text-xl font-black text-emerald-700 mb-1">คุณรีวิวคอร์สนี้แล้ว</h3>
+                <p className="text-emerald-600 text-sm font-medium">ขอบคุณสำหรับความคิดเห็นของคุณ</p>
+            </div>
+        );
+    }
+
+    const charCount = comment.trim().length;
+    const isCommentValid = charCount >= MIN_COMMENT_LENGTH;
 
     return (
         <div className="bg-white/60 backdrop-blur-xl border border-white/60 shadow-2xl rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden">
@@ -191,17 +276,33 @@ export default function ReviewForm({ courseId, courseName, initialCouponCode, is
                     <textarea
                         value={comment}
                         onChange={(e) => setComment(e.target.value)}
-                        placeholder="บอกเล่าความประทับใจของคุณ..."
+                        placeholder="บอกเล่าความประทับใจของคุณ... (อย่างน้อย 20 ตัวอักษร)"
                         rows={4}
-                        className="w-full p-5 bg-white border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition resize-none shadow-sm text-slate-700 font-medium placeholder:text-slate-300"
+                        className={`w-full p-5 bg-white border rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-400/50 focus:border-transparent transition resize-none shadow-sm text-slate-700 font-medium placeholder:text-slate-300 ${charCount > 0 && !isCommentValid ? 'border-amber-300' : 'border-slate-100'}`}
                         required
                     />
+                    <div className="flex items-center justify-between mt-1.5 px-1">
+                        {charCount > 0 && !isCommentValid ? (
+                            <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
+                                <AlertCircle size={12} />
+                                เขียนอีก {MIN_COMMENT_LENGTH - charCount} ตัวอักษร
+                            </span>
+                        ) : charCount > 0 ? (
+                            <span className="text-xs font-bold text-emerald-500 flex items-center gap-1">
+                                <CheckCircle size={12} />
+                                ยอดเยี่ยม!
+                            </span>
+                        ) : <span />}
+                        <span className={`text-xs font-bold ${isCommentValid ? 'text-emerald-500' : 'text-slate-300'}`}>
+                            {charCount}/{MIN_COMMENT_LENGTH}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Submit */}
                 <button
                     type="submit"
-                    disabled={isSubmitting || rating === 0}
+                    disabled={isSubmitting || rating === 0 || !isCommentValid}
                     className="w-full py-4 bg-gradient-to-r from-teal-500 to-blue-600 hover:from-teal-400 hover:to-blue-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-teal-500/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                     {isSubmitting ? (

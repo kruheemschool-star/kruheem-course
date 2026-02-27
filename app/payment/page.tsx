@@ -94,6 +94,13 @@ export default function PaymentPage() {
         return;
       }
 
+      // 3. Check userId ownership (review reward coupons are bound to userId)
+      if (couponData.userId && user && couponData.userId !== user.uid) {
+        alert("❌ โค้ดนี้สำหรับผู้ใช้คนอื่น ไม่สามารถใช้ได้");
+        setCouponCode("");
+        return;
+      }
+
       // Calculate Discount
       let discountAmount = 0;
       if (couponData.discountPercent) {
@@ -311,7 +318,9 @@ export default function PaymentPage() {
         if (!couponSnap.empty) {
           const couponDoc = couponSnap.docs[0];
           await updateDoc(doc(db, "coupons", couponDoc.id), {
-            isUsed: true
+            isUsed: true,
+            usedAt: new Date(),
+            usedForCourseId: selectedCourses[0] || null,
           });
         }
       }

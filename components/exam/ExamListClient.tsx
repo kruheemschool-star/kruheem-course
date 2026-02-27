@@ -527,7 +527,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                                     </span>
                                                 </div>
 
-                                                <h3 className={`font-black text-4xl md:text-5xl leading-[0.9] mb-4 line-clamp-3 ${theme.color} drop-shadow-2xl tracking-tighter transition-colors duration-300 whitespace-pre-line`}>
+                                                <h3 className={`font-black text-2xl md:text-3xl leading-[1.1] mb-3 line-clamp-3 ${theme.color} drop-shadow-2xl tracking-tight transition-colors duration-300 whitespace-pre-line`}>
                                                     {dispTitle}
                                                 </h3>
 

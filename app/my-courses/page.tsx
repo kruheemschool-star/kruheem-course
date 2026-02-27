@@ -7,7 +7,8 @@ import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { Settings, ArrowLeft } from "lucide-react";
+import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3 } from "lucide-react";
+import ReviewForm from "@/app/reviews/ReviewForm";
 
 // Helpers
 const formatDate = (date: any) => {
@@ -66,12 +67,23 @@ interface Progress {
 // Module-level guard to prevent multiple fetches during remounts
 
 
+interface UserCoupon {
+    code: string;
+    discountAmount: number;
+    isUsed: boolean;
+    courseId?: string;
+    source: string;
+}
+
 export default function MyCoursesPage() {
     const { user, userProfile, loading: authLoading } = useUserAuth();
     const [courses, setCourses] = useState<Course[]>([]);
     const [progressMap, setProgressMap] = useState<Record<string, Progress>>({});
     const [lastSession, setLastSession] = useState<any>(null); // ✅ Smart Resume State
     const [loading, setLoading] = useState(true);
+    const [userCoupons, setUserCoupons] = useState<UserCoupon[]>([]);
+    const [reviewedCourseIds, setReviewedCourseIds] = useState<Set<string>>(new Set());
+    const [reviewModal, setReviewModal] = useState<{ courseId: string; courseName: string } | null>(null);
 
 
 
@@ -193,6 +205,29 @@ export default function MyCoursesPage() {
 
     }, [user?.uid, authLoading]);
 
+    // Fetch user coupons & reviewed courses
+    useEffect(() => {
+        if (!user) return;
+        const fetchCouponsAndReviews = async () => {
+            try {
+                // Fetch coupons
+                const couponQ = query(collection(db, "coupons"), where("userId", "==", user.uid), where("source", "==", "review_reward"));
+                const couponSnap = await getDocs(couponQ);
+                const coupons = couponSnap.docs.map(d => d.data() as UserCoupon);
+                setUserCoupons(coupons);
+
+                // Fetch reviewed course IDs
+                const reviewQ = query(collection(db, "reviews"), where("userId", "==", user.uid));
+                const reviewSnap = await getDocs(reviewQ);
+                const ids = new Set(reviewSnap.docs.map(d => d.data().courseId).filter(Boolean) as string[]);
+                setReviewedCourseIds(ids);
+            } catch (err) {
+                console.error("Error fetching coupons/reviews:", err);
+            }
+        };
+        fetchCouponsAndReviews();
+    }, [user]);
+
     // Helper State for Progress Calculation
     const [rawProgressData, setRawProgressData] = useState<any[]>([]);
 
@@ -291,6 +326,11 @@ export default function MyCoursesPage() {
 
                 <div className="h-8"></div>
 
+                {/* 🎫 Coupon Section — show ALL coupons (unused + used history) */}
+                {userCoupons.length > 0 && (
+                    <CouponBanner coupons={userCoupons} />
+                )}
+
                 <div className="h-8"></div>
 
                 {/* ✅ Resume Learning Compass (Visual Card) */}
@@ -368,9 +408,47 @@ export default function MyCoursesPage() {
                     </div>
                 )}
 
-                <CourseList courses={courses} progressMap={progressMap} />
+                <CourseList
+                    courses={courses}
+                    progressMap={progressMap}
+                    reviewedCourseIds={reviewedCourseIds}
+                    onReview={(courseId, courseName) => setReviewModal({ courseId, courseName })}
+                />
             </main>
             <Footer />
+
+            {/* Review Modal */}
+            {reviewModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setReviewModal(null)}>
+                    <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <button
+                            onClick={() => setReviewModal(null)}
+                            className="absolute top-4 right-4 z-10 w-8 h-8 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-white shadow-sm transition"
+                        >
+                            <X size={18} />
+                        </button>
+                        <ReviewForm
+                            courseId={reviewModal.courseId}
+                            courseName={reviewModal.courseName}
+                            onReviewSubmitted={() => {
+                                // Refresh coupons and reviews
+                                if (user) {
+                                    const fetchUpdated = async () => {
+                                        const couponQ = query(collection(db, "coupons"), where("userId", "==", user.uid), where("source", "==", "review_reward"));
+                                        const couponSnap = await getDocs(couponQ);
+                                        setUserCoupons(couponSnap.docs.map(d => d.data() as UserCoupon));
+
+                                        const reviewQ = query(collection(db, "reviews"), where("userId", "==", user.uid));
+                                        const reviewSnap = await getDocs(reviewQ);
+                                        setReviewedCourseIds(new Set(reviewSnap.docs.map(d => d.data().courseId).filter(Boolean) as string[]));
+                                    };
+                                    fetchUpdated();
+                                }
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -412,22 +490,49 @@ function ProfileHeader({ profile }: { profile: any }) {
                 </div>
             </div>
 
-            {/* Parent Dashboard Link Card */}
+            {/* Side Action Cards */}
             {user && (
-                <Link
-                    href={`/parent-dashboard/${user.uid}`}
-                    className="lg:w-72 bg-white dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all group flex flex-col items-center justify-center text-center gap-4"
-                >
-                    {/* Minimal Icon */}
-                    <div className="w-14 h-14 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">
-                        📊
-                    </div>
+                <div className="flex flex-row lg:flex-col gap-3 lg:w-56 shrink-0">
+                    {/* Parent Dashboard */}
+                    <Link
+                        href={`/parent-dashboard/${user.uid}`}
+                        className="group flex-1 relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-br from-violet-400 via-indigo-400 to-blue-500 shadow-sm hover:shadow-lg hover:shadow-indigo-200/40 dark:hover:shadow-indigo-900/30 transition-all duration-300 hover:-translate-y-0.5"
+                    >
+                        <div className="h-full bg-white dark:bg-slate-900 rounded-[calc(1rem-1px)] px-5 py-4 flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                                <BarChart3 size={18} className="text-white" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-tight">
+                                    ติดตามผลการเรียน
+                                </p>
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 leading-tight">
+                                    สำหรับผู้ปกครอง
+                                </p>
+                            </div>
+                        </div>
+                    </Link>
 
-                    {/* Minimal Text */}
-                    <p className="text-base font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                        ติดตามผลการเรียน
-                    </p>
-                </Link>
+                    {/* User Guide */}
+                    <Link
+                        href="/guide"
+                        className="group flex-1 relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-br from-teal-400 via-emerald-400 to-cyan-500 shadow-sm hover:shadow-lg hover:shadow-teal-200/40 dark:hover:shadow-teal-900/30 transition-all duration-300 hover:-translate-y-0.5"
+                    >
+                        <div className="h-full bg-white dark:bg-slate-900 rounded-[calc(1rem-1px)] px-5 py-4 flex items-center gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                                <BookOpen size={18} className="text-white" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-tight">
+                                    คู่มือใช้งาน
+                                </p>
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 leading-tight">
+                                    วิธีใช้เว็บไซต์
+                                </p>
+                            </div>
+                        </div>
+                    </Link>
+                </div>
             )}
         </div>
     )
@@ -469,7 +574,7 @@ const getCourseWeight = (title: string): number => {
     return 99; // Misc
 };
 
-function CourseList({ courses, progressMap }: { courses: Course[], progressMap: Record<string, Progress> }) {
+function CourseList({ courses, progressMap, reviewedCourseIds, onReview }: { courses: Course[], progressMap: Record<string, Progress>, reviewedCourseIds: Set<string>, onReview: (courseId: string, courseName: string) => void }) {
     if (courses.length === 0) return (
         <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400">
             <div className="text-6xl mb-4">🎒</div>
@@ -513,7 +618,7 @@ function CourseList({ courses, progressMap }: { courses: Course[], progressMap: 
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {list.map(course => (
-                        <CourseCard key={course.id} course={course} progress={progressMap[course.id]} />
+                        <CourseCard key={course.id} course={course} progress={progressMap[course.id]} isReviewed={reviewedCourseIds.has(course.id)} onReview={onReview} />
                     ))}
                 </div>
             </div>
@@ -530,7 +635,7 @@ function CourseList({ courses, progressMap }: { courses: Course[], progressMap: 
     );
 }
 
-function CourseCard({ course, progress }: { course: Course, progress?: Progress }) {
+function CourseCard({ course, progress, isReviewed, onReview }: { course: Course, progress?: Progress, isReviewed: boolean, onReview: (courseId: string, courseName: string) => void }) {
     const daysRemaining = getDaysRemaining(course.expiryDate);
     const isExpired = daysRemaining !== null && daysRemaining <= 0;
 
@@ -633,6 +738,23 @@ function CourseCard({ course, progress }: { course: Course, progress?: Progress 
                     </button>
                 )}
 
+                {/* Review Button — show when approved, not expired, not yet reviewed */}
+                {isApproved && !isExpired && !isReviewed && (
+                    <button
+                        onClick={() => onReview(course.id, course.title)}
+                        className="w-full mt-2 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 font-bold text-sm rounded-xl hover:from-amber-100 hover:to-orange-100 hover:shadow-md transition-all flex items-center justify-center gap-2"
+                    >
+                        <Star size={14} fill="currentColor" />
+                        รีวิวเพื่อรับส่วนลด 100 บาท
+                    </button>
+                )}
+
+                {/* Already reviewed badge */}
+                {isReviewed && isApproved && (
+                    <div className="w-full mt-2 py-2 text-center text-xs font-bold text-emerald-500 dark:text-emerald-400 flex items-center justify-center gap-1">
+                        <CheckCircle size={12} /> รีวิวแล้ว — ขอบคุณ!
+                    </div>
+                )}
             </div>
         </div>
     )
@@ -649,4 +771,84 @@ function ValidityBadge({ days }: { days: number }) {
         return <span className="text-[10px] font-bold px-2 py-1 bg-amber-500 text-white rounded-md shadow-sm">เหลือ {days} วัน</span>;
     }
     return <span className="text-[10px] font-bold px-2 py-1 bg-emerald-500 text-white rounded-md shadow-sm">เหลือ {days} วัน</span>;
+}
+
+function CouponBanner({ coupons }: { coupons: UserCoupon[] }) {
+    const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+    const handleCopy = (code: string) => {
+        navigator.clipboard.writeText(code);
+        setCopiedCode(code);
+        setTimeout(() => setCopiedCode(null), 2000);
+    };
+
+    const unusedCoupons = coupons.filter(c => !c.isUsed);
+    const usedCoupons = coupons.filter(c => c.isUsed);
+
+    return (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 shadow-sm animate-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
+                    <Gift size={20} className="text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                    <h3 className="font-black text-slate-800 dark:text-slate-100">คูปองของฉัน</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">โค้ดส่วนลดจากการรีวิว ดูย้อนหลังได้เสมอ</p>
+                </div>
+            </div>
+
+            {/* Unused Coupons — ready to use */}
+            {unusedCoupons.length > 0 && (
+                <div className="mb-4">
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1">
+                        <CheckCircle size={12} /> พร้อมใช้ ({unusedCoupons.length})
+                    </p>
+                    <div className="space-y-2">
+                        {unusedCoupons.map((coupon, i) => (
+                            <button
+                                key={`unused-${i}`}
+                                onClick={() => handleCopy(coupon.code)}
+                                className="w-full flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 hover:shadow-md transition-all group"
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className="text-lg shrink-0">🎫</span>
+                                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 tracking-wider truncate">{coupon.code}</span>
+                                    <span className="text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full shrink-0">ลด {coupon.discountAmount} บาท</span>
+                                </div>
+                                <div className={`flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full transition-all shrink-0 ${copiedCode === coupon.code ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-600'}`}>
+                                    {copiedCode === coupon.code ? (
+                                        <><CheckCircle size={12} /> คัดลอกแล้ว</>
+                                    ) : (
+                                        <><Copy size={12} /> คัดลอก</>
+                                    )}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Used Coupons — history */}
+            {usedCoupons.length > 0 && (
+                <div>
+                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-2">ใช้แล้ว ({usedCoupons.length})</p>
+                    <div className="space-y-2">
+                        {usedCoupons.map((coupon, i) => (
+                            <div
+                                key={`used-${i}`}
+                                className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 opacity-60"
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <span className="text-lg shrink-0 grayscale">🎫</span>
+                                    <span className="font-mono font-bold text-slate-400 dark:text-slate-500 tracking-wider line-through truncate">{coupon.code}</span>
+                                    <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full shrink-0">ลด {coupon.discountAmount} บาท</span>
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full shrink-0">ใช้แล้ว</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
