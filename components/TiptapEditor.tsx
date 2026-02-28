@@ -8,6 +8,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
 import Highlight from '@tiptap/extension-highlight';
 import { useState, useEffect, useRef } from 'react';
+import imageCompression from 'browser-image-compression';
 import {
     Bold, Italic, List, Heading1, Heading2, Heading3,
     Image as ImageIcon, Link as LinkIcon, Code,
@@ -17,6 +18,17 @@ import {
 } from 'lucide-react';
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
+const COMPRESSION_TIMEOUT = 10_000;
+const COMPRESSION_THRESHOLD = 1 * 1024 * 1024; // 1MB
+
+async function compressWithTimeout(file: File, options: any, timeoutMs: number): Promise<File | Blob> {
+  const compressionPromise = import('browser-image-compression').then(mod => mod.default(file, options));
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('COMPRESSION_TIMEOUT')), timeoutMs)
+  );
+  return Promise.race([compressionPromise, timeoutPromise]);
+}
 
 // Custom Image Node View with delete button
 const ImageNodeView = ({ node, deleteNode }: any) => {
@@ -185,9 +197,30 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
         setIsUploading(true);
         try {
+            let finalFile: File | Blob = file;
+            const originalSize = file.size;
+
+            // Compress if larger than threshold
+            if (originalSize > COMPRESSION_THRESHOLD) {
+                const options = {
+                    maxSizeMB: 0.8,
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true,
+                    initialQuality: 0.85
+                };
+
+                try {
+                    finalFile = await compressWithTimeout(file, options, COMPRESSION_TIMEOUT);
+                    console.log(`Blog image: ${(originalSize / 1024).toFixed(0)}KB → ${(finalFile.size / 1024).toFixed(0)}KB`);
+                } catch (compressionErr: any) {
+                    console.warn('Compression failed, using original:', compressionErr?.message);
+                    finalFile = file;
+                }
+            }
+
             // Upload to Firebase Storage: blog-content/{timestamp}_{filename}
             const storageRef = ref(storage, `blog-content/${Date.now()}_${file.name}`);
-            const snapshot = await uploadBytes(storageRef, file);
+            const snapshot = await uploadBytes(storageRef, finalFile);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
             // Insert image
@@ -207,9 +240,30 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
         setIsUploading(true);
         try {
+            let finalFile: File | Blob = file;
+            const originalSize = file.size;
+
+            // Compress if larger than threshold
+            if (originalSize > COMPRESSION_THRESHOLD) {
+                const options = {
+                    maxSizeMB: 0.8,
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true,
+                    initialQuality: 0.85
+                };
+
+                try {
+                    finalFile = await compressWithTimeout(file, options, COMPRESSION_TIMEOUT);
+                    console.log(`Pasted image: ${(originalSize / 1024).toFixed(0)}KB → ${(finalFile.size / 1024).toFixed(0)}KB`);
+                } catch (compressionErr: any) {
+                    console.warn('Compression failed, using original:', compressionErr?.message);
+                    finalFile = file;
+                }
+            }
+
             // Upload to Firebase Storage with timestamp
             const storageRef = ref(storage, `blog-content/${Date.now()}_pasted_${file.name || 'image.png'}`);
-            const snapshot = await uploadBytes(storageRef, file);
+            const snapshot = await uploadBytes(storageRef, finalFile);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
             // Insert image at current cursor position
