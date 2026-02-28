@@ -2,20 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, getDocs, where } from "firebase/firestore";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import ReviewList from "./ReviewList";
-import ReviewForm from "./ReviewForm";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { ArrowLeft, Star, MessageCircle, Award } from "lucide-react";
-import { useUserAuth } from "@/context/AuthContext";
 
 export default function ReviewsPage() {
-    const { user } = useUserAuth();
     const [stats, setStats] = useState({ avg: 0, total: 0, distribution: [0, 0, 0, 0, 0] });
-    const [userCourses, setUserCourses] = useState<{ id: string; title: string }[]>([]);
-    const [selectedCourse, setSelectedCourse] = useState<string>("");
 
     // Fetch review stats
     useEffect(() => {
@@ -38,23 +33,6 @@ export default function ReviewsPage() {
         };
         fetchStats();
     }, []);
-
-    // Fetch user's enrolled courses for review form
-    useEffect(() => {
-        if (!user) return;
-        const fetchCourses = async () => {
-            try {
-                const enrollQ = query(collection(db, "enrollments"), where("userId", "==", user.uid), where("status", "==", "approved"));
-                const snap = await getDocs(enrollQ);
-                const courses = snap.docs.map(d => ({ id: d.data().courseId, title: d.data().courseTitle }));
-                const unique = Array.from(new Map(courses.map(c => [c.id, c])).values());
-                setUserCourses(unique);
-            } catch (err) {
-                console.error("Error fetching user courses:", err);
-            }
-        };
-        fetchCourses();
-    }, [user]);
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans transition-colors">
@@ -155,48 +133,6 @@ export default function ReviewsPage() {
                         </div>
                         <ReviewList />
                     </div>
-
-                    {/* Review Form Section */}
-                    {user && (
-                        <div className="max-w-xl mx-auto">
-                            <div className="text-center mb-6">
-                                <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">แบ่งปันประสบการณ์ของคุณ</h3>
-                                <p className="text-slate-500 dark:text-slate-400 text-sm">เขียนรีวิวเพื่อช่วยเพื่อนๆ ตัดสินใจ แล้วรับส่วนลด 100 บาท!</p>
-                            </div>
-
-                            {/* Course Selector */}
-                            {userCourses.length > 0 && (
-                                <div className="mb-6">
-                                    <select
-                                        value={selectedCourse}
-                                        onChange={(e) => setSelectedCourse(e.target.value)}
-                                        className="w-full px-5 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400/50"
-                                    >
-                                        <option value="">เลือกคอร์สที่จะรีวิว</option>
-                                        {userCourses.map(c => (
-                                            <option key={c.id} value={c.id}>{c.title}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {selectedCourse ? (
-                                <ReviewForm
-                                    courseId={selectedCourse}
-                                    courseName={userCourses.find(c => c.id === selectedCourse)?.title}
-                                />
-                            ) : userCourses.length === 0 ? (
-                                <div className="text-center py-10 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
-                                    <p className="text-slate-400 font-bold">คุณยังไม่ได้ลงทะเบียนคอร์สเรียน</p>
-                                    <Link href="/" className="text-teal-500 font-bold text-sm mt-2 inline-block hover:underline">ดูคอร์สทั้งหมด →</Link>
-                                </div>
-                            ) : (
-                                <div className="text-center py-10 bg-amber-50/50 dark:bg-amber-900/10 rounded-3xl border border-dashed border-amber-200 dark:border-amber-800">
-                                    <p className="text-amber-600 dark:text-amber-400 font-bold">👆 กรุณาเลือกคอร์สที่จะรีวิวด้านบน</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
             </main>
 

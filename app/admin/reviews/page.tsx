@@ -9,6 +9,17 @@ import ReviewList from "@/app/reviews/ReviewList";
 import Link from "next/link";
 import { ArrowLeft, Star, Plus, ChevronDown, ChevronUp, Loader2, ImagePlus, X } from "lucide-react";
 
+// Profile avatar images from user profile system
+const PROFILE_AVATARS = {
+    kids: Array.from({ length: 8 }, (_, i) => `/avatars/kids/kid_${i + 1}.png`),
+    female: Array.from({ length: 8 }, (_, i) => `/avatars/female/girl_${i + 1}.png`),
+    animals: Array.from({ length: 8 }, (_, i) => `/avatars/animals/animal_${i + 1}.png`),
+    monsters: Array.from({ length: 8 }, (_, i) => `/avatars/monsters/monster_${i + 1}.png`),
+};
+
+// Letter avatars A-Z (for fallback when user doesn't set avatar)
+const LETTER_AVATARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
 const EMOJI_AVATARS = [
     "😊", "😎", "🤓", "😇", "🥰", "😃", "🤗", "😄",
     "👦", "👧", "👨", "👩", "🧑", "👶", "🧒", "👱",
@@ -27,6 +38,7 @@ export default function AdminReviewsPage() {
     const [showForm, setShowForm] = useState(false);
     const [userName, setUserName] = useState("");
     const [avatarType, setAvatarType] = useState<"emoji" | "url" | "upload">("emoji");
+    const [avatarSubTab, setAvatarSubTab] = useState<"emoji" | "kids" | "female" | "animals" | "monsters" | "letters">("emoji");
     const [selectedEmoji, setSelectedEmoji] = useState("😊");
     const [avatarUrl, setAvatarUrl] = useState("");
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -239,22 +251,130 @@ export default function AdminReviewsPage() {
                                         ))}
                                     </div>
 
-                                    {/* Emoji Grid */}
+                                    {/* Emoji/Avatar Grid */}
                                     {avatarType === "emoji" && (
-                                        <div className="flex flex-wrap gap-2">
-                                            {EMOJI_AVATARS.map(emoji => (
+                                        <div className="space-y-3">
+                                            {/* Sub-tabs for emoji categories */}
+                                            <div className="flex gap-2 flex-wrap">
                                                 <button
-                                                    key={emoji}
                                                     type="button"
-                                                    onClick={() => setSelectedEmoji(emoji)}
-                                                    className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition border-2 ${selectedEmoji === emoji
-                                                        ? "border-teal-400 bg-teal-50 scale-110 shadow-sm"
-                                                        : "border-slate-100 bg-white hover:border-slate-300"
+                                                    onClick={() => setAvatarSubTab("emoji")}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${avatarSubTab === "emoji"
+                                                        ? "bg-teal-100 text-teal-600"
+                                                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                                                         }`}
                                                 >
-                                                    {emoji}
+                                                    😊 อิโมจิ
                                                 </button>
-                                            ))}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAvatarSubTab("kids")}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${avatarSubTab === "kids"
+                                                        ? "bg-teal-100 text-teal-600"
+                                                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                                                        }`}
+                                                >
+                                                    👦 ผู้ชาย
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAvatarSubTab("female")}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${avatarSubTab === "female"
+                                                        ? "bg-teal-100 text-teal-600"
+                                                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                                                        }`}
+                                                >
+                                                    👧 ผู้หญิง
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAvatarSubTab("animals")}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${avatarSubTab === "animals"
+                                                        ? "bg-teal-100 text-teal-600"
+                                                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                                                        }`}
+                                                >
+                                                    🐱 สัตว์
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAvatarSubTab("monsters")}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${avatarSubTab === "monsters"
+                                                        ? "bg-teal-100 text-teal-600"
+                                                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                                                        }`}
+                                                >
+                                                    👾 มอนสเตอร์
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAvatarSubTab("letters")}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${avatarSubTab === "letters"
+                                                        ? "bg-teal-100 text-teal-600"
+                                                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                                                        }`}
+                                                >
+                                                    🔤 A-Z
+                                                </button>
+                                            </div>
+
+                                            {/* Emoji Grid */}
+                                            {avatarSubTab === "emoji" && (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {EMOJI_AVATARS.map(emoji => (
+                                                        <button
+                                                            key={emoji}
+                                                            type="button"
+                                                            onClick={() => setSelectedEmoji(emoji)}
+                                                            className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition border-2 ${selectedEmoji === emoji
+                                                                ? "border-teal-400 bg-teal-50 scale-110 shadow-sm"
+                                                                : "border-slate-100 bg-white hover:border-slate-300"
+                                                                }`}
+                                                        >
+                                                            {emoji}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Profile Avatar Grids */}
+                                            {(avatarSubTab === "kids" || avatarSubTab === "female" || avatarSubTab === "animals" || avatarSubTab === "monsters") && (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {PROFILE_AVATARS[avatarSubTab as keyof typeof PROFILE_AVATARS].map((avatarPath: string) => (
+                                                        <button
+                                                            key={avatarPath}
+                                                            type="button"
+                                                            onClick={() => setSelectedEmoji(avatarPath)}
+                                                            className={`w-12 h-12 rounded-xl flex items-center justify-center transition border-2 overflow-hidden ${selectedEmoji === avatarPath
+                                                                ? "border-teal-400 bg-teal-50 scale-110 shadow-sm"
+                                                                : "border-slate-100 bg-white hover:border-slate-300"
+                                                                }`}
+                                                        >
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img src={avatarPath} alt="" className="w-full h-full object-cover" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Letter Avatars A-Z */}
+                                            {avatarSubTab === "letters" && (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {LETTER_AVATARS.map(letter => (
+                                                        <button
+                                                            key={letter}
+                                                            type="button"
+                                                            onClick={() => setSelectedEmoji(letter)}
+                                                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition border-2 font-bold text-base ${selectedEmoji === letter
+                                                                ? "border-teal-400 bg-gradient-to-br from-teal-400 to-emerald-500 text-white scale-110 shadow-sm"
+                                                                : "border-slate-100 bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 hover:border-slate-300"
+                                                                }`}
+                                                        >
+                                                            {letter}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
