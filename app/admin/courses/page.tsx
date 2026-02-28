@@ -274,6 +274,23 @@ export default function CourseManagerPage() {
     }
   };
 
+  // Helper function to extract grade and term from course title
+  const extractGradeAndTerm = (title: string) => {
+    // Extract grade: ม.1, ม.2, ม.3, ม.4, ม.5, ม.6, ป.4, ป.5, ป.6
+    const gradeMatch = title.match(/[มป]\.(\d)/);
+    const grade = gradeMatch ? parseInt(gradeMatch[1]) : 0;
+    
+    // Extract term: เทอม 1, เทอม 2, เทอมหนึ่ง, เทอมสอง
+    let term = 0;
+    if (title.includes('เทอม 1') || title.includes('เทอมหนึ่ง') || title.includes('เทอม1')) {
+      term = 1;
+    } else if (title.includes('เทอม 2') || title.includes('เทอมสอง') || title.includes('เทอม2')) {
+      term = 2;
+    }
+    
+    return { grade, term };
+  };
+
   // Group courses for display in the list below
   const groupedCourses = courses.reduce((acc, course) => {
     const cat = course.category || "คอร์สเรียนทั่วไป";
@@ -281,6 +298,27 @@ export default function CourseManagerPage() {
     acc[cat].push(course);
     return acc;
   }, {} as Record<string, any[]>);
+
+  // Sort courses within each category by grade and term
+  Object.keys(groupedCourses).forEach(catName => {
+    groupedCourses[catName].sort((a: any, b: any) => {
+      const aInfo = extractGradeAndTerm(a.title);
+      const bInfo = extractGradeAndTerm(b.title);
+      
+      // First sort by grade (ม.1 before ม.2, etc.)
+      if (aInfo.grade !== bInfo.grade) {
+        return aInfo.grade - bInfo.grade;
+      }
+      
+      // Then sort by term (เทอม 1 before เทอม 2)
+      if (aInfo.term !== bInfo.term) {
+        return aInfo.term - bInfo.term;
+      }
+      
+      // If same grade and term, sort alphabetically
+      return a.title.localeCompare(b.title, 'th');
+    });
+  });
 
   // Sort categories based on the order in the database (or just use the fetched order)
   // We use the `categories` state to determine the display order of groups
