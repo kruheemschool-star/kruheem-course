@@ -131,6 +131,23 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
             attributes: {
                 class: 'prose prose-lg prose-slate max-w-none focus:outline-none min-h-[400px] prose-blockquote:border-l-4 prose-blockquote:border-teal-400 prose-blockquote:bg-teal-50/50 prose-blockquote:pl-4 prose-blockquote:py-2 prose-blockquote:my-4 prose-blockquote:italic prose-blockquote:text-slate-600 prose-blockquote:not-italic prose-h1:text-3xl prose-h1:font-black prose-h1:text-slate-900 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-slate-800 prose-h3:text-xl prose-h3:font-semibold prose-h3:text-slate-700',
             },
+            handlePaste: (view, event) => {
+                const items = event.clipboardData?.items;
+                if (!items) return false;
+
+                // Check if clipboard contains an image
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        event.preventDefault();
+                        const file = items[i].getAsFile();
+                        if (file) {
+                            handlePastedImage(file);
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            },
         },
         onUpdate: ({ editor }) => {
             if (!isHtmlMode) {
@@ -182,6 +199,26 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
             setIsUploading(false);
             // Reset input
             if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handlePastedImage = async (file: File) => {
+        if (!editor) return;
+
+        setIsUploading(true);
+        try {
+            // Upload to Firebase Storage with timestamp
+            const storageRef = ref(storage, `blog-content/${Date.now()}_pasted_${file.name || 'image.png'}`);
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+
+            // Insert image at current cursor position
+            editor.chain().focus().setImage({ src: downloadURL }).run();
+        } catch (error) {
+            console.error("Pasted image upload failed:", error);
+            alert("อัปโหลดรูปภาพที่วางล้มเหลว กรุณาลองใหม่");
+        } finally {
+            setIsUploading(false);
         }
     };
 
