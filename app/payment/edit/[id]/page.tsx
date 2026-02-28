@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
 import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -10,6 +10,17 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
 import { ArrowLeft } from "lucide-react";
+
+const COMPRESSION_TIMEOUT = 10_000;
+const COMPRESSION_THRESHOLD = 2 * 1024 * 1024;
+
+async function compressWithTimeout(file: File, options: any, timeoutMs: number): Promise<File | Blob> {
+  const compressionPromise = import('browser-image-compression').then(mod => mod.default(file, options));
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('COMPRESSION_TIMEOUT')), timeoutMs)
+  );
+  return Promise.race([compressionPromise, timeoutPromise]);
+}
 
 export default function EditPaymentPage() {
 
@@ -29,6 +40,9 @@ export default function EditPaymentPage() {
   const [loading, setLoading] = useState(true);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [compressionInfo, setCompressionInfo] = useState<{ original: number; compressed: number } | null>(null);
+  const [slipError, setSlipError] = useState<string>('');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
 
@@ -73,52 +87,50 @@ export default function EditPaymentPage() {
     }
   }, [user, authLoading, router]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
+  /** Core file processing: validate → compress (with timeout) → set state */
+  const processFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert('⚠️ กรุณาเลือกไฟล์รูปภาพเท่านั้น');
-      e.target.value = '';
+      setSlipError('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG)');
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
-    // Validate file size
     if (file.size > 10 * 1024 * 1024) {
-      alert(`⚠️ ไฟล์ใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(1)}MB)\nกรุณาเลือกรูปที่มีขนาดไม่เกิน 10MB`);
-      e.target.value = '';
+      setSlipError(`ไฟล์ใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(1)}MB) กรุณาเลือกรูปไม่เกิน 10MB`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     const originalSize = file.size;
+    setSlipError('');
     setCompressionInfo(null);
     setIsCompressing(true);
 
-    // Revoke old preview URL to prevent memory leak
     if (slipPreview) URL.revokeObjectURL(slipPreview);
 
     try {
       let compressedFile: File | Blob = file;
 
-      // Only compress if file is larger than 500KB
-      if (originalSize > 500 * 1024) {
+      if (originalSize > COMPRESSION_THRESHOLD) {
         const options = {
-          maxSizeMB: 0.5,
+          maxSizeMB: 1,
           maxWidthOrHeight: 1920,
           useWebWorker: true,
-          initialQuality: 0.8
+          initialQuality: 0.85
         };
 
         try {
-          compressedFile = await imageCompression(file, options);
-        } catch (workerErr) {
-          // Web Worker failed — retry without Web Worker
-          console.warn('Web Worker compression failed, retrying without:', workerErr);
+          compressedFile = await compressWithTimeout(file, options, COMPRESSION_TIMEOUT);
+        } catch (workerErr: any) {
+          console.warn('Compression attempt 1 failed:', workerErr?.message);
           try {
-            compressedFile = await imageCompression(file, { ...options, useWebWorker: false });
-          } catch (fallbackErr) {
-            console.warn('All compression failed, using original:', fallbackErr);
+            compressedFile = await compressWithTimeout(
+              file,
+              { ...options, useWebWorker: false },
+              COMPRESSION_TIMEOUT
+            );
+          } catch (fallbackErr: any) {
+            console.warn('All compression failed/timed out, using original:', fallbackErr?.message);
             compressedFile = file;
           }
         }
@@ -136,8 +148,50 @@ export default function EditPaymentPage() {
       setCompressionInfo({ original: originalSize, compressed: originalSize });
     } finally {
       setIsCompressing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  }, [slipPreview]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
   };
+
+  /** Handle paste (Ctrl+V) for slip images */
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const file = items[i].getAsFile();
+          if (file) processFile(file);
+          return;
+        }
+      }
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [processFile]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }, []);
+  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }, []);
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  const clearSlip = useCallback(() => {
+    if (slipPreview) URL.revokeObjectURL(slipPreview);
+    setSlipFile(null);
+    setSlipPreview('');
+    setCompressionInfo(null);
+    setSlipError('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [slipPreview]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,6 +311,12 @@ export default function EditPaymentPage() {
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-3">หลักฐานการโอนเงิน (ถ้าต้องการเปลี่ยน)</label>
 
+              {slipError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-bold px-4 py-3 rounded-xl mb-3 flex items-center gap-2">
+                  <span>⚠️</span> {slipError}
+                </div>
+              )}
+
               {/* รูปเก่า (ถ้ามี) */}
               {!slipPreview && currentSlip && (
                 <div className="mb-3 p-2 border rounded-xl bg-slate-50 text-center">
@@ -266,24 +326,71 @@ export default function EditPaymentPage() {
                 </div>
               )}
 
-              <div className="relative">
-                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" id="slip-upload-edit" />
-                <label htmlFor="slip-upload-edit" className={`w-full h-32 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer transition ${isCompressing ? 'border-amber-300 bg-amber-50' : 'bg-white border-indigo-300 hover:bg-indigo-50 text-indigo-500'}`}>
-                  {isCompressing ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-8 h-8 border-3 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="font-bold text-amber-600 text-sm">กำลังบีบอัดรูปภาพ...</span>
+              <div
+                className="relative"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" id="slip-upload-edit" />
+
+                {slipPreview && !isCompressing ? (
+                  <div className="relative bg-white border-2 border-emerald-200 rounded-2xl p-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={slipPreview} alt="New Preview" className="w-full max-h-48 object-contain rounded-xl" />
+                    <div className="flex gap-2 mt-3">
+                      <label
+                        htmlFor="slip-upload-edit"
+                        className="flex-1 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center text-sm font-bold text-slate-600 hover:bg-slate-100 cursor-pointer transition"
+                      >
+                        🔄 เปลี่ยนรูป
+                      </label>
+                      <button
+                        type="button"
+                        onClick={clearSlip}
+                        className="px-4 py-2 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-500 hover:bg-red-100 transition"
+                      >
+                        ✕ ลบ
+                      </button>
                     </div>
-                  ) : slipPreview ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={slipPreview} alt="New Preview" className="h-full w-full object-contain rounded-xl" />
-                  ) : (
-                    <>
-                      <span className="text-2xl">📸</span>
-                      <span className="font-bold text-sm">กดเพื่อเปลี่ยนรูปสลิป</span>
-                    </>
-                  )}
-                </label>
+                    {compressionInfo && compressionInfo.original !== compressionInfo.compressed && (
+                      <p className="text-[11px] text-emerald-600 font-bold text-center mt-2">
+                        ✅ บีบอัดแล้ว: {(compressionInfo.original / 1024).toFixed(0)}KB → {(compressionInfo.compressed / 1024).toFixed(0)}KB
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="slip-upload-edit"
+                    className={`w-full h-32 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer transition
+                      ${isCompressing
+                        ? 'border-amber-300 bg-amber-50'
+                        : isDragging
+                          ? 'border-indigo-400 bg-indigo-50'
+                          : 'bg-white border-indigo-300 hover:bg-indigo-50 text-indigo-500'
+                      }`}
+                  >
+                    {isCompressing ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-8 h-8 border-[3px] border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="font-bold text-amber-600 text-sm">กำลังบีบอัดรูปภาพ...</span>
+                        <button
+                          type="button"
+                          onClick={() => { setIsCompressing(false); clearSlip(); }}
+                          className="text-xs text-red-500 font-bold hover:underline"
+                        >
+                          ยกเลิก
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-2xl">📸</span>
+                        <span className="font-bold text-sm">กดเพื่อเปลี่ยนรูปสลิป</span>
+                        <span className="text-xs text-slate-400 font-medium">หรือลากวาง / Ctrl+V วางรูปได้เลย</span>
+                      </>
+                    )}
+                  </label>
+                )}
               </div>
 
             </div>
