@@ -1,7 +1,7 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, getDoc, limit } from "firebase/firestore";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import Link from "next/link";
 import {
   BookOpen,
@@ -11,20 +11,14 @@ import {
   Rocket,
   Search,
   Quote,
-  Heart,
-  Flame,
-  Trophy,
-  Loader2,
   XCircle,
   AlertCircle,
   Check,
-  Newspaper,
-  Calendar,
 } from "lucide-react";
-import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FeatureCarousel from "@/components/home/FeatureCarousel";
+import HomeReviewCarousel from "@/components/home/HomeReviewCarousel";
 // import CourseFinder from "@/components/CourseFinder";
 
 // Type definitions
@@ -40,53 +34,9 @@ interface Course {
 }
 
 
-const BannerImage = ({ url, isActive, index }: { url: string, isActive: boolean, index: number }) => {
-  const [loaded, setLoaded] = useState(false);
-
-  return (
-    <div
-      className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
-    >
-      {!loaded && (
-        <div className="absolute inset-0 bg-stone-100 z-20 overflow-hidden">
-          {/* Shimmer Effect */}
-          <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
-
-          {/* Subtle Center Icon */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full bg-stone-200/50 flex items-center justify-center animate-pulse">
-              <Sparkles className="w-6 h-6 text-stone-300" />
-            </div>
-          </div>
-        </div>
-      )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt={`Promotional Banner ${index + 1}`}
-        className={`w-full h-full object-cover transition-opacity duration-700 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)}
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
-    </div>
-  );
-};
-
 export default function HomePage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const [bannerImages, setBannerImages] = useState<string[]>([]);
-  const [bannerLoading, setBannerLoading] = useState(true);
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [badgeText, setBadgeText] = useState("คอร์สยอดนิยม");
-  const [badgeIcon, setBadgeIcon] = useState("Star");
-
-  // Banner Content State
-  const [bannerTitle, setBannerTitle] = useState("ติวเข้มสอบเข้า Gifted ม.1");
-  const [bannerDescription, setBannerDescription] = useState("40 แนวข้อสอบที่ต้องรู้ก่อนเดินเข้าห้องสอบ เพราะที่นั่งในห้องเรียนอัจฉริยะ มีจำกัด");
-  const [bannerPrice, setBannerPrice] = useState("1,900");
-  const [bannerFullPrice, setBannerFullPrice] = useState("");
-  const [bannerLinkUrl, setBannerLinkUrl] = useState("/payment");
 
   
   useEffect(() => {
@@ -102,49 +52,8 @@ export default function HomePage() {
       }
     };
 
-    const fetchBanner = async () => {
-      try {
-        const docRef = doc(db, "system", "banners");
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.bannerImages && Array.isArray(data.bannerImages) && data.bannerImages.length > 0) {
-            setBannerImages(data.bannerImages.map((img: any) => img.url));
-          } else if (data.mainBannerUrl) {
-            setBannerImages([data.mainBannerUrl]);
-          } else {
-            setBannerImages(["/images/course-promo-banner.png"]);
-          }
-          if (data.badgeText) setBadgeText(data.badgeText);
-          if (data.badgeIcon) setBadgeIcon(data.badgeIcon);
-          if (data.bannerTitle) setBannerTitle(data.bannerTitle);
-          if (data.bannerDescription) setBannerDescription(data.bannerDescription);
-          if (data.bannerPrice) setBannerPrice(data.bannerPrice);
-          if (data.bannerFullPrice) setBannerFullPrice(data.bannerFullPrice);
-          if (data.bannerLinkUrl) setBannerLinkUrl(data.bannerLinkUrl);
-        } else {
-          setBannerImages(["/images/course-promo-banner.png"]);
-        }
-      } catch (error) {
-        console.error("Error fetching banner:", error);
-        setBannerImages(["/images/course-promo-banner.png"]);
-      } finally {
-        setBannerLoading(false);
-      }
-    };
-
-    // Execute both fetches in parallel
-    Promise.all([fetchCourses(), fetchBanner()]);
+    fetchCourses();
   }, []);
-
-  // Auto-play slideshow
-  useEffect(() => {
-    if (bannerImages.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % bannerImages.length);
-    }, 5000); // Change every 5 seconds
-    return () => clearInterval(interval);
-  }, [bannerImages]);
 
   const groupedCourses = courses.reduce((acc: Record<string, Course[]>, course: Course) => {
     const category = course.category || "คอร์สเรียนทั่วไป";
@@ -285,57 +194,14 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right Column: Visual & 3D Tilt */}
-            <div className="lg:col-span-5 relative z-10 perspective-1000 mt-12 lg:mt-0">
+            {/* Right Column: Review Carousel */}
+            <div className="lg:col-span-5 relative z-10 mt-12 lg:mt-0">
               {/* Static Background Glow */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-gradient-to-br from-amber-200/20 to-teal-200/20 rounded-full blur-3xl"></div>
 
-              {/* Main Card Container */}
-              <div className="relative w-full aspect-[800/950] max-h-[950px] mx-auto transform hover:rotate-y-6 hover:rotate-x-6 transition-transform duration-700 ease-out preserve-3d group">
-
-
-                {/* 1. Main Banner Image - Now Clickable */}
-                <Link href={bannerLinkUrl} className="absolute inset-0 rounded-[2.5rem] overflow-hidden shadow-2xl backdrop-blur-sm z-20 bg-white dark:bg-slate-800 cursor-pointer hover:scale-[1.02] hover:-translate-y-1 transition-all duration-300 group">
-                  {/* Glass Shine Effect */}
-                  <div className="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-25deg] group-hover:animate-glass-shine z-30 pointer-events-none filter blur-sm"></div>
-
-                  {bannerLoading ? (
-                    <div className="w-full h-full bg-slate-100 dark:bg-slate-800 animate-pulse flex items-center justify-center">
-                      <Loader2 className="w-10 h-10 text-slate-400 animate-spin" />
-                    </div>
-                  ) : (
-                    <>
-                      {bannerImages.map((url, index) => (
-                        url && (
-                          <div key={index} className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}>
-                            <Image
-                              src={url}
-                              alt={`คอร์สเรียนคณิตศาสตร์ครูฮีม ติวสอบเข้า ม.1 และ ม.4 - ${bannerTitle}`}
-                              fill
-                              priority={index === 0}
-                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                              className="object-cover"
-                            />
-                            {/* Reveal-on-Hover Overlay */}
-                            <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out"></div>
-
-                            <div className="absolute bottom-0 left-0 p-8 w-full translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-out">
-                              <span className="inline-block px-3 py-1.5 bg-white/20 backdrop-blur-md text-white text-xs font-bold rounded-full mb-3 shadow-lg border border-white/30">
-                                {badgeText}
-                              </span>
-                              <h3 className="text-white font-bold text-xl md:text-2xl line-clamp-2 drop-shadow-lg mb-3 bg-clip-text text-transparent bg-gradient-to-r from-white via-amber-200 to-amber-500">{bannerTitle}</h3>
-                              <div className="flex items-center gap-3">
-                                <span className="text-3xl font-black text-amber-400 drop-shadow-lg">฿{bannerPrice}</span>
-                                {bannerFullPrice && <span className="text-white/60 line-through text-sm bg-black/20 px-2 py-0.5 rounded-full">฿{bannerFullPrice}</span>}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      ))}
-                    </>
-                  )}
-                </Link>
-
+              {/* Review Carousel Container */}
+              <div className="relative w-full h-[520px] sm:h-[580px] lg:h-[620px] mx-auto">
+                <HomeReviewCarousel />
               </div>
             </div>
           </div>
