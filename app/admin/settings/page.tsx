@@ -16,11 +16,13 @@ const menuItems = [
     { key: 'students', icon: '👨‍🎓', title: 'ทะเบียนนักเรียน', coverColor: 'from-sky-100 to-blue-100' },
     { key: 'courses', icon: '📚', title: 'จัดการคอร์สเรียน', coverColor: 'from-emerald-100 to-teal-100' },
     { key: 'summaries', icon: '✨', title: 'สรุปเนื้อหา', coverColor: 'from-cyan-100 to-sky-100' },
+    { key: 'posts', icon: '📰', title: 'จัดการบทความ', coverColor: 'from-emerald-100 to-green-100' },
     { key: 'notifications', icon: '📢', title: 'ประกาศข่าวสาร', coverColor: 'from-yellow-100 to-amber-100' },
     { key: 'banners', icon: '🖼️', title: 'จัดการโฆษณา', coverColor: 'from-pink-100 to-rose-100' },
     { key: 'chat', icon: '💬', title: 'แชทกับลูกค้า', coverColor: 'from-indigo-100 to-violet-100' },
     { key: 'support', icon: '🎫', title: 'แจ้งปัญหา (Ticket)', coverColor: 'from-blue-100 to-indigo-100' },
     { key: 'reviews', icon: '⭐', title: 'จัดการรีวิว', coverColor: 'from-fuchsia-100 to-pink-100' },
+    { key: 'coupons', icon: '🎫', title: 'จัดการคูปอง', coverColor: 'from-amber-100 to-yellow-100' },
     { key: 'poll', icon: '📊', title: 'แบบสอบถาม', coverColor: 'from-slate-100 to-gray-100' },
     { key: 'activity', icon: '📈', title: 'Activity Log', coverColor: 'from-teal-100 to-emerald-100' },
 ];
