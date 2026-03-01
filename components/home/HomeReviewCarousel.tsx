@@ -78,8 +78,25 @@ export default function HomeReviewCarousel() {
         };
     }, [reviews, animate]);
 
-    const handleMouseEnter = () => { isPaused.current = true; };
-    const handleMouseLeave = () => { isPaused.current = false; };
+    const isTouchInteraction = useRef(false);
+
+    const handleTouchStart = () => {
+        isTouchInteraction.current = true;
+        isPaused.current = true;
+    };
+
+    const handleTouchEnd = () => {
+        isPaused.current = false;
+        setTimeout(() => { isTouchInteraction.current = false; }, 500);
+    };
+
+    const handleMouseEnter = () => {
+        if (!isTouchInteraction.current) isPaused.current = true;
+    };
+
+    const handleMouseLeave = () => {
+        if (!isTouchInteraction.current) isPaused.current = false;
+    };
 
     // Render avatar
     const renderAvatar = (review: Review) => {
@@ -148,6 +165,9 @@ export default function HomeReviewCarousel() {
                 ref={scrollRef}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
                 className="flex-1 overflow-hidden relative"
                 style={{ maskImage: "linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%)" }}
             >
