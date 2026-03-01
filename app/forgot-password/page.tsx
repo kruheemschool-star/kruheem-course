@@ -20,11 +20,17 @@ export default function ForgotPasswordPage() {
             setSuccess(true);
         } catch (err: any) {
             if (err.code === "auth/user-not-found") {
-                setError("ไม่พบอีเมลนี้ในระบบ");
+                setError("ไม่พบอีเมลนี้ในระบบ กรุณาตรวจสอบว่าอีเมลถูกต้อง หรือคุณอาจสมัครด้วย Google");
             } else if (err.code === "auth/invalid-email") {
-                setError("รูปแบบอีเมลไม่ถูกต้อง");
+                setError("รูปแบบอีเมลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+            } else if (err.code === "auth/too-many-requests") {
+                setError("มีการส่งคำขอมากเกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง");
+            } else if (err.code === "auth/missing-email") {
+                setError("กรุณากรอกอีเมล");
+            } else if (err.code === "auth/network-request-failed") {
+                setError("ไม่สามารถเชื่อมต่ออินเทอร์เน็ตได้ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่");
             } else {
-                setError("เกิดข้อผิดพลาด: " + err.message);
+                setError("เกิดข้อผิดพลาด: " + (err.message || "กรุณาลองใหม่อีกครั้ง"));
             }
         } finally {
             setLoading(false);
@@ -50,12 +56,28 @@ export default function ForgotPasswordPage() {
                             <CheckCircle className="w-10 h-10" />
                         </div>
                         <h3 className="text-xl font-bold text-slate-800 mb-2">ส่งลิงก์เรียบร้อย!</h3>
-                        <p className="text-slate-500 mb-8">
-                            กรุณาตรวจสอบอีเมลของคุณ (รวมถึงในโฟลเดอร์ Junk/Spam) เพื่อตั้งรหัสผ่านใหม่
+                        <p className="text-slate-500 mb-4">
+                            หากอีเมลนี้มีอยู่ในระบบ คุณจะได้รับลิงก์สำหรับตั้งรหัสผ่านใหม่ภายใน 1-2 นาที
                         </p>
-                        <Link href="/login" className="block w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 transition-all">
-                            กลับไปหน้าเข้าสู่ระบบ
-                        </Link>
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-left">
+                            <p className="text-amber-700 text-sm font-bold mb-2">📌 ข้อแนะนำ:</p>
+                            <ul className="text-amber-600 text-sm space-y-1.5">
+                                <li>• ตรวจสอบโฟลเดอร์ <strong>Spam / Junk / อีเมลขยะ</strong> ด้วย</li>
+                                <li>• หากไม่ได้รับภายใน 5 นาที ลองกดส่งใหม่อีกครั้ง</li>
+                                <li>• หากสมัครด้วย Google ให้ใช้ปุ่ม &quot;เข้าสู่ระบบด้วย Google&quot; แทน</li>
+                            </ul>
+                        </div>
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => { setSuccess(false); setEmail(""); }}
+                                className="block w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold transition-all"
+                            >
+                                ส่งลิงก์อีกครั้ง
+                            </button>
+                            <Link href="/login" className="block w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 transition-all text-center">
+                                กลับไปหน้าเข้าสู่ระบบ
+                            </Link>
+                        </div>
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="space-y-6">

@@ -100,7 +100,10 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
 
     const resetPassword = async (email: string) => {
         try {
-            await sendPasswordResetEmail(auth, email);
+            await sendPasswordResetEmail(auth, email, {
+                url: 'https://www.kruheemmath.com/login',
+                handleCodeInApp: false,
+            });
         } catch (error) {
             throw error;
         }
