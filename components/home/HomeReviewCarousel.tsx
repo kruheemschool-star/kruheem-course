@@ -117,7 +117,7 @@ export default function HomeReviewCarousel() {
             <div className="w-full h-full rounded-[2rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-white/40 dark:border-slate-800 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-8 h-8 border-2 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
-                    <span className="text-xs text-slate-400 font-medium">กำลังโหลดรีวิว...</span>
+                    <span className="text-sm text-slate-400 font-medium">กำลังโหลดรีวิว...</span>
                 </div>
             </div>
         );
@@ -137,16 +137,10 @@ export default function HomeReviewCarousel() {
                         <MessageCircle size={16} className="text-white" />
                     </div>
                     <div>
-                        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">รีวิวจากนักเรียน</h3>
-                        <p className="text-[10px] text-slate-400">{reviews.length} รีวิว</p>
+                        <h3 className="text-base font-bold text-slate-700 dark:text-slate-200">รีวิวจากนักเรียน</h3>
+                        <p className="text-xs text-slate-400">{reviews.length} รีวิว</p>
                     </div>
                 </div>
-                <Link
-                    href="/reviews"
-                    className="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline"
-                >
-                    ดูทั้งหมด →
-                </Link>
             </div>
 
             {/* Scrolling Reviews */}
@@ -169,7 +163,7 @@ export default function HomeReviewCarousel() {
                                     {renderAvatar(review)}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{review.userName}</p>
+                                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{review.userName}</p>
                                     {renderStars(review.rating)}
                                 </div>
                             </div>
@@ -177,14 +171,14 @@ export default function HomeReviewCarousel() {
                             {/* Course Badge */}
                             {review.courseName && (
                                 <div className="mb-2">
-                                    <span className="inline-block px-2 py-0.5 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[10px] font-bold rounded-md border border-teal-100 dark:border-teal-800 truncate max-w-full">
+                                    <span className="inline-block px-2.5 py-1 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-xs font-bold rounded-md border border-teal-100 dark:border-teal-800 truncate max-w-full">
                                         📖 {review.courseName}
                                     </span>
                                 </div>
                             )}
 
                             {/* Comment */}
-                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all">
+                            <p className="text-base text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all">
                                 &ldquo;{review.comment}&rdquo;
                             </p>
                         </div>
@@ -196,7 +190,7 @@ export default function HomeReviewCarousel() {
             <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
                 <Link
                     href="/reviews"
-                    className="block w-full text-center py-2 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-xs font-bold shadow-sm hover:shadow-md hover:from-teal-600 hover:to-emerald-600 transition-all"
+                    className="block w-full text-center py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-sm font-bold shadow-sm hover:shadow-md hover:from-teal-600 hover:to-emerald-600 transition-all"
                 >
                     ⭐ อ่านรีวิวทั้งหมด
                 </Link>
