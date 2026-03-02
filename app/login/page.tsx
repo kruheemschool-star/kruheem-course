@@ -3,7 +3,7 @@ import { useState, Suspense } from "react";
 import { useUserAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, AlertCircle, ArrowRight, ChevronDown, Play } from "lucide-react";
+import { Mail, Lock, AlertCircle, ArrowRight, ChevronDown, Play, Eye, EyeOff } from "lucide-react";
 
 function LoginContent() {
     const { emailSignIn, googleSignIn } = useUserAuth();
@@ -16,6 +16,7 @@ function LoginContent() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [isSignUpOpen, setIsSignUpOpen] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -169,13 +170,20 @@ function LoginContent() {
                         <div className="relative">
                             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-5 h-5" />
                             <input
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                                className="w-full pl-12 pr-12 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-400 transition-all font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                 placeholder="••••••••"
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-1"
+                            >
+                                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                            </button>
                         </div>
                     </div>
 
