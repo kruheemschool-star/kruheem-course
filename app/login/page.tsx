@@ -16,7 +16,7 @@ function LoginContent() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [isSignUpOpen, setIsSignUpOpen] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
+    const [showPassword, setShowPassword] = useState(true);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
