@@ -109,7 +109,6 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
         try {
             // 1. Compress image before upload
             const originalSize = file.size;
-            console.log(`Original image: ${(originalSize / 1024).toFixed(0)}KB`);
 
             const options = {
                 maxSizeMB: 0.5,
@@ -120,7 +119,6 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
             };
 
             const compressedFile = await imageCompression(file, options);
-            console.log(`Compressed image: ${(compressedFile.size / 1024).toFixed(0)}KB (saved ${((1 - compressedFile.size / originalSize) * 100).toFixed(0)}%)`);
 
             // 2. Upload compressed file to Firebase Storage
             const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
@@ -399,11 +397,12 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                                                 };
                                                 
                                                 const compressedFile = await imageCompression(file, options);
+                                                
+                                                // Calculate compression stats
                                                 const originalSize = file.size;
                                                 const compressedSize = compressedFile.size;
                                                 const savedPercent = ((1 - compressedSize / originalSize) * 100).toFixed(0);
-                                                console.log(`Original: ${(originalSize / 1024).toFixed(0)}KB → Compressed: ${(compressedSize / 1024).toFixed(0)}KB (saved ${savedPercent}%)`);
-
+                                                
                                                 // Upload compressed image
                                                 const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
                                                 const storageRef = ref(storage, `summaries/covers/${filename}`);

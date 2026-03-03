@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useMemo, useRef, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useMemo, useRef, useCallback, ReactNode } from "react";
 import {
     signInWithPopup,
     signOut,
@@ -52,12 +52,11 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     const [hasCheckedActivity, setHasCheckedActivity] = useState(false);
     const lastProfileStr = useRef<string>("");
 
-    const googleSignIn = async () => {
+    const googleSignIn = useCallback(async () => {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
         try {
             const result = await signInWithPopup(auth, provider);
-            // Save authProvider to user profile
             if (result.user) {
                 await setDoc(doc(db, "users", result.user.uid), {
                     authProvider: 'google'
@@ -67,12 +66,11 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             console.error("Google Sign In Error:", error);
             throw error;
         }
-    };
+    }, []);
 
-    const emailSignIn = async (email: string, password: string) => {
+    const emailSignIn = useCallback(async (email: string, password: string) => {
         try {
             const result = await signInWithEmailAndPassword(auth, email, password);
-            // Save authProvider to user profile
             if (result.user) {
                 await setDoc(doc(db, "users", result.user.uid), {
                     authProvider: 'email'
@@ -81,12 +79,11 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
             throw error;
         }
-    };
+    }, []);
 
-    const emailSignUp = async (email: string, password: string) => {
+    const emailSignUp = useCallback(async (email: string, password: string) => {
         try {
             const result = await createUserWithEmailAndPassword(auth, email, password);
-            // Save authProvider to user profile
             if (result.user) {
                 await setDoc(doc(db, "users", result.user.uid), {
                     authProvider: 'email'
@@ -96,32 +93,31 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             console.error("Email Sign Up Error:", error);
             throw error;
         }
-    };
+    }, []);
 
-    const resetPassword = async (email: string) => {
+    const resetPassword = useCallback(async (email: string) => {
         try {
             await sendPasswordResetEmail(auth, email);
         } catch (error) {
             throw error;
         }
-    };
+    }, []);
 
-    const logOut = async () => {
+    const logOut = useCallback(async () => {
         try {
             await signOut(auth);
             setUserProfile(null);
             setDaysSinceLastActive(null);
             setHasCheckedActivity(false);
-            // Clear admin session flag from localStorage
             if (typeof window !== 'undefined') {
                 localStorage.removeItem('isAdminSession');
             }
         } catch (error) {
             console.error("Logout Error:", error);
         }
-    };
+    }, []);
 
-    const updateProfile = async (data: UserProfile) => {
+    const updateProfile = useCallback(async (data: UserProfile) => {
         if (!user) return;
         try {
             await setDoc(doc(db, "users", user.uid), data, { merge: true });
@@ -129,7 +125,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             console.error("Error updating profile:", error);
             throw error;
         }
-    };
+    }, [user]);
 
     // 1. Auth Listener
     useEffect(() => {

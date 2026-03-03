@@ -80,7 +80,6 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                 
                 const compressedFile = await imageCompression(file, options);
                 setCompressedSize(compressedFile.size);
-                console.log(`Original: ${(file.size / 1024 / 1024).toFixed(2)}MB → Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`);
 
                 setCoverImage(compressedFile as File);
                 setCoverImageUrl(URL.createObjectURL(compressedFile));

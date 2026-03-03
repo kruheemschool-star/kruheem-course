@@ -76,7 +76,6 @@ export default function VisitorTracker() {
         const recordDailyVisit = async () => {
             // ❌ Skip tracking for Admin users
             if (isAdmin || isAdminSession()) {
-                console.log('[VisitorTracker] Admin detected, skipping daily visit tracking');
                 return;
             }
 
@@ -128,7 +127,6 @@ export default function VisitorTracker() {
 
         // ❌ Skip tracking for Admin users
         if (isAdmin || isAdminSession()) {
-            console.log('[VisitorTracker] Admin detected, skipping page view tracking for:', pathname);
             return;
         }
 

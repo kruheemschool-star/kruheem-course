@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import Link from "next/link";
+import Image from "next/image";
 import {
   BookOpen,
   Sparkles,
@@ -38,7 +39,7 @@ export default function HomePage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
 
-  
+
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -444,8 +445,13 @@ export default function HomePage() {
                         {/* Image Header */}
                         <div className="aspect-[4/3] w-full bg-gradient-to-br from-amber-50 to-orange-50 relative overflow-hidden">
                           {course.image ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={course.image} alt={course.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                            <Image
+                              src={course.image}
+                              alt={course.title}
+                              fill
+                              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                              className="object-cover transition-transform duration-700 group-hover:scale-110"
+                            />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-amber-300">
                               <BookOpen size={60} />
@@ -493,45 +499,7 @@ export default function HomePage() {
         </main>
 
         <Footer />
-      </div >
-
-      <style jsx global>{`
-        @keyframes blob { 
-            0% { transform: translate(0px, 0px) scale(1); } 
-            33% { transform: translate(30px, -50px) scale(1.1); } 
-            66% { transform: translate(-20px, 20px) scale(0.9); } 
-            100% { transform: translate(0px, 0px) scale(1); } 
-        }
-        .animate-blob { animation: blob 10s infinite; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-        
-        @keyframes fadeIn { 
-            from { opacity: 0; transform: translateY(20px); } 
-            to { opacity: 1; transform: translateY(0); } 
-        }
-        .animate-fade-in { animation: fadeIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-
-        @keyframes shimmer {
-            100% { transform: translateX(100%); }
-        }
-        
-        @keyframes heartbeat {
-            0% { transform: scale(1); }
-            14% { transform: scale(1.1); }
-            28% { transform: scale(1); }
-            42% { transform: scale(1.1); }
-            70% { transform: scale(1); }
-        }
-        .animate-heartbeat { animation: heartbeat 1.5s infinite ease-in-out; }
-
-        @keyframes glass-shine {
-            0% { left: -100%; opacity: 0; }
-            50% { opacity: 1; }
-            100% { left: 200%; opacity: 0; }
-        }
-        .animate-glass-shine { animation: glass-shine 0.7s ease-in-out forwards; }
-      `}</style>
-    </div >
+      </div>
+    </div>
   );
 }

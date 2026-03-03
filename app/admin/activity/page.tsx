@@ -72,7 +72,7 @@ export default function ActivityLogPage() {
                             });
                         }
                     } catch (err) {
-                        console.log('Failed to fetch enrollment user:', err);
+                        // Failed to fetch enrollment user
                     }
                 }));
 
@@ -94,7 +94,7 @@ export default function ActivityLogPage() {
                     });
                 }
             } catch (e) {
-                console.log("Enrollment query error (index may be missing):", e);
+                // Enrollment query error (index may be missing)
             }
 
             // 2. Fetch Recent Login Activity (from users collection)
@@ -144,7 +144,7 @@ export default function ActivityLogPage() {
                     });
                 });
             } catch (e) {
-                console.log("Users query error:", e);
+                // Users query error
             }
 
 
@@ -197,7 +197,7 @@ export default function ActivityLogPage() {
                                     });
                                 }
                             } catch (err) {
-                                console.log(`Failed to fetch user ${uid}`, err);
+                                // Failed to fetch user
                             }
                         }));
                     }
@@ -221,7 +221,7 @@ export default function ActivityLogPage() {
                                 }
                             }
                         } catch (err) {
-                            console.log('Failed to fetch lesson title:', err);
+                            // Failed to fetch lesson title
                         }
                     }));
                 }
@@ -248,7 +248,7 @@ export default function ActivityLogPage() {
                 });
 
             } catch (e) {
-                console.log("Progress query error:", e);
+                // Progress query error
             }
 
             // Fetch course names for all courseIds
@@ -271,7 +271,7 @@ export default function ActivityLogPage() {
                                 courseMap.set(courseId, courseDoc.data().title || courseId);
                             }
                         } catch (err) {
-                            console.log(`Failed to fetch course ${courseId}:`, err);
+                            // Failed to fetch course
                         }
                     }));
                 }

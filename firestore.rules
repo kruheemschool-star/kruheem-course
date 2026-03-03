@@ -1,10 +1,160 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow public read/write for now to fix permission issues
-    // In production, we should lock this down more
-    match /{document=**} {
-      allow read, write: if true;
+
+    // Helper: Check if the user is an admin
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email in [
+        'kruheemschool@gmail.com'
+      ];
+    }
+
+    // Helper: Check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: Check if user owns this document
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // === Users ===
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+
+      // User sub-collections (progress, activity, course_states)
+      match /{subcollection}/{docId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // === Courses (public read, admin write) ===
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      // Course sub-collections (lessons, etc.)
+      match /{subcollection}/{docId} {
+        allow read: if isAuth();
+        allow write: if isAdmin();
+      }
+    }
+
+    // === Enrollments ===
+    match /enrollments/{enrollmentId} {
+      allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      allow create: if isAuth();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // === Reviews (public read, authenticated create, admin manage) ===
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // === Coupons ===
+    match /coupons/{couponId} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAdmin();
+    }
+
+    // === Posts / Blog (public read, admin write) ===
+    match /posts/{postId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === Post Comments (public read, authenticated write) ===
+    match /postComments/{commentId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // === Post Ratings (public read, authenticated write) ===
+    match /postRatings/{ratingId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // === Comments ===
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isAuth();
+      allow update: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // === Summaries (public read, admin write) ===
+    match /summaries/{summaryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === Exams (public read, admin write) ===
+    match /exams/{examId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === Polls (public read, admin manage) ===
+    match /polls/{pollId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if true; // Allow voting
+      allow delete: if isAdmin();
+    }
+
+    // === Banners (public read, admin write) ===
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === Support Tickets ===
+    match /support_tickets/{ticketId} {
+      allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      allow create: if isAuth();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // === Notifications ===
+    match /notifications/{notifId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // === Visitors (analytics - public write for tracking) ===
+    match /visitors/{visitorId} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update: if true;
+    }
+
+    // === Chats / Messages ===
+    match /chats/{chatId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+
+      match /messages/{messageId} {
+        allow read: if isAuth();
+        allow write: if isAuth();
+      }
     }
   }
 }

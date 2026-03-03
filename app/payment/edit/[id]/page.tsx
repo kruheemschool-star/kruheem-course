@@ -136,8 +136,6 @@ export default function EditPaymentPage() {
         }
       }
 
-      console.log(`Slip edit: ${(originalSize / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB`);
-
       setSlipFile(compressedFile as File);
       setSlipPreview(URL.createObjectURL(compressedFile));
       setCompressionInfo({ original: originalSize, compressed: compressedFile.size });

@@ -66,7 +66,6 @@ export default function ParentDashboard() {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                console.log("[Parent Dashboard] Starting fetch for uid:", uid);
 
                 // 1. Fetch user profile
                 const userDoc = await getDoc(doc(db, "users", uid));

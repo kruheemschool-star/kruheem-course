@@ -67,7 +67,7 @@ export default function CelebrationModal({
                 oscillator.stop(beep.currentTime + 0.5);
             });
         } catch (e) {
-            console.log('Audio not supported');
+            // Audio not supported
         }
     }, []);
 

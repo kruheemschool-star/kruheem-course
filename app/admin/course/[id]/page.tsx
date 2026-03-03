@@ -323,8 +323,6 @@ export default function ManageLessonsPage() {
 
             const count = validDocs.length;
 
-            console.log(`Recalculate: Found ${snapshot.size} docs. Valid Lessons: ${count}.`);
-
             // 3. Update Course Document
             const courseRef = doc(db, "courses", courseId);
             await updateDoc(courseRef, { totalLessons: count });

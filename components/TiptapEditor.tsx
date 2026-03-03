@@ -211,7 +211,6 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
                 try {
                     finalFile = await compressWithTimeout(file, options, COMPRESSION_TIMEOUT);
-                    console.log(`Blog image: ${(originalSize / 1024).toFixed(0)}KB → ${(finalFile.size / 1024).toFixed(0)}KB`);
                 } catch (compressionErr: any) {
                     console.warn('Compression failed, using original:', compressionErr?.message);
                     finalFile = file;
@@ -254,7 +253,6 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
                 try {
                     finalFile = await compressWithTimeout(file, options, COMPRESSION_TIMEOUT);
-                    console.log(`Pasted image: ${(originalSize / 1024).toFixed(0)}KB → ${(finalFile.size / 1024).toFixed(0)}KB`);
                 } catch (compressionErr: any) {
                     console.warn('Compression failed, using original:', compressionErr?.message);
                     finalFile = file;

@@ -88,7 +88,6 @@ export default function AdminEnrollmentsPage() {
                             usedCount: (couponDoc.data().usedCount || 0) + 1,
                             isUsed: true // Mark as used for single-use coupons (review rewards)
                         });
-                        console.log(`Updated usage for coupon ${enrollment.couponCode}`);
                     }
                 } catch (couponError) {
                     console.error("Error updating coupon stats:", couponError);

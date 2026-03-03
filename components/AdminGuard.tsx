@@ -3,6 +3,7 @@
 import { useUserAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
     const { user, isAdmin, loading } = useUserAuth();
@@ -13,7 +14,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
             if (!user) {
                 router.replace("/");
             } else if (!isAdmin) {
-                alert("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                toast.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
                 router.replace("/");
             }
         }
@@ -24,8 +25,11 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
     }
 
     if (!isAdmin) {
-        return null; // Will redirect in useEffect
+        return null;
     }
 
-    return <>{children}</>;
+    return <>
+        <Toaster position="top-center" />
+        {children}
+    </>;
 }

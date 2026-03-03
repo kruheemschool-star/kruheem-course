@@ -243,20 +243,16 @@ export default function PaymentPage() {
             );
           } catch (fallbackErr: any) {
             // All compression failed or timed out — use original file (perfectly fine)
-            console.warn('All compression failed/timed out, using original:', fallbackErr?.message);
             compressedFile = file;
           }
         }
       }
-
-      console.log(`Slip: ${(originalSize / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB`);
 
       setSlipFile(compressedFile as File);
       setSlipPreview(URL.createObjectURL(compressedFile));
       setCompressionInfo({ original: originalSize, compressed: compressedFile.size });
     } catch (err) {
       // Ultimate fallback: just use the original file as-is
-      console.error('File handling error, using original:', err);
       setSlipFile(file);
       setSlipPreview(URL.createObjectURL(file));
       setCompressionInfo({ original: originalSize, compressed: originalSize });
@@ -470,19 +466,19 @@ export default function PaymentPage() {
       <div className="relative flex-grow flex justify-center items-center p-4 overflow-hidden pt-24 pb-24">
 
         {/* 🍃 Orbs */}
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-200 dark:bg-teal-900/30 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-60 animate-pulse"></div>
-        <div className="absolute top-[30%] right-[-10%] w-[400px] h-[400px] bg-emerald-200 dark:bg-emerald-900/30 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-60 animate-pulse delay-1000"></div>
-        <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-lime-100 dark:bg-lime-900/30 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-70 animate-pulse delay-2000"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-200 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-pulse"></div>
+        <div className="absolute top-[30%] right-[-10%] w-[400px] h-[400px] bg-emerald-200 rounded-full mix-blend-multiply filter blur-[100px] opacity-60 animate-pulse delay-1000"></div>
+        <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-lime-100 rounded-full mix-blend-multiply filter blur-[100px] opacity-70 animate-pulse delay-2000"></div>
 
         {/* 💎 Glass Card */}
-        <div className="relative z-10 bg-white/60 dark:bg-slate-900/90 backdrop-blur-3xl border border-white/60 dark:border-slate-700 shadow-2xl rounded-[3rem] p-6 sm:p-10 w-full max-w-2xl text-slate-700 dark:text-slate-200">
+        <div className="relative z-10 bg-white/60 backdrop-blur-3xl border border-white/60 shadow-2xl rounded-[3rem] p-6 sm:p-10 w-full max-w-2xl text-slate-700">
 
           <div className="text-center mb-8">
-            <div className="inline-block p-3 rounded-2xl bg-white/50 dark:bg-slate-800/50 shadow-sm mb-4 text-3xl">💳</div>
-            <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 mb-2">
+            <div className="inline-block p-3 rounded-2xl bg-white/50 shadow-sm mb-4 text-3xl">💳</div>
+            <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-emerald-600 mb-2">
               ลงทะเบียน & แจ้งโอน
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">กรอกข้อมูลและแนบสลิปเพื่อเริ่มเรียนทันที</p>
+            <p className="text-slate-500 font-medium">กรอกข้อมูลและแนบสลิปเพื่อเริ่มเรียนทันที</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
@@ -490,8 +486,8 @@ export default function PaymentPage() {
             {/* 1. เลือกคอร์ส */}
             <div className="space-y-4">
               <div className="flex justify-between items-baseline">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">1. เลือกคอร์สเรียน</label>
-                <span className="text-xs font-medium text-orange-500 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-lg border border-orange-100 dark:border-orange-800">* อย่างน้อย 1 คอร์ส</span>
+                <label className="text-sm font-bold text-slate-700">1. เลือกคอร์สเรียน</label>
+                <span className="text-xs font-medium text-orange-500 bg-orange-50 px-2 py-1 rounded-lg border border-orange-100">* อย่างน้อย 1 คอร์ส</span>
               </div>
 
               {/* Segmented Control Buttons */}
@@ -502,8 +498,8 @@ export default function PaymentPage() {
                     type="button"
                     onClick={() => setSelectedCategory(cat)}
                     className={`px-4 py-3 rounded-xl font-bold transition-all duration-200 ${selectedCategory === cat
-                      ? 'bg-teal-600 text-white shadow-lg shadow-teal-200 dark:shadow-teal-900/30'
-                      : 'bg-white/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:border-teal-300 dark:hover:border-teal-600'
+                        ? 'bg-teal-600 text-white shadow-lg shadow-teal-200'
+                        : 'bg-white/50 text-slate-600 border border-slate-200 hover:bg-white/80 hover:border-teal-300'
                       }`}
                   >
                     {cat}
@@ -520,8 +516,8 @@ export default function PaymentPage() {
                       onClick={() => toggleCourse(course.id)}
                       className={`p-4 rounded-2xl border transition-all duration-300 flex items-center gap-3 cursor-pointer group relative overflow-hidden
                                             ${selectedCourses.includes(course.id)
-                          ? 'bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/50 dark:border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-                          : 'bg-white/40 dark:bg-slate-800/40 border-white/50 dark:border-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:scale-[1.02] hover:shadow-lg'}
+                          ? 'bg-emerald-500/10 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+                          : 'bg-white/40 border-white/50 hover:bg-white/80 hover:scale-[1.02] hover:shadow-lg'}
                                         `}
                     >
                       <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors
@@ -529,35 +525,35 @@ export default function PaymentPage() {
                         {selectedCourses.includes(course.id) && <span className="text-white text-xs font-bold">✓</span>}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <span className={`font-bold text-sm block truncate ${selectedCourses.includes(course.id) ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>{course.title}</span>
+                        <span className={`font-bold text-sm block truncate ${selectedCourses.includes(course.id) ? 'text-emerald-700' : 'text-slate-600'}`}>{course.title}</span>
                         <div className="flex items-center gap-2">
                           {course.fullPrice > 0 && (
-                            <span className="text-xs text-slate-300 dark:text-slate-600 line-through">฿{Number(course.fullPrice).toLocaleString()}</span>
+                            <span className="text-xs text-slate-300 line-through">฿{Number(course.fullPrice).toLocaleString()}</span>
                           )}
-                          <span className="text-xs text-slate-400 dark:text-slate-500">{course.price?.toLocaleString()} บาท</span>
+                          <span className="text-xs text-slate-400">{course.price?.toLocaleString()} บาท</span>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="col-span-2 text-center text-slate-400 dark:text-slate-500 py-6 bg-white/30 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">ไม่มีคอร์สในหมวดหมู่นี้</div>
+                  <div className="col-span-2 text-center text-slate-400 py-6 bg-white/30 rounded-2xl border border-dashed border-slate-300">ไม่มีคอร์สในหมวดหมู่นี้</div>
                 )}
               </div>
 
               {/* ✅ ส่วนสรุปยอด + รายการที่เลือก (Bill Summary) */}
               {selectedCourses.length > 0 && (
-                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-emerald-100 dark:border-emerald-800 rounded-3xl p-5 shadow-lg shadow-emerald-100/50 dark:shadow-emerald-900/30 animate-in fade-in slide-in-from-bottom-4">
-                  <h3 className="text-emerald-800 dark:text-emerald-400 font-bold mb-3 flex items-center gap-2 text-sm">
+                <div className="bg-white/50 backdrop-blur-sm border border-emerald-100 rounded-3xl p-5 shadow-lg shadow-emerald-100/50 animate-in fade-in slide-in-from-bottom-4">
+                  <h3 className="text-emerald-800 font-bold mb-3 flex items-center gap-2 text-sm">
                     🛒 รายการที่เลือก ({selectedCourses.length})
                   </h3>
 
                   {/* Loop รายการสินค้า */}
                   <div className="space-y-2 mb-4 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                     {courses.filter(c => selectedCourses.includes(c.id)).map(course => (
-                      <div key={course.id} className="flex justify-between items-center bg-white/70 dark:bg-slate-800/70 p-3 rounded-2xl border border-white/50 dark:border-slate-700/50 shadow-sm">
+                      <div key={course.id} className="flex justify-between items-center bg-white/70 p-3 rounded-2xl border border-white/50 shadow-sm">
                         <div className="min-w-0 flex-1 mr-2">
-                          <div className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{course.title}</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">{Number(course.price).toLocaleString()} บาท</div>
+                          <div className="text-sm font-bold text-slate-700 truncate">{course.title}</div>
+                          <div className="text-xs text-slate-500">{Number(course.price).toLocaleString()} บาท</div>
                         </div>
                         {/* ปุ่มกากบาท (X) เพื่อลบ */}
                         <button
@@ -573,9 +569,9 @@ export default function PaymentPage() {
                   </div>
 
                   {/* สรุปราคารวม */}
-                  <div className="pt-3 border-t-2 border-dashed border-emerald-100 dark:border-emerald-800 flex justify-between items-center">
-                    <span className="text-slate-500 dark:text-slate-400 font-bold">ยอดสุทธิ</span>
-                    <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{totalPrice.toLocaleString()}.-</span>
+                  <div className="pt-3 border-t-2 border-dashed border-emerald-100 flex justify-between items-center">
+                    <span className="text-slate-500 font-bold">ยอดสุทธิ</span>
+                    <span className="text-2xl font-black text-emerald-600 tracking-tight">{totalPrice.toLocaleString()}.-</span>
                   </div>
                 </div>
               )}
@@ -584,15 +580,15 @@ export default function PaymentPage() {
             {/* 2. ข้อมูลผู้เรียน */}
             <div className="space-y-4">
               <div className="flex justify-between items-baseline">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">2. ข้อมูลผู้เรียน</label>
-                <span className="text-xs font-medium text-orange-500 dark:text-orange-400">* จำเป็น</span>
+                <label className="text-sm font-bold text-slate-700">2. ข้อมูลผู้เรียน</label>
+                <span className="text-xs font-medium text-orange-500">* จำเป็น</span>
               </div>
 
               <input
                 type="text"
                 placeholder="ชื่อ-นามสกุล"
                 required
-                className="w-full p-4 bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-teal-400/50 focus:bg-white/80 dark:focus:bg-slate-800/80 transition font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                className="w-full p-4 bg-white/50 border border-white/60 rounded-2xl outline-none focus:ring-2 focus:ring-teal-400/50 focus:bg-white/80 transition font-medium placeholder:text-slate-400 shadow-sm"
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
               />
@@ -602,14 +598,14 @@ export default function PaymentPage() {
                   type="tel"
                   placeholder="เบอร์โทรศัพท์"
                   required
-                  className="w-full p-4 bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-teal-400/50 focus:bg-white/80 dark:focus:bg-slate-800/80 transition font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                  className="w-full p-4 bg-white/50 border border-white/60 rounded-2xl outline-none focus:ring-2 focus:ring-teal-400/50 focus:bg-white/80 transition font-medium placeholder:text-slate-400 shadow-sm"
                   value={phoneNumber}
                   onChange={e => setPhoneNumber(e.target.value)}
                 />
                 <input
                   type="text"
                   placeholder="LINE ID (ถ้ามี)"
-                  className="w-full p-4 bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-teal-400/50 focus:bg-white/80 dark:focus:bg-slate-800/80 transition font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
+                  className="w-full p-4 bg-white/50 border border-white/60 rounded-2xl outline-none focus:ring-2 focus:ring-teal-400/50 focus:bg-white/80 transition font-medium placeholder:text-slate-400 shadow-sm"
                   value={lineId}
                   onChange={e => setLineId(e.target.value)}
                 />
@@ -619,17 +615,17 @@ export default function PaymentPage() {
             {/* 3. QR Code & Slip */}
             <div className="space-y-4">
 
-              <div className="relative overflow-hidden bg-gradient-to-br from-white/90 dark:from-slate-800/90 to-white/70 dark:to-slate-800/70 rounded-3xl p-8 border border-white/80 dark:border-slate-700 shadow-lg backdrop-blur-sm">
+              <div className="relative overflow-hidden bg-gradient-to-br from-white/90 to-white/70 rounded-3xl p-8 border border-white shadow-lg backdrop-blur-sm">
                 <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-teal-400 via-emerald-400 to-lime-400"></div>
 
-                <h3 className="text-teal-900 dark:text-teal-300 font-black mb-6 flex items-center justify-center gap-2 text-lg">
+                <h3 className="text-teal-900 font-black mb-6 flex items-center justify-center gap-2 text-lg">
                   <span className="text-2xl">💳</span> ช่องทางการชำระเงิน
                 </h3>
 
                 {/* QR Code Section */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-md border border-slate-100 dark:border-slate-700 mb-6">
+                <div className="bg-white rounded-2xl p-6 shadow-md border border-slate-100 mb-6">
                   <div className="flex flex-col items-center">
-                    <div className="w-80 h-80 bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-inner border-2 border-slate-100 dark:border-slate-600 mb-4">
+                    <div className="w-80 h-80 bg-white p-3 rounded-2xl shadow-inner border-2 border-slate-100 mb-4">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/qrcode.png"
@@ -637,36 +633,36 @@ export default function PaymentPage() {
                         className="w-full h-full object-contain rounded-xl"
                       />
                     </div>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 dark:bg-teal-900/40 rounded-xl border border-teal-100 dark:border-teal-700">
-                      <span className="text-teal-600 dark:text-teal-300 font-bold text-sm">📱 สแกน QR Code เพื่อชำระ</span>
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 rounded-xl border border-teal-100">
+                      <span className="text-teal-600 font-bold text-sm">📱 สแกน QR Code เพื่อชำระ</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Bank Details */}
-                <div className="bg-gradient-to-br from-emerald-50 dark:from-emerald-900/30 to-teal-50 dark:to-teal-900/30 rounded-2xl p-6 border border-emerald-100 dark:border-emerald-800">
-                  <h4 className="text-emerald-800 dark:text-emerald-300 font-bold mb-4 text-center flex items-center justify-center gap-2">
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-100">
+                  <h4 className="text-emerald-800 font-bold mb-4 text-center flex items-center justify-center gap-2">
                     <span>🏦</span> รายละเอียดบัญชี
                   </h4>
 
                   <div className="space-y-3">
                     {/* Account Holder */}
-                    <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl p-4 border border-white dark:border-slate-700 shadow-sm">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">ชื่อบัญชี</div>
-                      <div className="text-slate-800 dark:text-slate-100 font-bold text-lg">นายสุเทพ โชติมานิต</div>
+                    <div className="bg-white/80 rounded-xl p-4 border border-white shadow-sm">
+                      <div className="text-xs text-slate-500 font-bold mb-1">ชื่อบัญชี</div>
+                      <div className="text-slate-800 font-bold text-lg">นายสุเทพ โชติมานิต</div>
                     </div>
 
                     {/* PromptPay */}
-                    <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl p-4 border border-white dark:border-slate-700 shadow-sm">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">พร้อมเพย์</div>
-                      <div className="text-teal-600 dark:text-teal-400 font-black text-xl tracking-wide">082-705-7440</div>
+                    <div className="bg-white/80 rounded-xl p-4 border border-white shadow-sm">
+                      <div className="text-xs text-slate-500 font-bold mb-1">พร้อมเพย์</div>
+                      <div className="text-teal-600 font-black text-xl tracking-wide">082-705-7440</div>
                     </div>
 
                     {/* Bank Account */}
-                    <div className="bg-white/80 dark:bg-slate-800/80 rounded-xl p-4 border border-white dark:border-slate-700 shadow-sm">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">ธนาคารกสิกรไทย (ออมทรัพย์)</div>
-                      <div className="text-emerald-600 dark:text-emerald-400 font-black text-xl tracking-wider">391-2-78364-1</div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">สาขา: เซ็นทรัลรัตนาธิเบศร์</div>
+                    <div className="bg-white/80 rounded-xl p-4 border border-white shadow-sm">
+                      <div className="text-xs text-slate-500 font-bold mb-1">ธนาคารกสิกรไทย (ออมทรัพย์)</div>
+                      <div className="text-emerald-600 font-black text-xl tracking-wider">391-2-78364-1</div>
+                      <div className="text-xs text-slate-400 mt-1">สาขา: เซ็นทรัลรัตนาธิเบศร์</div>
                     </div>
                   </div>
                 </div>
@@ -681,7 +677,7 @@ export default function PaymentPage() {
                         placeholder="กรอกโค้ดส่วนลด (ถ้ามี)"
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        className="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:font-normal placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        className="flex-1 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:font-normal"
                         disabled={!!discount}
                       />
                       {discount ? (
@@ -691,7 +687,7 @@ export default function PaymentPage() {
                             setDiscount(null);
                             setCouponCode("");
                           }}
-                          className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400 font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50 transition"
+                          className="px-4 py-2 bg-red-100 text-red-500 font-bold rounded-xl hover:bg-red-200 transition"
                         >
                           ยกเลิก
                         </button>
@@ -699,7 +695,7 @@ export default function PaymentPage() {
                         <button
                           type="button"
                           onClick={handleApplyCoupon}
-                          className="px-4 py-2 bg-slate-800 dark:bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-700 dark:hover:bg-slate-600 transition"
+                          className="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition"
                           disabled={!couponCode.trim()}
                         >
                           ใช้โค้ด
@@ -708,7 +704,7 @@ export default function PaymentPage() {
                     </div>
 
                     {discount && (
-                      <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 p-3 rounded-xl flex justify-between items-center text-emerald-700 dark:text-emerald-400 animate-in fade-in slide-in-from-top-2">
+                      <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl flex justify-between items-center text-emerald-700 animate-in fade-in slide-in-from-top-2">
                         <span className="text-sm font-bold flex items-center gap-2">
                           🏷️ ใช้โค้ดส่วนลด {discount.code}
                         </span>
@@ -732,11 +728,11 @@ export default function PaymentPage() {
                 </div>
               </div>
 
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">3. แนบหลักฐานการโอน (สลิป)</label>
+              <label className="block text-sm font-bold text-slate-700">3. แนบหลักฐานการโอน (สลิป)</label>
 
               {/* Error message */}
               {slipError && (
-                <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm font-bold px-4 py-3 rounded-2xl flex items-center gap-2">
+                <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-bold px-4 py-3 rounded-2xl flex items-center gap-2">
                   <span>⚠️</span> {slipError}
                 </div>
               )}
@@ -759,20 +755,20 @@ export default function PaymentPage() {
 
                 {/* Preview mode — show image with change/remove options */}
                 {slipPreview && !isCompressing ? (
-                  <div className="relative bg-white/40 dark:bg-slate-800/40 border-2 border-emerald-200 dark:border-emerald-700 rounded-3xl p-3 backdrop-blur-sm">
+                  <div className="relative bg-white/40 border-2 border-emerald-200 rounded-3xl p-3 backdrop-blur-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={slipPreview} alt="Preview" className="w-full max-h-64 object-contain rounded-2xl" />
                     <div className="flex gap-2 mt-3">
                       <label
                         htmlFor="slip-upload"
-                        className="flex-1 py-2.5 bg-white/80 dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 rounded-xl text-center text-sm font-bold text-slate-600 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 cursor-pointer transition"
+                        className="flex-1 py-2.5 bg-white/80 border border-slate-200 rounded-xl text-center text-sm font-bold text-slate-600 hover:bg-white cursor-pointer transition"
                       >
                         🔄 เปลี่ยนรูป
                       </label>
                       <button
                         type="button"
                         onClick={clearSlip}
-                        className="px-4 py-2.5 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-sm font-bold text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition"
+                        className="px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-500 hover:bg-red-100 transition"
                       >
                         ✕ ลบ
                       </button>
