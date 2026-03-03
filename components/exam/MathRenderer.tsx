@@ -62,16 +62,16 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className = ""
                     {/* 2. Steps (ขั้นตอน) */}
                     {(obj.steps || obj.transitional_steps) && (
                         <div className="space-y-3">
-                            <h4 className="font-bold text-stone-700 text-sm uppercase tracking-wider flex items-center gap-2 mt-4 border-b pb-2">
+                            <h4 className="font-bold text-stone-700 dark:text-slate-300 text-sm uppercase tracking-wider flex items-center gap-2 mt-4 border-b dark:border-slate-700 pb-2">
                                 👣 ขั้นตอนการทำ (Step-by-Step)
                             </h4>
                             {Array.isArray(obj.steps || obj.transitional_steps) ? (
                                 (obj.steps || obj.transitional_steps).map((step: string, i: number) => (
                                     <div key={i} className="flex gap-3">
-                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 text-stone-500 font-bold text-xs flex items-center justify-center mt-0.5 border border-stone-200">
+                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 dark:bg-slate-700 text-stone-500 dark:text-slate-400 font-bold text-xs flex items-center justify-center mt-0.5 border border-stone-200 dark:border-slate-600">
                                             {i + 1}
                                         </span>
-                                        <div className="flex-grow text-stone-600">
+                                        <div className="flex-grow text-stone-600 dark:text-slate-300">
                                             <MathRenderer text={String(step)} className={className} />
                                         </div>
                                     </div>

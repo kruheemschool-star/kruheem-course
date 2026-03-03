@@ -153,7 +153,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
         return (
             <div className="max-w-4xl mx-auto py-12 px-6">
-                <div className="bg-white rounded-[3rem] shadow-xl p-8 md:p-12 border border-stone-100 relative overflow-hidden">
+                <div className="bg-white dark:bg-slate-800 rounded-[3rem] shadow-xl p-8 md:p-12 border border-stone-100 dark:border-slate-700 relative overflow-hidden">
                     {/* Background Gradient based on Grade */}
                     <div className={`absolute top-0 inset-x-0 h-60 bg-gradient-to-b ${finalScore.bgColor} opacity-10 -z-10`}></div>
 
@@ -163,8 +163,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                     </div>
 
                     {/* Title */}
-                    <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-2 text-center">ผลการทดสอบ</h2>
-                    <p className="text-stone-500 mb-8 font-medium text-center">ชุดข้อสอบ: {examTitle}</p>
+                    <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 mb-2 text-center">ผลการทดสอบ</h2>
+                    <p className="text-stone-500 dark:text-slate-400 mb-8 font-medium text-center">ชุดข้อสอบ: {examTitle}</p>
 
                     {/* Score Display - Center */}
                     <div className="flex flex-col items-center mb-10">
@@ -177,7 +177,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                     fill="none"
                                     stroke="currentColor"
                                     strokeWidth="8"
-                                    className="text-slate-100"
+                                    className="text-slate-100 dark:text-slate-700"
                                 />
                                 {/* Progress Circle */}
                                 <circle
@@ -194,7 +194,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                             {/* Center Text */}
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                                 <span className={`text-5xl font-black ${finalScore.gradeColor}`}>{finalScore.percent}%</span>
-                                <span className="text-stone-400 text-sm font-bold">{finalScore.score}/{finalScore.total} ข้อ</span>
+                                <span className="text-stone-400 dark:text-slate-500 text-sm font-bold">{finalScore.score}/{finalScore.total} ข้อ</span>
                             </div>
                         </div>
 
@@ -207,17 +207,17 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
                     {/* Stats Row */}
                     <div className="grid grid-cols-3 gap-4 mb-10 text-center">
-                        <div className="bg-emerald-50 rounded-2xl p-4">
-                            <div className="text-3xl font-black text-emerald-600">{finalScore.score}</div>
-                            <div className="text-emerald-600 text-sm font-medium">ตอบถูก ✓</div>
+                        <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl p-4">
+                            <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{finalScore.score}</div>
+                            <div className="text-emerald-600 dark:text-emerald-400 text-sm font-medium">ตอบถูก ✓</div>
                         </div>
-                        <div className="bg-rose-50 rounded-2xl p-4">
-                            <div className="text-3xl font-black text-rose-600">{wrongCount}</div>
-                            <div className="text-rose-600 text-sm font-medium">ตอบผิด ✗</div>
+                        <div className="bg-rose-50 dark:bg-rose-900/30 rounded-2xl p-4">
+                            <div className="text-3xl font-black text-rose-600 dark:text-rose-400">{wrongCount}</div>
+                            <div className="text-rose-600 dark:text-rose-400 text-sm font-medium">ตอบผิด ✗</div>
                         </div>
-                        <div className="bg-slate-50 rounded-2xl p-4">
-                            <div className="text-3xl font-black text-slate-600">{totalQuestions}</div>
-                            <div className="text-slate-500 text-sm font-medium">ข้อทั้งหมด</div>
+                        <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
+                            <div className="text-3xl font-black text-slate-600 dark:text-slate-300">{totalQuestions}</div>
+                            <div className="text-slate-500 dark:text-slate-400 text-sm font-medium">ข้อทั้งหมด</div>
                         </div>
                     </div>
 
@@ -226,14 +226,14 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                         {wrongCount > 0 && (
                             <button
                                 onClick={handleReviewWrongAnswers}
-                                className="px-8 py-4 rounded-full bg-rose-100 text-rose-600 font-bold hover:bg-rose-200 transition-colors flex items-center justify-center gap-2"
+                                className="px-8 py-4 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors flex items-center justify-center gap-2"
                             >
                                 📝 ดูข้อที่ผิด ({wrongCount} ข้อ)
                             </button>
                         )}
                         <button
                             onClick={handleRestart}
-                            className="px-8 py-4 rounded-full bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+                            className="px-8 py-4 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
                         >
                             <RotateCcw size={20} />
                             ทำข้อสอบใหม่
@@ -242,19 +242,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                 </div>
 
                 {/* Question Map with Results */}
-                <div className="mt-8 bg-white rounded-3xl shadow-sm p-6 border border-slate-100">
-                    <h3 className="font-bold text-slate-700 mb-4">แผนที่ข้อสอบ - ผลลัพธ์</h3>
+                <div className="mt-8 bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
+                    <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4">แผนที่ข้อสอบ - ผลลัพธ์</h3>
                     <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
                         {sanitizedExamData.map((q, idx) => {
                             const userAnswer = answers[idx];
                             const isCorrect = userAnswer === q.correctIndex;
                             const isUnanswered = userAnswer === undefined;
 
-                            let btnClass = "bg-slate-100 text-slate-400 border-slate-200"; // Unanswered
+                            let btnClass = "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-600"; // Unanswered
                             if (!isUnanswered) {
                                 btnClass = isCorrect
-                                    ? "bg-emerald-100 text-emerald-600 border-emerald-300"
-                                    : "bg-rose-100 text-rose-600 border-rose-300";
+                                    ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700"
+                                    : "bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-700";
                             }
 
                             return (
@@ -280,10 +280,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 font-sans flex flex-col lg:flex-row gap-8 items-start">
 
             {/* Sidebar: Question Grid (Desktop) */}
-            <div className="hidden lg:block w-72 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sticky top-24">
-                <h3 className="font-bold text-slate-700 mb-4 flex items-center justify-between">
+            <div className="hidden lg:block w-72 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 sticky top-24">
+                <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center justify-between">
                     <span>แผนที่ข้อสอบ</span>
-                    <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500">{currentQuestionIndex + 1}/{totalQuestions}</span>
+                    <span className="text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-500 dark:text-slate-400">{currentQuestionIndex + 1}/{totalQuestions}</span>
                 </h3>
                 <div className="grid grid-cols-5 gap-2">
                     {sanitizedExamData.map((q, idx) => {
@@ -293,25 +293,24 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                         const isCorrect = isChecked && answers[idx] === q.correctIndex;
                         const isWrong = isChecked && answers[idx] !== q.correctIndex && isAnswered;
 
-                        let btnClass = "bg-slate-50 text-slate-400 hover:bg-slate-100 border-transparent"; // Default
+                        let btnClass = "bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-600 border-transparent"; // Default
                         let content: React.ReactNode = idx + 1;
 
                         if (isChecked) {
                             if (isCorrect) {
-                                btnClass = "bg-emerald-100 text-emerald-600 font-bold border-emerald-300";
+                                btnClass = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-bold border-emerald-300 dark:border-emerald-700";
                                 content = "✓";
                             } else if (isWrong) {
-                                btnClass = "bg-rose-100 text-rose-600 font-bold border-rose-300";
+                                btnClass = "bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold border-rose-300 dark:border-rose-700";
                                 content = "✗";
                             } else {
-                                // Checked but no answer (viewed only)
-                                btnClass = "bg-amber-100 text-amber-600 font-bold border-amber-200";
+                                btnClass = "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold border-amber-200 dark:border-amber-700";
                             }
                         } else if (isAnswered) {
-                            btnClass = "bg-blue-100 text-blue-600 font-bold border-blue-200";
+                            btnClass = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold border-blue-200 dark:border-blue-700";
                         }
 
-                        if (isCurrent) btnClass += " ring-2 ring-amber-400 ring-offset-2 z-10";
+                        if (isCurrent) btnClass += " ring-2 ring-amber-400 ring-offset-2 dark:ring-offset-slate-800 z-10";
 
                         return (
                             <button
@@ -331,20 +330,20 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                 {/* Top Bar: Progress & Title (Mobile Only Grid Toggle) */}
                 <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3">
                             <Award className="text-amber-500" />
                             {examTitle}
                         </h1>
-                        <p className="text-stone-500 text-sm mt-1 pl-1">ทดสอบวัดระดับความรู้คณิตศาสตร์</p>
+                        <p className="text-stone-500 dark:text-slate-400 text-sm mt-1 pl-1">ทดสอบวัดระดับความรู้คณิตศาสตร์</p>
                     </div>
 
                     {/* Mobile Progress & Grid Toggle */}
                     <div className="w-full md:w-48 lg:hidden">
-                        <div className="flex justify-between text-xs font-bold text-stone-400 mb-2">
+                        <div className="flex justify-between text-xs font-bold text-stone-400 dark:text-slate-500 mb-2">
                             <span>ความคืบหน้า</span>
                             <span>{Math.round((Object.keys(answers).length / totalQuestions) * 100)}%</span>
                         </div>
-                        <div className="h-2 w-full bg-stone-200 rounded-full overflow-hidden mb-2">
+                        <div className="h-2 w-full bg-stone-200 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
                             <div
                                 className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500 ease-out"
                                 style={{ width: `${(Object.keys(answers).length / totalQuestions) * 100}%` }}
@@ -358,7 +357,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
                 {/* Mobile Grid Dropdown */}
                 {showGrid && (
-                    <div className="lg:hidden mb-6 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm animate-in slide-in-from-top-2">
+                    <div className="lg:hidden mb-6 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm animate-in slide-in-from-top-2">
                         <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
                             {Array.from({ length: totalQuestions }).map((_, idx) => (
                                 <button
@@ -366,7 +365,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                     onClick={() => { setCurrentQuestionIndex(idx); setShowGrid(false); }}
                                     className={`aspect-square rounded-lg text-xs font-bold flex items-center justify-center border
                                         ${currentQuestionIndex === idx ? 'ring-2 ring-amber-400 ring-offset-2 z-10 border-transparent' : ''}
-                                        ${answers[idx] !== undefined ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100'}
+                                        ${answers[idx] !== undefined ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-600'}
                                     `}
                                 >
                                     {idx + 1}
@@ -395,7 +394,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                         disabled={currentQuestionIndex === 0}
                         className={`px-6 py-3 rounded-full font-bold flex items-center gap-2 transition-all ${currentQuestionIndex === 0
                             ? 'opacity-0 pointer-events-none'
-                            : 'text-stone-500 hover:bg-stone-100'
+                            : 'text-stone-500 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-700'
                             }`}
                     >
                         <ChevronLeft size={20} />

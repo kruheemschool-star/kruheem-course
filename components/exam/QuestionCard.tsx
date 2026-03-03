@@ -28,15 +28,15 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     const hasAnswered = selectedOption !== null;
 
     return (
-        <div className="w-full max-w-4xl mx-auto bg-white rounded-[2rem] shadow-xl shadow-stone-200/50 overflow-hidden border border-stone-100 transition-all duration-300">
+        <div className="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl shadow-stone-200/50 dark:shadow-slate-900/50 overflow-hidden border border-stone-100 dark:border-slate-700 transition-all duration-300">
 
             {/* Header */}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-8 py-6 border-b border-orange-100 flex justify-between items-center">
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-slate-700 dark:to-slate-700 px-8 py-6 border-b border-orange-100 dark:border-slate-600 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <span className="flex items-center justify-center w-10 h-10 rounded-full bg-white text-amber-600 font-black shadow-sm border border-amber-100 text-lg">
+                    <span className="flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-600 text-amber-600 dark:text-amber-400 font-black shadow-sm border border-amber-100 dark:border-slate-500 text-lg">
                         {questionNumber}
                     </span>
-                    <span className="text-stone-500 font-medium text-sm uppercase tracking-wider">
+                    <span className="text-stone-500 dark:text-slate-400 font-medium text-sm uppercase tracking-wider">
                         คำถามที่ {questionNumber} จาก {totalQuestions}
                     </span>
                 </div>
@@ -44,8 +44,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 {/* Result Badge - Show when submitted */}
                 {isSubmitted && hasAnswered && (
                     <div className={`px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 animate-in slide-in-from-right duration-300 ${isCorrect
-                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                            : 'bg-rose-100 text-rose-700 border border-rose-200'
+                        ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
+                        : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-700'
                         }`}>
                         {isCorrect ? (
                             <>
@@ -61,7 +61,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     </div>
                 )}
                 {isSubmitted && !hasAnswered && (
-                    <div className="px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 bg-slate-100 text-slate-500 border border-slate-200">
+                    <div className="px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
                         <HelpCircle size={18} />
                         <span>ไม่ได้ตอบ</span>
                     </div>
@@ -70,14 +70,14 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
             {/* Question Body */}
             <div className="p-8 md:p-10">
-                <div className="mb-6 text-xl md:text-2xl font-medium text-stone-800 leading-relaxed">
+                <div className="mb-6 text-xl md:text-2xl font-medium text-stone-800 dark:text-slate-200 leading-relaxed">
                     <MathRenderer text={question.question} />
                 </div>
 
                 {/* Question Image (Standard Display only - No Zoom) */}
                 {question.image && (
                     <div className="my-8 flex justify-center w-full">
-                        <div className="relative inline-block rounded-2xl overflow-hidden border-2 border-slate-100 shadow-sm bg-white p-1 sm:p-2">
+                        <div className="relative inline-block rounded-2xl overflow-hidden border-2 border-slate-100 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-700 p-1 sm:p-2">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src={question.image}
@@ -106,25 +106,25 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                 // เฉลยแล้ว (Show Solution Mode)
                                 if (isCorrectOption) {
                                     // ข้อที่ถูก (สีเขียวเสมอ) - Always show correct answer in green
-                                    containerClass += " bg-emerald-50 border-emerald-400 shadow-sm";
+                                    containerClass += " bg-emerald-50 dark:bg-emerald-900/30 border-emerald-400 dark:border-emerald-600 shadow-sm";
                                     indicatorClass += " bg-emerald-500 border-emerald-500 text-white";
                                 } else if (isWrongSelection) {
                                     // ข้อที่เลือกแต่ผิด - Show in RED
-                                    containerClass += " bg-rose-50 border-rose-400 shadow-sm";
+                                    containerClass += " bg-rose-50 dark:bg-rose-900/30 border-rose-400 dark:border-rose-600 shadow-sm";
                                     indicatorClass += " bg-rose-500 border-rose-500 text-white";
                                 } else {
                                     // ข้ออื่นๆ
-                                    containerClass += " opacity-40 border-stone-100 grayscale";
-                                    indicatorClass += " border-stone-200 text-stone-400";
+                                    containerClass += " opacity-40 border-stone-100 dark:border-slate-700 grayscale";
+                                    indicatorClass += " border-stone-200 dark:border-slate-600 text-stone-400 dark:text-slate-500";
                                 }
                             } else {
                                 // ยังไม่เฉลย (ให้เลือก)
                                 if (isSelectedOption) {
-                                    containerClass += " bg-amber-50 border-amber-400 shadow-md transform scale-[1.01]";
+                                    containerClass += " bg-amber-50 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600 shadow-md transform scale-[1.01]";
                                     indicatorClass += " bg-amber-500 border-amber-500 text-white";
                                 } else {
-                                    containerClass += " bg-white border-stone-100 hover:border-amber-200 hover:bg-stone-50";
-                                    indicatorClass += " border-stone-200 text-stone-400 group-hover:border-amber-300 group-hover:text-amber-500";
+                                    containerClass += " bg-white dark:bg-slate-700/50 border-stone-100 dark:border-slate-600 hover:border-amber-200 dark:hover:border-amber-600 hover:bg-stone-50 dark:hover:bg-slate-700";
+                                    indicatorClass += " border-stone-200 dark:border-slate-500 text-stone-400 dark:text-slate-400 group-hover:border-amber-300 group-hover:text-amber-500";
                                 }
                             }
 
@@ -137,7 +137,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                     <div className={indicatorClass}>
                                         {index + 1}
                                     </div>
-                                    <div className="text-stone-700 font-medium pt-1 text-lg w-full break-words min-w-0">
+                                    <div className="text-stone-700 dark:text-slate-300 font-medium pt-1 text-lg w-full break-words min-w-0">
                                         <MathRenderer text={option.replace(/^\s*\d+[\.\\)]\s*/, '')} />
                                     </div>
 
@@ -158,20 +158,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     </div>
                 ) : (
                     /* Subjective / Text Input Mode */
-                    <div className="bg-stone-50 rounded-2xl p-8 text-center border-2 border-dashed border-stone-200">
+                    <div className="bg-stone-50 dark:bg-slate-700/50 rounded-2xl p-8 text-center border-2 border-dashed border-stone-200 dark:border-slate-600">
                         <div className="max-w-md mx-auto">
                             {!isSubmitted ? (
                                 <>
-                                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm">
+                                    <div className="w-16 h-16 bg-white dark:bg-slate-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm">
                                         ✍️
                                     </div>
-                                    <h3 className="text-lg font-bold text-stone-700 mb-2">ข้อสอบอัตนัย (แสดงวิธีทำ)</h3>
-                                    <p className="text-stone-500 mb-6">
+                                    <h3 className="text-lg font-bold text-stone-700 dark:text-slate-300 mb-2">ข้อสอบอัตนัย (แสดงวิธีทำ)</h3>
+                                    <p className="text-stone-500 dark:text-slate-400 mb-6">
                                         ข้อนี้ให้ทดเลขหรือเขียนวิธีทำลงในกระดาษของตัวเอง <br />
                                         เมื่อเสร็จแล้วให้กดปุ่ม <strong>"ดูเฉลย"</strong> ด้านล่างเพื่อตรวจสอบความถูกต้อง
                                     </p>
                                     <textarea
-                                        className="w-full p-4 rounded-xl border border-stone-200 bg-white focus:ring-2 focus:ring-amber-500 outline-none transition-all text-stone-600"
+                                        className="w-full p-4 rounded-xl border border-stone-200 dark:border-slate-600 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-amber-500 outline-none transition-all text-stone-600 dark:text-slate-300"
                                         rows={4}
                                         placeholder="พิมพ์คำตอบหรือโน้ตไว้กันลืมตรงนี้ได้ครับ... (ระบบจะไม่ตรวจอัตโนมัติ)"
                                     ></textarea>
@@ -190,12 +190,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 {/* Explanation Section */}
                 {isSubmitted && (
                     <div className="mt-10 animate-in slide-in-from-top-4 fade-in duration-500">
-                        <div className="bg-indigo-50/50 rounded-2xl p-6 border border-indigo-100">
-                            <h4 className="flex items-center gap-2 font-bold text-indigo-900 mb-4 text-lg">
+                        <div className="bg-indigo-50/50 dark:bg-indigo-900/30 rounded-2xl p-6 border border-indigo-100 dark:border-indigo-800">
+                            <h4 className="flex items-center gap-2 font-bold text-indigo-900 dark:text-indigo-300 mb-4 text-lg">
                                 <HelpCircle className="text-indigo-500" />
                                 เฉลยละเอียด / แนวคิด
                             </h4>
-                            <div className="text-stone-700 leading-relaxed text-base space-y-2">
+                            <div className="text-stone-700 dark:text-slate-300 leading-relaxed text-base space-y-2">
                                 <MathRenderer text={question.explanation} />
                             </div>
                         </div>

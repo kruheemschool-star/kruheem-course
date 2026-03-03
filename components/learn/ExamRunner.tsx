@@ -45,17 +45,17 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
     };
 
     return (
-        <div className="w-full min-h-full flex flex-col items-center py-8 px-4 bg-slate-50">
+        <div className="w-full min-h-full flex flex-col items-center py-8 px-4 bg-slate-50 dark:bg-slate-900">
             <div className="w-full max-w-4xl space-y-6">
 
                 {/* 🧭 Top Navigation Bar (Progress & Map Toggle) */}
                 {/* 🗺️ Top Exam Map (Always Visible) */}
-                <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 animate-in fade-in slide-in-from-top-4">
+                <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-4">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-black text-slate-700 flex items-center gap-2">
-                            🗺️ แผนที่ข้อสอบ <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-lg font-bold">ทั้งหมด {questions.length} ข้อ</span>
+                        <h3 className="font-black text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                            🗺️ แผนที่ข้อสอบ <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-lg font-bold">ทั้งหมด {questions.length} ข้อ</span>
                         </h3>
-                        <div className="text-xs font-bold text-slate-400">
+                        <div className="text-xs font-bold text-slate-400 dark:text-slate-500">
                             ข้อที่ {currentIndex + 1}
                         </div>
                     </div>
@@ -67,12 +67,12 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
                             const isCorrect = isSubmitted && isDone && answers[idx] === (questions[idx].answerIndex ?? questions[idx].correctAnswer ?? 0);
                             const isWrong = isSubmitted && isDone && !isCorrect;
 
-                            let btnStyle = "bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 border border-transparent"; // Default
+                            let btnStyle = "bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-600 hover:text-slate-600 dark:hover:text-slate-300 border border-transparent"; // Default
 
-                            if (isCurrent) btnStyle = "bg-yellow-400 text-yellow-900 font-black shadow-lg shadow-yellow-200 scale-110 z-10 ring-2 ring-white"; // Active
-                            else if (isCorrect) btnStyle = "bg-emerald-100 text-emerald-600 font-bold border-emerald-200";
-                            else if (isWrong) btnStyle = "bg-rose-100 text-rose-600 font-bold border-rose-200";
-                            else if (isDone) btnStyle = "bg-indigo-50 text-indigo-600 font-bold border-indigo-100";
+                            if (isCurrent) btnStyle = "bg-yellow-400 text-yellow-900 font-black shadow-lg shadow-yellow-200 dark:shadow-yellow-900/30 scale-110 z-10 ring-2 ring-white dark:ring-slate-800"; // Active
+                            else if (isCorrect) btnStyle = "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 font-bold border-emerald-200 dark:border-emerald-700";
+                            else if (isWrong) btnStyle = "bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 font-bold border-rose-200 dark:border-rose-700";
+                            else if (isDone) btnStyle = "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 font-bold border-indigo-100 dark:border-indigo-700";
 
                             return (
                                 <button
@@ -89,9 +89,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
 
                 {/* Score Header (Shown after submit) */}
                 {isSubmitted && (
-                    <div className="bg-white rounded-3xl p-8 border-2 border-emerald-100 shadow-xl flex flex-col items-center gap-4 animate-in zoom-in slide-in-from-top-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 border-2 border-emerald-100 dark:border-emerald-800 shadow-xl flex flex-col items-center gap-4 animate-in zoom-in slide-in-from-top-4">
                         <div className="text-6xl">🏆</div>
-                        <h2 className="text-3xl font-black text-slate-800">ผลการทดสอบ</h2>
+                        <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100">ผลการทดสอบ</h2>
                         <div className="flex items-end gap-2 text-emerald-600">
                             <span className="text-6xl font-black">{score}</span>
                             <span className="text-2xl font-bold mb-2">/ {questions.length} คะแนน</span>
@@ -123,7 +123,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
                     <button
                         onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
                         disabled={currentIndex === 0}
-                        className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-200 disabled:opacity-30 disabled:hover:bg-transparent transition flex items-center gap-2 w-full md:w-auto justify-center"
+                        className="px-6 py-3 rounded-xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent transition flex items-center gap-2 w-full md:w-auto justify-center"
                     >
                         <span>←</span> ข้อก่อนหน้า
                     </button>
@@ -132,7 +132,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
                     {!isRevealed && !isSubmitted && (
                         <button
                             onClick={toggleReveal}
-                            className="px-6 py-3 rounded-xl font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition flex items-center gap-2 w-full md:w-auto justify-center"
+                            className="px-6 py-3 rounded-xl font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition flex items-center gap-2 w-full md:w-auto justify-center"
                         >
                             <span>💡 ดูเฉลยข้อนี้</span>
                         </button>
@@ -142,7 +142,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
                         !isSubmitted && (
                             <button
                                 onClick={handleSubmit}
-                                className="px-8 py-3 rounded-xl font-bold bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-200 hover:scale-105 transition"
+                                className="px-8 py-3 rounded-xl font-bold bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/30 hover:scale-105 transition"
                             >
                                 ✨ ส่งคำตอบทั้งหมด
                             </button>
