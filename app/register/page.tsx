@@ -4,6 +4,7 @@ import { useUserAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, AlertCircle, ArrowRight, Play, ArrowLeft } from "lucide-react";
+import BrowserWarning from "@/components/BrowserWarning";
 
 function RegisterContent() {
     const { emailSignUp, googleSignIn } = useUserAuth();
@@ -91,6 +92,8 @@ function RegisterContent() {
                         <span>{error}</span>
                     </div>
                 )}
+
+                <BrowserWarning />
 
                 {/* Google Sign-Up Section (Top Priority) */}
                 <div className="mb-8">
@@ -184,6 +187,60 @@ function RegisterContent() {
                         )}
                     </button>
                 </form>
+
+                {/* FAQ Section */}
+                <div className="mt-8 space-y-3">
+                    <h3 className="text-sm font-bold text-slate-700 text-center mb-4">คำถามที่พบบ่อย</h3>
+                    
+                    <details className="group bg-slate-50 rounded-xl overflow-hidden">
+                        <summary className="cursor-pointer p-4 font-medium text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between">
+                            <span className="text-sm">🤔 ทำไมต้องเปิดด้วย Safari/Chrome?</span>
+                            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="p-4 pt-0 text-sm text-slate-600">
+                            เพื่อความปลอดภัยของบัญชีคุณ ระบบ Google Sign-In และการลงทะเบียนจะทำงานได้เฉพาะใน<strong>เบราว์เซอร์มาตรฐาน</strong> (Safari, Chrome, Firefox) และไม่รองรับการเปิดจากภายในแอปอื่นๆ เช่น LINE, Messenger
+                        </div>
+                    </details>
+
+                    <details className="group bg-slate-50 rounded-xl overflow-hidden">
+                        <summary className="cursor-pointer p-4 font-medium text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between">
+                            <span className="text-sm">✨ ลงทะเบียนด้วย Google ดีกว่าไหม?</span>
+                            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="p-4 pt-0 text-sm text-slate-600 space-y-2">
+                            <p><strong>แนะนำให้ใช้ Google</strong> เพราะ:</p>
+                            <ul className="list-disc list-inside space-y-1 ml-2">
+                                <li>ไม่ต้องจำรหัสผ่าน</li>
+                                <li>เข้าสู่ระบบได้รวดเร็ว (1 คลิก)</li>
+                                <li>ปลอดภัยสูง</li>
+                                <li>กู้คืนบัญชีได้ง่าย</li>
+                            </ul>
+                            <p className="text-xs text-slate-500 mt-2">💡 แต่ถ้าไม่มี Gmail ก็สามารถใช้ Email/Password ได้เหมือนกัน</p>
+                        </div>
+                    </details>
+
+                    <details className="group bg-slate-50 rounded-xl overflow-hidden">
+                        <summary className="cursor-pointer p-4 font-medium text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between">
+                            <span className="text-sm">🔑 ลืมรหัสผ่านทำยังไง?</span>
+                            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="p-4 pt-0 text-sm text-slate-600">
+                            ถ้าลงทะเบียนด้วย <strong>Email/Password</strong> และลืมรหัสผ่าน สามารถกดปุ่ม &quot;ลืมรหัสผ่าน?&quot; ในหน้าเข้าสู่ระบบ แล้วระบบจะส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลของคุณ<br/><br/>
+                            ถ้าลงทะเบียนด้วย <strong>Google</strong> ไม่ต้องกังวล เพราะใช้รหัสผ่าน Google โดยตรง
+                        </div>
+                    </details>
+
+                    <details className="group bg-slate-50 rounded-xl overflow-hidden">
+                        <summary className="cursor-pointer p-4 font-medium text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between">
+                            <span className="text-sm">🔄 สมัครด้วย Google แล้วเปลี่ยนเป็น Email ได้ไหม?</span>
+                            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div className="p-4 pt-0 text-sm text-slate-600">
+                            ไม่ได้ครับ เมื่อสมัครด้วยวิธีใดแล้ว จะต้องใช้วิธีนั้นในการเข้าสู่ระบบตลอด<br/><br/>
+                            <strong>แนะนำ:</strong> เลือกวิธีที่สะดวกที่สุดสำหรับคุณตั้งแต่แรก (แนะนำ Google ถ้ามี Gmail)
+                        </div>
+                    </details>
+                </div>
 
                 <p className="mt-8 text-center text-slate-500 text-sm">
                     มีบัญชีอยู่แล้ว?{" "}

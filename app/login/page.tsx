@@ -4,6 +4,7 @@ import { useUserAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, AlertCircle, ArrowRight, ChevronDown, Play, Eye, EyeOff } from "lucide-react";
+import BrowserWarning from "@/components/BrowserWarning";
 
 function LoginContent() {
     const { emailSignIn, googleSignIn } = useUserAuth();
@@ -67,6 +68,8 @@ function LoginContent() {
                         <span>{error}</span>
                     </div>
                 )}
+
+                <BrowserWarning />
 
                 <div className="mb-8 pt-0">
                     <div className={`bg-white dark:bg-slate-800 border-2 ${isSignUpOpen ? 'border-indigo-400 dark:border-indigo-500 ring-4 ring-indigo-50/50 dark:ring-indigo-900/30' : 'border-slate-100 dark:border-slate-700'} rounded-3xl overflow-hidden shadow-sm transition-all duration-500`}>
