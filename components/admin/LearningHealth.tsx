@@ -67,19 +67,34 @@ export default function LearningHealth({
 
                     {/* Progress bars per course */}
                     <div className="space-y-3 mt-4">
-                        {courseCompletionRates.slice(0, 5).map((course) => {
+                        {courseCompletionRates.slice(0, 5).map((course, index) => {
                             const color = getHealthColor(course.avgProgress);
                             return (
                                 <div key={course.courseId}>
-                                    <div className="flex justify-between items-center mb-1">
-                                        <span className="text-xs font-medium text-slate-600 truncate max-w-[200px]" title={course.title}>
-                                            {course.title}
-                                        </span>
-                                        <span className="text-xs font-bold text-slate-500 flex-shrink-0 ml-2">
-                                            {course.avgProgress}% ({course.completedStudents}/{course.totalStudents} จบ)
-                                        </span>
+                                    <div className="flex justify-between items-start mb-1.5">
+                                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                                            <span className="text-xs font-bold text-slate-400 flex-shrink-0 mt-0.5">
+                                                {index + 1}.
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-semibold text-slate-700 truncate" title={course.title}>
+                                                    {course.title}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold">
+                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                                                        </svg>
+                                                        {course.totalStudents} คน
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-500">
+                                                        {course.completedStudents} คนจบ ({course.avgProgress}%)
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="w-full bg-slate-100 rounded-full h-2">
+                                    <div className="w-full bg-slate-100 rounded-full h-2 ml-5">
                                         <div
                                             className="h-2 rounded-full transition-all duration-500"
                                             style={{ width: `${Math.min(100, course.avgProgress)}%`, backgroundColor: color.bar }}
