@@ -122,6 +122,13 @@ export default function ExamEditorPage() {
         setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
     };
 
+    const deleteAllQuestions = () => {
+        if (smartBlocks.length === 0) return;
+        if (!confirm(`ยืนยันลบข้อสอบทั้งหมด ${smartBlocks.length} ข้อ?\n\nการกระทำนี้ไม่สามารถย้อนกลับได้!`)) return;
+        setSmartBlocks([]);
+        setJsonContent('[]');
+    };
+
     // ... (state)
 
     const handleFixJSON = () => {
@@ -664,7 +671,39 @@ export default function ExamEditorPage() {
                             </div>
 
                             {activeTab === 'smart' ? (
-                                <div className="flex-grow overflow-y-auto p-6 space-y-6 bg-[#1e1e1e]">
+                                <div className="flex-grow overflow-y-auto bg-[#1e1e1e] relative">
+                                    {/* Sticky Toolbar */}
+                                    <div className="sticky top-0 z-20 bg-[#252526] border-b border-[#3d3d3d] px-4 py-2.5 flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-slate-400 font-mono">
+                                                {smartBlocks.length > 0 ? `${smartBlocks.length} ข้อ` : 'ว่าง'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={addSmartQuestion}
+                                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 transition-colors flex items-center gap-1.5"
+                                            >
+                                                <Plus size={12} /> เพิ่มข้อ
+                                            </button>
+                                            <button
+                                                onClick={() => setIsBulkImporting(!isBulkImporting)}
+                                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30 transition-colors flex items-center gap-1.5"
+                                            >
+                                                <Copy size={12} /> เพิ่มหลายข้อ
+                                            </button>
+                                            {smartBlocks.length > 0 && (
+                                                <button
+                                                    onClick={deleteAllQuestions}
+                                                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 transition-colors flex items-center gap-1.5"
+                                                >
+                                                    <Trash2 size={12} /> ลบทั้งหมด
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-6 space-y-6">
                                     {smartBlocks.length === 0 && (
                                         <div className="text-center py-10 text-slate-500">
                                             <Blocks size={48} className="mx-auto mb-4 opacity-20" />
@@ -803,25 +842,8 @@ export default function ExamEditorPage() {
                                         </div>
                                     )}
 
-                                    {/* Add Buttons */}
-                                    <div className="flex gap-3">
-                                        <button
-                                            onClick={addSmartQuestion}
-                                            className="flex-1 py-4 rounded-xl border-2 border-dashed border-[#3d3d3d] hover:border-emerald-500/50 hover:bg-emerald-500/5 text-slate-400 hover:text-emerald-400 transition-all flex flex-col items-center justify-center gap-2 font-bold"
-                                        >
-                                            <Plus size={24} />
-                                            เพิ่มทีละข้อ
-                                        </button>
-                                        <button
-                                            onClick={() => setIsBulkImporting(!isBulkImporting)}
-                                            className="flex-1 py-4 rounded-xl border-2 border-dashed border-[#3d3d3d] hover:border-amber-500/50 hover:bg-amber-500/5 text-slate-400 hover:text-amber-400 transition-all flex flex-col items-center justify-center gap-2 font-bold"
-                                        >
-                                            <Copy size={24} />
-                                            เพิ่มทีละหลายข้อ
-                                        </button>
-                                    </div>
-
                                     <div className="h-10"></div>
+                                    </div>
                                 </div>
                             ) : activeTab === 'json' ? (
                                 <>
