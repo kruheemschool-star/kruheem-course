@@ -226,25 +226,29 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className = ""
                                 // (Skipped to allow intended HTML/BR)
 
                                 // 2. Headers (### Text)
-                                .replace(/^### (.*$)/gm, '<h3 class="text-lg font-bold text-indigo-900 mt-4 mb-2">$1</h3>')
-                                .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-indigo-900 mt-5 mb-2 border-b border-indigo-100 pb-1">$1</h2>')
+                                .replace(/^### (.*$)/gm, '<h3 class="text-lg font-bold text-indigo-900 dark:text-indigo-300 mt-4 mb-2">$1</h3>')
+                                .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-indigo-900 dark:text-indigo-300 mt-5 mb-2 border-b border-indigo-100 dark:border-indigo-800 pb-1">$1</h2>')
 
                                 // 3. Bold (**Text**)
-                                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-indigo-900 bg-indigo-50 px-1 rounded">$1</strong>')
+                                .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-indigo-900 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 px-1 rounded">$1</strong>')
 
                                 // 4. Italic (*Text*)
-                                .replace(/\*(.*?)\*/g, '<em class="italic text-slate-500">$1</em>')
+                                .replace(/\*(.*?)\*/g, '<em class="italic text-slate-500 dark:text-slate-400">$1</em>')
 
                                 // 5. Lists (- Text or * Text at start of line)
-                                .replace(/^[\-\*] (.*$)/gm, '<div class="flex items-start gap-2 my-1 pl-2"><span class="text-indigo-500 font-bold">•</span><span>$1</span></div>')
+                                .replace(/^[\-\*] (.*$)/gm, '<div class="flex items-start gap-2 my-1 pl-2"><span class="text-indigo-500 dark:text-indigo-400 font-bold">•</span><span>$1</span></div>')
 
                                 // 6. Horizontal Rule (---)
-                                .replace(/^---$/gm, '<hr class="my-6 border-t-2 border-dashed border-slate-200" />')
+                                .replace(/^---$/gm, '<hr class="my-6 border-t-2 border-dashed border-slate-200 dark:border-slate-700" />')
 
-                                // 7. Line Breaks (Convert remaining newlines to <br>)
-                                // Note: We handle headers/lists which need block-like behavior, 
-                                // but broadly converting \n to <br> works for general text.
-                                .replace(/\n/g, '<br />')
+                                // 7. Paragraph breaks (double newline) -> single <br> for spacing
+                                .replace(/\n\n+/g, '<br />')
+                                
+                                // 8. Clean up newlines after block elements (prevent double spacing)
+                                .replace(/(<\/h[23]>|<\/div>|<hr[^>]*>)\n/g, '$1')
+                                
+                                // 9. Single newlines within paragraphs -> space (not BR)
+                                .replace(/\n/g, ' ')
                         }}
                     />
                 );
