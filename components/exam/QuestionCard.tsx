@@ -71,7 +71,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             {/* Question Body */}
             <div className="p-8 md:p-10">
                 <div className="mb-6 text-xl md:text-2xl font-medium text-stone-800 dark:text-slate-200 leading-relaxed">
-                    <MathRenderer text={question.question} />
+                    <MathRenderer text={question.question.replace(/\n{3,}/g, '\n\n')} />
                 </div>
 
                 {/* Question Image (Standard Display only - No Zoom) */}
