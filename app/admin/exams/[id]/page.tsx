@@ -719,6 +719,35 @@ export default function ExamEditorPage() {
                                     </div>
 
                                     <div className="p-6 space-y-6">
+                                    {/* Bulk Import Panel - Moved to top */}
+                                    {isBulkImporting && (
+                                        <div className="bg-[#2d2d2d] rounded-xl border-2 border-amber-500/50 overflow-hidden shadow-lg">
+                                            <div className="bg-[#252526] p-3 flex items-center justify-between border-b border-amber-500/30">
+                                                <span className="text-xs text-amber-400 font-bold flex items-center gap-2">
+                                                    <Copy size={14} /> วางโค้ด JSON หลายข้อพร้อมกัน
+                                                </span>
+                                                <button onClick={() => setIsBulkImporting(false)} className="text-slate-500 hover:text-rose-400 transition-colors">
+                                                    <XCircle size={16} />
+                                                </button>
+                                            </div>
+                                            <textarea
+                                                value={bulkJson}
+                                                onChange={(e) => setBulkJson(e.target.value)}
+                                                placeholder={`// วาง JSON array ที่นี่ (หลายข้อ)\n[\n  {\n    "question": "...",\n    "options": ["...", "...", "...", "..."],\n    "answer": "1. ...",\n    "solution": "..."\n  },\n  { ... }\n]\n\n// answer ใช้ตัวเลข 1-4`}
+                                                className="w-full h-64 bg-[#1e1e1e] text-[#d4d4d4] p-4 text-sm font-mono outline-none resize-y leading-relaxed"
+                                                spellCheck="false"
+                                            />
+                                            <div className="p-3 bg-[#252526] border-t border-[#3d3d3d]">
+                                                <button
+                                                    onClick={bulkImportQuestions}
+                                                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-sm transition-colors"
+                                                >
+                                                    นำเข้าข้อสอบทั้งหมด ✅
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {smartBlocks.length === 0 && (
                                         <div className="text-center py-10 text-slate-500">
                                             <Blocks size={48} className="mx-auto mb-4 opacity-20" />
@@ -837,35 +866,6 @@ export default function ExamEditorPage() {
                                         </div>
                                         );
                                     })}
-
-                                    {/* Bulk Import Panel */}
-                                    {isBulkImporting && (
-                                        <div className="bg-[#2d2d2d] rounded-xl border-2 border-amber-500/50 overflow-hidden shadow-lg">
-                                            <div className="bg-[#252526] p-3 flex items-center justify-between border-b border-amber-500/30">
-                                                <span className="text-xs text-amber-400 font-bold flex items-center gap-2">
-                                                    <Copy size={14} /> วางโค้ด JSON หลายข้อพร้อมกัน
-                                                </span>
-                                                <button onClick={() => setIsBulkImporting(false)} className="text-slate-500 hover:text-rose-400 transition-colors">
-                                                    <XCircle size={16} />
-                                                </button>
-                                            </div>
-                                            <textarea
-                                                value={bulkJson}
-                                                onChange={(e) => setBulkJson(e.target.value)}
-                                                placeholder={`// วาง JSON array ที่นี่ (หลายข้อ)\n[\n  {\n    "question": "...",\n    "options": ["...", "...", "...", "..."],\n    "answer": "1. ...",\n    "solution": "..."\n  },\n  { ... }\n]\n\n// answer ใช้ตัวเลข 1-4`}
-                                                className="w-full h-64 bg-[#1e1e1e] text-[#d4d4d4] p-4 text-sm font-mono outline-none resize-y leading-relaxed"
-                                                spellCheck="false"
-                                            />
-                                            <div className="p-3 bg-[#252526] border-t border-[#3d3d3d]">
-                                                <button
-                                                    onClick={bulkImportQuestions}
-                                                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-sm transition-colors"
-                                                >
-                                                    นำเข้าข้อสอบทั้งหมด ✅
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
 
                                     <div className="h-10"></div>
                                     </div>
