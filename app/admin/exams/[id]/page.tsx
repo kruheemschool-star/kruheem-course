@@ -23,9 +23,16 @@ export default function ExamEditorPage() {
     const [isBulkImporting, setIsBulkImporting] = useState(false);
     const [bulkJson, setBulkJson] = useState("");
     const [collapsedBlocks, setCollapsedBlocks] = useState<Record<number, boolean>>({});
+    const isManualUpdate = useRef(false);
 
     // Smart Editor Synchronization
     useEffect(() => {
+        // Skip sync if this was a manual update from add/delete functions
+        if (isManualUpdate.current) {
+            isManualUpdate.current = false;
+            return;
+        }
+
         if (activeTab === 'smart') {
             try {
                 // Try to parse existing content to initialize blocks
@@ -49,9 +56,8 @@ export default function ExamEditorPage() {
     const updateSmartBlock = (index: number, val: string) => {
         const newBlocks = [...smartBlocks];
         newBlocks[index] = val;
+        isManualUpdate.current = true;
         setSmartBlocks(newBlocks);
-
-        // Auto-Sync to Main JSON (Constructing string manually to allow temporary invalid syntax in blocks)
         setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
     };
 
@@ -59,6 +65,7 @@ export default function ExamEditorPage() {
         // Create an empty object string to allow easy pasting
         const emptyBlock = "{}";
         const newBlocks = [...smartBlocks, emptyBlock];
+        isManualUpdate.current = true;
         setSmartBlocks(newBlocks);
         setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
         // New question starts collapsed
@@ -109,6 +116,7 @@ export default function ExamEditorPage() {
             const transformed = valid.map(transformExamQuestion);
             const newBlockStrings = transformed.map(q => JSON.stringify(q, null, 2));
             const allBlocks = [...smartBlocks, ...newBlockStrings];
+            isManualUpdate.current = true;
             setSmartBlocks(allBlocks);
             setJsonContent(`[\n${allBlocks.join(',\n')}\n]`);
             setBulkJson("");
@@ -126,6 +134,7 @@ export default function ExamEditorPage() {
         if (!confirm("ยืนยันการลบข้อนี้?")) return;
         const newBlocks = [...smartBlocks];
         newBlocks.splice(index, 1);
+        isManualUpdate.current = true;
         setSmartBlocks(newBlocks);
         setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
     };
@@ -133,6 +142,7 @@ export default function ExamEditorPage() {
     const deleteAllQuestions = () => {
         if (smartBlocks.length === 0) return;
         if (!confirm(`ยืนยันลบข้อสอบทั้งหมด ${smartBlocks.length} ข้อ?\n\nการกระทำนี้ไม่สามารถย้อนกลับได้!`)) return;
+        isManualUpdate.current = true;
         setSmartBlocks([]);
         setJsonContent('[]');
     };
