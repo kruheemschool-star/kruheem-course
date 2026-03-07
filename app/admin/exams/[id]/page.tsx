@@ -18,6 +18,7 @@ export default function ExamEditorPage() {
     const [activeTab, setActiveTab] = useState<'json' | 'images' | 'smart'>('smart');
     const [jsonError, setJsonError] = useState<{ line: number, message: string, advice: string, start: number, end: number, scroll: number } | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [jsonContent, setJsonContent] = useState("");
     const [smartBlocks, setSmartBlocks] = useState<string[]>([]);
     const [isBulkImporting, setIsBulkImporting] = useState(false);
     const [bulkJson, setBulkJson] = useState("");
@@ -43,7 +44,7 @@ export default function ExamEditorPage() {
                 // Mostly will show empty if parse fails.
             }
         }
-    }, [activeTab]);
+    }, [activeTab, jsonContent]);
 
     const updateSmartBlock = (index: number, val: string) => {
         const newBlocks = [...smartBlocks];
@@ -331,9 +332,6 @@ export default function ExamEditorPage() {
     const [timeLimit, setTimeLimit] = useState(30);
     const [difficulty, setDifficulty] = useState("Medium");
     const [themeColor, setThemeColor] = useState("Amber");
-
-    // JSON Content
-    const [jsonContent, setJsonContent] = useState("");
 
     useEffect(() => {
         const fetchExam = async () => {
