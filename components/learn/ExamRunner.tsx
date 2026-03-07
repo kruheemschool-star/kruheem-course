@@ -35,8 +35,23 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
     // Resolve correct index per question (same logic as ExamSystem)
     const getCorrectIndex = (q: any) => {
         const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
-        let idx = Number(raw);
-        if (isNaN(idx)) idx = 0;
+
+        // Thai letter parsing: ก→0, ข→1, ค→2, ง→3
+        let idx: number;
+        if (typeof raw === 'string') {
+            const map: Record<string, number> = { '\u0e01': 0, '\u0e02': 1, '\u0e04': 2, '\u0e07': 3 };
+            const m = raw.trim().match(/([\u0e01\u0e02\u0e04\u0e07])/);
+            if (m && map[m[1]] !== undefined) {
+                idx = map[m[1]];
+            } else {
+                idx = Number(raw);
+                if (isNaN(idx)) idx = 0;
+            }
+        } else {
+            idx = Number(raw);
+            if (isNaN(idx)) idx = 0;
+        }
+
         const optLen = Array.isArray(q.options) ? q.options.length : 4;
         if (idx >= optLen && idx > 0) idx = idx - 1;
         if (idx < 0 || idx >= optLen) idx = 0;

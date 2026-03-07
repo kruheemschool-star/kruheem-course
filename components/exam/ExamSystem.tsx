@@ -40,14 +40,30 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     const [showGrid, setShowGrid] = useState(false);
     const [finalScore, setFinalScore] = useState<FinalScore | null>(null);
 
+    // Thai letter to 0-based index
+    const thaiToIdx = (val: any): number | null => {
+        if (typeof val !== 'string') return null;
+        const map: Record<string, number> = { '\u0e01': 0, '\u0e02': 1, '\u0e04': 2, '\u0e07': 3 };
+        const m = val.trim().match(/([\u0e01\u0e02\u0e04\u0e07])/);
+        return m && map[m[1]] !== undefined ? map[m[1]] : null;
+    };
+
     // Sanitize Data: Per-question bounds checking
     // Prioritize answerIndex over correctIndex, auto-fix 1-based if out of bounds
     const sanitizedExamData = React.useMemo(() => {
         return examData.map((q: any) => {
             // Step 1: Resolve the correct answer index from available fields
             const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
-            let idx = Number(raw);
-            if (isNaN(idx)) idx = 0;
+
+            // Step 1b: Try Thai letter parsing first
+            let idx: number;
+            const thaiIdx = thaiToIdx(raw);
+            if (thaiIdx !== null) {
+                idx = thaiIdx;
+            } else {
+                idx = Number(raw);
+                if (isNaN(idx)) idx = 0;
+            }
 
             // Step 2: Per-question bounds check
             // If index >= options.length, it's clearly 1-based → subtract 1

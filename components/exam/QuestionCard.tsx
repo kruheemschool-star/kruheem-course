@@ -15,6 +15,20 @@ interface QuestionCardProps {
     isSubmitted: boolean; // ถ้า true จะแสดงเฉลย
 }
 
+// Convert Thai letter references to numbers in explanation text
+const convertThaiLettersToNumbers = (text: string): string => {
+    if (!text) return text;
+    return text
+        .replace(/ข้อ\s*ก\b/g, 'ข้อ 1')
+        .replace(/ข้อ\s*ข\b/g, 'ข้อ 2')
+        .replace(/ข้อ\s*ค\b/g, 'ข้อ 3')
+        .replace(/ข้อ\s*ง\b/g, 'ข้อ 4')
+        .replace(/\bก\./g, '1.')
+        .replace(/\bข\./g, '2.')
+        .replace(/\bค\./g, '3.')
+        .replace(/\bง\./g, '4.');
+};
+
 export const QuestionCard: React.FC<QuestionCardProps> = ({
     question,
     questionNumber,
@@ -138,7 +152,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                         {index + 1}
                                     </div>
                                     <div className="text-stone-700 dark:text-slate-300 font-medium pt-1 text-lg w-full break-words min-w-0">
-                                        <MathRenderer text={option.replace(/^\s*\d+[\.\\)]\s*/, '')} />
+                                        <MathRenderer text={option.replace(/^\s*(?:\d+|[กขคง])[\.\.\)\s]\s*/, '')} />
                                     </div>
 
                                     {/* Feedback Icons on Result */}
@@ -196,7 +210,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                 เฉลยละเอียด / แนวคิด
                             </h4>
                             <div className="text-stone-700 dark:text-slate-300 leading-relaxed text-base space-y-2">
-                                <MathRenderer text={question.explanation} />
+                                <MathRenderer text={convertThaiLettersToNumbers(question.explanation)} />
                             </div>
                         </div>
                     </div>

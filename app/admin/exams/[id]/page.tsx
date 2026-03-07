@@ -76,15 +76,43 @@ export default function ExamEditorPage() {
         setCollapsedBlocks({ ...collapsedBlocks, [index]: !collapsedBlocks[index] });
     };
 
+    // Thai letter to 0-based index mapping
+    const thaiLetterToIndex = (val: any): number | null => {
+        if (typeof val !== 'string') return null;
+        const s = val.trim();
+        const map: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
+        // Match standalone letter or "ก." / "ข้อ ก" patterns
+        const letterMatch = s.match(/^[ข้อ]*\s*([\u0e01\u0e02\u0e04\u0e07])[\s\.\)]/)
+            || s.match(/^([\u0e01\u0e02\u0e04\u0e07])$/);
+        if (letterMatch && map[letterMatch[1]] !== undefined) return map[letterMatch[1]];
+        return null;
+    };
+
     // Transform external exam format to internal format
     const transformExamQuestion = (q: any) => {
         let answerIndex = q.answerIndex ?? q.correctIndex ?? 0;
         if (q.answer && typeof q.answer === 'string') {
+            // Try number format first: "1. ...", "2. ..."
             const numberMatch = q.answer.match(/^([1-4])\s*\./);
             if (numberMatch) {
                 answerIndex = parseInt(numberMatch[1]) - 1;
+            } else {
+                // Try Thai letter format: "ก. ...", "ข. ...", "ข้อ ก", etc.
+                const thaiIdx = thaiLetterToIndex(q.answer);
+                if (thaiIdx !== null) answerIndex = thaiIdx;
             }
         }
+        // Also check correctAnswer field for Thai letters
+        if (q.correctAnswer && typeof q.correctAnswer === 'string') {
+            const thaiIdx = thaiLetterToIndex(q.correctAnswer);
+            if (thaiIdx !== null) answerIndex = thaiIdx;
+        }
+        // If answerIndex is a Thai letter string
+        const thaiFromIndex = thaiLetterToIndex(String(answerIndex));
+        if (thaiFromIndex !== null) answerIndex = thaiFromIndex;
+
+        answerIndex = Number(answerIndex);
+        if (isNaN(answerIndex)) answerIndex = 0;
         const optionsLength = q.options?.length || 4;
         if (answerIndex < 0 || answerIndex >= optionsLength) {
             answerIndex = 0;
