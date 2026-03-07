@@ -15,18 +15,21 @@ interface QuestionCardProps {
     isSubmitted: boolean; // ถ้า true จะแสดงเฉลย
 }
 
-// Convert Thai letter references to numbers in explanation text
+// Convert Thai letter references (ก ข ค ง) to numbers (1 2 3 4) in explanation text
+// Note: \b doesn't work with Thai Unicode, so we use explicit character patterns
 const convertThaiLettersToNumbers = (text: string): string => {
     if (!text) return text;
     return text
-        .replace(/ข้อ\s*ก\b/g, 'ข้อ 1')
-        .replace(/ข้อ\s*ข\b/g, 'ข้อ 2')
-        .replace(/ข้อ\s*ค\b/g, 'ข้อ 3')
-        .replace(/ข้อ\s*ง\b/g, 'ข้อ 4')
-        .replace(/\bก\./g, '1.')
-        .replace(/\bข\./g, '2.')
-        .replace(/\bค\./g, '3.')
-        .replace(/\bง\./g, '4.');
+        // "ข้อ ก" → "ข้อ 1" (followed by punctuation, space, or end)
+        .replace(/ข้อ\s*ก(?=[.\s,;:\)]|$)/g, 'ข้อ 1')
+        .replace(/ข้อ\s*ข(?=[.\s,;:\)]|$)/g, 'ข้อ 2')
+        .replace(/ข้อ\s*ค(?=[.\s,;:\)]|$)/g, 'ข้อ 3')
+        .replace(/ข้อ\s*ง(?=[.\s,;:\)]|$)/g, 'ข้อ 4')
+        // "ก." → "1." (preceded by start, space, or punctuation)
+        .replace(/(^|[\s:,;(])ก\./gm, '$11.')
+        .replace(/(^|[\s:,;(])ข\./gm, '$12.')
+        .replace(/(^|[\s:,;(])ค\./gm, '$13.')
+        .replace(/(^|[\s:,;(])ง\./gm, '$14.');
 };
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
