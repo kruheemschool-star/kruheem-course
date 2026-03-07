@@ -19,6 +19,8 @@ export default function ExamEditorPage() {
     const [jsonError, setJsonError] = useState<{ line: number, message: string, advice: string, start: number, end: number, scroll: number } | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [smartBlocks, setSmartBlocks] = useState<string[]>([]);
+    const [isBulkImporting, setIsBulkImporting] = useState(false);
+    const [bulkJson, setBulkJson] = useState("");
 
     // Smart Editor Synchronization
     useEffect(() => {
@@ -57,6 +59,59 @@ export default function ExamEditorPage() {
         const newBlocks = [...smartBlocks, emptyBlock];
         setSmartBlocks(newBlocks);
         setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
+    };
+
+    // Transform external exam format to internal format
+    const transformExamQuestion = (q: any) => {
+        let answerIndex = q.answerIndex ?? q.correctIndex ?? 0;
+        if (q.answer && typeof q.answer === 'string') {
+            const numberMatch = q.answer.match(/^([1-4])\s*\./);
+            if (numberMatch) {
+                answerIndex = parseInt(numberMatch[1]) - 1;
+            }
+        }
+        const optionsLength = q.options?.length || 4;
+        if (answerIndex < 0 || answerIndex >= optionsLength) {
+            answerIndex = 0;
+        }
+        return {
+            question: q.question || "",
+            image: q.image,
+            options: q.options || [],
+            correctIndex: answerIndex,
+            explanation: q.solution || q.explanation || "",
+            tags: q.tags || (q.space ? [q.space] : [])
+        };
+    };
+
+    // Bulk import multiple questions at once
+    const bulkImportQuestions = () => {
+        const raw = bulkJson.trim();
+        if (!raw) return;
+        try {
+            let cleanJson = raw
+                .replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+            const parsed = JSON.parse(cleanJson);
+            const items = Array.isArray(parsed) ? parsed : [parsed];
+            const valid = items.filter(item => item.question && item.options && Array.isArray(item.options) && item.options.length >= 2);
+            if (valid.length === 0) {
+                alert("❌ ไม่พบข้อสอบที่ถูกต้อง (ต้องมี question และ options)");
+                return;
+            }
+            const transformed = valid.map(transformExamQuestion);
+            const newBlockStrings = transformed.map(q => JSON.stringify(q, null, 2));
+            const allBlocks = [...smartBlocks, ...newBlockStrings];
+            setSmartBlocks(allBlocks);
+            setJsonContent(`[\n${allBlocks.join(',\n')}\n]`);
+            setBulkJson("");
+            setIsBulkImporting(false);
+            const skipped = items.length - valid.length;
+            let msg = `✅ เพิ่ม ${valid.length} ข้อเรียบร้อย!`;
+            if (skipped > 0) msg += `\n⚠️ ข้าม ${skipped} ข้อที่ไม่ถูกต้อง`;
+            alert(msg);
+        } catch (e: any) {
+            alert(`❌ JSON ไม่ถูกต้อง: ${e.message}`);
+        }
     };
 
     const deleteSmartQuestion = (index: number) => {
@@ -719,14 +774,52 @@ export default function ExamEditorPage() {
                                         </div>
                                     ))}
 
-                                    {/* Add Button */}
-                                    <button
-                                        onClick={addSmartQuestion}
-                                        className="w-full py-4 rounded-xl border-2 border-dashed border-[#3d3d3d] hover:border-emerald-500/50 hover:bg-emerald-500/5 text-slate-400 hover:text-emerald-400 transition-all flex flex-col items-center justify-center gap-2 font-bold"
-                                    >
-                                        <Plus size={24} />
-                                        เพิ่มข้อสอบใหม่
-                                    </button>
+                                    {/* Bulk Import Panel */}
+                                    {isBulkImporting && (
+                                        <div className="bg-[#2d2d2d] rounded-xl border-2 border-amber-500/50 overflow-hidden shadow-lg">
+                                            <div className="bg-[#252526] p-3 flex items-center justify-between border-b border-amber-500/30">
+                                                <span className="text-xs text-amber-400 font-bold flex items-center gap-2">
+                                                    <Copy size={14} /> วางโค้ด JSON หลายข้อพร้อมกัน
+                                                </span>
+                                                <button onClick={() => setIsBulkImporting(false)} className="text-slate-500 hover:text-rose-400 transition-colors">
+                                                    <XCircle size={16} />
+                                                </button>
+                                            </div>
+                                            <textarea
+                                                value={bulkJson}
+                                                onChange={(e) => setBulkJson(e.target.value)}
+                                                placeholder={`// วาง JSON array ที่นี่ (หลายข้อ)\n[\n  {\n    "question": "...",\n    "options": ["...", "...", "...", "..."],\n    "answer": "1. ...",\n    "solution": "..."\n  },\n  { ... }\n]\n\n// answer ใช้ตัวเลข 1-4`}
+                                                className="w-full h-64 bg-[#1e1e1e] text-[#d4d4d4] p-4 text-sm font-mono outline-none resize-y leading-relaxed"
+                                                spellCheck="false"
+                                            />
+                                            <div className="p-3 bg-[#252526] border-t border-[#3d3d3d]">
+                                                <button
+                                                    onClick={bulkImportQuestions}
+                                                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-sm transition-colors"
+                                                >
+                                                    นำเข้าข้อสอบทั้งหมด ✅
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Add Buttons */}
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={addSmartQuestion}
+                                            className="flex-1 py-4 rounded-xl border-2 border-dashed border-[#3d3d3d] hover:border-emerald-500/50 hover:bg-emerald-500/5 text-slate-400 hover:text-emerald-400 transition-all flex flex-col items-center justify-center gap-2 font-bold"
+                                        >
+                                            <Plus size={24} />
+                                            เพิ่มทีละข้อ
+                                        </button>
+                                        <button
+                                            onClick={() => setIsBulkImporting(!isBulkImporting)}
+                                            className="flex-1 py-4 rounded-xl border-2 border-dashed border-[#3d3d3d] hover:border-amber-500/50 hover:bg-amber-500/5 text-slate-400 hover:text-amber-400 transition-all flex flex-col items-center justify-center gap-2 font-bold"
+                                        >
+                                            <Copy size={24} />
+                                            เพิ่มทีละหลายข้อ
+                                        </button>
+                                    </div>
 
                                     <div className="h-10"></div>
                                 </div>
