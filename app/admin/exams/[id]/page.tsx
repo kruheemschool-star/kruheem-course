@@ -21,6 +21,7 @@ export default function ExamEditorPage() {
     const [smartBlocks, setSmartBlocks] = useState<string[]>([]);
     const [isBulkImporting, setIsBulkImporting] = useState(false);
     const [bulkJson, setBulkJson] = useState("");
+    const [collapsedBlocks, setCollapsedBlocks] = useState<Record<number, boolean>>({});
 
     // Smart Editor Synchronization
     useEffect(() => {
@@ -59,6 +60,12 @@ export default function ExamEditorPage() {
         const newBlocks = [...smartBlocks, emptyBlock];
         setSmartBlocks(newBlocks);
         setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
+        // New question starts collapsed
+        setCollapsedBlocks({ ...collapsedBlocks, [newBlocks.length - 1]: true });
+    };
+
+    const toggleBlockCollapse = (index: number) => {
+        setCollapsedBlocks({ ...collapsedBlocks, [index]: !collapsedBlocks[index] });
     };
 
     // Transform external exam format to internal format
@@ -711,17 +718,22 @@ export default function ExamEditorPage() {
                                         </div>
                                     )}
 
-                                    {smartBlocks.map((block, idx) => (
+                                    {smartBlocks.map((block, idx) => {
+                                        const isCollapsed = collapsedBlocks[idx] ?? true; // Default collapsed
+                                        return (
                                         <div key={idx} className="bg-[#2d2d2d] rounded-xl border border-[#3d3d3d] overflow-hidden shadow-lg group hover:border-emerald-500/50 transition-colors">
                                             {/* Card Header */}
-                                            <div className="bg-[#252526] p-3 flex items-center justify-between border-b border-[#3d3d3d]">
+                                            <div className="bg-[#252526] p-3 flex items-center justify-between cursor-pointer" onClick={() => toggleBlockCollapse(idx)}>
                                                 <div className="flex items-center gap-3">
                                                     <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">
                                                         {idx + 1}
                                                     </span>
                                                     <span className="text-xs text-slate-400 font-mono">Question Block</span>
+                                                    <button className="p-1 text-slate-500 hover:text-slate-300 transition-colors">
+                                                        {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                                                    </button>
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                     <button
                                                         onClick={() => deleteSmartQuestion(idx)}
                                                         className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 rounded transition-colors"
@@ -732,86 +744,91 @@ export default function ExamEditorPage() {
                                                 </div>
                                             </div>
 
-                                            {/* Editor Area */}
-                                            <div className="relative">
-                                                <textarea
-                                                    value={block}
-                                                    onChange={(e) => updateSmartBlock(idx, e.target.value)}
-                                                    className="w-full h-48 bg-[#1e1e1e] text-[#d4d4d4] p-4 text-sm font-mono outline-none resize-y leading-relaxed"
-                                                    spellCheck="false"
-                                                />
-                                                {/* Mini Help */}
-                                                <div className="absolute right-2 bottom-2 pointer-events-none opacity-50">
-                                                    <FileJsonIcon size={12} className="text-slate-600" />
+                                            {/* Editor Area - Only show when expanded */}
+                                            {!isCollapsed && (
+                                            <>
+                                                <div className="relative">
+                                                    <textarea
+                                                        value={block}
+                                                        onChange={(e) => updateSmartBlock(idx, e.target.value)}
+                                                        className="w-full h-48 bg-[#1e1e1e] text-[#d4d4d4] p-4 text-sm font-mono outline-none resize-y leading-relaxed"
+                                                        spellCheck="false"
+                                                    />
+                                                    {/* Mini Help */}
+                                                    <div className="absolute right-2 bottom-2 pointer-events-none opacity-50">
+                                                        <FileJsonIcon size={12} className="text-slate-600" />
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Smart Image Uploader for this block */}
-                                            {(() => {
-                                                try {
-                                                    const parsed = JSON.parse(block);
-                                                    return (
-                                                        <div className="p-3 bg-[#252526] border-t border-[#3d3d3d] flex items-center justify-between">
-                                                            <div className="flex items-center gap-3">
-                                                                {parsed.image ? (
-                                                                    <div className="relative group w-10 h-10 rounded bg-black border border-slate-700 overflow-hidden">
-                                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                        <img src={parsed.image} alt="preview" className="w-full h-full object-contain" />
+                                                {/* Smart Image Uploader for this block */}
+                                                {(() => {
+                                                    try {
+                                                        const parsed = JSON.parse(block);
+                                                        return (
+                                                            <div className="p-3 bg-[#252526] border-t border-[#3d3d3d] flex items-center justify-between">
+                                                                <div className="flex items-center gap-3">
+                                                                    {parsed.image ? (
+                                                                        <div className="relative group w-10 h-10 rounded bg-black border border-slate-700 overflow-hidden">
+                                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                            <img src={parsed.image} alt="preview" className="w-full h-full object-contain" />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="w-10 h-10 rounded bg-[#333] border border-[#444] flex items-center justify-center text-slate-500">
+                                                                            <ImageIcon size={14} />
+                                                                        </div>
+                                                                    )}
+
+                                                                    <div>
+                                                                        <label className="cursor-pointer px-3 py-1.5 bg-[#3d3d3d] hover:bg-[#4d4d4d] text-slate-300 text-xs rounded border border-[#555] flex items-center gap-2 transition-all group">
+                                                                            <UploadCloud size={14} className="text-amber-500 group-hover:scale-110 transition-transform" />
+                                                                            <span className="font-bold">{parsed.image ? "เปลี่ยนรูปภาพ" : "แนบรูปภาพ"}</span>
+                                                                            <input
+                                                                                type="file"
+                                                                                className="hidden"
+                                                                                accept="image/*"
+                                                                                onChange={async (e) => {
+                                                                                    const file = e.target.files?.[0];
+                                                                                    if (!file) return;
+                                                                                    try {
+                                                                                        const filename = `exam-q-images/${Date.now()}_${idx}_${file.name}`;
+                                                                                        const storageRef = ref(storage, filename);
+                                                                                        const snapshot = await uploadBytes(storageRef, file);
+                                                                                        const url = await getDownloadURL(snapshot.ref);
+
+                                                                                        const newObj = { ...parsed, image: url };
+                                                                                        updateSmartBlock(idx, JSON.stringify(newObj, null, 2));
+                                                                                    } catch (err) {
+                                                                                        console.error(err);
+                                                                                        alert("อัปโหลดไม่สำเร็จ");
+                                                                                    }
+                                                                                }}
+                                                                            />
+                                                                        </label>
                                                                     </div>
-                                                                ) : (
-                                                                    <div className="w-10 h-10 rounded bg-[#333] border border-[#444] flex items-center justify-center text-slate-500">
-                                                                        <ImageIcon size={14} />
-                                                                    </div>
-                                                                )}
-
-                                                                <div>
-                                                                    <label className="cursor-pointer px-3 py-1.5 bg-[#3d3d3d] hover:bg-[#4d4d4d] text-slate-300 text-xs rounded border border-[#555] flex items-center gap-2 transition-all group">
-                                                                        <UploadCloud size={14} className="text-amber-500 group-hover:scale-110 transition-transform" />
-                                                                        <span className="font-bold">{parsed.image ? "เปลี่ยนรูปภาพ" : "แนบรูปภาพ"}</span>
-                                                                        <input
-                                                                            type="file"
-                                                                            className="hidden"
-                                                                            accept="image/*"
-                                                                            onChange={async (e) => {
-                                                                                const file = e.target.files?.[0];
-                                                                                if (!file) return;
-                                                                                try {
-                                                                                    const filename = `exam-q-images/${Date.now()}_${idx}_${file.name}`;
-                                                                                    const storageRef = ref(storage, filename);
-                                                                                    const snapshot = await uploadBytes(storageRef, file);
-                                                                                    const url = await getDownloadURL(snapshot.ref);
-
-                                                                                    const newObj = { ...parsed, image: url };
-                                                                                    updateSmartBlock(idx, JSON.stringify(newObj, null, 2));
-                                                                                } catch (err) {
-                                                                                    console.error(err);
-                                                                                    alert("อัปโหลดไม่สำเร็จ");
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                    </label>
                                                                 </div>
+                                                                {parsed.image && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const newObj = { ...parsed };
+                                                                            delete newObj.image;
+                                                                            updateSmartBlock(idx, JSON.stringify(newObj, null, 2));
+                                                                        }}
+                                                                        className="text-rose-400 hover:text-rose-300 text-xs flex items-center gap-1 bg-rose-950/20 px-2 py-1 rounded border border-rose-900/30 transition-colors"
+                                                                    >
+                                                                        <Trash2 size={12} /> ลบรูป
+                                                                    </button>
+                                                                )}
                                                             </div>
-                                                            {parsed.image && (
-                                                                <button
-                                                                    onClick={() => {
-                                                                        const newObj = { ...parsed };
-                                                                        delete newObj.image;
-                                                                        updateSmartBlock(idx, JSON.stringify(newObj, null, 2));
-                                                                    }}
-                                                                    className="text-rose-400 hover:text-rose-300 text-xs flex items-center gap-1 bg-rose-950/20 px-2 py-1 rounded border border-rose-900/30 transition-colors"
-                                                                >
-                                                                    <Trash2 size={12} /> ลบรูป
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                } catch (e) {
-                                                    return null; // Invalid JSON, don't show uploader
-                                                }
-                                            })()}
+                                                        );
+                                                    } catch (e) {
+                                                        return null; // Invalid JSON, don't show uploader
+                                                    }
+                                                })()}
+                                            </>
+                                            )}
                                         </div>
-                                    ))}
+                                        );
+                                    })}
 
                                     {/* Bulk Import Panel */}
                                     {isBulkImporting && (
