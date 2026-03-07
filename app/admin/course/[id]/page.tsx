@@ -423,6 +423,37 @@ export default function ManageLessonsPage() {
         setLessonContent(JSON.stringify(newQuestions, null, 2));
     };
 
+    // Transform external exam format to internal format
+    const transformExamQuestion = (q: any) => {
+        // Parse answer field to get answerIndex (0-based)
+        // Supports: "1. xxx", "2. xxx", etc. (numbers 1-4)
+        let answerIndex = q.answerIndex ?? q.correctIndex ?? 0;
+        
+        if (q.answer && typeof q.answer === 'string') {
+            // Match "1.", "2.", "3.", "4." at the start
+            const numberMatch = q.answer.match(/^([1-4])\s*\./);
+            if (numberMatch) {
+                answerIndex = parseInt(numberMatch[1]) - 1; // Convert 1-4 to 0-3
+            }
+        }
+        
+        // Ensure answerIndex is within valid range
+        const optionsLength = q.options?.length || 4;
+        if (answerIndex < 0 || answerIndex >= optionsLength) {
+            answerIndex = 0; // Default to first option if invalid
+        }
+        
+        return {
+            id: q.id,
+            question: q.question || "",
+            image: q.image,
+            options: q.options || [],
+            answerIndex,
+            explanation: q.solution || q.explanation || "",
+            tags: q.tags || (q.space ? [q.space] : [])
+        };
+    };
+
     const handleAddSingleQuestion = () => {
         try {
             let rawJson = newQuestionJson.trim();
@@ -541,21 +572,24 @@ export default function ManageLessonsPage() {
 
             // Validate basic structure
             const validItems = newItems.filter(item => {
-                if (!item.question && !item.options) {
-                    return false;
-                }
+                if (!item.question) return false;
+                if (!item.options || !Array.isArray(item.options)) return false;
+                if (item.options.length < 2) return false; // At least 2 options
                 return true;
             });
 
             if (validItems.length === 0) {
-                showToast("❌ ไม่พบข้อสอบที่ถูกต้อง\nต้องมี field: question และ options", "error");
+                showToast("❌ ไม่พบข้อสอบที่ถูกต้อง\nต้องมี field: question และ options (อย่างน้อย 2 ตัวเลือก)", "error");
                 return;
             }
+
+            // Transform to internal format
+            const transformedItems = validItems.map(transformExamQuestion);
 
             // Auto-assign ID if missing (max + 1)
             let maxId = examQuestions.reduce((max, q) => Math.max(max, q.id || 0), 0);
 
-            const processedItems = validItems.map(item => {
+            const processedItems = transformedItems.map(item => {
                 if (!item.id) {
                     maxId++;
                     return { ...item, id: maxId };
@@ -571,7 +605,12 @@ export default function ManageLessonsPage() {
             const skipped = newItems.length - validItems.length;
             let message = `✅ เพิ่ม ${processedItems.length} ข้อเรียบร้อย!`;
             if (skipped > 0) {
-                message += ` (ข้าม ${skipped} ข้อที่ไม่ถูกต้อง)`;
+                message += `\n⚠️ ข้าม ${skipped} ข้อที่ไม่ถูกต้อง`;
+            }
+            // Show tags if any
+            const allTags = [...new Set(processedItems.flatMap(p => p.tags || []))];
+            if (allTags.length > 0) {
+                message += `\n🏷️ Tags: ${allTags.join(', ')}`;
             }
             showToast(message);
         } catch (e) {
@@ -1602,14 +1641,14 @@ export default function ManageLessonsPage() {
                                             {/* Add Question Panel */}
                                             {isAddingQuestion && !isRawMode && (
                                                 <div className="bg-cyan-50 p-4 rounded-2xl border-2 border-cyan-200 shadow-sm animate-in slide-in-from-top-2">
-                                                    <label className="block text-xs font-bold text-cyan-700 mb-2">วางโค้ด JSON ของข้อสอบ "ข้อเดียว" ที่นี่:</label>
+                                                    <label className="block text-xs font-bold text-cyan-700 mb-2">💡 วางโค้ด JSON ของข้อสอบ (ข้อเดียวหรือหลายข้อพร้อมกัน):</label>
                                                     <textarea
-                                                        placeholder={`{\n  "id": ...,\n  "question": "..."\n}`}
-                                                        className="w-full p-4 bg-white border-2 border-cyan-100 rounded-xl outline-none min-h-[150px] font-mono text-xs text-slate-600 mb-3"
+                                                        placeholder={`// ข้อเดียว:\n{\n  "question": "...",\n  "options": ["...", "...", "...", "..."],\n  "answer": "1. ...",\n  "solution": "..."\n}\n\n// หลายข้อ:\n[\n  { "question": "...", "options": [...], "answer": "1. ..." },\n  { "question": "...", "options": [...], "answer": "2. ..." }\n]\n\n// หมายเหตุ: answer ใช้ตัวเลข 1-4 เท่านั้น`}
+                                                        className="w-full p-4 bg-white border-2 border-cyan-100 rounded-xl outline-none min-h-[200px] font-mono text-xs text-slate-600 mb-3"
                                                         value={newQuestionJson}
                                                         onChange={(e) => setNewQuestionJson(e.target.value)}
                                                     />
-                                                    <button type="button" onClick={handleAddSingleQuestion} className="w-full py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl font-bold transition shadow-sm">บันทึกข้อสอบข้อนี้ ✅</button>
+                                                    <button type="button" onClick={handleAddSingleQuestion} className="w-full py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl font-bold transition shadow-sm">บันทึกข้อสอบ ✅</button>
                                                 </div>
                                             )}
 
