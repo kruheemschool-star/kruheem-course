@@ -25,6 +25,8 @@ export interface OnlineUser {
     userType?: string;
     sessionStart?: any;
     lastAccessedAt?: any;
+    isAnonymous?: boolean;
+    device?: string;
 }
 
 export const useAdminStats = (selectedYear: number) => {
@@ -113,10 +115,11 @@ export const useAdminStats = (selectedYear: number) => {
     const fetchOnlineUsers = async (approvedData: Enrollment[]) => {
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
-        // Fetch both online queries in parallel
-        const [snapOnlineEnrollments, snapOnlineUsers] = await Promise.all([
+        // Fetch registered online users AND anonymous visitors in parallel
+        const [snapOnlineEnrollments, snapOnlineUsers, snapAnonymous] = await Promise.all([
             getDocs(query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo))),
             getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo))),
+            getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", ">", tenMinutesAgo))),
         ]);
 
         const onlineMap = new Map();
@@ -161,7 +164,24 @@ export const useAdminStats = (selectedYear: number) => {
             };
         });
 
-        setOnlineUsers(finalOnlineUsers);
+        // Add anonymous visitors as "เยี่ยมชม 1", "เยี่ยมชม 2", etc.
+        const anonymousUsers: OnlineUser[] = snapAnonymous.docs.map((doc, idx) => {
+            const data = doc.data();
+            return {
+                userEmail: `anonymous_${doc.id}`,
+                userName: `เยี่ยมชม ${idx + 1}`,
+                currentActivity: `กำลังดูหน้า: ${data.currentPage || '/'}`,
+                isMember: false,
+                isStudying: false,
+                userType: 'ผู้เยี่ยมชม',
+                sessionStart: data.createdAt,
+                lastAccessedAt: data.lastActive,
+                isAnonymous: true,
+                device: data.device,
+            } as OnlineUser;
+        });
+
+        setOnlineUsers([...finalOnlineUsers, ...anonymousUsers]);
     };
 
     // Calculate Financial Stats

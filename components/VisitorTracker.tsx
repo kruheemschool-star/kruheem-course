@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, increment, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, increment, serverTimestamp } from "firebase/firestore";
 import { usePathname } from "next/navigation";
 import { useUserAuth } from "@/context/AuthContext";
 
@@ -58,8 +58,8 @@ export default function VisitorTracker() {
     const pathname = usePathname();
     const lastPathRef = useRef<string | null>(null);
 
-    // Get admin status from AuthContext
-    const { isAdmin, loading } = useUserAuth();
+    // Get admin status and user from AuthContext
+    const { isAdmin, loading, user } = useUserAuth();
 
     // Store admin session flag in localStorage for persistence
     useEffect(() => {
@@ -118,6 +118,81 @@ export default function VisitorTracker() {
         const timeoutId = setTimeout(recordDailyVisit, 500);
         return () => clearTimeout(timeoutId);
     }, [isAdmin]);
+
+    // === 1b. Anonymous Visitor Presence (Heartbeat for non-logged-in users) ===
+    const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
+    const sessionIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        // Only track anonymous (non-logged-in) visitors, skip admin
+        if (user || isAdmin || isAdminSession()) {
+            // If user just logged in, clean up anonymous doc
+            if (sessionIdRef.current) {
+                deleteDoc(doc(db, "anonymous_visitors", sessionIdRef.current)).catch(() => {});
+                sessionIdRef.current = null;
+            }
+            if (heartbeatRef.current) {
+                clearInterval(heartbeatRef.current);
+                heartbeatRef.current = null;
+            }
+            return;
+        }
+
+        // Generate or retrieve session ID
+        let sessionId = sessionStorage.getItem('anon_session_id');
+        if (!sessionId) {
+            sessionId = `anon_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            sessionStorage.setItem('anon_session_id', sessionId);
+        }
+        sessionIdRef.current = sessionId;
+
+        const device = getDeviceType();
+
+        // Write presence document
+        const writePresence = async () => {
+            try {
+                await setDoc(doc(db, "anonymous_visitors", sessionId!), {
+                    sessionId: sessionId,
+                    lastActive: serverTimestamp(),
+                    device: device,
+                    currentPage: pathname || '/',
+                    createdAt: serverTimestamp(),
+                }, { merge: true });
+            } catch (e) {
+                // Silently fail
+            }
+        };
+
+        // Initial write
+        writePresence();
+
+        // Heartbeat every 2 minutes
+        heartbeatRef.current = setInterval(() => {
+            setDoc(doc(db, "anonymous_visitors", sessionId!), {
+                lastActive: serverTimestamp(),
+                currentPage: pathname || '/',
+            }, { merge: true }).catch(() => {});
+        }, 2 * 60 * 1000);
+
+        // Cleanup on unmount / page close
+        const cleanup = () => {
+            if (sessionIdRef.current) {
+                // Use navigator.sendBeacon as fallback for page unload
+                deleteDoc(doc(db, "anonymous_visitors", sessionIdRef.current)).catch(() => {});
+            }
+        };
+
+        window.addEventListener('beforeunload', cleanup);
+
+        return () => {
+            window.removeEventListener('beforeunload', cleanup);
+            if (heartbeatRef.current) {
+                clearInterval(heartbeatRef.current);
+                heartbeatRef.current = null;
+            }
+            cleanup();
+        };
+    }, [user, isAdmin, pathname]);
 
     // === 2. Page View Tracking (Runs On Every Page Change) ===
     useEffect(() => {

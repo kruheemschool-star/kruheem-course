@@ -7,6 +7,8 @@ interface OnlineUser {
     userType?: string;
     sessionStart?: any;
     lastAccessedAt?: any;
+    isAnonymous?: boolean;
+    device?: string;
 }
 
 interface OnlineUsersWidgetProps {
@@ -17,7 +19,8 @@ interface OnlineUsersWidgetProps {
 
 export default function OnlineUsersWidget({ onlineUsers, formatOnlineDuration, todayVisitors = 0 }: OnlineUsersWidgetProps) {
     const memberCount = onlineUsers.filter(u => u.isMember).length;
-    const guestCount = onlineUsers.filter(u => !u.isMember).length;
+    const anonymousCount = onlineUsers.filter(u => (u as any).isAnonymous).length;
+    const guestCount = onlineUsers.filter(u => !u.isMember && !(u as any).isAnonymous).length;
 
     return (
         <div>
@@ -31,13 +34,17 @@ export default function OnlineUsersWidget({ onlineUsers, formatOnlineDuration, t
             </div>
 
             {/* Summary Stats */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-4 gap-3 mb-4">
                 <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-                    <p className="text-2xl font-bold text-slate-800">{memberCount}</p>
+                    <p className="text-2xl font-bold text-blue-600">{memberCount}</p>
                     <p className="text-xs text-slate-500">นักเรียน</p>
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
                     <p className="text-2xl font-bold text-slate-800">{guestCount}</p>
+                    <p className="text-xs text-slate-500">สมาชิก</p>
+                </div>
+                <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
+                    <p className="text-2xl font-bold text-violet-600">{anonymousCount}</p>
                     <p className="text-xs text-slate-500">ผู้เยี่ยมชม</p>
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
@@ -57,11 +64,15 @@ export default function OnlineUsersWidget({ onlineUsers, formatOnlineDuration, t
                             <div key={idx} className="flex items-center gap-3 p-3 hover:bg-slate-50 transition-colors">
                                 {/* Avatar */}
                                 <div className="relative">
-                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium ${user.isMember ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
+                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium ${
+                                        user.isMember ? 'bg-blue-100 text-blue-600' 
+                                        : (user as any).isAnonymous ? 'bg-violet-100 text-violet-600'
+                                        : 'bg-slate-100 text-slate-500'
                                         }`}>
-                                        {user.userName ? user.userName.charAt(0).toUpperCase() : 'U'}
+                                        {(user as any).isAnonymous ? '👤' : (user.userName ? user.userName.charAt(0).toUpperCase() : 'U')}
                                     </div>
-                                    <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${user.isStudying ? 'bg-emerald-500' : 'bg-amber-400'
+                                    <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                                        user.isStudying ? 'bg-emerald-500' : (user as any).isAnonymous ? 'bg-violet-400' : 'bg-amber-400'
                                         }`}></span>
                                 </div>
 
@@ -71,7 +82,10 @@ export default function OnlineUsersWidget({ onlineUsers, formatOnlineDuration, t
                                         <p className="text-sm font-medium text-slate-700 truncate">
                                             {user.userName || user.userEmail || "Unknown"}
                                         </p>
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${user.isMember ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                            user.isMember ? 'bg-blue-50 text-blue-600' 
+                                            : (user as any).isAnonymous ? 'bg-violet-50 text-violet-600'
+                                            : 'bg-slate-100 text-slate-500'
                                             }`}>
                                             {user.userType}
                                         </span>
