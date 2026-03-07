@@ -40,37 +40,29 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     const [showGrid, setShowGrid] = useState(false);
     const [finalScore, setFinalScore] = useState<FinalScore | null>(null);
 
-    // Sanitize Data: Smart Normalization
-    // Prioritize answerIndex over correctIndex, then detect 1-based vs 0-based
+    // Sanitize Data: Per-question bounds checking
+    // Prioritize answerIndex over correctIndex, auto-fix 1-based if out of bounds
     const sanitizedExamData = React.useMemo(() => {
-        // First pass: Use answerIndex if available, otherwise correctIndex
-        let rawIndices: number[] = [];
-        const parsed = examData.map((q: any) => {
-            // 🔧 FIX: Prefer answerIndex if it exists and is valid
-            const val = q.answerIndex !== undefined && q.answerIndex !== null
-                ? q.answerIndex
-                : q.correctIndex;
+        return examData.map((q: any) => {
+            // Step 1: Resolve the correct answer index from available fields
+            const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
+            let idx = Number(raw);
+            if (isNaN(idx)) idx = 0;
 
-            // Parse strictly
-            if (val === undefined || val === null || val === "") return { ...q, correctIndex: -1 };
-            const num = Number(val);
-            if (!isNaN(num)) rawIndices.push(num);
-            return { ...q, correctIndex: isNaN(num) ? -1 : num };
+            // Step 2: Per-question bounds check
+            // If index >= options.length, it's clearly 1-based → subtract 1
+            const optLen = Array.isArray(q.options) ? q.options.length : 4;
+            if (idx >= optLen && idx > 0) {
+                idx = idx - 1;
+            }
+
+            // Step 3: Clamp to valid range [0, optLen-1]
+            if (idx < 0 || idx >= optLen) {
+                idx = 0;
+            }
+
+            return { ...q, correctIndex: idx };
         });
-
-        // Heuristic: If we have indices, check existence of 0
-        const hasZero = rawIndices.includes(0);
-        const allPositive = rawIndices.every(i => i > 0);
-
-        // Decision: If NO zero exists and ALL are positive, assume 1-based.
-        // e.g. [1, 2, 3, 4] -> Shift to [0, 1, 2, 3]
-        // e.g. [0, 1, 2, 3] -> Keep as is
-        const shouldShift = !hasZero && allPositive && rawIndices.length > 0;
-
-        return parsed.map(q => ({
-            ...q,
-            correctIndex: (q.correctIndex !== -1 && shouldShift) ? q.correctIndex - 1 : q.correctIndex
-        }));
     }, [examData]);
 
     const currentQuestion = sanitizedExamData[currentQuestionIndex];

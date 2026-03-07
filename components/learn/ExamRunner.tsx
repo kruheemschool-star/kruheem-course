@@ -32,11 +32,22 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
         setRevealed(prev => ({ ...prev, [currentIndex]: true }));
     };
 
+    // Resolve correct index per question (same logic as ExamSystem)
+    const getCorrectIndex = (q: any) => {
+        const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
+        let idx = Number(raw);
+        if (isNaN(idx)) idx = 0;
+        const optLen = Array.isArray(q.options) ? q.options.length : 4;
+        if (idx >= optLen && idx > 0) idx = idx - 1;
+        if (idx < 0 || idx >= optLen) idx = 0;
+        return idx;
+    };
+
     const handleSubmit = () => {
         if (!confirm("ยืนยันส่งคำตอบหรือไม่?")) return;
         let s = 0;
         questions.forEach((q, i) => {
-            if (answers[i] === (q.answerIndex || 0)) s++;
+            if (answers[i] === getCorrectIndex(q)) s++;
         });
         setScore(s);
         setIsSubmitted(true);
@@ -64,7 +75,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
                         {questions.map((_, idx) => {
                             const isCurrent = idx === currentIndex;
                             const isDone = answers[idx] !== undefined;
-                            const isCorrect = isSubmitted && isDone && answers[idx] === (questions[idx].answerIndex ?? questions[idx].correctAnswer ?? 0);
+                            const isCorrect = isSubmitted && isDone && answers[idx] === getCorrectIndex(questions[idx]);
                             const isWrong = isSubmitted && isDone && !isCorrect;
 
                             let btnStyle = "bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-600 hover:text-slate-600 dark:hover:text-slate-300 border border-transparent"; // Default
@@ -106,7 +117,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
                             id: currentIndex,
                             question: currentQ.question,
                             options: currentQ.options,
-                            correctIndex: currentQ.answerIndex ?? currentQ.correctAnswer ?? 0,
+                            correctIndex: getCorrectIndex(currentQ),
                             explanation: currentQ.explanation,
                             image: currentQ.image
                         }}
