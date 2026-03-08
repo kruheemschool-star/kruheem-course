@@ -36,9 +36,11 @@ export default function AdminDashboard() {
         stats
     } = useAdminStats(selectedYear);
 
-    // Learning Stats Hook (deferred until main stats finish to reduce Firestore reads)
+    // Learning Stats Hook (manual trigger — only fetches when user clicks "โหลดข้อมูลการเรียน")
     const {
         loading: learningLoading,
+        hasFetched: learningFetched,
+        fetchStats: fetchLearningStats,
         overallCompletionRate,
         courseCompletionRates,
         averageActiveDays,
@@ -46,7 +48,7 @@ export default function AdminDashboard() {
         mostEngagingLessons,
         dropOffPoints,
         topActiveStudents
-    } = useAdminLearningStats(!loading);
+    } = useAdminLearningStats();
 
     const handleLogout = async () => {
         if (confirm("ต้องการออกจากระบบใช่ไหม?")) {
@@ -205,8 +207,18 @@ export default function AdminDashboard() {
                         </div>
                     )}
 
-                    {/* Learning Health Section */}
-                    {learningLoading ? (
+                    {/* Learning Health Section (loaded on demand to reduce Firestore reads) */}
+                    {!learningFetched && !learningLoading ? (
+                        <div className="flex flex-col items-center justify-center py-12 gap-3">
+                            <p className="text-sm text-slate-400">ข้อมูลสถิติการเรียนยังไม่ถูกโหลด</p>
+                            <button
+                                onClick={fetchLearningStats}
+                                className="px-5 py-2.5 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
+                            >
+                                📊 โหลดข้อมูลการเรียน
+                            </button>
+                        </div>
+                    ) : learningLoading ? (
                         <div className="flex items-center justify-center py-12 text-slate-400 gap-2">
                             <Loader2 className="animate-spin" size={18} />
                             <span className="text-sm">กำลังโหลดข้อมูลการเรียน...</span>

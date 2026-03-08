@@ -47,7 +47,7 @@ export const useAdminStats = (selectedYear: number) => {
         let interval: NodeJS.Timeout;
         fetchData().then(() => {
             // Only start refresh interval after initial load completes
-            interval = setInterval(fetchData, 60000);
+            interval = setInterval(fetchData, 5 * 60 * 1000); // 5 min refresh
         });
         return () => { if (interval) clearInterval(interval); };
     }, []);

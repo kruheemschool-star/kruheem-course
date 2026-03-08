@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, doc, getDocs, setDoc, deleteDoc, onSnapshot, query, where, writeBatch, serverTimestamp, orderBy } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch, serverTimestamp, orderBy } from "firebase/firestore";
 import { Loader2, Plus, Trash2, Save, BarChart3, CheckCircle2, Power, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -18,38 +18,32 @@ export default function AdminPollPage() {
     const [stats, setStats] = useState<{ [key: string]: number }>({});
     const [totalVotes, setTotalVotes] = useState(0);
 
-    // Fetch Polls
-    useEffect(() => {
-        const q = query(collection(db, "polls"), orderBy("createdAt", "desc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Fetch Polls (one-time fetch — polls don't need real-time updates)
+    const fetchPolls = async () => {
+        try {
+            const q = query(collection(db, "polls"), orderBy("createdAt", "desc"));
+            const snapshot = await getDocs(q);
+            const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             setPolls(items);
-
-            // Auto-select logic
-            if (!selectedPollId) {
-                if (items.length > 0) {
-                    // If there are polls, select the active one or the first one
-                    const active = items.find((i: any) => i.isActive);
-                    handleSelectPoll(active ? active : items[0]);
-                } else {
-                    // If no polls exist, default to "new" mode
-                    handleCreateNew();
-                }
-            } else if (selectedPollId !== "new") {
-                // Update current view if data changes (and we are not creating a new one)
-                const current = items.find((i: any) => i.id === selectedPollId);
-                if (current) {
-                    updateEditorState(current);
-                } else {
-                    // If the selected poll was deleted, switch to new or first
-                    if (items.length > 0) handleSelectPoll(items[0]);
-                    else handleCreateNew();
-                }
-            }
+            return items;
+        } catch (error) {
+            console.error("Error fetching polls:", error);
+            return [];
+        } finally {
             setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchPolls().then(items => {
+            if (items.length > 0) {
+                const active = items.find((i: any) => i.isActive);
+                handleSelectPoll(active ? active : items[0]);
+            } else {
+                handleCreateNew();
+            }
         });
-        return () => unsubscribe();
-    }, [selectedPollId]); // Add selectedPollId to dependency to ensure logic runs correctly when it changes or on mount
+    }, []);
 
     const handleSelectPoll = (poll: any) => {
         setSelectedPollId(poll.id);
@@ -118,6 +112,7 @@ export default function AdminPollPage() {
                 await deactivateOtherPolls(targetId);
             }
 
+            await fetchPolls();
             alert("บันทึกข้อมูลสำเร็จ!");
         } catch (error) {
             console.error(error);
@@ -151,6 +146,7 @@ export default function AdminPollPage() {
             await deleteDoc(doc(db, "polls", selectedPollId));
             setSelectedPollId(null);
             handleCreateNew();
+            await fetchPolls();
         } catch (error) {
             console.error(error);
             alert("ลบไม่สำเร็จ");
@@ -162,6 +158,7 @@ export default function AdminPollPage() {
         if (!confirm("คุณแน่ใจหรือไม่ที่จะล้างผลโหวตทั้งหมด?")) return;
         try {
             await setDoc(doc(db, "polls", selectedPollId), { votes: {} }, { merge: true });
+            await fetchPolls();
             alert("ล้างผลโหวตเรียบร้อย");
         } catch (error) {
             console.error(error);

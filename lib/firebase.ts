@@ -1,7 +1,7 @@
 // ไฟล์: lib/firebase.js
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage"; // ✅ 1. ต้อง import ตัวนี้เข้ามา
 
 const firebaseConfig = {
@@ -16,5 +16,10 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Use WebSocket transport instead of long-polling to reduce HTTP requests
+// Long-polling creates a new HTTP request every ~30s per listener
+// WebSocket maintains a single persistent connection
+export const db = getApps().length <= 1
+  ? initializeFirestore(app, { experimentalAutoDetectLongPolling: true })
+  : getFirestore(app);
 export const storage = getStorage(app); // ✅ 2. ต้องส่งออกตัวนี้ออกไปใช้

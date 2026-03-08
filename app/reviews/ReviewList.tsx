@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot, limit, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, limit, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Star, User, Quote, Clock, EyeOff, Eye, Trash2, BookOpen } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
 
@@ -59,22 +59,26 @@ export default function ReviewList({ adminView, maxItems }: ReviewListProps) {
     const isAdmin = adminView || userProfile?.role === 'Admin';
 
     useEffect(() => {
-        const q = query(
-            collection(db, "reviews"),
-            orderBy("createdAt", "desc"),
-            limit(maxItems || 50)
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const reviewData = snapshot.docs.map(d => ({
-                id: d.id,
-                ...d.data()
-            })) as Review[];
-            setReviews(reviewData);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        const fetchReviews = async () => {
+            try {
+                const q = query(
+                    collection(db, "reviews"),
+                    orderBy("createdAt", "desc"),
+                    limit(maxItems || 50)
+                );
+                const snapshot = await getDocs(q);
+                const reviewData = snapshot.docs.map(d => ({
+                    id: d.id,
+                    ...d.data()
+                })) as Review[];
+                setReviews(reviewData);
+            } catch (error) {
+                console.error("Error fetching reviews:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchReviews();
     }, [maxItems]);
 
     const toggleHideReview = async (review: Review) => {
@@ -83,6 +87,7 @@ export default function ReviewList({ adminView, maxItems }: ReviewListProps) {
             await updateDoc(doc(db, "reviews", review.id), {
                 isHidden: !review.isHidden
             });
+            setReviews(prev => prev.map(r => r.id === review.id ? { ...r, isHidden: !review.isHidden } : r));
         } catch (error) {
             console.error("Error updating review:", error);
             alert("เกิดข้อผิดพลาด");
@@ -93,6 +98,7 @@ export default function ReviewList({ adminView, maxItems }: ReviewListProps) {
         if (!confirm("ยืนยันการลบรีวิวนี้ถาวร? (กู้คืนไม่ได้)")) return;
         try {
             await deleteDoc(doc(db, "reviews", id));
+            setReviews(prev => prev.filter(r => r.id !== id));
         } catch (error) {
             console.error("Error deleting review:", error);
             alert("เกิดข้อผิดพลาด");

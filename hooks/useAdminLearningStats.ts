@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import {
     collection, getDocs, query, where, doc, getDoc,
@@ -82,8 +82,8 @@ async function processBatch<T, R>(items: T[], batchSize: number, fn: (item: T) =
     return results;
 }
 
-export const useAdminLearningStats = (enabled: boolean = true) => {
-    const [loading, setLoading] = useState(true);
+export const useAdminLearningStats = () => {
+    const [loading, setLoading] = useState(false);
     const [hasFetched, setHasFetched] = useState(false);
     const [overallCompletionRate, setOverallCompletionRate] = useState(0);
     const [courseCompletionRates, setCourseCompletionRates] = useState<CourseCompletionData[]>([]);
@@ -93,11 +93,13 @@ export const useAdminLearningStats = (enabled: boolean = true) => {
     const [dropOffPoints, setDropOffPoints] = useState<DropOffPoint[]>([]);
     const [topActiveStudents, setTopActiveStudents] = useState<ActiveStudent[]>([]);
 
-    useEffect(() => {
-        if (!enabled || hasFetched) return;
+    // Manual trigger — call this to fetch learning stats on demand
+    const fetchStats = useCallback(() => {
+        if (hasFetched || loading) return;
         setHasFetched(true);
+        setLoading(true);
         fetchLearningStats();
-    }, [enabled]);
+    }, [hasFetched, loading]);
 
     const fetchLearningStats = async () => {
         try {
@@ -414,6 +416,8 @@ export const useAdminLearningStats = (enabled: boolean = true) => {
 
     return {
         loading,
+        hasFetched,
+        fetchStats,
         overallCompletionRate,
         courseCompletionRates,
         averageActiveDays,

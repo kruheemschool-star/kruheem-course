@@ -11,7 +11,7 @@ import {
     createUserWithEmailAndPassword,
     sendPasswordResetEmail
 } from "firebase/auth";
-import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, where } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
@@ -223,21 +223,28 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         return () => unsubscribeProfile();
     }, [user?.uid]);
 
-    // 3. Admin Pending Count Listener
+    // 3. Admin Pending Count (polling every 5 min instead of real-time listener)
     useEffect(() => {
         if (!isAdmin) {
             setPendingCount(0);
             return;
         }
 
-        const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setPendingCount(snapshot.size);
-        }, (error) => {
-            console.error("Error fetching pending count:", error);
-        });
+        let interval: NodeJS.Timeout;
+        const fetchPendingCount = async () => {
+            try {
+                const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
+                const snapshot = await getDocs(q);
+                setPendingCount(snapshot.size);
+            } catch (error) {
+                console.error("Error fetching pending count:", error);
+            }
+        };
 
-        return () => unsubscribe();
+        fetchPendingCount();
+        interval = setInterval(fetchPendingCount, 5 * 60 * 1000); // Poll every 5 min
+
+        return () => clearInterval(interval);
     }, [isAdmin]);
 
     const contextValue = useMemo(() => ({

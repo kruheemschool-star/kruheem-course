@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Plus, Edit, Trash2, Eye, ImageIcon } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, deleteDoc, doc } from "firebase/firestore";
 
 interface Post {
     id: string;
@@ -21,24 +21,31 @@ export default function AdminPostsPage() {
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+    const fetchPosts = async () => {
+        try {
+            const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+            const snapshot = await getDocs(q);
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             })) as Post[];
             setPosts(data);
+        } catch (error) {
+            console.error("Error fetching posts:", error);
+        } finally {
             setLoading(false);
-        });
-        return () => unsubscribe();
+        }
+    };
+
+    useEffect(() => {
+        fetchPosts();
     }, []);
 
     const handleDelete = async (id: string) => {
         if (!confirm("คุณแน่ใจว่าต้องการลบบทความนี้? การกระทำนี้ไม่สามารถย้อนกลับได้")) return;
         try {
             await deleteDoc(doc(db, "posts", id));
-            alert("ลบบทความเรียบร้อยแล้ว");
+            setPosts(prev => prev.filter(p => p.id !== id));
         } catch (error) {
             console.error("Error deleting post:", error);
             alert("เกิดข้อผิดพลาดในการลบ");

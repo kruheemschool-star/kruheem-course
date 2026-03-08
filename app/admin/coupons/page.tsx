@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, getDocs, where } from "firebase/firestore";
+import { collection, query, orderBy, addDoc, serverTimestamp, deleteDoc, doc, getDocs, where } from "firebase/firestore";
 import AdminGuard from "@/components/AdminGuard";
 import Link from "next/link";
 import { ArrowLeft, Plus, Ticket, Search, Trash2, CheckCircle, Clock, Copy, Filter } from "lucide-react";
@@ -44,9 +44,10 @@ export default function AdminCouponsPage() {
 
     const userMapCacheRef = useRef<Record<string, UserInfo>>({});
 
-    useEffect(() => {
-        const q = query(collection(db, "coupons"), orderBy("createdAt", "desc"));
-        const unsubscribe = onSnapshot(q, async (snapshot) => {
+    const fetchCoupons = async () => {
+        try {
+            const q = query(collection(db, "coupons"), orderBy("createdAt", "desc"));
+            const snapshot = await getDocs(q);
             const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Coupon[];
             setCoupons(data);
 
@@ -70,10 +71,15 @@ export default function AdminCouponsPage() {
                 }
                 setUserMap({ ...userMapCacheRef.current });
             }
+        } catch (error) {
+            console.error("Error fetching coupons:", error);
+        } finally {
             setLoading(false);
-        });
+        }
+    };
 
-        return () => unsubscribe();
+    useEffect(() => {
+        fetchCoupons();
     }, []);
 
     const handleCreatePromo = async () => {
@@ -95,6 +101,7 @@ export default function AdminCouponsPage() {
             setNewCode("");
             setNewAmount(100);
             setShowCreateForm(false);
+            await fetchCoupons();
         } catch (error) {
             console.error("Error creating coupon:", error);
             alert("เกิดข้อผิดพลาด");
@@ -107,6 +114,7 @@ export default function AdminCouponsPage() {
         if (!confirm(`ลบคูปอง "${code}" ถาวร? (กู้คืนไม่ได้)`)) return;
         try {
             await deleteDoc(doc(db, "coupons", id));
+            setCoupons(prev => prev.filter(c => c.id !== id));
         } catch (error) {
             console.error("Error deleting coupon:", error);
             alert("เกิดข้อผิดพลาด");
