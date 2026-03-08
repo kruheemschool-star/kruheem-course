@@ -36,7 +36,7 @@ export default function AdminDashboard() {
         stats
     } = useAdminStats(selectedYear);
 
-    // Learning Stats Hook
+    // Learning Stats Hook (deferred until main stats finish to reduce Firestore reads)
     const {
         loading: learningLoading,
         overallCompletionRate,
@@ -46,7 +46,7 @@ export default function AdminDashboard() {
         mostEngagingLessons,
         dropOffPoints,
         topActiveStudents
-    } = useAdminLearningStats();
+    } = useAdminLearningStats(!loading);
 
     const handleLogout = async () => {
         if (confirm("ต้องการออกจากระบบใช่ไหม?")) {

@@ -122,8 +122,13 @@ export default function VisitorTracker() {
     // === 1b. Anonymous Visitor Presence (Heartbeat for non-logged-in users) ===
     const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
     const sessionIdRef = useRef<string | null>(null);
+    const pathnameRef = useRef(pathname);
+    pathnameRef.current = pathname; // Always keep latest pathname in ref
 
     useEffect(() => {
+        // Wait for auth to settle before deciding to track
+        if (loading) return;
+
         // Only track anonymous (non-logged-in) visitors, skip admin
         if (user || isAdmin || isAdminSession()) {
             // If user just logged in, clean up anonymous doc
@@ -148,36 +153,26 @@ export default function VisitorTracker() {
 
         const device = getDeviceType();
 
-        // Write presence document
-        const writePresence = async () => {
-            try {
-                await setDoc(doc(db, "anonymous_visitors", sessionId!), {
-                    sessionId: sessionId,
-                    lastActive: serverTimestamp(),
-                    device: device,
-                    currentPage: pathname || '/',
-                    createdAt: serverTimestamp(),
-                }, { merge: true });
-            } catch (e) {
-                // Silently fail
-            }
-        };
+        // Write presence document (once)
+        setDoc(doc(db, "anonymous_visitors", sessionId), {
+            sessionId: sessionId,
+            lastActive: serverTimestamp(),
+            device: device,
+            currentPage: pathnameRef.current || '/',
+            createdAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
 
-        // Initial write
-        writePresence();
-
-        // Heartbeat every 2 minutes
+        // Heartbeat every 3 minutes (uses ref for latest pathname)
         heartbeatRef.current = setInterval(() => {
             setDoc(doc(db, "anonymous_visitors", sessionId!), {
                 lastActive: serverTimestamp(),
-                currentPage: pathname || '/',
+                currentPage: pathnameRef.current || '/',
             }, { merge: true }).catch(() => {});
-        }, 2 * 60 * 1000);
+        }, 3 * 60 * 1000);
 
         // Cleanup on unmount / page close
         const cleanup = () => {
             if (sessionIdRef.current) {
-                // Use navigator.sendBeacon as fallback for page unload
                 deleteDoc(doc(db, "anonymous_visitors", sessionIdRef.current)).catch(() => {});
             }
         };
@@ -192,7 +187,7 @@ export default function VisitorTracker() {
             }
             cleanup();
         };
-    }, [user, isAdmin, pathname]);
+    }, [user, isAdmin, loading]);
 
     // === 2. Page View Tracking (Runs On Every Page Change) ===
     useEffect(() => {

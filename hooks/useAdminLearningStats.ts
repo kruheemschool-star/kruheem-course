@@ -82,8 +82,9 @@ async function processBatch<T, R>(items: T[], batchSize: number, fn: (item: T) =
     return results;
 }
 
-export const useAdminLearningStats = () => {
+export const useAdminLearningStats = (enabled: boolean = true) => {
     const [loading, setLoading] = useState(true);
+    const [hasFetched, setHasFetched] = useState(false);
     const [overallCompletionRate, setOverallCompletionRate] = useState(0);
     const [courseCompletionRates, setCourseCompletionRates] = useState<CourseCompletionData[]>([]);
     const [averageActiveDays, setAverageActiveDays] = useState(0);
@@ -93,8 +94,10 @@ export const useAdminLearningStats = () => {
     const [topActiveStudents, setTopActiveStudents] = useState<ActiveStudent[]>([]);
 
     useEffect(() => {
+        if (!enabled || hasFetched) return;
+        setHasFetched(true);
         fetchLearningStats();
-    }, []);
+    }, [enabled]);
 
     const fetchLearningStats = async () => {
         try {

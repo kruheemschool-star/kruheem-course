@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, doc, getDoc, orderBy, limit, Timestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc, deleteDoc, orderBy, limit, Timestamp } from "firebase/firestore";
 
 export interface Enrollment {
     id: string;
@@ -182,6 +182,14 @@ export const useAdminStats = (selectedYear: number) => {
         });
 
         setOnlineUsers([...finalOnlineUsers, ...anonymousUsers]);
+
+        // Cleanup stale anonymous visitors (older than 15 min) in background
+        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+        getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", "<", fifteenMinutesAgo)))
+            .then(staleSnap => {
+                staleSnap.docs.forEach(d => deleteDoc(d.ref).catch(() => {}));
+            })
+            .catch(() => {});
     };
 
     // Calculate Financial Stats
