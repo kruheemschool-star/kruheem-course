@@ -226,65 +226,60 @@ export default function MyCoursesPage() {
             }
         };
         fetchCouponsAndReviews();
-    }, [user]);
+    }, [user?.uid]);
 
     // Helper State for Progress Calculation
     const [rawProgressData, setRawProgressData] = useState<any[]>([]);
+    const videoCountCacheRef = useRef<Record<string, { videoIds: string[], total: number }>>({});
+    const cachedCourseIdsRef = useRef<string>('');
 
-    // Effect to Combine Courses + Raw Progress -> Progress Map
+    // Effect to fetch video counts ONLY when courses change (not on every progress update)
     useEffect(() => {
-        const calculateProgress = async () => {
-            if (courses.length === 0) return;
+        if (courses.length === 0) return;
+        const courseIds = courses.map(c => c.id).sort().join(',');
+        if (courseIds === cachedCourseIdsRef.current) return; // Already fetched for these courses
 
-            // We need video totals. If we didn't fetch them yet, we need to.
-            // This part was inside the main fetch. Let's re-implement it carefully.
-            // To avoid re-fetching video counts every render, we should cache them. 
-            // BUT for now, let's keep it robust.
-
-            const pMap: Record<string, Progress> = {};
-
-            // Optimize: Fetch video counts only for new courses?
-            // For now, parallel fetch all (standard)
+        const fetchVideoCounts = async () => {
             const videoCountMap: Record<string, { videoIds: string[], total: number }> = {};
-
             await Promise.all(courses.map(async (course) => {
-                // Optimization: Maybe use a cache variable outside component? Or assume static?
-                // `courses` collection doesn't change often.
-                // Let's fetch.
-                if (course.isAdminView) return; // Admin view might not need progress? Or does it?
-
-                // NOTE: This causes N reads every time courses update. 
-                // Given the constraints, let's assume it's acceptable or we should optimize if lists are long.
-                // For "My Courses", usually < 20 courses.
-
-                // Use a simple local cache if possible or just fetch.
+                if (course.isAdminView) return;
                 const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
                 const videoLessons = lessonsSnap.docs
                     .map(d => ({ id: d.id, ...d.data() }))
                     .filter((l: any) => l.type === 'video' && !l.isHidden);
                 videoCountMap[course.id] = { videoIds: videoLessons.map(l => l.id), total: videoLessons.length };
             }));
-
-            courses.forEach(c => {
-                const courseVideoData = videoCountMap[c.id] || { videoIds: [], total: 0 };
-                pMap[c.id] = { completed: 0, total: courseVideoData.total, percent: 0 };
-            });
-
-            rawProgressData.forEach(data => {
-                const cId = data.id;
-                const completedIds: string[] = data.completed || [];
-                const courseVideoData = videoCountMap[cId] || { videoIds: [], total: 0 };
-                const completedVideoCount = completedIds.filter(id => courseVideoData.videoIds.includes(id)).length;
-                const total = courseVideoData.total;
-                let percent = 0;
-                if (total > 0) percent = Math.round((completedVideoCount / total) * 100);
-                pMap[cId] = { completed: completedVideoCount, total, percent: percent > 100 ? 100 : percent };
-            });
-
-            setProgressMap(pMap);
+            videoCountCacheRef.current = videoCountMap;
+            cachedCourseIdsRef.current = courseIds;
         };
 
-        calculateProgress();
+        fetchVideoCounts();
+    }, [courses]);
+
+    // Effect to calculate progress map (runs when courses, progress, or cache updates)
+    useEffect(() => {
+        if (courses.length === 0 || Object.keys(videoCountCacheRef.current).length === 0) return;
+
+        const pMap: Record<string, Progress> = {};
+        const cache = videoCountCacheRef.current;
+
+        courses.forEach(c => {
+            const courseVideoData = cache[c.id] || { videoIds: [], total: 0 };
+            pMap[c.id] = { completed: 0, total: courseVideoData.total, percent: 0 };
+        });
+
+        rawProgressData.forEach(data => {
+            const cId = data.id;
+            const completedIds: string[] = data.completed || [];
+            const courseVideoData = cache[cId] || { videoIds: [], total: 0 };
+            const completedVideoCount = completedIds.filter(id => courseVideoData.videoIds.includes(id)).length;
+            const total = courseVideoData.total;
+            let percent = 0;
+            if (total > 0) percent = Math.round((completedVideoCount / total) * 100);
+            pMap[cId] = { completed: completedVideoCount, total, percent: percent > 100 ? 100 : percent };
+        });
+
+        setProgressMap(pMap);
     }, [courses, rawProgressData]);
 
     if (authLoading || loading) {

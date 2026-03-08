@@ -71,7 +71,7 @@ function StarRating({
         });
 
         return () => unsubscribe();
-    }, [postId, user]);
+    }, [postId, user?.uid]);
 
     const handleRate = async (stars: number) => {
         if (!user || submitting) return;

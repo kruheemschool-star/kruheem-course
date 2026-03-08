@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, doc, getDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAuth } from '@/context/AuthContext';
 import {
@@ -57,23 +57,19 @@ export function useGamification() {
                     return;
                 }
 
-                // 3. Fetch lessons for enrolled courses (VIDEO type only)
-                const lessonsQuery = query(collectionGroup(db, 'lessons'));
-                const lessonsSnap = await getDocs(lessonsQuery);
-
+                // 3. Fetch lessons for enrolled courses only (VIDEO type only)
                 const videoLessonsByCourse: Record<string, { id: string; title: string }[]> = {};
-                lessonsSnap.docs.forEach(docSnap => {
-                    const data = docSnap.data();
-                    const courseId = docSnap.ref.parent.parent?.id;
-
-                    // Only count VIDEO lessons
-                    if (courseId && enrolledCourseIds.includes(courseId) && data.type === 'video') {
-                        if (!videoLessonsByCourse[courseId]) {
-                            videoLessonsByCourse[courseId] = [];
+                await Promise.all(enrolledCourseIds.map(async (courseId) => {
+                    try {
+                        const lessonsSnap = await getDocs(collection(db, 'courses', courseId, 'lessons'));
+                        const videoLessons = lessonsSnap.docs
+                            .filter(d => d.data().type === 'video')
+                            .map(d => ({ id: d.id, title: d.data().title }));
+                        if (videoLessons.length > 0) {
+                            videoLessonsByCourse[courseId] = videoLessons;
                         }
-                        videoLessonsByCourse[courseId].push({ id: docSnap.id, title: data.title });
-                    }
-                });
+                    } catch { /* ignore */ }
+                }));
 
                 // 4. Fetch user's progress for each course
                 const progressPromises = enrolledCourseIds.map(async (courseId) => {
@@ -124,7 +120,7 @@ export function useGamification() {
         };
 
         fetchProgress();
-    }, [user]);
+    }, [user?.uid]);
 
     // Calculate gamification stats
     const gamificationData = useMemo((): UserGamificationProgress => {

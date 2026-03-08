@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, getDocs, where } from "firebase/firestore";
 import AdminGuard from "@/components/AdminGuard";
@@ -42,31 +42,34 @@ export default function AdminCouponsPage() {
     const [newAmount, setNewAmount] = useState(100);
     const [creating, setCreating] = useState(false);
 
+    const userMapCacheRef = useRef<Record<string, UserInfo>>({});
+
     useEffect(() => {
         const q = query(collection(db, "coupons"), orderBy("createdAt", "desc"));
         const unsubscribe = onSnapshot(q, async (snapshot) => {
             const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Coupon[];
             setCoupons(data);
 
-            // Fetch user info for all unique userIds
-            const userIds = [...new Set(data.map(c => c.userId).filter(Boolean))] as string[];
-            const newUserMap: Record<string, UserInfo> = {};
+            // Only fetch user info for NEW userIds not already cached
+            const allUserIds = [...new Set(data.map(c => c.userId).filter(Boolean))] as string[];
+            const newUserIds = allUserIds.filter(uid => !userMapCacheRef.current[uid]);
 
-            // Batch fetch user docs
-            const batchSize = 10;
-            for (let i = 0; i < userIds.length; i += batchSize) {
-                const batch = userIds.slice(i, i + batchSize);
-                await Promise.all(batch.map(async (uid) => {
-                    try {
-                        const userSnap = await getDocs(query(collection(db, "users"), where("uid", "==", uid)));
-                        if (!userSnap.empty) {
-                            const userData = userSnap.docs[0].data();
-                            newUserMap[uid] = { displayName: userData.displayName || userData.name, email: userData.email };
-                        }
-                    } catch { /* ignore */ }
-                }));
+            if (newUserIds.length > 0) {
+                const batchSize = 10;
+                for (let i = 0; i < newUserIds.length; i += batchSize) {
+                    const batch = newUserIds.slice(i, i + batchSize);
+                    await Promise.all(batch.map(async (uid) => {
+                        try {
+                            const userSnap = await getDocs(query(collection(db, "users"), where("uid", "==", uid)));
+                            if (!userSnap.empty) {
+                                const userData = userSnap.docs[0].data();
+                                userMapCacheRef.current[uid] = { displayName: userData.displayName || userData.name, email: userData.email };
+                            }
+                        } catch { /* ignore */ }
+                    }));
+                }
+                setUserMap({ ...userMapCacheRef.current });
             }
-            setUserMap(newUserMap);
             setLoading(false);
         });
 
