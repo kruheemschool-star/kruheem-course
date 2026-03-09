@@ -12,6 +12,7 @@ export interface Lesson {
     docUrl?: string;
     headerId?: string;
     isHidden?: boolean;
+    correction?: string;
     order?: number;
     flashcardData?: any[];
 }

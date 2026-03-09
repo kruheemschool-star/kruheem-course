@@ -350,6 +350,7 @@ export default function ManageLessonsPage() {
     const [lessonContent, setLessonContent] = useState("");
     const [isFree, setIsFree] = useState(false);
     const [selectedHeaderId, setSelectedHeaderId] = useState("");
+    const [lessonCorrection, setLessonCorrection] = useState("");
 
     // ✅ PDF Link State
     const [pdfUrl, setPdfUrl] = useState("");
@@ -902,10 +903,11 @@ export default function ManageLessonsPage() {
         setAddType(lesson.type || 'video');
         setLessonTitle(lesson.title);
         setSelectedHeaderId(lesson.headerId || "");
+        setLessonContent(lesson.content || ""); // Set content from lesson
+        setLessonCorrection(lesson.correction || ""); // Set correction from lesson
 
-        // Reset Common Fields
+        // Reset Common Fields (excluding lessonContent and lessonCorrection which are set above)
         setVideoUrl("");
-        setLessonContent("");
         setIsFree(false);
         setPdfUrl("");
         setCurrentImageUrl("");
@@ -1072,6 +1074,7 @@ export default function ManageLessonsPage() {
             if (addType === 'video') {
                 dataToSave.videoId = extractVideoId(videoUrl);
                 dataToSave.content = lessonContent;
+                dataToSave.correction = lessonCorrection;
                 dataToSave.isFree = isFree;
             } else if (addType === 'text') {
                 dataToSave.content = lessonContent;
@@ -1403,6 +1406,23 @@ export default function ManageLessonsPage() {
                                                             Valid JSON
                                                         </div>
                                                     )}
+                                                </div>
+                                            </div>
+
+                                            {/* ✅ ข้อมูลแก้ไข/เพิ่มเติม (Correction Text) */}
+                                            <div className="bg-rose-50 p-4 rounded-3xl border-2 border-rose-100">
+                                                <label className="text-sm font-bold text-rose-600 mb-2 flex items-center gap-2">
+                                                    <span className="bg-rose-500 text-white w-6 h-6 rounded-lg flex items-center justify-center text-xs">🛠️</span>
+                                                    ข้อมูลแก้ไข / เพิ่มเติมในวิดีโอ
+                                                </label>
+                                                <p className="text-xs text-rose-400 mb-3 font-medium">ส่วนนี้จะไปโชว์เป็นปุ่มกระพริบ "แก้ไขข้อมูล" ตอนเล่นวิดีโอ หากไม่มีข้อมูลปุ่มจะไม่ขึ้น (เว้นว่างไว้หากไม่ต้องการใช้งาน)</p>
+                                                <div className="relative group/editor">
+                                                    <textarea
+                                                        placeholder={`ตัวอย่างเช่น: "ในนาทีที่ 5:30 ครูพูดสลับกันระหว่าง + นิเสธนะครับ คำตอบที่ถูกต้องคือ 45" หรือใช้ HTML <br> <b> ... `}
+                                                        className="w-full p-4 bg-white border-2 border-rose-200 focus:border-rose-500 rounded-2xl outline-none min-h-[120px] shadow-inner text-sm text-slate-700 placeholder-rose-300"
+                                                        value={lessonCorrection}
+                                                        onChange={(e) => setLessonCorrection(e.target.value)}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>

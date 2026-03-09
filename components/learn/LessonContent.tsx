@@ -45,6 +45,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     initialTime
 }) => {
     const [showSummary, setShowSummary] = React.useState(false);
+    const [showCorrection, setShowCorrection] = React.useState(false);
     const [isClosing, setIsClosing] = React.useState(false);
     const videoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const hasUsedInitialTime = useRef(false);
@@ -89,6 +90,14 @@ export const LessonContent: React.FC<LessonContentProps> = ({
             setShowSummary(false);
             setIsClosing(false);
         }, 700); // Match animation duration (slower for visible effect)
+    };
+
+    const handleCloseCorrection = () => {
+        setIsClosing(true);
+        setTimeout(() => {
+            setShowCorrection(false);
+            setIsClosing(false);
+        }, 700);
     };
 
     return (
@@ -166,6 +175,43 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                     </div>
                     {/* Backdrop click to close */}
                     <div className="absolute inset-0 -z-10" onClick={handleCloseSummary}></div>
+                </div>
+            )}
+
+            {/* ✅ Correction Modal */}
+            {showCorrection && activeLesson?.correction && (
+                <div
+                    className={`fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#191919]/50 backdrop-blur-sm transition-opacity duration-700 ease-out ${isClosing ? 'opacity-0' : 'opacity-100 animate-in fade-in duration-700'
+                        }`}
+                >
+                    <div
+                        className={`bg-white dark:bg-[#202020] w-full max-w-2xl max-h-[85vh] rounded-2xl shadow-2xl border-2 border-rose-200 dark:border-rose-900/50 flex flex-col overflow-hidden relative transition-all duration-700 ease-out ${isClosing
+                            ? 'opacity-0 scale-95'
+                            : 'opacity-100 scale-100 animate-in zoom-in-95 duration-700'
+                            }`}
+                    >
+                        {/* Header */}
+                        <div className="p-6 border-b border-rose-100 dark:border-rose-900/30 flex items-center justify-between bg-rose-50 dark:bg-rose-950/20 z-10 sticky top-0">
+                            <h3 className="text-xl font-black flex items-center gap-3 text-rose-600 dark:text-rose-400">
+                                <span className="text-2xl">🛠️</span> ข้อมูลแก้ไข / เพิ่มเติม
+                            </h3>
+                            <button
+                                onClick={handleCloseCorrection}
+                                className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 hover:bg-rose-100 hover:text-rose-600 flex items-center justify-center transition-colors shadow-sm"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
+                            <div className="prose dark:prose-invert max-w-none text-slate-700 dark:text-slate-300 leading-relaxed text-lg"
+                                dangerouslySetInnerHTML={{ __html: activeLesson.correction }}
+                            />
+                        </div>
+                    </div>
+                    {/* Backdrop */}
+                    <div className="absolute inset-0 -z-10" onClick={handleCloseCorrection}></div>
                 </div>
             )}
 
@@ -367,8 +413,20 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                     />
                                 </div>
 
-                                {/* ✅ Floating Summary Button */}
-                                <div className="absolute top-4 right-4 z-20 pointer-events-none">
+                                {/* ✅ Floating Action Buttons */}
+                                <div className="absolute top-4 right-4 z-20 pointer-events-none flex flex-col gap-3 items-end">
+                                    {/* Correction Button */}
+                                    {activeLesson?.correction && (
+                                        <button
+                                            onClick={() => setShowCorrection(true)}
+                                            className="pointer-events-auto flex items-center gap-2 bg-rose-500/90 hover:bg-rose-600 text-white text-base font-bold px-6 py-3 rounded-2xl shadow-[0_0_15px_rgba(244,63,94,0.5)] hover:shadow-[0_0_20px_rgba(244,63,94,0.8)] transition-all backdrop-blur-md border border-rose-400/50 animate-pulse hover:animate-none"
+                                        >
+                                            <span className="text-xl">🛠️</span>
+                                            <span>แก้ไขข้อมูล</span>
+                                        </button>
+                                    )}
+
+                                    {/* Summary Button */}
                                     <button
                                         onClick={() => setShowSummary(true)}
                                         className="pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white text-base font-bold px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all backdrop-blur-md border border-white/20"
