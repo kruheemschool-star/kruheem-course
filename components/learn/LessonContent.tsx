@@ -64,6 +64,15 @@ export const LessonContent: React.FC<LessonContentProps> = ({
         };
     }, [activeLesson?.id]);
 
+    const extractVideoId = (url: string) => {
+        if (!url) return "";
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : url;
+    };
+
+    const safeVideoId = extractVideoId(currentVideoId);
+
     // Compute the start time: only use initialTime for the very first load
     const startTime = React.useMemo(() => {
         if (!hasUsedInitialTime.current && initialTime && initialTime > 0) {
@@ -294,15 +303,17 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                 ) : (
                     // Video Player with Error Handling Fallback & Smart Resume Support
                     <div className="w-full h-full bg-black flex flex-col items-center justify-center relative group">
-                        {currentVideoId ? (
+                        {safeVideoId ? (
                             <>
                                 <div className="w-full aspect-video max-h-full relative flex items-center justify-center bg-black">
                                     <YouTube
-                                        key={currentVideoId}
-                                        videoId={currentVideoId}
+                                        key={safeVideoId}
+                                        videoId={safeVideoId}
                                         className="w-full h-full absolute inset-0 z-10"
                                         iframeClassName="w-full h-full"
                                         opts={{
+                                            width: '100%',
+                                            height: '100%',
                                             playerVars: {
                                                 autoplay: 0,
                                                 rel: 0,

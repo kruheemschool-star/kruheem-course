@@ -101,6 +101,15 @@ export default function HookSection({ content }: HookSectionProps) {
 
 function VideoModal({ isOpen, onClose, videoId }: { isOpen: boolean; onClose: () => void; videoId: string }) {
     if (!isOpen) return null;
+
+    const extractVideoId = (url: string) => {
+        if (!url) return '';
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : url;
+    };
+    const safeVideoId = extractVideoId(videoId);
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
             <div className="relative w-full max-w-4xl bg-black rounded-2xl overflow-hidden shadow-2xl aspect-video transform transition-all animate-scale-up" onClick={e => e.stopPropagation()}>
@@ -110,7 +119,7 @@ function VideoModal({ isOpen, onClose, videoId }: { isOpen: boolean; onClose: ()
                 <iframe
                     width="100%"
                     height="100%"
-                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+                    src={`https://www.youtube.com/embed/${safeVideoId}?autoplay=1`}
                     title="YouTube video player"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
