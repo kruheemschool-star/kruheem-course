@@ -354,15 +354,15 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                                 className="flex items-center gap-4 p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                                             >
                                                 {/* Cover Image or Placeholder */}
-                                                <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-slate-800">
+                                                <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-slate-800">
                                                     {result.examCoverImage ? (
                                                         /* eslint-disable-next-line @next/next/no-img-element */
                                                         <Image
                                                             src={result.examCoverImage}
                                                             alt={result.examTitle}
-                                                            width={64}
-                                                            height={64}
-                                                            className="w-full h-full object-cover"
+                                                            fill
+                                                            sizes="64px"
+                                                            className="object-cover"
                                                         />
                                                     ) : (
                                                         <div className={`w-full h-full ${theme.bg} flex items-center justify-center text-white text-2xl`}>
@@ -495,11 +495,9 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                                 <Image
                                                     src={exam.coverImage}
                                                     alt={exam.title}
-                                                    width={0}
-                                                    height={0}
+                                                    fill
                                                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
-                                                    className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110 group-hover:blur-sm"
-                                                    style={{ width: '100%', height: '100%' }}
+                                                    className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:blur-sm"
                                                 />
                                             ) : (
                                                 <div className="w-full h-full bg-slate-800 flex items-center justify-center p-6 text-center transition-all duration-700 group-hover:scale-110 group-hover:blur-sm">
