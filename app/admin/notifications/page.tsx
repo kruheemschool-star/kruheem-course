@@ -3,9 +3,10 @@ import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, deleteDoc, doc, addDoc } from "firebase/firestore";
 import Link from "next/link";
-
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function NotificationsPage() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState("");
@@ -79,13 +80,14 @@ export default function NotificationsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("ต้องการลบประกาศนี้ใช่ไหม?")) return;
-        try {
-            await deleteDoc(doc(db, "notifications", id));
-            fetchNotifications();
-        } catch (error) {
-            console.error("Error deleting notification:", error);
-        }
+        confirmModal("ยืนยันการลบ", "ต้องการลบประกาศนี้ใช่ไหม?", async () => {
+            try {
+                await deleteDoc(doc(db, "notifications", id));
+                fetchNotifications();
+            } catch (error) {
+                console.error("Error deleting notification:", error);
+            }
+        }, true);
     };
 
     const toggleCourseSelection = (courseId: string) => {
@@ -192,8 +194,8 @@ export default function NotificationsPage() {
                                                         }
                                                     }}
                                                     className={`text-[10px] px-2 py-1 rounded-md font-bold transition ${items.every((c: any) => selectedCourseIds.includes(c.id))
-                                                            ? 'bg-indigo-600 text-white'
-                                                            : 'bg-white text-indigo-600 hover:bg-indigo-100'
+                                                        ? 'bg-indigo-600 text-white'
+                                                        : 'bg-white text-indigo-600 hover:bg-indigo-100'
                                                         }`}
                                                 >
                                                     {items.every((c: any) => selectedCourseIds.includes(c.id)) ? '✓ เลือกแล้ว' : 'เลือกทั้งกลุ่ม'}
@@ -281,6 +283,7 @@ export default function NotificationsPage() {
                     )}
                 </div>
             </div>
+            <ConfirmDialog />
         </div>
 
     );

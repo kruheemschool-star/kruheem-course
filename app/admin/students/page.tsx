@@ -5,6 +5,7 @@ import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, 
 import Link from "next/link";
 import { Search, Edit3, Trash2, Eye, Phone, MessageCircle, ChevronLeft, ChevronRight, GraduationCap, X, UserX, Loader2 } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // User Avatar Component with Auth Provider
 const UserAvatar = ({ userId, name, email }: { userId?: string, name?: string, email?: string }) => {
@@ -112,6 +113,7 @@ export default function AdminStudentsPage() {
     const [editingItem, setEditingItem] = useState<any>(null);
     const [slipModalUrl, setSlipModalUrl] = useState<string | null>(null);
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
 
     const fetchData = async () => {
         try {
@@ -168,10 +170,10 @@ export default function AdminStudentsPage() {
     const totalPages = Math.ceil(filteredEnrollments.length / ITEMS_PER_PAGE);
 
     const handleDelete = async (id: string) => {
-        if (confirm("ยืนยันการลบข้อมูลการลงทะเบียนนี้?")) {
+        confirmModal("ยืนยันการลบ", "ยืนยันการลบข้อมูลการลงทะเบียนนี้?", async () => {
             await deleteDoc(doc(db, "enrollments", id));
             fetchData();
-        }
+        }, true);
     };
 
     const handleDeleteUser = async (item: any) => {
@@ -179,47 +181,38 @@ export default function AdminStudentsPage() {
         if (!user?.email) return alert("กรุณาเข้าสู่ระบบก่อน");
 
         const userName = item.userName || item.userEmail || 'ไม่ระบุ';
-        const confirmed = confirm(
-            `⚠️ ลบบัญชีผู้ใช้: ${userName}\n` +
-            `อีเมล: ${item.userEmail || '-'}\n\n` +
-            `การดำเนินการนี้จะ:\n` +
-            `• ลบบัญชี Firebase Authentication\n` +
-            `• ลบข้อมูล Profile ใน Firestore\n` +
-            `• ลบข้อมูลความคืบหน้าการเรียน\n` +
-            `• ลบข้อมูลกิจกรรม\n\n` +
-            `(ข้อมูลการลงทะเบียนจะยังเก็บไว้เป็นหลักฐาน)\n\n` +
-            `ยืนยันการลบบัญชีผู้ใช้นี้?`
-        );
-        if (!confirmed) return;
+        const msg = `⚠️ ลบบัญชีผู้ใช้: ${userName}\nอีเมล: ${item.userEmail || '-'}\n\nการดำเนินการนี้จะ:\n• ลบบัญชี Firebase Authentication\n• ลบข้อมูล Profile ใน Firestore\n• ลบข้อมูลความคืบหน้าการเรียน\n• ลบข้อมูลกิจกรรม\n\n(ข้อมูลการลงทะเบียนจะยังเก็บไว้เป็นหลักฐาน)\n\nยืนยันการลบบัญชีผู้ใช้นี้?`;
 
-        setDeletingUserId(item.userId);
-        try {
-            const res = await fetch('/api/admin/delete-user', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: item.userId,
-                    adminEmail: user.email
-                })
-            });
+        confirmModal("ยืนยันการลบบัญชี", msg, async () => {
+            setDeletingUserId(item.userId);
+            try {
+                const res = await fetch('/api/admin/delete-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: item.userId,
+                        adminEmail: user.email
+                    })
+                });
 
-            const data = await res.json();
+                const data = await res.json();
 
-            if (!res.ok) {
-                throw new Error(data.error || 'เกิดข้อผิดพลาด');
+                if (!res.ok) {
+                    throw new Error(data.error || 'เกิดข้อผิดพลาด');
+                }
+
+                alert(
+                    `✅ ลบบัญชีผู้ใช้สำเร็จ\n\n` +
+                    `${data.details?.map((d: any) => `• ${d.step}: ${d.status}`).join('\n') || ''}`
+                );
+                fetchData();
+            } catch (err: any) {
+                console.error('Delete user error:', err);
+                alert(`❌ ลบบัญชีไม่สำเร็จ: ${err.message}`);
+            } finally {
+                setDeletingUserId(null);
             }
-
-            alert(
-                `✅ ลบบัญชีผู้ใช้สำเร็จ\n\n` +
-                `${data.details?.map((d: any) => `• ${d.step}: ${d.status}`).join('\n') || ''}`
-            );
-            fetchData();
-        } catch (err: any) {
-            console.error('Delete user error:', err);
-            alert(`❌ ลบบัญชีไม่สำเร็จ: ${err.message}`);
-        } finally {
-            setDeletingUserId(null);
-        }
+        }, true);
     };
 
     const handleEdit = (item: any) => {
@@ -591,6 +584,7 @@ export default function AdminStudentsPage() {
                     </div>
                 </div>
             )}
+            <ConfirmDialog />
         </div>
     );
 }

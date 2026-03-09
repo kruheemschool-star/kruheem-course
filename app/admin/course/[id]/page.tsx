@@ -14,6 +14,7 @@ import JSON5 from 'json5';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableLessonItem } from '@/components/admin/SortableLessonItem';
+import { useConfirmModal } from '@/hooks/useConfirmModal';
 
 // 🎨 Global CSS for consistent KaTeX styling
 const katexGlobalStyles = `
@@ -234,6 +235,8 @@ export default function ManageLessonsPage() {
     const [students, setStudents] = useState<any[]>([]);
     const [expandedStudentIds, setExpandedStudentIds] = useState<string[]>([]);
 
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
+
     // ✏️ Inline Edit State
     const [editingQIndex, setEditingQIndex] = useState<number | null>(null);
     const [tempEditQuestion, setTempEditQuestion] = useState<any>(null);
@@ -377,11 +380,12 @@ export default function ManageLessonsPage() {
     };
 
     const deleteSmartQuestion = (index: number) => {
-        if (!confirm("ลบข้อนี้?")) return;
-        const newBlocks = [...smartExamBlocks];
-        newBlocks.splice(index, 1);
-        setSmartExamBlocks(newBlocks);
-        setHtmlCode(`[\n${newBlocks.join(',\n')}\n]`);
+        confirmModal("ลบข้อนี้?", "การลบจะไม่สามารถกู้คืนได้", () => {
+            const newBlocks = [...smartExamBlocks];
+            newBlocks.splice(index, 1);
+            setSmartExamBlocks(newBlocks);
+            setHtmlCode(`[\n${newBlocks.join(',\n')}\n]`);
+        }, true);
     };
 
 
@@ -428,7 +432,7 @@ export default function ManageLessonsPage() {
         // Parse answer field to get answerIndex (0-based)
         // Supports: "1. xxx", "2. xxx", etc. (numbers 1-4)
         let answerIndex = q.answerIndex ?? q.correctIndex ?? 0;
-        
+
         if (q.answer && typeof q.answer === 'string') {
             // Match "1.", "2.", "3.", "4." at the start
             const numberMatch = q.answer.match(/^([1-4])\s*\./);
@@ -436,13 +440,13 @@ export default function ManageLessonsPage() {
                 answerIndex = parseInt(numberMatch[1]) - 1; // Convert 1-4 to 0-3
             }
         }
-        
+
         // Ensure answerIndex is within valid range
         const optionsLength = q.options?.length || 4;
         if (answerIndex < 0 || answerIndex >= optionsLength) {
             answerIndex = 0; // Default to first option if invalid
         }
-        
+
         return {
             id: q.id,
             question: q.question || "",
@@ -620,9 +624,10 @@ export default function ManageLessonsPage() {
 
 
     const handleDeleteQuestion = (index: number) => {
-        if (!confirm("ลบข้อนี้?")) return;
-        const updated = examQuestions.filter((_, i) => i !== index);
-        updateExamContent(updated);
+        confirmModal("ลบข้อนี้?", "การลบจะไม่สามารถกู้คืนได้", () => {
+            const updated = examQuestions.filter((_, i) => i !== index);
+            updateExamContent(updated);
+        }, true);
     };
 
     const handleMoveQuestion = (index: number, direction: 'up' | 'down') => {
@@ -1109,8 +1114,8 @@ export default function ManageLessonsPage() {
         } catch (error: any) { showToast("Error: " + error.message, "error"); } finally { setSubmitting(false); }
     };
 
-    const handleDelete = async (lessonId: string) => {
-        if (confirm("ต้องการลบรายการนี้ใช่ไหม?")) {
+    const handleDelete = (lessonId: string) => {
+        confirmModal("ยืนยันการลบเนื้อหา", "ต้องการลบรายการนี้ใช่ไหม? เนื้อหานี้จะถูกลบและไม่สามารถกู้คืนได้", async () => {
             await deleteDoc(doc(db, "courses", courseId, "lessons", lessonId));
 
             // ✅ Recalculate Total
@@ -1118,7 +1123,7 @@ export default function ManageLessonsPage() {
 
             showToast("ลบเรียบร้อย");
             fetchCourseInfo();
-        }
+        }, true);
     };
 
     const [bulkImportText, setBulkImportText] = useState("");
@@ -1132,98 +1137,98 @@ export default function ManageLessonsPage() {
         const headerTitle = header ? header.title : "ไม่ระบุ";
 
         const lines = bulkImportText.trim().split('\n').filter(line => line.trim() !== "");
-        if (!confirm(`⚠️ คุณต้องการนำเข้าบทเรียน ${lines.length} ตอน ไปยัง "${headerTitle}" ใช่หรือไม่?`)) return;
 
-        setSubmitting(true);
-        try {
-            // Get Current Max Order
-            let currentOrder = lessons.length > 0 ? Math.max(...lessons.map(l => l.order || 0)) + 1 : 1;
+        confirmModal("ยืนยันการนำเข้า", `⚠️ คุณต้องการนำเข้าบทเรียน ${lines.length} ตอน ไปยัง "${headerTitle}" ใช่หรือไม่?`, async () => {
+            setSubmitting(true);
+            try {
+                // Get Current Max Order
+                let currentOrder = lessons.length > 0 ? Math.max(...lessons.map(l => l.order || 0)) + 1 : 1;
 
-            // Process Text
-            const batch = writeBatch(db);
+                // Process Text
+                const batch = writeBatch(db);
 
-            lines.forEach((line, index) => {
-                // Split Title | URL
-                const parts = line.split('|');
-                const title = parts[0].trim();
-                const url = parts[1] ? parts[1].trim() : "";
-                const videoId = extractVideoId(url);
+                lines.forEach((line, index) => {
+                    // Split Title | URL
+                    const parts = line.split('|');
+                    const title = parts[0].trim();
+                    const url = parts[1] ? parts[1].trim() : "";
+                    const videoId = extractVideoId(url);
 
-                const docRef = doc(collection(db, "courses", courseId, "lessons"));
-                batch.set(docRef, {
-                    title: title,
-                    type: "video",
-                    headerId: bulkHeaderId, // Use selected header ID
-                    videoId: videoId,
-                    content: "",
-                    isFree: false,
-                    createdAt: new Date(),
-                    order: currentOrder + index
+                    const docRef = doc(collection(db, "courses", courseId, "lessons"));
+                    batch.set(docRef, {
+                        title: title,
+                        type: "video",
+                        headerId: bulkHeaderId, // Use selected header ID
+                        videoId: videoId,
+                        content: "",
+                        isFree: false,
+                        createdAt: new Date(),
+                        order: currentOrder + index
+                    });
                 });
-            });
 
-            await batch.commit();
+                await batch.commit();
 
-            // ✅ Recalculate Total
-            await recalculateTotalLessons();
+                // ✅ Recalculate Total
+                await recalculateTotalLessons();
 
-            showToast(`✅ นำเข้า ${lines.length} ตอนไปยัง "${headerTitle}" สำเร็จ!`);
-            setBulkImportText("");
-            setBulkHeaderId("");
-            fetchCourseInfo();
+                showToast(`✅ นำเข้า ${lines.length} ตอนไปยัง "${headerTitle}" สำเร็จ!`);
+                setBulkImportText("");
+                setBulkHeaderId("");
+                fetchCourseInfo();
 
-        } catch (error: any) {
-            showToast("Error importing: " + error.message, "error");
-        } finally {
-            setSubmitting(false);
-        }
+            } catch (error: any) {
+                showToast("Error importing: " + error.message, "error");
+            } finally {
+                setSubmitting(false);
+            }
+        }, true);
     };
 
-    const handleDeleteAllLessons = async () => {
-        if (!confirm("⚠️ คุณแน่ใจหรือไม่ที่จะลบ 'บทเรียนทั้งหมด' ในคอร์สนี้?\n\n(รวมถึงวิดีโอ, แบบฝึกหัด, และข้อสอบทั้งหมด)\n\nการกระทำนี้ไม่สามารถกู้คืนได้!")) return;
-        if (!confirm("ยืนยันครั้งสุดท้าย: ลบข้อมูลทั้งหมดจริงหรือไม่?")) return;
+    const handleDeleteAllLessons = () => {
+        confirmModal("ยืนยันขั้นเด็ดขาด (ลบทั้งหมด)", "⚠️ คุณแน่ใจหรือไม่ที่จะลบ 'บทเรียนทั้งหมด' ในคอร์สนี้?\n\n(รวมถึงวิดีโอ, แบบฝึกหัด, และข้อสอบทั้งหมด)\n\nการกระทำนี้ไม่สามารถกู้คืนได้!", async () => {
+            setSubmitting(true);
+            try {
+                const q = query(collection(db, "courses", courseId, "lessons"));
+                const snapshot = await getDocs(q);
 
-        setSubmitting(true);
-        try {
-            const q = query(collection(db, "courses", courseId, "lessons"));
-            const snapshot = await getDocs(q);
-
-            if (snapshot.empty) {
-                showToast("ไม่มีข้อมูลให้ลบ");
-                setSubmitting(false);
-                return;
-            }
-
-            // Delete in batches of 500
-            const chunks = [];
-            let currentChunk = writeBatch(db);
-            let count = 0;
-
-            snapshot.docs.forEach((doc) => {
-                currentChunk.delete(doc.ref);
-                count++;
-                if (count >= 400) { // Safe limit
-                    chunks.push(currentChunk);
-                    currentChunk = writeBatch(db);
-                    count = 0;
+                if (snapshot.empty) {
+                    showToast("ไม่มีข้อมูลให้ลบ");
+                    setSubmitting(false);
+                    return;
                 }
-            });
-            if (count > 0) chunks.push(currentChunk);
 
-            for (const chunk of chunks) {
-                await chunk.commit();
+                // Delete in batches of 500
+                const chunks = [];
+                let currentChunk = writeBatch(db);
+                let count = 0;
+
+                snapshot.docs.forEach((doc) => {
+                    currentChunk.delete(doc.ref);
+                    count++;
+                    if (count >= 400) { // Safe limit
+                        chunks.push(currentChunk);
+                        currentChunk = writeBatch(db);
+                        count = 0;
+                    }
+                });
+                if (count > 0) chunks.push(currentChunk);
+
+                for (const chunk of chunks) {
+                    await chunk.commit();
+                }
+
+                // ✅ Recalculate Total (Reset to 0)
+                await updateDoc(doc(db, "courses", courseId), { totalLessons: 0 });
+
+                showToast("🗑 ลบข้อมูลทั้งหมดเรียบร้อยแล้ว");
+                fetchCourseInfo();
+            } catch (error: any) {
+                showToast("Error deleting: " + error.message, "error");
+            } finally {
+                setSubmitting(false);
             }
-
-            // ✅ Recalculate Total (Reset to 0)
-            await updateDoc(doc(db, "courses", courseId), { totalLessons: 0 });
-
-            showToast("🗑 ลบข้อมูลทั้งหมดเรียบร้อยแล้ว");
-            fetchCourseInfo();
-        } catch (error: any) {
-            showToast("Error deleting: " + error.message, "error");
-        } finally {
-            setSubmitting(false);
-        }
+        }, true);
     };
 
     return (
@@ -2079,6 +2084,7 @@ export default function ManageLessonsPage() {
                     )
                 }
             </div >
+            <ConfirmDialog />
         </div >
     );
 }

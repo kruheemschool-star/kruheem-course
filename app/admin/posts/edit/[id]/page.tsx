@@ -12,8 +12,10 @@ import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
 import SmartJsonEditor from "@/components/admin/SmartJsonEditor";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const { id } = use(params);
     const router = useRouter();
     const [title, setTitle] = useState("");
@@ -77,7 +79,7 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                     fileType: 'image/jpeg',
                     initialQuality: 0.85
                 };
-                
+
                 const compressedFile = await imageCompression(file, options);
                 setCompressedSize(compressedFile.size);
 
@@ -141,14 +143,15 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
     };
 
     const handleDelete = async () => {
-        if (!confirm("คุณแน่ใจว่าต้องการลบบทความนี้? การกระทำนี้ไม่สามารถย้อนกลับได้")) return;
-        try {
-            await deleteDoc(doc(db, "posts", id));
-            router.push("/admin/posts");
-        } catch (error) {
-            console.error("Error deleting post:", error);
-            alert("เกิดข้อผิดพลาดในการลบ");
-        }
+        confirmModal("ยืนยันการลบ", "คุณแน่ใจว่าต้องการลบบทความนี้? การกระทำนี้ไม่สามารถย้อนกลับได้", async () => {
+            try {
+                await deleteDoc(doc(db, "posts", id));
+                router.push("/admin/posts");
+            } catch (error) {
+                console.error("Error deleting post:", error);
+                alert("เกิดข้อผิดพลาดในการลบ");
+            }
+        }, true);
     };
 
     if (loading) {
@@ -243,7 +246,7 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                             {/* Cover Image */}
                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
                                 <label className="block text-sm font-bold text-slate-700">รูปปกบทความ</label>
-                                
+
                                 {/* Aspect Ratio Info */}
                                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1">
                                     <p className="text-xs font-bold text-slate-600">📐 อัตราส่วนที่แนะนำ: <span className="text-teal-600">15:22</span> (แนวตั้ง)</p>
@@ -348,6 +351,7 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                         </div>
                     </main>
                 </form>
+                <ConfirmDialog />
             </div>
         </AdminGuard>
     );

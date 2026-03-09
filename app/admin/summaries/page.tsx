@@ -6,6 +6,7 @@ import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import { Plus, Edit, Trash2, BookOpen, ArrowLeft, ChevronUp, ChevronDown, GripVertical } from "lucide-react";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 interface Summary {
     id: string;
@@ -17,6 +18,7 @@ interface Summary {
 }
 
 export default function AdminSummariesPage() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [summaries, setSummaries] = useState<Summary[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -40,15 +42,16 @@ export default function AdminSummariesPage() {
         }
     };
 
-    const handleDelete = async (id: string, title: string) => {
-        if (!confirm(`ต้องการลบ "${title}" ใช่ไหม?`)) return;
-        try {
-            await deleteDoc(doc(db, "summaries", id));
-            setSummaries(prev => prev.filter(s => s.id !== id));
-        } catch (error) {
-            console.error("Error deleting:", error);
-            alert("เกิดข้อผิดพลาด");
-        }
+    const handleDelete = (id: string, title: string) => {
+        confirmModal("ยืนยันการลบ", `ต้องการลบ "${title}" ใช่ไหม?`, async () => {
+            try {
+                await deleteDoc(doc(db, "summaries", id));
+                setSummaries(prev => prev.filter(s => s.id !== id));
+            } catch (error) {
+                console.error("Error deleting:", error);
+                alert("เกิดข้อผิดพลาด");
+            }
+        }, true);
     };
 
     const moveItem = async (index: number, direction: 'up' | 'down') => {
@@ -167,8 +170,8 @@ export default function AdminSummariesPage() {
                                         <div className="flex items-center gap-2 mb-0.5">
                                             <h3 className="font-bold text-slate-800 truncate">{summary.title}</h3>
                                             <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${summary.status === 'published'
-                                                    ? 'bg-emerald-100 text-emerald-700'
-                                                    : 'bg-amber-100 text-amber-700'
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-amber-100 text-amber-700'
                                                 }`}>
                                                 {summary.status === 'published' ? 'เผยแพร่' : 'ฉบับร่าง'}
                                             </span>
@@ -197,6 +200,7 @@ export default function AdminSummariesPage() {
                     )}
                 </main>
             </div>
+            <ConfirmDialog />
         </AdminGuard>
     );
 }

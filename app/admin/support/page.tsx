@@ -5,8 +5,10 @@ import { collection, query, orderBy, getDocs, doc, updateDoc, deleteDoc, addDoc,
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import Link from "next/link";
 import { ArrowLeft, MessageSquare, Paperclip, CheckCircle, Trash2, Clock, User, Send, X } from "lucide-react";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function AdminSupportPage() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [tickets, setTickets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
@@ -101,15 +103,16 @@ export default function AdminSupportPage() {
         }
     };
 
-    const handleDelete = async (ticketId: string) => {
-        if (!confirm("คุณต้องการลบรายการนี้ใช่หรือไม่?")) return;
-        try {
-            await deleteDoc(doc(db, "support_tickets", ticketId));
-            setTickets(prev => prev.filter(t => t.id !== ticketId));
-        } catch (error) {
-            console.error("Error deleting ticket:", error);
-            alert("เกิดข้อผิดพลาดในการลบ");
-        }
+    const handleDelete = (ticketId: string) => {
+        confirmModal("ยืนยันการลบ", "คุณต้องการลบรายการนี้ใช่หรือไม่?", async () => {
+            try {
+                await deleteDoc(doc(db, "support_tickets", ticketId));
+                setTickets(prev => prev.filter(t => t.id !== ticketId));
+            } catch (error) {
+                console.error("Error deleting ticket:", error);
+                alert("เกิดข้อผิดพลาดในการลบ");
+            }
+        }, true);
     };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
@@ -291,6 +294,7 @@ export default function AdminSupportPage() {
                     </div>
                 </div>
             )}
+            <ConfirmDialog />
         </div>
     );
 }

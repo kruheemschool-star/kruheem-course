@@ -5,8 +5,10 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, deleteDoc, doc, addDoc, serverTimestamp } from "firebase/firestore";
 import Link from "next/link";
 import { Plus, Trash2, Edit, BookOpen, Clock, FileJson, AlertCircle } from "lucide-react";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function ExamManagerPage() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [exams, setExams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -27,17 +29,17 @@ export default function ExamManagerPage() {
         fetchExams();
     }, []);
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("คุณแน่ใจหรือไม่ว่าจะลบชุดข้อสอบนี้? การกระทำนี้ไม่สามารถย้อนกลับได้")) return;
-
-        try {
-            await deleteDoc(doc(db, "exams", id));
-            setExams(prev => prev.filter(exam => exam.id !== id));
-            alert("ลบสำเร็จ!");
-        } catch (error) {
-            console.error("Error deleting exam:", error);
-            alert("เกิดข้อผิดพลาดในการลบ");
-        }
+    const handleDelete = (id: string) => {
+        confirmModal("ยืนยันการลบชุดข้อสอบ", "คุณแน่ใจหรือไม่ว่าจะลบชุดข้อสอบนี้? การกระทำนี้ไม่สามารถย้อนกลับได้", async () => {
+            try {
+                await deleteDoc(doc(db, "exams", id));
+                setExams(prev => prev.filter(exam => exam.id !== id));
+                alert("ลบสำเร็จ!");
+            } catch (error) {
+                console.error("Error deleting exam:", error);
+                alert("เกิดข้อผิดพลาดในการลบ");
+            }
+        }, true);
     };
 
     const handleQuickAdd = async () => {
@@ -151,6 +153,7 @@ export default function ExamManagerPage() {
                     </div>
                 )}
             </div>
+            <ConfirmDialog />
         </div>
     );
 }

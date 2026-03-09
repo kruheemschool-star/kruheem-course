@@ -4,8 +4,10 @@ import { db } from "@/lib/firebase";
 import { collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch, serverTimestamp, orderBy } from "firebase/firestore";
 import { Loader2, Plus, Trash2, Save, BarChart3, CheckCircle2, Power, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function AdminPollPage() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [polls, setPolls] = useState<any[]>([]);
     const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -140,29 +142,30 @@ export default function AdminPollPage() {
 
     const handleDelete = async () => {
         if (!selectedPollId || selectedPollId === "new") return;
-        if (!confirm("คุณแน่ใจหรือไม่ที่จะลบแบบสอบถามนี้?")) return;
-
-        try {
-            await deleteDoc(doc(db, "polls", selectedPollId));
-            setSelectedPollId(null);
-            handleCreateNew();
-            await fetchPolls();
-        } catch (error) {
-            console.error(error);
-            alert("ลบไม่สำเร็จ");
-        }
+        confirmModal("ยืนยันการลบ", "คุณแน่ใจหรือไม่ที่จะลบแบบสอบถามนี้?", async () => {
+            try {
+                await deleteDoc(doc(db, "polls", selectedPollId));
+                setSelectedPollId(null);
+                handleCreateNew();
+                await fetchPolls();
+            } catch (error) {
+                console.error(error);
+                alert("ลบไม่สำเร็จ");
+            }
+        }, true);
     };
 
     const handleResetVotes = async () => {
         if (!selectedPollId || selectedPollId === "new") return;
-        if (!confirm("คุณแน่ใจหรือไม่ที่จะล้างผลโหวตทั้งหมด?")) return;
-        try {
-            await setDoc(doc(db, "polls", selectedPollId), { votes: {} }, { merge: true });
-            await fetchPolls();
-            alert("ล้างผลโหวตเรียบร้อย");
-        } catch (error) {
-            console.error(error);
-        }
+        confirmModal("ยืนยันการล้างผลโหวต", "คุณแน่ใจหรือไม่ที่จะล้างผลโหวตทั้งหมด?", async () => {
+            try {
+                await setDoc(doc(db, "polls", selectedPollId), { votes: {} }, { merge: true });
+                await fetchPolls();
+                alert("ล้างผลโหวตเรียบร้อย");
+            } catch (error) {
+                console.error(error);
+            }
+        }, true);
     };
 
     if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin" /></div>;
@@ -371,6 +374,7 @@ export default function AdminPollPage() {
                     )}
                 </div>
             </div>
+            <ConfirmDialog />
         </div>
     );
 }

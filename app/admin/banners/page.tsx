@@ -5,12 +5,14 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import Link from "next/link";
 import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2, Trash2, Star, Heart, Flame, Trophy, Sparkles, FileText, Link as LinkIcon, DollarSign } from "lucide-react";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // File validation constants
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export default function AdminBanners() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [bannerImages, setBannerImages] = useState<{ id: string, url: string }[]>([]);
@@ -101,31 +103,31 @@ export default function AdminBanners() {
     };
 
     const handleDeleteImage = async (imageId: string) => {
-        if (!confirm("ต้องการลบรูปภาพนี้ใช่ไหม?")) return;
-
-        setDeletingId(imageId);
-        try {
-            // Delete from Firebase Storage (skip legacy images)
-            if (imageId !== 'legacy') {
-                const storageRef = ref(storage, `banners/${imageId}`);
-                try {
-                    await deleteObject(storageRef);
-                } catch (storageError) {
-                    console.warn("Could not delete from storage:", storageError);
-                    // Continue with Firestore deletion even if storage deletion fails
+        confirmModal("ยืนยันการลบ", "ต้องการลบรูปภาพนี้ใช่ไหม?", async () => {
+            setDeletingId(imageId);
+            try {
+                // Delete from Firebase Storage (skip legacy images)
+                if (imageId !== 'legacy') {
+                    const storageRef = ref(storage, `banners/${imageId}`);
+                    try {
+                        await deleteObject(storageRef);
+                    } catch (storageError) {
+                        console.warn("Could not delete from storage:", storageError);
+                        // Continue with Firestore deletion even if storage deletion fails
+                    }
                 }
-            }
 
-            const updatedImages = bannerImages.filter(img => img.id !== imageId);
-            setBannerImages(updatedImages);
-            await setDoc(doc(db, "system", "banners"), { bannerImages: updatedImages }, { merge: true });
-            alert("ลบรูปภาพเรียบร้อยแล้ว ✅");
-        } catch (error) {
-            console.error("Error deleting image:", error);
-            alert("เกิดข้อผิดพลาดในการลบรูปภาพ ❌");
-        } finally {
-            setDeletingId(null);
-        }
+                const updatedImages = bannerImages.filter(img => img.id !== imageId);
+                setBannerImages(updatedImages);
+                await setDoc(doc(db, "system", "banners"), { bannerImages: updatedImages }, { merge: true });
+                alert("ลบรูปภาพเรียบร้อยแล้ว ✅");
+            } catch (error) {
+                console.error("Error deleting image:", error);
+                alert("เกิดข้อผิดพลาดในการลบรูปภาพ ❌");
+            } finally {
+                setDeletingId(null);
+            }
+        }, true);
     };
 
     const handleSaveDetails = async () => {
@@ -400,6 +402,7 @@ export default function AdminBanners() {
                 </div>
 
             </main >
+            <ConfirmDialog />
         </div >
     );
 }

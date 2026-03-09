@@ -3,9 +3,10 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp } from "firebase/firestore";
 import Link from "next/link";
-
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function AdminEnrollmentsPage() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -109,13 +110,14 @@ export default function AdminEnrollmentsPage() {
 
     // ฟังก์ชันปฏิเสธ/ลบ
     const handleDelete = async (id: string) => {
-        if (!confirm("ยืนยันการลบรายการนี้? (กรณีสลิปปลอมหรือข้อมูลผิด)")) return;
-        try {
-            await deleteDoc(doc(db, "enrollments", id));
-            fetchData();
-        } catch (error) {
-            console.error("Error:", error);
-        }
+        confirmModal("ยืนยันการลบ", "ยืนยันการลบรายการนี้? (กรณีสลิปปลอมหรือข้อมูลผิด)", async () => {
+            try {
+                await deleteDoc(doc(db, "enrollments", id));
+                fetchData();
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        }, true);
     };
 
     return (
@@ -300,6 +302,7 @@ export default function AdminEnrollmentsPage() {
                     </div>
                 </div>
             )}
+            <ConfirmDialog />
         </div>
 
     );

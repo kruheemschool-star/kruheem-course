@@ -5,6 +5,7 @@ import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp,
 import Link from "next/link";
 import { ArrowLeft, MessageCircle, Clock, User, Send, X, Phone, Smartphone, Trash2, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function AdminChatPage() {
     return (
@@ -25,12 +26,13 @@ function AdminChatContent() {
     const [replyMessage, setReplyMessage] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [fetchError, setFetchError] = useState<string | null>(null);
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
 
     // 🔊 Sound Effect
     const playNotificationSound = () => {
         try {
             const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-            audio.play().catch(() => {});
+            audio.play().catch(() => { });
         } catch (error) {
             console.error("Error playing sound", error);
         }
@@ -142,17 +144,17 @@ function AdminChatContent() {
 
     const handleDeleteChat = async (e: React.MouseEvent, chatId: string) => {
         e.stopPropagation();
-        if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบแชทนี้? การกระทำนี้ไม่สามารถย้อนกลับได้")) return;
-
-        try {
-            await deleteDoc(doc(db, "chats", chatId));
-            if (selectedChat?.id === chatId) {
-                setSelectedChat(null);
+        confirmModal("ยืนยันการลบ", "คุณแน่ใจหรือไม่ว่าต้องการลบแชทนี้? การกระทำนี้ไม่สามารถย้อนกลับได้", async () => {
+            try {
+                await deleteDoc(doc(db, "chats", chatId));
+                if (selectedChat?.id === chatId) {
+                    setSelectedChat(null);
+                }
+            } catch (error) {
+                console.error("Error deleting chat:", error);
+                alert("เกิดข้อผิดพลาดในการลบแชท");
             }
-        } catch (error) {
-            console.error("Error deleting chat:", error);
-            alert("เกิดข้อผิดพลาดในการลบแชท");
-        }
+        }, true);
     };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
@@ -328,6 +330,7 @@ function AdminChatContent() {
                     </div>
                 </div>
             )}
+            <ConfirmDialog />
         </div>
     );
 }

@@ -7,8 +7,10 @@ import Link from "next/link";
 
 import { useUserAuth } from "@/context/AuthContext";
 import { X, Plus, Edit2, Trash2, Save, Settings } from "lucide-react";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function CourseManagerPage() {
+  const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
   const { user, logOut } = useUserAuth();
   const [courses, setCourses] = useState<any[]>([]);
   const [categories, setCategories] = useState<{ id: string, name: string }[]>([]);
@@ -59,9 +61,9 @@ export default function CourseManagerPage() {
   };
 
   const handleLogout = async () => {
-    if (confirm("ต้องการออกจากระบบใช่ไหม?")) {
+    confirmModal("ยืนยันการออกจากระบบ", "ต้องการออกจากระบบใช่ไหม?", async () => {
       await logOut();
-    }
+    }, true);
   };
 
   const fetchCourses = async () => {
@@ -165,7 +167,7 @@ export default function CourseManagerPage() {
   };
 
   const handleDelete = async (course: any) => {
-    if (confirm(`ต้องการลบ ${course.title} พร้อมข้อมูลทั้งหมดใช่ไหม? \n\n(ไม่สามารถกู้คืนได้!)`)) {
+    confirmModal("ยืนยันการลบคอร์สเรียน", `ต้องการลบ ${course.title} พร้อมข้อมูลทั้งหมดใช่ไหม? \n\n(ไม่สามารถกู้คืนได้!)`, async () => {
       try {
         await deleteCourseWithAllData(course.id, course.image);
         showToast(`✅ ลบสำเร็จ!`, 'success');
@@ -173,7 +175,7 @@ export default function CourseManagerPage() {
       } catch (e: any) {
         showToast(`❌ Error: ${e.message}`, 'error');
       }
-    }
+    }, true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -263,15 +265,15 @@ export default function CourseManagerPage() {
   };
 
   const handleDeleteCategory = async (id: string, name: string) => {
-    if (confirm(`ต้องการลบหมวดหมู่ "${name}" ใช่ไหม?`)) {
+    confirmModal("ยืนยันการลบหมวดหมู่", `ต้องการลบหมวดหมู่ "${name}" ใช่ไหม?`, async () => {
       try {
         await deleteDoc(doc(db, "categories", id));
-        showToast("🗑️ ลบหมวดหมู่เรียบร้อย!");
+        showToast("🗑️ ลบหมวดหมู่เรียบร้อย!", "success");
         fetchCategories();
       } catch (error: any) {
         showToast("Error: " + error.message, "error");
       }
-    }
+    }, true);
   };
 
   // Helper function to extract grade and term from course title
@@ -279,7 +281,7 @@ export default function CourseManagerPage() {
     // Extract grade: ม.1, ม.2, ม.3, ม.4, ม.5, ม.6, ป.4, ป.5, ป.6
     const gradeMatch = title.match(/[มป]\.(\d)/);
     const grade = gradeMatch ? parseInt(gradeMatch[1]) : 0;
-    
+
     // Extract term: เทอม 1, เทอม 2, เทอมหนึ่ง, เทอมสอง
     let term = 0;
     if (title.includes('เทอม 1') || title.includes('เทอมหนึ่ง') || title.includes('เทอม1')) {
@@ -287,7 +289,7 @@ export default function CourseManagerPage() {
     } else if (title.includes('เทอม 2') || title.includes('เทอมสอง') || title.includes('เทอม2')) {
       term = 2;
     }
-    
+
     return { grade, term };
   };
 
@@ -304,17 +306,17 @@ export default function CourseManagerPage() {
     groupedCourses[catName].sort((a: any, b: any) => {
       const aInfo = extractGradeAndTerm(a.title);
       const bInfo = extractGradeAndTerm(b.title);
-      
+
       // First sort by grade (ม.1 before ม.2, etc.)
       if (aInfo.grade !== bInfo.grade) {
         return aInfo.grade - bInfo.grade;
       }
-      
+
       // Then sort by term (เทอม 1 before เทอม 2)
       if (aInfo.term !== bInfo.term) {
         return aInfo.term - bInfo.term;
       }
-      
+
       // If same grade and term, sort alphabetically
       return a.title.localeCompare(b.title, 'th');
     });
@@ -676,6 +678,7 @@ export default function CourseManagerPage() {
           )}
         </div>
       </div>
+      <ConfirmDialog />
     </div>
 
   );

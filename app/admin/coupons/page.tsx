@@ -6,6 +6,7 @@ import { collection, query, orderBy, addDoc, serverTimestamp, deleteDoc, doc, ge
 import AdminGuard from "@/components/AdminGuard";
 import Link from "next/link";
 import { ArrowLeft, Plus, Ticket, Search, Trash2, CheckCircle, Clock, Copy, Filter } from "lucide-react";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 interface Coupon {
     id: string;
@@ -28,6 +29,7 @@ interface UserInfo {
 }
 
 export default function AdminCouponsPage() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -111,14 +113,15 @@ export default function AdminCouponsPage() {
     };
 
     const handleDeleteCoupon = async (id: string, code: string) => {
-        if (!confirm(`ลบคูปอง "${code}" ถาวร? (กู้คืนไม่ได้)`)) return;
-        try {
-            await deleteDoc(doc(db, "coupons", id));
-            setCoupons(prev => prev.filter(c => c.id !== id));
-        } catch (error) {
-            console.error("Error deleting coupon:", error);
-            alert("เกิดข้อผิดพลาด");
-        }
+        confirmModal("ยืนยันการลบ", `ลบคูปอง "${code}" ถาวร? (กู้คืนไม่ได้)`, async () => {
+            try {
+                await deleteDoc(doc(db, "coupons", id));
+                setCoupons(prev => prev.filter(c => c.id !== id));
+            } catch (error) {
+                console.error("Error deleting coupon:", error);
+                alert("เกิดข้อผิดพลาด");
+            }
+        }, true);
     };
 
     const handleCopy = (code: string) => {
@@ -384,6 +387,7 @@ export default function AdminCouponsPage() {
                         )}
                     </div>
                 </main>
+                <ConfirmDialog />
             </div>
         </AdminGuard>
     );

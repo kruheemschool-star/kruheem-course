@@ -8,6 +8,7 @@ import AdminGuard from '@/components/AdminGuard';
 import { db, storage } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { useConfirmModal } from '@/hooks/useConfirmModal';
 
 // Menu items configuration
 const menuItems = [
@@ -39,6 +40,7 @@ export default function AdminSettingsPage() {
     const [uploading, setUploading] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<string | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
 
     // Fetch current covers
     useEffect(() => {
@@ -116,35 +118,35 @@ export default function AdminSettingsPage() {
     // Handle delete cover
     const handleDelete = async (key: string) => {
         if (!covers[key]) return;
-        if (!confirm('ต้องการลบรูป Cover นี้ใช่ไหม?')) return;
+        confirmModal("ยืนยันการลบ", "ต้องการลบรูป Cover นี้ใช่ไหม?", async () => {
+            setDeleting(key);
 
-        setDeleting(key);
-
-        try {
-            // Delete from Storage
             try {
-                const storageRef = ref(storage, covers[key]!);
-                await deleteObject(storageRef);
-            } catch {
-                // File might not exist
+                // Delete from Storage
+                try {
+                    const storageRef = ref(storage, covers[key]!);
+                    await deleteObject(storageRef);
+                } catch {
+                    // File might not exist
+                }
+
+                // Remove from Firestore
+                const newCovers = { ...covers };
+                delete newCovers[key];
+                await setDoc(doc(db, 'settings', 'admin_menu'), {
+                    covers: newCovers,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+
+                setCovers(newCovers);
+                showMessage('success', 'ลบสำเร็จ!');
+            } catch (error) {
+                console.error('Delete error:', error);
+                showMessage('error', 'เกิดข้อผิดพลาดในการลบ');
+            } finally {
+                setDeleting(null);
             }
-
-            // Remove from Firestore
-            const newCovers = { ...covers };
-            delete newCovers[key];
-            await setDoc(doc(db, 'settings', 'admin_menu'), {
-                covers: newCovers,
-                updatedAt: serverTimestamp()
-            }, { merge: true });
-
-            setCovers(newCovers);
-            showMessage('success', 'ลบสำเร็จ!');
-        } catch (error) {
-            console.error('Delete error:', error);
-            showMessage('error', 'เกิดข้อผิดพลาดในการลบ');
-        } finally {
-            setDeleting(null);
-        }
+        }, true);
     };
 
     if (loading) {
@@ -277,6 +279,7 @@ export default function AdminSettingsPage() {
                         })}
                     </div>
                 </main>
+                <ConfirmDialog />
             </div>
         </AdminGuard>
     );

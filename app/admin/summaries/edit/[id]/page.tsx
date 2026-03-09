@@ -13,6 +13,7 @@ import { SmartContentRenderer } from "@/components/ContentRenderer";
 import TiptapEditor from "@/components/TiptapEditor";
 import SummaryBlockEditor from "@/components/SummaryBlockEditor";
 import imageCompression from "browser-image-compression";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // Helper to extract metadata from JSON content
 function extractMetadata(jsonContent: string) {
@@ -35,6 +36,7 @@ function extractMetadata(jsonContent: string) {
 }
 
 export default function EditSummaryPage({ params }: { params: Promise<{ id: string }> }) {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const { id } = use(params);
     const router = useRouter();
     const [title, setTitle] = useState("");
@@ -252,13 +254,14 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
     };
 
     const handleDelete = async () => {
-        if (!confirm("ต้องการลบบทสรุปนี้ใช่ไหม?")) return;
-        try {
-            await deleteDoc(doc(db, "summaries", id));
-            router.push("/admin/summaries");
-        } catch (error) {
-            console.error("Error:", error);
-        }
+        confirmModal("ยืนยันการลบ", "ต้องการลบบทสรุปนี้ใช่ไหม?", async () => {
+            try {
+                await deleteDoc(doc(db, "summaries", id));
+                router.push("/admin/summaries");
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        }, true);
     };
 
     if (loading) {
@@ -395,14 +398,14 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                                                     fileType: 'image/jpeg',  // Convert to JPEG for better compression
                                                     initialQuality: 0.85     // High quality (85%)
                                                 };
-                                                
+
                                                 const compressedFile = await imageCompression(file, options);
-                                                
+
                                                 // Calculate compression stats
                                                 const originalSize = file.size;
                                                 const compressedSize = compressedFile.size;
                                                 const savedPercent = ((1 - compressedSize / originalSize) * 100).toFixed(0);
-                                                
+
                                                 // Upload compressed image
                                                 const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
                                                 const storageRef = ref(storage, `summaries/covers/${filename}`);
@@ -607,6 +610,7 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                         </div>
                     </main>
                 </form>
+                <ConfirmDialog />
             </div>
         </AdminGuard>
     );

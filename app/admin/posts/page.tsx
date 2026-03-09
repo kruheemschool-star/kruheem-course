@@ -7,6 +7,7 @@ import Image from "next/image";
 import { ArrowLeft, Plus, Edit, Trash2, Eye, ImageIcon } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 interface Post {
     id: string;
@@ -18,6 +19,7 @@ interface Post {
 }
 
 export default function AdminPostsPage() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -42,14 +44,15 @@ export default function AdminPostsPage() {
     }, []);
 
     const handleDelete = async (id: string) => {
-        if (!confirm("คุณแน่ใจว่าต้องการลบบทความนี้? การกระทำนี้ไม่สามารถย้อนกลับได้")) return;
-        try {
-            await deleteDoc(doc(db, "posts", id));
-            setPosts(prev => prev.filter(p => p.id !== id));
-        } catch (error) {
-            console.error("Error deleting post:", error);
-            alert("เกิดข้อผิดพลาดในการลบ");
-        }
+        confirmModal("ยืนยันการลบ", "คุณแน่ใจว่าต้องการลบบทความนี้? การกระทำนี้ไม่สามารถย้อนกลับได้", async () => {
+            try {
+                await deleteDoc(doc(db, "posts", id));
+                setPosts(prev => prev.filter(p => p.id !== id));
+            } catch (error) {
+                console.error("Error deleting post:", error);
+                alert("เกิดข้อผิดพลาดในการลบ");
+            }
+        }, true);
     };
 
     return (
@@ -156,6 +159,7 @@ export default function AdminPostsPage() {
                         </div>
                     )}
                 </main>
+                <ConfirmDialog />
             </div>
         </AdminGuard>
     );

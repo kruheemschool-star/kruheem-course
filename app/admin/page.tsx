@@ -16,8 +16,10 @@ import ActionCenter from "@/components/admin/ActionCenter";
 import OnlineUsersWidget from "@/components/admin/OnlineUsersWidget";
 import TrafficAnalytics from "@/components/admin/TrafficAnalytics";
 import RecentActivityWidget from "@/components/admin/RecentActivityWidget";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function AdminDashboard() {
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const { user, logOut } = useUserAuth();
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -51,9 +53,9 @@ export default function AdminDashboard() {
     } = useAdminLearningStats();
 
     const handleLogout = async () => {
-        if (confirm("ต้องการออกจากระบบใช่ไหม?")) {
+        confirmModal("ยืนยันการออกจากระบบ", "ต้องการออกจากระบบใช่ไหม?", async () => {
             await logOut();
-        }
+        }, true);
     };
 
     const formatOnlineDuration = (startTime: Date | null): string => {
@@ -196,7 +198,7 @@ export default function AdminDashboard() {
                         <div className="mb-8 bg-white rounded-xl border border-slate-200 p-6">
                             <div className="animate-pulse space-y-4">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {[1,2,3,4].map(i => <div key={i} className="h-20 bg-slate-50 rounded-lg" />)}
+                                    {[1, 2, 3, 4].map(i => <div key={i} className="h-20 bg-slate-50 rounded-lg" />)}
                                 </div>
                                 <div className="h-48 bg-slate-50 rounded-lg" />
                             </div>
@@ -241,6 +243,7 @@ export default function AdminDashboard() {
                 </div>
 
             </main>
+            <ConfirmDialog />
         </div>
     );
 }
