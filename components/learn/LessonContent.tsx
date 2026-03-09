@@ -415,6 +415,15 @@ export const LessonContent: React.FC<LessonContentProps> = ({
 
                                 {/* ✅ Floating Action Buttons */}
                                 <div className="absolute top-4 right-4 z-20 pointer-events-none flex flex-col gap-3 items-end">
+                                    {/* Summary Button */}
+                                    <button
+                                        onClick={() => setShowSummary(true)}
+                                        className="pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white text-base font-bold px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all backdrop-blur-md border border-white/20"
+                                    >
+                                        <span className="text-xl">📝</span>
+                                        <span>สรุปเนื้อหา</span>
+                                    </button>
+
                                     {/* Correction Button */}
                                     {activeLesson?.correction && (
                                         <button
@@ -425,15 +434,6 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                             <span>แก้ไขข้อมูล</span>
                                         </button>
                                     )}
-
-                                    {/* Summary Button */}
-                                    <button
-                                        onClick={() => setShowSummary(true)}
-                                        className="pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white text-base font-bold px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all backdrop-blur-md border border-white/20"
-                                    >
-                                        <span className="text-xl">📝</span>
-                                        <span>สรุปเนื้อหา</span>
-                                    </button>
                                 </div>
                             </>
                         ) : (
