@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs, limit, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { Star, User, Quote, Clock, EyeOff, Eye, Trash2, BookOpen } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 interface Review {
     id: string;
@@ -55,6 +56,7 @@ export default function ReviewList({ adminView, maxItems }: ReviewListProps) {
     const { userProfile } = useUserAuth();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [loading, setLoading] = useState(true);
+    const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
 
     const isAdmin = adminView || userProfile?.role === 'Admin';
 
@@ -82,27 +84,29 @@ export default function ReviewList({ adminView, maxItems }: ReviewListProps) {
     }, [maxItems]);
 
     const toggleHideReview = async (review: Review) => {
-        if (!confirm(`ต้องการ${review.isHidden ? "แสดง" : "ซ่อน"}รีวิวนี้ใช่ไหม?`)) return;
-        try {
-            await updateDoc(doc(db, "reviews", review.id), {
-                isHidden: !review.isHidden
-            });
-            setReviews(prev => prev.map(r => r.id === review.id ? { ...r, isHidden: !review.isHidden } : r));
-        } catch (error) {
-            console.error("Error updating review:", error);
-            alert("เกิดข้อผิดพลาด");
-        }
+        confirmModal("ยืนยันการตั้งค่า", `ต้องการ${review.isHidden ? "แสดง" : "ซ่อน"}รีวิวนี้ใช่ไหม?`, async () => {
+            try {
+                await updateDoc(doc(db, "reviews", review.id), {
+                    isHidden: !review.isHidden
+                });
+                setReviews(prev => prev.map(r => r.id === review.id ? { ...r, isHidden: !review.isHidden } : r));
+            } catch (error) {
+                console.error("Error updating review:", error);
+                alert("เกิดข้อผิดพลาด");
+            }
+        });
     };
 
     const deleteReview = async (id: string) => {
-        if (!confirm("ยืนยันการลบรีวิวนี้ถาวร? (กู้คืนไม่ได้)")) return;
-        try {
-            await deleteDoc(doc(db, "reviews", id));
-            setReviews(prev => prev.filter(r => r.id !== id));
-        } catch (error) {
-            console.error("Error deleting review:", error);
-            alert("เกิดข้อผิดพลาด");
-        }
+        confirmModal("ยืนยันการลบ", "ยืนยันการลบรีวิวนี้ถาวร? (กู้คืนไม่ได้)", async () => {
+            try {
+                await deleteDoc(doc(db, "reviews", id));
+                setReviews(prev => prev.filter(r => r.id !== id));
+            } catch (error) {
+                console.error("Error deleting review:", error);
+                alert("เกิดข้อผิดพลาด");
+            }
+        }, true);
     };
 
     const displayedReviews = isAdmin ? reviews : reviews.filter(r => !r.isHidden);
@@ -238,6 +242,7 @@ export default function ReviewList({ adminView, maxItems }: ReviewListProps) {
                     </p>
                 </div>
             ))}
+            <ConfirmDialog />
         </div>
     );
 }
