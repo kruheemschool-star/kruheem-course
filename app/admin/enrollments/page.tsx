@@ -45,12 +45,16 @@ export default function AdminEnrollmentsPage() {
 
     const [selectedDurations, setSelectedDurations] = useState<Record<string, string>>({});
 
-    // ฟังก์ชันอนุมัติ
-    const handleApprove = async (id: string) => {
+    // State สำหรับ Modal ยืนยัน
+    const [confirmApproveId, setConfirmApproveId] = useState<string | null>(null);
+
+    // ฟังก์ชันอนุมัติ (เมื่อกดยืนยันใน Modal)
+    const handleConfirmApprove = async () => {
+        if (!confirmApproveId) return;
+        const id = confirmApproveId;
+
         // Default to 5 years automatically
         const duration = selectedDurations[id] || "5_years";
-
-        if (!confirm("ยืนยันการอนุมัติ? ผู้เรียนจะเข้าเรียนได้ทันที (ระยะเวลาเรียน 5 ปี)")) return;
 
         try {
             const now = new Date();
@@ -95,6 +99,7 @@ export default function AdminEnrollmentsPage() {
                 }
             }
             alert("✅ อนุมัติเรียบร้อย! (กำหนดเวลาเรียน 5 ปี)");
+            setConfirmApproveId(null);
             fetchData(); // รีโหลดข้อมูล
         } catch (error) {
             console.error("Error:", error);
@@ -245,7 +250,7 @@ export default function AdminEnrollmentsPage() {
                                             </button>
 
                                             <button
-                                                onClick={() => handleApprove(item.id)}
+                                                onClick={() => setConfirmApproveId(item.id)}
                                                 className="flex-[2] py-3 rounded-xl bg-[#00C853] hover:bg-[#00b54b] text-white font-bold shadow-lg shadow-green-200 transition flex items-center justify-center gap-2 transform hover:-translate-y-1"
                                             >
                                                 ✅ อนุมัติ (5 ปี)
@@ -264,6 +269,37 @@ export default function AdminEnrollmentsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Custom Modal สำหรับยืนยันการอนุมัติ */}
+            {confirmApproveId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                        </div>
+                        <h3 className="text-2xl font-black text-slate-800 mb-2">ยืนยันการอนุมัติ</h3>
+                        <p className="text-slate-500 mb-8 leading-relaxed">
+                            ผู้เรียนจะสามารถเข้าเรียนในคอร์สนี้ได้ทันทีหลังจากที่คุณกดยืนยัน (ระยะเวลาเรียน 5 ปี)
+                        </p>
+                        <div className="flex w-full gap-3">
+                            <button
+                                onClick={() => setConfirmApproveId(null)}
+                                className="flex-1 py-3 px-4 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                            >
+                                ยกเลิก
+                            </button>
+                            <button
+                                onClick={handleConfirmApprove}
+                                className="flex-1 py-3 px-4 rounded-xl font-bold bg-green-500 text-white hover:bg-green-600 shadow-md shadow-green-200 transition flex items-center justify-center gap-2"
+                            >
+                                ยืนยัน
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
 
     );
