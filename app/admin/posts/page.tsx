@@ -107,6 +107,7 @@ export default function AdminPostsPage() {
                                                     src={post.coverImage}
                                                     alt={post.title}
                                                     fill
+                                                    unoptimized={true}
                                                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                                     className="object-cover group-hover:scale-105 transition-transform duration-300"
                                                 />
@@ -139,13 +140,13 @@ export default function AdminPostsPage() {
                                     </Link>
 
                                     {/* Delete Button - Separate from edit link */}
-                                    <button 
+                                    <button
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
                                             handleDelete(post.id);
-                                        }} 
-                                        className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm hover:bg-rose-50 rounded-full text-slate-600 hover:text-rose-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10" 
+                                        }}
+                                        className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm hover:bg-rose-50 rounded-full text-slate-600 hover:text-rose-600 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                         title="ลบ"
                                     >
                                         <Trash2 size={16} />
