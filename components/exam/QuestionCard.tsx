@@ -34,14 +34,25 @@ const convertThaiLettersToNumbers = (text: string): string => {
 
 // Auto-format explanation text: insert line breaks before Thai transition phrases
 // so that step-by-step solutions display as readable paragraphs instead of a wall of text.
-// Works for BOTH old data (no \n) and new data (has \n) — space-prefix patterns
-// won't double-break text that already has \n before the keyword.
+//
+// CRITICAL: All LaTeX blocks ($...$, $$...$$, \(...\), \[...\]) are extracted and
+// replaced with placeholders BEFORE any formatting is applied. This prevents patterns
+// like "- " (list items) from matching subtraction operators inside math expressions,
+// which would insert \n inside $...$ and break the MathRenderer regex.
 const formatExplanation = (text: string): string => {
     if (!text || typeof text !== 'string') return text;
 
-    let result = text;
+    // ═══ STEP 1: PROTECT LaTeX blocks from modification ═══
+    const latexBlocks: string[] = [];
+    let result = text.replace(
+        /\\\[[\s\S]*?\\\]|\$\$[\s\S]*?\$\$|\\\([\s\S]*?\\\)|\$[^$]+\$/g,
+        (match) => {
+            latexBlocks.push(match);
+            return `\x00L${latexBlocks.length - 1}\x00`;
+        }
+    );
 
-    // ═══ PARAGRAPH BREAKS (\n\n) — Major section transitions ═══
+    // ═══ STEP 2: PARAGRAPH BREAKS (\n\n) — Major section transitions ═══
 
     // Before bold section headers like **วิธีทำ:**, **ดักทางคนพลาด:**, etc.
     result = result.replace(/ (\*\*(?:วิธีทำ|ดักทาง|หลักการ|ข้อควรระวัง|สรุป|ทำไม|เฉลย|คำเตือน|จุดพลาด|ข้อสังเกต))/g, '\n\n$1');
@@ -51,14 +62,14 @@ const formatExplanation = (text: string): string => {
         result = result.replace(new RegExp(` (${p})`, 'g'), '\n\n$1');
     });
 
-    // ═══ LINE BREAKS (\n) — Step-by-step transitions ═══
+    // ═══ STEP 3: LINE BREAKS (\n) — Step-by-step transitions ═══
 
     // Step number markers: "ขั้นที่ 1:", "ขั้นตอนที่ 2:"
     result = result.replace(/ (ขั้นที่ \d)/g, '\n$1');
     result = result.replace(/ (ขั้นตอนที่ \d)/g, '\n$1');
 
-    // List items starting with "- "
-    result = result.replace(/([^\n]) (- )/g, '$1\n$2');
+    // List items starting with "- " (safe now — LaTeX subtraction is protected)
+    result = result.replace(/([^\n\x00]) (- )/g, '$1\n$2');
 
     // Thai transition phrases (comprehensive list)
     [
@@ -78,6 +89,9 @@ const formatExplanation = (text: string): string => {
         const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         result = result.replace(new RegExp(` (${escaped})`, 'g'), '\n$1');
     });
+
+    // ═══ STEP 4: RESTORE LaTeX blocks ═══
+    result = result.replace(/\x00L(\d+)\x00/g, (_, idx) => latexBlocks[parseInt(idx)]);
 
     return result;
 };
