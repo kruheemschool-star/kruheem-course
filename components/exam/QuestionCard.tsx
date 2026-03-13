@@ -33,32 +33,53 @@ const convertThaiLettersToNumbers = (text: string): string => {
 };
 
 // Auto-format explanation text: insert line breaks before Thai transition phrases
-// so that step-by-step solutions display as readable paragraphs instead of a wall of text
+// so that step-by-step solutions display as readable paragraphs instead of a wall of text.
+// Works for BOTH old data (no \n) and new data (has \n) — space-prefix patterns
+// won't double-break text that already has \n before the keyword.
 const formatExplanation = (text: string): string => {
     if (!text || typeof text !== 'string') return text;
-    // Skip if text already has line breaks (already formatted)
-    if (text.includes('\n')) return text;
 
-    return text
-        // Step transitions (single line break)
-        .replace(/ เริ่มจาก/g, '\nเริ่มจาก')
-        .replace(/ ต่อมา/g, '\nต่อมา')
-        .replace(/ จากนั้น/g, '\nจากนั้น')
-        .replace(/ นำไปแทนค่า/g, '\nนำไปแทนค่า')
-        .replace(/ ขั้นตอนสุดท้าย/g, '\nขั้นตอนสุดท้าย')
-        .replace(/ สุดท้ายนำ/g, '\nสุดท้ายนำ')
-        .replace(/ สุดท้ายเรา/g, '\nสุดท้ายเรา')
-        .replace(/ สุดท้ายเราจะ/g, '\nสุดท้ายเราจะ')
-        .replace(/ แล้วนำ/g, '\nแล้วนำ')
-        .replace(/ นำมาบวก/g, '\nนำมาบวก')
-        .replace(/ จัดการ/g, '\nจัดการ')
-        // Pitfall / warning section (double line break for visual separation)
-        .replace(/ สำหรับ/g, '\n\nสำหรับ')
-        .replace(/ ส่วนข้อ/g, '\nส่วนข้อ')
-        .replace(/ ใครที่ตอบ/g, '\n\nใครที่ตอบ')
-        .replace(/ หากใครตอบ/g, '\n\nหากใครตอบ')
-        .replace(/ จำไว้/g, '\n\nจำไว้')
-        .replace(/ น่าเสียดาย/g, '\n\nน่าเสียดาย');
+    let result = text;
+
+    // ═══ PARAGRAPH BREAKS (\n\n) — Major section transitions ═══
+
+    // Before bold section headers like **วิธีทำ:**, **ดักทางคนพลาด:**, etc.
+    result = result.replace(/ (\*\*(?:วิธีทำ|ดักทาง|หลักการ|ข้อควรระวัง|สรุป|ทำไม|เฉลย|คำเตือน|จุดพลาด|ข้อสังเกต))/g, '\n\n$1');
+
+    // Warning / pitfall / reminder section keywords
+    ['สำหรับ', 'น่าเสียดาย', 'จำไว้', 'ใครที่ตอบ', 'หากใครตอบ', 'ทำไมข้ออื่น'].forEach(p => {
+        result = result.replace(new RegExp(` (${p})`, 'g'), '\n\n$1');
+    });
+
+    // ═══ LINE BREAKS (\n) — Step-by-step transitions ═══
+
+    // Step number markers: "ขั้นที่ 1:", "ขั้นตอนที่ 2:"
+    result = result.replace(/ (ขั้นที่ \d)/g, '\n$1');
+    result = result.replace(/ (ขั้นตอนที่ \d)/g, '\n$1');
+
+    // List items starting with "- "
+    result = result.replace(/([^\n]) (- )/g, '$1\n$2');
+
+    // Thai transition phrases (comprehensive list)
+    [
+        'เริ่มจาก', 'ต่อมา', 'จากนั้น', 'ตอนนี้',
+        'นำไปแทนค่า', 'นำมาบวก', 'นำผลลัพธ์', 'แล้วนำ', 'แล้วค่อย',
+        'จัดการทีมซ้าย', 'จัดการทีมขวา', 'จัดการวงเล็บ',
+        'เคลียร์ชั้นบน', 'เคลียร์ชั้นล่าง',
+        'ประกอบร่าง', 'โจทย์ถามหา', 'โจทย์ต้องการ',
+        'สุดท้าย', 'ขั้นสุดท้าย',
+        'ถ้านักเรียนตอบ', 'ถ้าตอบ', 'และถ้าตอบ',
+        'ส่วนข้อ', 'ส่วนถ้า',
+        'เขยิบออกมา', 'ทำต่อใน', 'นำมาลบ', 'นำมาคูณ', 'นำมาหาร',
+        'นำไปลบ', 'นำไปคูณ', 'นำไปหาร', 'นำไปบวก',
+        'ในวงเล็บเหลี่ยม', 'ในวงเล็บปีกกา', 'ในวงเล็บใหญ่',
+        'ดังนั้น',
+    ].forEach(p => {
+        const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        result = result.replace(new RegExp(` (${escaped})`, 'g'), '\n$1');
+    });
+
+    return result;
 };
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
