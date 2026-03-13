@@ -32,6 +32,35 @@ const convertThaiLettersToNumbers = (text: string): string => {
         .replace(/(^|[\s:,;(])ง\./gm, '$14.');
 };
 
+// Auto-format explanation text: insert line breaks before Thai transition phrases
+// so that step-by-step solutions display as readable paragraphs instead of a wall of text
+const formatExplanation = (text: string): string => {
+    if (!text || typeof text !== 'string') return text;
+    // Skip if text already has line breaks (already formatted)
+    if (text.includes('\n')) return text;
+
+    return text
+        // Step transitions (single line break)
+        .replace(/ เริ่มจาก/g, '\nเริ่มจาก')
+        .replace(/ ต่อมา/g, '\nต่อมา')
+        .replace(/ จากนั้น/g, '\nจากนั้น')
+        .replace(/ นำไปแทนค่า/g, '\nนำไปแทนค่า')
+        .replace(/ ขั้นตอนสุดท้าย/g, '\nขั้นตอนสุดท้าย')
+        .replace(/ สุดท้ายนำ/g, '\nสุดท้ายนำ')
+        .replace(/ สุดท้ายเรา/g, '\nสุดท้ายเรา')
+        .replace(/ สุดท้ายเราจะ/g, '\nสุดท้ายเราจะ')
+        .replace(/ แล้วนำ/g, '\nแล้วนำ')
+        .replace(/ นำมาบวก/g, '\nนำมาบวก')
+        .replace(/ จัดการ/g, '\nจัดการ')
+        // Pitfall / warning section (double line break for visual separation)
+        .replace(/ สำหรับ/g, '\n\nสำหรับ')
+        .replace(/ ส่วนข้อ/g, '\nส่วนข้อ')
+        .replace(/ ใครที่ตอบ/g, '\n\nใครที่ตอบ')
+        .replace(/ หากใครตอบ/g, '\n\nหากใครตอบ')
+        .replace(/ จำไว้/g, '\n\nจำไว้')
+        .replace(/ น่าเสียดาย/g, '\n\nน่าเสียดาย');
+};
+
 export const QuestionCard: React.FC<QuestionCardProps> = ({
     question,
     questionNumber,
@@ -213,7 +242,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                 เฉลยละเอียด / แนวคิด
                             </h4>
                             <div className="text-stone-700 dark:text-slate-300 leading-relaxed text-base space-y-2">
-                                <MathRenderer text={convertThaiLettersToNumbers(question.explanation)} />
+                                <MathRenderer text={formatExplanation(convertThaiLettersToNumbers(question.explanation))} />
                             </div>
                         </div>
                     </div>
