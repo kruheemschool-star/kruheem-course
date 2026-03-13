@@ -8,6 +8,7 @@ import TiptapEditor from "@/components/TiptapEditor";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
@@ -52,7 +53,7 @@ export default function NewPostPage() {
                     fileType: 'image/jpeg',
                     initialQuality: 0.85
                 };
-                
+
                 const compressedFile = await imageCompression(file, options);
                 setCompressedSize(compressedFile.size);
 
@@ -80,9 +81,7 @@ export default function NewPostPage() {
 
             // Upload Image if selected
             if (coverImage) {
-                const storageRef = ref(storage, `posts/${Date.now()}_${coverImage.name}`);
-                const snapshot = await uploadBytes(storageRef, coverImage);
-                finalCoverUrl = await getDownloadURL(snapshot.ref);
+                finalCoverUrl = await uploadImageToStorage(coverImage, `posts/${Date.now()}_${coverImage.name}`);
             }
 
             // Prepare Keywords Array
@@ -190,7 +189,7 @@ export default function NewPostPage() {
                             {/* Cover Image */}
                             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
                                 <label className="block text-sm font-bold text-slate-700">รูปปกบทความ</label>
-                                
+
                                 {/* Aspect Ratio Info */}
                                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1">
                                     <p className="text-xs font-bold text-slate-600">📐 อัตราส่วนที่แนะนำ: <span className="text-teal-600">15:22</span> (แนวตั้ง)</p>

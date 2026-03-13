@@ -6,6 +6,7 @@ import { db, storage } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
@@ -144,9 +145,7 @@ export default function ProfilePage() {
 
         setUploading(true);
         try {
-            const fileRef = ref(storage, `avatars/${user.uid}/${Date.now()}_${file.name}`);
-            await uploadBytes(fileRef, file);
-            const url = await getDownloadURL(fileRef);
+            const url = await uploadImageToStorage(file, `avatars/${user.uid}/${Date.now()}_${file.name}`);
             setAvatar(url);
             toast.success("อัปโหลดรูปภาพสำเร็จ!");
         } catch (error) {

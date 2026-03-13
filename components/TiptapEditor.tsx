@@ -18,16 +18,17 @@ import {
 } from 'lucide-react';
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 
 const COMPRESSION_TIMEOUT = 10_000;
 const COMPRESSION_THRESHOLD = 1 * 1024 * 1024; // 1MB
 
 async function compressWithTimeout(file: File, options: any, timeoutMs: number): Promise<File | Blob> {
-  const compressionPromise = import('browser-image-compression').then(mod => mod.default(file, options));
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('COMPRESSION_TIMEOUT')), timeoutMs)
-  );
-  return Promise.race([compressionPromise, timeoutPromise]);
+    const compressionPromise = import('browser-image-compression').then(mod => mod.default(file, options));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('COMPRESSION_TIMEOUT')), timeoutMs)
+    );
+    return Promise.race([compressionPromise, timeoutPromise]);
 }
 
 // Custom Image Node View with delete button
@@ -197,30 +198,7 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
         setIsUploading(true);
         try {
-            let finalFile: File | Blob = file;
-            const originalSize = file.size;
-
-            // Compress if larger than threshold
-            if (originalSize > COMPRESSION_THRESHOLD) {
-                const options = {
-                    maxSizeMB: 0.8,
-                    maxWidthOrHeight: 1920,
-                    useWebWorker: true,
-                    initialQuality: 0.85
-                };
-
-                try {
-                    finalFile = await compressWithTimeout(file, options, COMPRESSION_TIMEOUT);
-                } catch (compressionErr: any) {
-                    console.warn('Compression failed, using original:', compressionErr?.message);
-                    finalFile = file;
-                }
-            }
-
-            // Upload to Firebase Storage: blog-content/{timestamp}_{filename}
-            const storageRef = ref(storage, `blog-content/${Date.now()}_${file.name}`);
-            const snapshot = await uploadBytes(storageRef, finalFile);
-            const downloadURL = await getDownloadURL(snapshot.ref);
+            const downloadURL = await uploadImageToStorage(file, `blog-content/${Date.now()}_${file.name}`);
 
             // Insert image
             editor.chain().focus().setImage({ src: downloadURL }).run();
@@ -239,30 +217,7 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
         setIsUploading(true);
         try {
-            let finalFile: File | Blob = file;
-            const originalSize = file.size;
-
-            // Compress if larger than threshold
-            if (originalSize > COMPRESSION_THRESHOLD) {
-                const options = {
-                    maxSizeMB: 0.8,
-                    maxWidthOrHeight: 1920,
-                    useWebWorker: true,
-                    initialQuality: 0.85
-                };
-
-                try {
-                    finalFile = await compressWithTimeout(file, options, COMPRESSION_TIMEOUT);
-                } catch (compressionErr: any) {
-                    console.warn('Compression failed, using original:', compressionErr?.message);
-                    finalFile = file;
-                }
-            }
-
-            // Upload to Firebase Storage with timestamp
-            const storageRef = ref(storage, `blog-content/${Date.now()}_pasted_${file.name || 'image.png'}`);
-            const snapshot = await uploadBytes(storageRef, finalFile);
-            const downloadURL = await getDownloadURL(snapshot.ref);
+            const downloadURL = await uploadImageToStorage(file, `blog-content/${Date.now()}_pasted_${file.name || 'image.png'}`);
 
             // Insert image at current cursor position
             editor.chain().focus().setImage({ src: downloadURL }).run();

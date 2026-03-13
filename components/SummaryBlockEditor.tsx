@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 
 // Block type definition
 interface ContentBlock {
@@ -144,9 +145,7 @@ export default function SummaryBlockEditor({ content, onChange }: SummaryBlockEd
 
         try {
             const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
-            const storageRef = ref(storage, `summaries/images/${filename}`);
-            const snapshot = await uploadBytes(storageRef, file);
-            const url = await getDownloadURL(snapshot.ref);
+            const url = await uploadImageToStorage(file, `summaries/images/${filename}`);
 
             const newBlock: ContentBlock = {
                 type: 'image',

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, getDoc, query, orderBy, writeBatch, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import "katex/dist/katex.min.css";
@@ -1063,9 +1064,7 @@ export default function ManageLessonsPage() {
 
             let downloadURL = currentImageUrl;
             if (imageFile) {
-                const storageRef = ref(storage, `lesson-images/${Date.now()}-${imageFile.name}`);
-                const snapshot = await uploadBytes(storageRef, imageFile);
-                downloadURL = await getDownloadURL(snapshot.ref);
+                downloadURL = await uploadImageToStorage(imageFile, `lesson-images/${Date.now()}-${imageFile.name}`);
             }
             if (addType === 'header' || addType === 'text') {
                 dataToSave.image = downloadURL;
@@ -1825,9 +1824,7 @@ export default function ManageLessonsPage() {
                                                                                         if (!file) return;
                                                                                         try {
                                                                                             const filename = `course-exam-images/${Date.now()}_${idx}_${file.name}`;
-                                                                                            const storageRef = ref(storage, filename);
-                                                                                            const snapshot = await uploadBytes(storageRef, file);
-                                                                                            const url = await getDownloadURL(snapshot.ref);
+                                                                                            const url = await uploadImageToStorage(file, filename);
 
                                                                                             const updated = [...examQuestions];
                                                                                             updated[idx] = { ...updated[idx], image: url };

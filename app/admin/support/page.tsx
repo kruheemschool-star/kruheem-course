@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
 import { ArrowLeft, MessageSquare, Paperclip, CheckCircle, Trash2, Clock, User, Send, X } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
@@ -72,9 +73,7 @@ export default function AdminSupportPage() {
         try {
             let attachmentUrl = "";
             if (replyFile) {
-                const storageRef = ref(storage, `support/admin/${Date.now()}_${replyFile.name}`);
-                await uploadBytes(storageRef, replyFile);
-                attachmentUrl = await getDownloadURL(storageRef);
+                attachmentUrl = await uploadImageToStorage(replyFile, `support/admin/${Date.now()}_${replyFile.name}`);
             }
 
             await addDoc(collection(db, "support_tickets", selectedTicket.id, "messages"), {

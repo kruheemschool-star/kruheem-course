@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Wand2, Eye, Code, Info } from "lucide-react";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import { useRouter } from "next/navigation";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
 import { Image as ImageIcon, Upload, Trash2 } from "lucide-react";
@@ -263,18 +264,16 @@ export default function NewSummaryPage() {
                                                     fileType: 'image/jpeg',  // Convert to JPEG for better compression
                                                     initialQuality: 0.85     // High quality (85%)
                                                 };
-                                                
+
                                                 const compressedFile = await imageCompression(file, options);
-                                                
+
                                                 // Calculate compression stats
                                                 const originalSize = file.size;
                                                 const compressedSize = compressedFile.size;
                                                 const savedPercent = ((1 - compressedSize / originalSize) * 100).toFixed(0);
-                                                
+
                                                 const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
-                                                const storageRef = ref(storage, `summaries/covers/${filename}`);
-                                                const snapshot = await uploadBytes(storageRef, compressedFile);
-                                                const url = await getDownloadURL(snapshot.ref);
+                                                const url = await uploadImageToStorage(compressedFile, `summaries/covers/${filename}`);
                                                 setCoverImage(url);
 
                                                 // Show compression stats

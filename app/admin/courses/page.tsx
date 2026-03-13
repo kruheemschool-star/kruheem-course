@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, query, where, orderBy, writeBatch } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
 
 import { useUserAuth } from "@/context/AuthContext";
@@ -186,9 +187,7 @@ export default function CourseManagerPage() {
     try {
       let downloadURL = currentImageUrl;
       if (imageFile) {
-        const storageRef = ref(storage, `course-images/${Date.now()}-${imageFile.name}`);
-        const snapshot = await uploadBytes(storageRef, imageFile);
-        downloadURL = await getDownloadURL(snapshot.ref);
+        downloadURL = await uploadImageToStorage(imageFile, `course-images/${Date.now()}-${imageFile.name}`);
       }
 
       const courseData = {

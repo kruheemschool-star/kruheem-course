@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
 import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2, Trash2, Star, Heart, Flame, Trophy, Sparkles, FileText, Link as LinkIcon, DollarSign } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
@@ -82,9 +83,7 @@ export default function AdminBanners() {
         try {
             setUploading(true);
             const imageId = `banner_${Date.now()}`;
-            const storageRef = ref(storage, `banners/${imageId}`);
-            await uploadBytes(storageRef, file);
-            const url = await getDownloadURL(storageRef);
+            const url = await uploadImageToStorage(file, `banners/${imageId}`);
 
             const newImage = { id: imageId, url };
             const updatedImages = [...bannerImages, newImage];

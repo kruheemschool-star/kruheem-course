@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
 import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks } from "lucide-react";
 import ImageUploadHelper from "@/components/admin/ImageUploadHelper";
@@ -419,9 +420,7 @@ export default function ExamEditorPage() {
         setUploadingCover(true);
         try {
             const filename = `exam-covers/${Date.now()}_${file.name}`;
-            const storageRef = ref(storage, filename);
-            const snapshot = await uploadBytes(storageRef, file);
-            const url = await getDownloadURL(snapshot.ref);
+            const url = await uploadImageToStorage(file, filename);
             setCoverImage(url);
         } catch (error) {
             console.error("Upload failed", error);
@@ -860,9 +859,7 @@ export default function ExamEditorPage() {
                                                                                                 if (!file) return;
                                                                                                 try {
                                                                                                     const filename = `exam-q-images/${Date.now()}_${idx}_${file.name}`;
-                                                                                                    const storageRef = ref(storage, filename);
-                                                                                                    const snapshot = await uploadBytes(storageRef, file);
-                                                                                                    const url = await getDownloadURL(snapshot.ref);
+                                                                                                    const url = await uploadImageToStorage(file, filename);
 
                                                                                                     const newObj = { ...parsed, image: url };
                                                                                                     updateSmartBlock(idx, JSON.stringify(newObj, null, 2));
@@ -1027,9 +1024,7 @@ export default function ExamEditorPage() {
                                                                             try {
                                                                                 // 1. Upload
                                                                                 const filename = `exam-q-images/${Date.now()}_${idx}_${file.name}`;
-                                                                                const storageRef = ref(storage, filename);
-                                                                                const snapshot = await uploadBytes(storageRef, file);
-                                                                                const url = await getDownloadURL(snapshot.ref);
+                                                                                const url = await uploadImageToStorage(file, filename);
 
                                                                                 // 2. Update JSON
                                                                                 const newQuestions = [...questions];

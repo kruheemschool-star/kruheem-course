@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import AdminGuard from "@/components/AdminGuard";
 import ReviewList from "@/app/reviews/ReviewList";
 import Link from "next/link";
@@ -115,9 +116,7 @@ export default function AdminReviewsPage() {
             } else if (avatarType === "url" && avatarUrl.trim()) {
                 userPhoto = avatarUrl.trim();
             } else if (avatarType === "upload" && avatarFile) {
-                const storageRef = ref(storage, `review-avatars/${Date.now()}_${avatarFile.name}`);
-                const snapshot = await uploadBytes(storageRef, avatarFile);
-                userPhoto = await getDownloadURL(snapshot.ref);
+                userPhoto = await uploadImageToStorage(avatarFile, `review-avatars/${Date.now()}_${avatarFile.name}`);
             }
 
             // Get course name

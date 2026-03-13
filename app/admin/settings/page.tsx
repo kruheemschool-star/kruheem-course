@@ -8,6 +8,7 @@ import AdminGuard from '@/components/AdminGuard';
 import { db, storage } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { uploadImageToStorage } from "@/lib/upload";
 import { useConfirmModal } from '@/hooks/useConfirmModal';
 
 // Menu items configuration
@@ -84,9 +85,7 @@ export default function AdminSettingsPage() {
         try {
             // Upload to Firebase Storage
             const filename = `${key}_${Date.now()}.${file.name.split('.').pop()}`;
-            const storageRef = ref(storage, `admin/menu-covers/${filename}`);
-            await uploadBytes(storageRef, file);
-            const url = await getDownloadURL(storageRef);
+            const url = await uploadImageToStorage(file, `admin/menu-covers/${filename}`);
 
             // Delete old image if exists
             if (covers[key]) {

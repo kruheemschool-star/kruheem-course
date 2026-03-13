@@ -8,6 +8,7 @@ import TiptapEditor from "@/components/TiptapEditor";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
@@ -107,9 +108,7 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
 
             // Upload NEW Image if selected
             if (coverImage) {
-                const storageRef = ref(storage, `posts/${Date.now()}_${coverImage.name}`);
-                const snapshot = await uploadBytes(storageRef, coverImage);
-                finalCoverUrl = await getDownloadURL(snapshot.ref);
+                finalCoverUrl = await uploadImageToStorage(coverImage, `posts/${Date.now()}_${coverImage.name}`);
             }
 
             // Prepare Keywords Array

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Copy, Image as ImageIcon, Loader2, UploadCloud } from "lucide-react";
 import { storage } from "@/lib/firebase"; // Ensure you export storage from "@/lib/firebase"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 
 export default function ImageUploadHelper({ onUploadComplete }: { onUploadComplete?: (url: string) => void }) {
     const [uploading, setUploading] = useState(false);
@@ -17,11 +18,7 @@ export default function ImageUploadHelper({ onUploadComplete }: { onUploadComple
         try {
             // Create a unique filename
             const filename = `exam-images/${Date.now()}_${file.name}`;
-            const storageRef = ref(storage, filename);
-
-            // Upload
-            const snapshot = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
+            const downloadURL = await uploadImageToStorage(file, filename);
 
             setLastUploadedUrl(downloadURL);
             if (onUploadComplete) {

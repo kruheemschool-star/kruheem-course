@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Wand2, Eye, Code, Trash2, Info, PenTool, Layers } from
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { uploadImageToStorage } from "@/lib/upload";
 import { Image as ImageIcon, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
@@ -124,9 +125,7 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
 
             // 2. Upload compressed file to Firebase Storage
             const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
-            const storageRef = ref(storage, `summaries/images/${filename}`);
-            const snapshot = await uploadBytes(storageRef, compressedFile);
-            const url = await getDownloadURL(snapshot.ref);
+            const url = await uploadImageToStorage(compressedFile, `summaries/images/${filename}`);
 
             // 2. Generate JSON Block
             const jsonBlock = `
@@ -408,9 +407,7 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
 
                                                 // Upload compressed image
                                                 const filename = `${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
-                                                const storageRef = ref(storage, `summaries/covers/${filename}`);
-                                                const snapshot = await uploadBytes(storageRef, compressedFile);
-                                                const url = await getDownloadURL(snapshot.ref);
+                                                const url = await uploadImageToStorage(compressedFile, `summaries/covers/${filename}`);
                                                 setCoverImage(url);
 
                                                 // Show compression stats
