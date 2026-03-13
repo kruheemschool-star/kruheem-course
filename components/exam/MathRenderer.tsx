@@ -241,14 +241,14 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className = ""
                                 // 6. Horizontal Rule (---)
                                 .replace(/^---$/gm, '<hr class="my-6 border-t-2 border-dashed border-slate-200 dark:border-slate-700" />')
 
-                                // 7. Paragraph breaks (double newline) -> single <br> for spacing
-                                .replace(/\n\n+/g, '<br />')
+                                // 7. Paragraph breaks (double newline) -> double <br> for spacing
+                                .replace(/\n\n+/g, '<br /><br />')
                                 
                                 // 8. Clean up newlines after block elements (prevent double spacing)
                                 .replace(/(<\/h[23]>|<\/div>|<hr[^>]*>)\n/g, '$1')
                                 
-                                // 9. Single newlines within paragraphs -> space (not BR)
-                                .replace(/\n/g, ' ')
+                                // 9. Single newlines -> <br> (preserve line breaks in explanations)
+                                .replace(/\n/g, '<br />')
                         }}
                     />
                 );
