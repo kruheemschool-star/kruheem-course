@@ -796,7 +796,38 @@ export default function ManageLessonsPage() {
         }
     };
 
-    // Drag-and-Drop Handler
+    // Drag-and-Drop Handler for Chapter Groups (Headers)
+    const groupSensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    const handleGroupDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const sortableGroups = groupedLessons.filter((g: any) => g.header);
+        const oldIndex = sortableGroups.findIndex((g: any) => g.header.id === active.id);
+        const newIndex = sortableGroups.findIndex((g: any) => g.header.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const reordered = arrayMove([...sortableGroups], oldIndex, newIndex);
+
+        try {
+            const batch = writeBatch(db);
+            reordered.forEach((group, index) => {
+                const headerRef = doc(db, "courses", courseId, "lessons", group.header.id);
+                batch.update(headerRef, { order: index });
+            });
+            await batch.commit();
+            showToast("ย้ายบทเรียนเรียบร้อยแล้ว!");
+            fetchCourseInfo();
+        } catch (error: any) {
+            showToast("Error: " + error.message, "error");
+        }
+    };
+
+    // Drag-and-Drop Handler for Lessons within a Group
     const handleDragEnd = async (event: DragEndEvent, groupItems: any[]) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
@@ -1925,9 +1956,26 @@ export default function ManageLessonsPage() {
                                     <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-200 ring-4 ring-white"></div>
                                     <h3 className="font-black text-slate-400 uppercase tracking-widest text-xs mb-6">บทเรียนหลัก (Curriculum)</h3>
 
-                                    {groupedLessons.map((group, index) => (
+                                    <DndContext sensors={groupSensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+                                        <SortableContext items={groupedLessons.filter((g: any) => g.header).map((g: any) => g.header.id)} strategy={verticalListSortingStrategy}>
+                                            {groupedLessons.filter((g: any) => g.header).map((group) => (
+                                                <SortableLessonItem key={group.header.id} id={group.header.id}>
+                                                    <LessonGroup
+                                                        group={group}
+                                                        handleEdit={handleEditClick}
+                                                        handleDelete={handleDelete}
+                                                        handleToggleVisibility={handleToggleVisibility}
+                                                        handleMoveLesson={handleMoveLesson}
+                                                        onDragEnd={handleDragEnd}
+                                                    />
+                                                </SortableLessonItem>
+                                            ))}
+                                        </SortableContext>
+                                    </DndContext>
+                                    {/* Uncategorized group (not draggable, stays at bottom) */}
+                                    {groupedLessons.filter((g: any) => !g.header).map((group, index) => (
                                         <LessonGroup
-                                            key={index}
+                                            key={`uncat-${index}`}
                                             group={group}
                                             handleEdit={handleEditClick}
                                             handleDelete={handleDelete}
