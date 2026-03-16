@@ -23,6 +23,7 @@ export default function ExamEditorPage() {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [jsonContent, setJsonContent] = useState("");
     const [smartBlocks, setSmartBlocks] = useState<string[]>([]);
+    const [selectedBlocks, setSelectedBlocks] = useState<Set<number>>(new Set());
     const [isBulkImporting, setIsBulkImporting] = useState(false);
     const [bulkJson, setBulkJson] = useState("");
     const [collapsedBlocks, setCollapsedBlocks] = useState<Record<number, boolean>>({});
@@ -177,6 +178,37 @@ export default function ExamEditorPage() {
             isManualUpdate.current = true;
             setSmartBlocks([]);
             setJsonContent('[]');
+            setSelectedBlocks(new Set());
+        }, true);
+    };
+
+    const toggleBlockSelection = (index: number) => {
+        const newSelected = new Set(selectedBlocks);
+        if (newSelected.has(index)) {
+            newSelected.delete(index);
+        } else {
+            newSelected.add(index);
+        }
+        setSelectedBlocks(newSelected);
+    };
+
+    const selectAllBlocks = () => {
+        if (selectedBlocks.size === smartBlocks.length) {
+            setSelectedBlocks(new Set());
+        } else {
+            const allIndices = new Set(smartBlocks.map((_, idx) => idx));
+            setSelectedBlocks(allIndices);
+        }
+    };
+
+    const deleteSelectedQuestions = () => {
+        if (selectedBlocks.size === 0) return;
+        confirmModal("ยืนยันการลบ", `ยืนยันลบข้อสอบที่เลือก ${selectedBlocks.size} ข้อ?\n\nการกระทำนี้ไม่สามารถย้อนกลับได้!`, async () => {
+            const newBlocks = smartBlocks.filter((_, idx) => !selectedBlocks.has(idx));
+            isManualUpdate.current = true;
+            setSmartBlocks(newBlocks);
+            setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
+            setSelectedBlocks(new Set());
         }, true);
     };
 
@@ -720,10 +752,21 @@ export default function ExamEditorPage() {
                                 <div className="flex-grow overflow-y-auto bg-[#1e1e1e] relative">
                                     {/* Sticky Toolbar */}
                                     <div className="sticky top-0 z-20 bg-[#252526] border-b border-[#3d3d3d] px-4 py-2.5 flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-slate-400 font-mono">
-                                                {smartBlocks.length > 0 ? `${smartBlocks.length} ข้อ` : 'ว่าง'}
-                                            </span>
+                                        <div className="flex items-center gap-3">
+                                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-400 hover:text-slate-300 transition-colors">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={smartBlocks.length > 0 && selectedBlocks.size === smartBlocks.length}
+                                                    onChange={selectAllBlocks}
+                                                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-[#252526] cursor-pointer"
+                                                />
+                                                <span>{smartBlocks.length > 0 ? `${smartBlocks.length} ข้อ` : 'ว่าง'}</span>
+                                            </label>
+                                            {selectedBlocks.size > 0 && (
+                                                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-medium tracking-wide">
+                                                    เลือกแล้ว {selectedBlocks.size} ข้อ
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button
@@ -738,7 +781,15 @@ export default function ExamEditorPage() {
                                             >
                                                 <Copy size={12} /> เพิ่มหลายข้อ
                                             </button>
-                                            {smartBlocks.length > 0 && (
+                                            {selectedBlocks.size > 0 && (
+                                                <button
+                                                    onClick={deleteSelectedQuestions}
+                                                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 transition-colors flex items-center gap-1.5"
+                                                >
+                                                    <Trash2 size={12} /> ลบที่เลือก ({selectedBlocks.size})
+                                                </button>
+                                            )}
+                                            {smartBlocks.length > 0 && selectedBlocks.size === 0 && (
                                                 <button
                                                     onClick={deleteAllQuestions}
                                                     className="px-3 py-1.5 text-xs font-bold rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 transition-colors flex items-center gap-1.5"
@@ -793,6 +844,16 @@ export default function ExamEditorPage() {
                                                     {/* Card Header */}
                                                     <div className="bg-[#252526] p-3 flex items-center justify-between cursor-pointer" onClick={() => toggleBlockCollapse(idx)}>
                                                         <div className="flex items-center gap-3">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedBlocks.has(idx)}
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    toggleBlockSelection(idx);
+                                                                }}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="w-4 h-4 rounded border-[#3d3d3d] bg-[#1e1e1e] text-emerald-500 focus:ring-emerald-500 focus:ring-offset-[#252526] cursor-pointer"
+                                                            />
                                                             <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">
                                                                 {idx + 1}
                                                             </span>
