@@ -33,6 +33,13 @@ export default function ExamAccessGuard({
             return;
         }
 
+        // ✅ Admin bypass: grant full access for admin to review all exams
+        if (user.email === "kruheemschool@gmail.com") {
+            setHasAccess(true);
+            setAccessStatus('granted');
+            return;
+        }
+
         const checkAccess = async () => {
             try {
                 // Check if user has an approved enrollment for a course containing "คลังข้อสอบ"
@@ -48,7 +55,13 @@ export default function ExamAccessGuard({
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     if (data.courseTitle && data.courseTitle.includes("คลังข้อสอบ")) {
-                        if (data.status === "approved") isApproved = true;
+                        if (data.status === "approved") {
+                            // ✅ Check expiry date — only grant access if not expired
+                            const expiry = data.expiryDate?.toDate?.() ?? (data.expiryDate ? new Date(data.expiryDate) : null);
+                            if (!expiry || expiry > new Date()) {
+                                isApproved = true;
+                            }
+                        }
                         if (data.status === "pending") isPending = true;
                     }
                 });

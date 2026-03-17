@@ -56,6 +56,7 @@ interface Course {
     startedAt?: any; // Added
     totalLessons?: number;
     isAdminView?: boolean;
+    isExamBank?: boolean; // Added flag for Exam Bank
 }
 
 interface Progress {
@@ -126,7 +127,8 @@ export default function MyCoursesPage() {
                                 status: enroll?.status || 'approved',
                                 expiryDate: enroll?.expiryDate,
                                 startedAt: enroll?.createdAt,
-                                isAdminView: true
+                                isAdminView: true,
+                                isExamBank: c.title.includes("คลังข้อสอบ")
                             };
                         });
                     } else {
@@ -155,7 +157,7 @@ export default function MyCoursesPage() {
                                     expiryDate.setFullYear(expiryDate.getFullYear() + 5);
                                     expiry = expiryDate;
                                 }
-                                return { ...c, status: enroll?.status, expiryDate: expiry, startedAt: start };
+                                return { ...c, status: enroll?.status, expiryDate: expiry, startedAt: start, isExamBank: c.title.includes("คลังข้อสอบ") };
                             });
                     }
 
@@ -243,11 +245,20 @@ export default function MyCoursesPage() {
             const videoCountMap: Record<string, { videoIds: string[], total: number }> = {};
             await Promise.all(courses.map(async (course) => {
                 if (course.isAdminView) return;
-                const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
-                const videoLessons = lessonsSnap.docs
-                    .map(d => ({ id: d.id, ...d.data() }))
-                    .filter((l: any) => l.type === 'video' && !l.isHidden);
-                videoCountMap[course.id] = { videoIds: videoLessons.map(l => l.id), total: videoLessons.length };
+                
+                if (course.isExamBank) {
+                    // For Exam Bank, fetch the number of exams
+                    const examsSnap = await getDocs(collection(db, "exams"));
+                    const examsData = examsSnap.docs.map(d => ({ id: d.id }));
+                    videoCountMap[course.id] = { videoIds: examsData.map(e => e.id), total: examsData.length };
+                } else {
+                    // For normal courses, fetch video lessons
+                    const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
+                    const videoLessons = lessonsSnap.docs
+                        .map(d => ({ id: d.id, ...d.data() }))
+                        .filter((l: any) => l.type === 'video' && !l.isHidden);
+                    videoCountMap[course.id] = { videoIds: videoLessons.map(l => l.id), total: videoLessons.length };
+                }
             }));
             videoCountCacheRef.current = videoCountMap;
             cachedCourseIdsRef.current = courseIds;
@@ -337,7 +348,7 @@ export default function MyCoursesPage() {
                             // But usually it should be there.
 
                             return (
-                                <Link href={`/learn/${lastSession.courseId}?lessonId=${lastSession.lessonId}&t=${lastSession.timestamp}`}>
+                                <Link href={resumeCourse?.isExamBank ? `/exam` : `/learn/${lastSession.courseId}?lessonId=${lastSession.lessonId}&t=${lastSession.timestamp}`}>
                                     <div className="group relative w-full bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 md:p-8 border border-slate-100 dark:border-slate-800 shadow-lg hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-500 overflow-hidden cursor-pointer">
 
                                         {/* Background Decoration */}
@@ -682,7 +693,8 @@ function CourseCard({ course, progress, isReviewed, onReview }: { course: Course
                 <div className="mb-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-inner">
                     <div className="flex justify-between items-end mb-2">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                            เรียนไปแล้ว <span className="text-indigo-600 dark:text-indigo-400 text-sm">{progress.completed}</span> / {progress.total} คลิป
+                            {course.isExamBank ? 'ทดสอบแล้ว ' : 'เรียนไปแล้ว '}
+                            <span className="text-indigo-600 dark:text-indigo-400 text-sm">{progress.completed}</span> / {progress.total} {course.isExamBank ? 'ชุด' : 'คลิป'}
                         </span>
                         {progress.percent === 100 && (
                             <span className="text-amber-500 animate-bounce">👑</span>
@@ -718,14 +730,14 @@ function CourseCard({ course, progress, isReviewed, onReview }: { course: Course
             <div className="mt-auto pt-2">
                 {isApproved ? (
                     <Link
-                        href={isExpired ? '#' : `/learn/${course.id}`}
+                        href={isExpired ? '#' : (course.isExamBank ? '/exam' : `/learn/${course.id}`)}
                         onClick={(e) => isExpired && e.preventDefault()}
                         className={`block w-full py-3 font-bold rounded-xl text-center transition shadow-md ${isExpired
                             ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none'
                             : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 dark:shadow-indigo-900/20'
                             }`}
                     >
-                        {isExpired ? 'หมดอายุ' : (progress && progress.percent > 0 ? 'เรียนต่อ' : 'เริ่มเรียน')}
+                        {isExpired ? 'หมดอายุ' : (course.isExamBank ? 'ทำข้อสอบเลย' : (progress && progress.percent > 0 ? 'เรียนต่อ' : 'เริ่มเรียน'))}
                     </Link>
                 ) : (
                     <button disabled className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 font-bold rounded-xl cursor-not-allowed">

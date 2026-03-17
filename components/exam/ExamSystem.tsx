@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { ExamQuestion } from '@/types/exam';
 import { QuestionCard } from './QuestionCard';
-import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock } from 'lucide-react';
 
 interface ExamSystemProps {
     examData: ExamQuestion[];
@@ -52,7 +52,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     // Sanitize Data: Per-question bounds checking
     // Prioritize answerIndex over correctIndex, auto-fix 1-based if out of bounds
     const sanitizedExamData = React.useMemo(() => {
-        const dataToProcess = isTrial ? examData.slice(0, 5) : examData;
+        const dataToProcess = examData;
 
         return dataToProcess.map((q: any) => {
             // Step 1: Resolve the correct answer index from available fields
@@ -107,7 +107,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     };
 
     const handleFinishExam = () => {
-        const unansweredCount = totalQuestions - Object.keys(answers).length;
+        const answerableCount = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
+        const unansweredCount = answerableCount - Object.keys(answers).length;
         if (unansweredCount > 0) {
             if (!confirm(`คุณยังทำข้อสอบไม่ครบ ${unansweredCount} ข้อ\nต้องการส่งคำตอบเลยหรือไม่?`)) return;
         } else if (!confirm("ยืนยันการส่งคำตอบ?")) {
@@ -116,28 +117,28 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
         // Calculate Score with NEW Clean Logic
         let score = 0;
-        sanitizedExamData.forEach((q, index) => {
+        sanitizedExamData.slice(0, answerableCount).forEach((q, index) => {
             if (answers[index] === q.correctIndex) score++;
         });
 
         // Calculate Grade
-        const percent = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
+        const percent = answerableCount > 0 ? Math.round((score / answerableCount) * 100) : 0;
         const gradeInfo = getGradeFromPercent(percent);
         setFinalScore({
             score,
-            total: totalQuestions,
+            total: answerableCount,
             percent,
             ...gradeInfo
         });
 
         // Reveal all answers
         const allChecked: Record<number, boolean> = {};
-        for (let i = 0; i < totalQuestions; i++) allChecked[i] = true;
+        for (let i = 0; i < answerableCount; i++) allChecked[i] = true;
         setCheckedQuestions(allChecked);
 
         setIsFinished(true);
 
-        if (onComplete) onComplete(score, totalQuestions);
+        if (onComplete) onComplete(score, answerableCount);
     };
 
     // Find first wrong answer for review
@@ -179,14 +180,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
                     {/* Up-sell Banner (Trial Mode) */}
                     {isTrial && (
-                        <div className="mb-10 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl p-6 text-center shadow-sm animate-in zoom-in">
-                            <h3 className="text-xl font-bold text-amber-800 dark:text-amber-400 mb-2">💎 สนุกกับการทำโจทย์ใช่ไหมครับ?</h3>
-                            <p className="text-amber-700 dark:text-amber-500 mb-4 max-w-sm mx-auto">
-                                แบบทดสอบชุดนี้มีคำถามทั้งหมดอีกมากมาย พร้อมข้อสอบชุดอื่นๆ ในคลังข้อสอบรออยู่!
-                            </p>
-                            <a href="/payment" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95">
-                                สมัครสมาชิกคลังข้อสอบ VIP
+                        <div className="mb-10 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 dark:from-amber-900/40 dark:via-orange-900/20 dark:to-rose-900/10 border border-amber-200 dark:border-amber-700/50 rounded-3xl p-8 text-center shadow-lg animate-in zoom-in relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-200/30 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                            <h3 className="text-2xl font-black text-amber-800 dark:text-amber-400 mb-3">🏆 ปลดล็อกข้อสอบทั้งหมด แล้วเก่งขึ้นแบบก้าวกระโดด!</h3>
+                            <div className="text-amber-700 dark:text-amber-500 mb-5 max-w-lg mx-auto space-y-2 text-left">
+                                <p className="flex items-start gap-2"><span>✅</span><span>เข้าถึงข้อสอบ <strong>ทุกชุด ทุกระดับชั้น</strong> พร้อมเฉลยละเอียดทุกข้อ</span></p>
+                                <p className="flex items-start gap-2"><span>✅</span><span>ข้อสอบจาก <strong>สนามสอบจริง</strong> ทั้ง O-NET, A-Level, สอบเข้า ม.1</span></p>
+                                <p className="flex items-start gap-2"><span>✅</span><span>อัพเดทข้อสอบใหม่ <strong>ต่อเนื่องตลอด</strong> ไม่มีค่าใช้จ่ายเพิ่มเติม</span></p>
+                                <p className="flex items-start gap-2"><span>✅</span><span>สมัครครั้งเดียว ใช้ได้ <strong>ยาว 5 ปี</strong> คุ้มค่าที่สุด!</span></p>
+                            </div>
+                            <a href="/payment" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                                🔓 ปลดล็อกคลังข้อสอบทั้งหมดเลย
                             </a>
+                            <p className="text-xs text-amber-500/80 dark:text-amber-600 mt-3 font-medium">จ่ายครั้งเดียว ไม่มีรายเดือน • เริ่มทำได้ทันทีหลังชำระเงิน</p>
                         </div>
                     )}
 
@@ -269,7 +275,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                 <div className="mt-8 bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
                     <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4">แผนที่ข้อสอบ - ผลลัพธ์</h3>
                     <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-                        {sanitizedExamData.map((q, idx) => {
+                        {sanitizedExamData.slice(0, finalScore.total).map((q, idx) => {
                             const userAnswer = answers[idx];
                             const isCorrect = userAnswer === q.correctIndex;
                             const isUnanswered = userAnswer === undefined;
@@ -347,7 +353,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                 onClick={() => setCurrentQuestionIndex(idx)}
                                 className={`aspect-square rounded-lg text-sm flex items-center justify-center transition-all border ${btnClass}`}
                             >
-                                {content}
+                                {isTrial && idx >= 5 ? <Lock size={14} className="opacity-50" /> : content}
                             </button>
                         );
                     })}
@@ -404,7 +410,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                         ${answers[idx] !== undefined ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-600'}
                                     `}
                                 >
-                                    {idx + 1}
+                                    {isTrial && idx >= 5 ? <Lock size={14} className="opacity-50" /> : idx + 1}
                                 </button>
                             ))}
                         </div>
@@ -412,15 +418,39 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                 )}
 
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[400px]">
-                    <QuestionCard
-                        key={currentQuestion.id}
-                        question={currentQuestion}
-                        questionNumber={currentQuestionIndex + 1}
-                        totalQuestions={totalQuestions}
-                        selectedOption={answers[currentQuestionIndex] ?? null}
-                        onSelectOption={handleSelectOption}
-                        isSubmitted={!!checkedQuestions[currentQuestionIndex]}
-                    />
+                    {isTrial && currentQuestionIndex >= 5 ? (
+                        <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 md:p-12 border-2 border-amber-200 dark:border-amber-900/50 shadow-xl flex flex-col items-center justify-center text-center h-full min-h-[400px] relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400"></div>
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-amber-100/50 dark:bg-amber-900/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                            <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full flex items-center justify-center mb-6 shadow-lg shadow-amber-200 dark:shadow-amber-900/50">
+                                <Lock size={36} />
+                            </div>
+                            <h3 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-4">อยากเก่งคณิตศาสตร์กว่านี้ไหมครับ? 🚀</h3>
+                            <p className="text-slate-500 dark:text-slate-400 mb-2 max-w-lg font-medium leading-relaxed text-lg">
+                                ข้อสอบชุดนี้มีทั้งหมด <strong className="text-amber-600 dark:text-amber-400">{totalQuestions} ข้อ</strong> — คุณเพิ่งทำได้แค่ 5 ข้อเองครับ!
+                            </p>
+                            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-5 mb-6 max-w-md w-full text-left space-y-3">
+                                <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">📚</span><span>ข้อสอบหลากหลายชุดจาก <strong>สนามสอบจริง</strong> ทุกระดับชั้น</span></p>
+                                <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">📝</span><span><strong>เฉลยละเอียดทุกข้อ</strong> พร้อมวิธีคิดแบบ step-by-step</span></p>
+                                <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">⏰</span><span>สมัครครั้งเดียว ใช้ได้ <strong>5 ปีเต็ม</strong> ไม่มีค่ารายเดือน</span></p>
+                                <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">🆕</span><span>อัพเดทข้อสอบใหม่ <strong>ต่อเนื่อง</strong> ไม่มีค่าใช้จ่ายเพิ่ม</span></p>
+                            </div>
+                            <a href="/payment" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200/80 dark:shadow-amber-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                                🔓 ปลดล็อกข้อสอบทั้งหมด
+                            </a>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 font-medium">จ่ายครั้งเดียว • เริ่มทำได้ทันที • ดูเฉลยครบทุกข้อ</p>
+                        </div>
+                    ) : (
+                        <QuestionCard
+                            key={currentQuestion.id}
+                            question={currentQuestion}
+                            questionNumber={currentQuestionIndex + 1}
+                            totalQuestions={totalQuestions}
+                            selectedOption={answers[currentQuestionIndex] ?? null}
+                            onSelectOption={handleSelectOption}
+                            isSubmitted={!!checkedQuestions[currentQuestionIndex]}
+                        />
+                    )}
                 </div>
 
                 {/* Control Bar */}
@@ -439,7 +469,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
                     <div className="flex gap-3">
                         {/* Check Answer Button (Restored) */}
-                        {!checkedQuestions[currentQuestionIndex] && (
+                        {!checkedQuestions[currentQuestionIndex] && !(isTrial && currentQuestionIndex >= 5) && (
                             <button
                                 onClick={handleCheckAnswer}
                                 className={`px-4 sm:px-6 py-3 rounded-full font-bold text-sm sm:text-base border-2 transition-all ${answers[currentQuestionIndex] !== undefined
