@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { collection, getDocs, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // Drag and Drop imports
@@ -14,7 +14,7 @@ import { CSS } from '@dnd-kit/utilities';
 import React from "react";
 
 // Sortable Table Row Component
-function SortableExamRow({ exam, onDelete }: { exam: any; onDelete: (id: string) => void }) {
+function SortableExamRow({ exam, onDelete, onToggleFree }: { exam: any; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void }) {
     const {
         attributes,
         listeners,
@@ -64,6 +64,22 @@ function SortableExamRow({ exam, onDelete }: { exam: any; onDelete: (id: string)
             </td>
             <td className="p-6 text-center font-mono text-slate-500">
                 {exam.questions?.length || 0}
+            </td>
+            <td className="p-6 text-center">
+                <button
+                    onClick={() => onToggleFree(exam.id, exam.isFree || false)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
+                        exam.isFree
+                            ? "bg-teal-50 text-teal-600 border border-teal-200 hover:bg-teal-100 hover:shadow"
+                            : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 hover:shadow"
+                    }`}
+                >
+                    {exam.isFree ? (
+                        <><Unlock size={14} /> ทำฟรี</>
+                    ) : (
+                        <><Lock size={14} /> เฉพาะสมาชิก</>
+                    )}
+                </button>
             </td>
             <td className="p-6 text-right">
                 <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
@@ -142,6 +158,18 @@ export default function ExamManagerPage() {
         }, true);
     };
 
+    const handleToggleFree = async (id: string, currentStatus: boolean) => {
+        try {
+            await updateDoc(doc(db, "exams", id), {
+                isFree: !currentStatus
+            });
+            setExams(prev => prev.map(exam => exam.id === id ? { ...exam, isFree: !currentStatus } : exam));
+        } catch (error) {
+            console.error("Error updating exam free status:", error);
+            alert("เกิดข้อผิดพลาดในการอัปเดตสิทธิ์การเข้าถึง");
+        }
+    };
+
     const handleQuickAdd = async () => {
         const title = prompt("ชื่อชุดข้อสอบ:");
         if (!title) return;
@@ -155,6 +183,7 @@ export default function ExamManagerPage() {
                 questionCount: 0,
                 timeLimit: 30,
                 difficulty: "Medium",
+                isFree: false,
                 createdAt: serverTimestamp(),
                 order: exams.length, // Add to end
                 questions: []
@@ -237,6 +266,7 @@ export default function ExamManagerPage() {
                                     <th className="p-6">หมวดหมู่</th>
                                     <th className="p-6 text-center">ระดับความยาก</th>
                                     <th className="p-6 text-center">จำนวนข้อ</th>
+                                    <th className="p-6 text-center">สิทธิ์การเข้าถึง</th>
                                     <th className="p-6 text-right">จัดการ</th>
                                 </tr>
                             </thead>
@@ -244,7 +274,7 @@ export default function ExamManagerPage() {
                                 <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
                                     <tbody className="divide-y divide-slate-50">
                                         {exams.map((exam) => (
-                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} />
+                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} onToggleFree={handleToggleFree} />
                                         ))}
                                     </tbody>
                                 </SortableContext>

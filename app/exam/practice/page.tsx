@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query } from "firebase/firestore";
 import { ExamSystem } from "@/components/exam/ExamSystem";
+import ExamAccessGuard from "@/components/exam/ExamAccessGuard";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -105,10 +106,12 @@ function PracticeRoomContent() {
             </div>
 
             <main className="pt-24 pb-12 container mx-auto px-4">
-                <ExamSystem
-                    examData={questions}
-                    examTitle={`ฝึกฝนเรื่อง: ${queryTerm}`}
-                />
+                <ExamAccessGuard isFree={false}>
+                    <ExamSystem
+                        examData={questions}
+                        examTitle={`ฝึกฝนเรื่อง: ${queryTerm}`}
+                    />
+                </ExamAccessGuard>
             </main>
         </div>
     );

@@ -2,6 +2,7 @@ import { Metadata, ResolvingMetadata } from "next";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { ExamSystem } from "@/components/exam/ExamSystem";
+import ExamAccessGuard from "@/components/exam/ExamAccessGuard";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -170,11 +171,13 @@ export default async function ExamRoomPage(props: Props) {
             </div>
 
             <main className="pt-24 pb-12 container mx-auto px-4 flex-grow">
-                <ExamSystem
-                    examData={exam.questions || []}
-                    examTitle={exam.title}
-                    initialQuestionIndex={initialQuestionIndex}
-                />
+                <ExamAccessGuard isFree={exam.isFree || false}>
+                    <ExamSystem
+                        examData={exam.questions || []}
+                        examTitle={exam.title}
+                        initialQuestionIndex={initialQuestionIndex}
+                    />
+                </ExamAccessGuard>
             </main>
 
             {/* SEO Text Content (Visible but unobtrusive) - Helps search engines understand context better */}

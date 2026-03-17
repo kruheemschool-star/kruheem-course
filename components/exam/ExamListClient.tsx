@@ -15,6 +15,7 @@ interface SearchMatch {
     examLevel: string;
     examCoverImage: string;
     examThemeColor: string;
+    isFree: boolean;
     questionMatches: { index: number; preview: string }[];
 }
 
@@ -127,6 +128,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                     examLevel: exam.level,
                     examCoverImage: exam.coverImage,
                     examThemeColor: exam.themeColor,
+                    isFree: exam.isFree || false,
                     questionMatches
                 });
             }
@@ -380,6 +382,9 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                                         <span className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">
                                                             {result.examLevel}
                                                         </span>
+                                                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${result.isFree ? 'text-teal-600 bg-teal-50 dark:text-teal-400 dark:bg-teal-900/30' : 'text-slate-500 bg-slate-100 dark:text-slate-400 dark:bg-slate-800'}`}>
+                                                            {result.isFree ? '🔓 เปิดให้ทำฟรี' : '🔒 เฉพาะสมาชิก'}
+                                                        </span>
                                                     </div>
                                                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                                                         {result.questionMatches.length > 0
@@ -512,16 +517,22 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
 
                                         {/* Content */}
                                         <div className="absolute bottom-0 left-0 right-0 p-6 z-20 flex flex-col justify-end h-full">
-                                            <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 delay-75 mb-auto pt-16 opacity-0 group-hover:opacity-100">
+                                            <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 delay-75 mb-auto pt-16 opacity-0 group-hover:opacity-100 flex gap-2 items-center flex-wrap">
                                                 <span className="text-xs font-black px-3 py-1 rounded-full bg-white text-slate-900 uppercase tracking-widest shadow-lg">
                                                     {exam.level}
+                                                </span>
+                                                <span className={`text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg ${exam.isFree ? 'bg-teal-500 text-white' : 'bg-slate-800 text-slate-300 border border-slate-600'}`}>
+                                                    {exam.isFree ? '🔓 ดูฟรี' : '🔒 สมาชิก'}
                                                 </span>
                                             </div>
 
                                             <div className="transform translate-y-2 group-hover:translate-y-0 transition-all duration-500">
-                                                <div className="mb-3 opacity-100 group-hover:opacity-0 transition-opacity duration-300 absolute -top-8 left-0">
+                                                <div className="mb-3 opacity-100 group-hover:opacity-0 transition-opacity duration-300 absolute -top-8 left-0 flex gap-2 items-center flex-wrap">
                                                     <span className="text-xs font-bold text-slate-300 uppercase tracking-wider border border-slate-600 px-2 py-0.5 rounded">
                                                         {exam.level}
+                                                    </span>
+                                                    <span className={`text-xs font-bold uppercase tracking-wider border px-2 py-0.5 rounded ${exam.isFree ? 'text-teal-300 border-teal-600/50 bg-teal-900/30' : 'text-slate-400 border-slate-700 bg-slate-800/50'}`}>
+                                                        {exam.isFree ? '🔓 ดูฟรี' : '🔒 สมาชิก'}
                                                     </span>
                                                 </div>
 
