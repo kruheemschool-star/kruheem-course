@@ -429,16 +429,41 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                             <p className="text-slate-500 dark:text-slate-400 mb-3 max-w-lg font-medium leading-relaxed text-lg text-balance">
                                 ข้อสอบชุดนี้มี <strong className="text-amber-600 dark:text-amber-400">{totalQuestions} ข้อ</strong> เป็นเพียงแค่ 1 ในหลายๆ ชุดจากคลังข้อสอบของเรา — คุณเพิ่งทดลองทำไปแค่ 5 ข้อเองครับ!
                             </p>
-                            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-5 mb-6 max-w-md w-full text-left space-y-3">
-                                <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">📚</span><span>ข้อสอบหลากหลายชุดจาก <strong>สนามสอบจริง</strong> ทุกระดับชั้น</span></p>
-                                <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">📝</span><span><strong>เฉลยละเอียดทุกข้อ</strong> พร้อมวิธีคิดแบบ step-by-step</span></p>
-                                <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">⏰</span><span>สมัครครั้งเดียว ใช้ได้ <strong>5 ปีเต็ม</strong> ไม่มีค่ารายเดือน</span></p>
-                                <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">🆕</span><span>อัพเดทข้อสอบใหม่ <strong>ต่อเนื่อง</strong> ไม่มีค่าใช้จ่ายเพิ่ม</span></p>
+                            <div className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-5 mb-6 max-w-md w-full text-left space-y-4">
+                                <p className="flex items-start gap-3">
+                                    <span className="text-xl mt-0.5">💰</span>
+                                    <span className="text-slate-600 dark:text-slate-300 font-medium">
+                                        <strong className="text-amber-600 dark:text-amber-400">ประหยัดเงินกว่าเห็นๆ:</strong> ค่าสมัคร 1 ครั้ง เทียบเท่าซื้อหนังสือแค่ 1 เล่ม แต่ได้ <strong>"ข้อสอบนับพันข้อ"</strong> จากสนามจริงทุกระดับชั้น
+                                    </span>
+                                </p>
+                                <p className="flex items-start gap-3">
+                                    <span className="text-xl mt-0.5">🎒</span>
+                                    <span className="text-slate-600 dark:text-slate-300 font-medium">
+                                        <strong className="text-amber-600 dark:text-amber-400">เบากว่า พกพาง่าย:</strong> ย่อหนังสือหนากว่า 10 เล่ม ไว้ในสมาร์ทโฟน ทำโจทย์ได้ทุกที่ทุกเวลา หยิบขึ้นมาอัปเลเวลสมองได้ทันที
+                                    </span>
+                                </p>
+                                <p className="flex items-start gap-3">
+                                    <span className="text-xl mt-0.5">🧠</span>
+                                    <span className="text-slate-600 dark:text-slate-300 font-medium">
+                                        <strong className="text-amber-600 dark:text-amber-400">เข้าใจลึกซึ้ง ไม่ทิ้งให้งง:</strong> ทำผิดไม่ต้องกลัว! มี <strong>"เฉลยละเอียดแบบ Step-by-step"</strong> อธิบายทีละบรรทัด เหมือนมีครูมานั่งสอนอยู่ข้างๆ
+                                    </span>
+                                </p>
+                                <p className="flex items-start gap-3">
+                                    <span className="text-xl mt-0.5">⏳</span>
+                                    <span className="text-slate-600 dark:text-slate-300 font-medium">
+                                        <strong className="text-amber-600 dark:text-amber-400">จ่ายครั้งเดียว... ใช้ยาว 5 ปี!:</strong> ไม่มีรายเดือน อัปเดตข้อสอบใหม่ฟรีตลอด คลังข้อสอบของเราคือ <strong>"หนังสือที่ไม่มีวันจบ"</strong>
+                                    </span>
+                                </p>
                             </div>
-                            <a href="/payment?course=vip" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200/80 dark:shadow-amber-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                            
+                            <div className="mb-4 text-rose-500/90 dark:text-rose-400 text-sm font-bold animate-pulse text-balance">
+                                🔥 คู่แข่งกำลังซุ่มฝึกอยู่... อย่ารอช้านะครับ!
+                            </div>
+
+                            <a href="/payment?course=vip" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200/80 dark:shadow-amber-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg w-full sm:w-auto">
                                 🔓 ปลดล็อกข้อสอบทั้งหมด
                             </a>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 font-medium">จ่ายครั้งเดียว • เริ่มทำได้ทันที • ดูเฉลยครบทุกข้อ</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 font-medium">ข้อสอบอัปเดตใหม่ฟรีตลอดกาล • ไม่มีค่าใช้จ่ายเพิ่ม</p>
                         </div>
                     ) : (
                         <QuestionCard
