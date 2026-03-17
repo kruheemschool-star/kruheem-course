@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Target, Award } from "lucide-react";
@@ -21,11 +21,11 @@ export const revalidate = 300;
 // 1. Fetch Data on Server (Metadata only - fast load)
 async function getExams() {
     try {
-        const q = query(collection(db, "exams"), orderBy("createdAt", "asc"));
+        const q = query(collection(db, "exams"));
         const snapshot = await getDocs(q);
 
         if (!snapshot.empty) {
-            return snapshot.docs.map(doc => {
+            const examList = snapshot.docs.map(doc => {
                 const data = doc.data();
 
                 // Count questions without sending full data
@@ -53,9 +53,24 @@ async function getExams() {
                     coverImage: data.coverImage || "",
                     tags: data.tags || [],
                     questionCount, // Only send count, not full questions
+                    order: data.order ?? Number.MAX_SAFE_INTEGER,
                     createdAt: data.createdAt?.toDate?.().toISOString() || null,
                 };
             });
+
+            // Sort by order field, fallback to createdAt ascending
+            examList.sort((a, b) => {
+                const orderA = a.order;
+                const orderB = b.order;
+                if (orderA !== orderB) return orderA - orderB;
+
+                // Fallback to createdAt ascending
+                const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return timeA - timeB;
+            });
+
+            return examList;
         }
         return [];
     } catch (error) {
@@ -63,6 +78,7 @@ async function getExams() {
         return [];
     }
 }
+
 
 export default async function ExamHubPage() {
     // 2. Await Data

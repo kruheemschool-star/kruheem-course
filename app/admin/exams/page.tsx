@@ -2,22 +2,122 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, deleteDoc, doc, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, Edit, BookOpen, Clock, FileJson, AlertCircle } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
+
+// Drag and Drop imports
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import React from "react";
+
+// Sortable Table Row Component
+function SortableExamRow({ exam, onDelete }: { exam: any; onDelete: (id: string) => void }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: exam.id });
+
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 50 : 1,
+        position: 'relative',
+        backgroundColor: isDragging ? '#f1f5f9' : undefined,
+    };
+
+    return (
+        <tr ref={setNodeRef} style={style} className="hover:bg-slate-50/50 transition-colors group">
+            <td className="p-4 w-10">
+                <button
+                    {...attributes}
+                    {...listeners}
+                    className="flex items-center justify-center w-8 h-8 cursor-grab active:cursor-grabbing text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition"
+                    aria-label="ลากเพื่อเรียงลำดับ"
+                >
+                    <GripVertical size={18} />
+                </button>
+            </td>
+            <td className="p-6">
+                <div className="font-bold text-slate-800 text-lg">{exam.title}</div>
+                <div className="text-sm text-slate-400 line-clamp-1 max-w-sm">{exam.description || "-"}</div>
+            </td>
+            <td className="p-6">
+                <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
+                    {exam.category} / {exam.level}
+                </span>
+            </td>
+            <td className="p-6 text-center">
+                <span className={`text-xs font-bold px-2 py-1 rounded ${exam.difficulty === 'Easy' ? 'text-green-500 bg-green-50' :
+                    exam.difficulty === 'Hard' ? 'text-red-500 bg-red-50' :
+                        'text-amber-500 bg-amber-50'
+                    }`}>
+                    {exam.difficulty}
+                </span>
+            </td>
+            <td className="p-6 text-center font-mono text-slate-500">
+                {exam.questions?.length || 0}
+            </td>
+            <td className="p-6 text-right">
+                <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <Link
+                        href={`/admin/exams/${exam.id}`}
+                        className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg tooltip"
+                        title="แก้ไขเนื้อหา (JSON Editor)"
+                    >
+                        <FileJson size={18} />
+                    </Link>
+                    <button
+                        onClick={() => onDelete(exam.id)}
+                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg tooltip"
+                        title="ลบชุดข้อสอบ"
+                    >
+                        <Trash2 size={18} />
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+}
 
 export default function ExamManagerPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [exams, setExams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
 
     const fetchExams = async () => {
         setLoading(true);
         try {
-            const q = query(collection(db, "exams"), orderBy("createdAt", "desc"));
+            const q = query(collection(db, "exams"));
             const snapshot = await getDocs(q);
-            setExams(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            const fetchedExams = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Sort by order field, fallback to createdAt desc
+            fetchedExams.sort((a: any, b: any) => {
+                const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
+                const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
+                if (orderA !== orderB) return orderA - orderB;
+
+                // Fallback to createdAt desc
+                const timeA = a.createdAt?.seconds || 0;
+                const timeB = b.createdAt?.seconds || 0;
+                return timeB - timeA;
+            });
+
+            setExams(fetchedExams);
         } catch (error) {
             console.error("Error fetching exams:", error);
         } finally {
@@ -43,7 +143,6 @@ export default function ExamManagerPage() {
     };
 
     const handleQuickAdd = async () => {
-        // Quick Demo Add Function
         const title = prompt("ชื่อชุดข้อสอบ:");
         if (!title) return;
 
@@ -57,14 +156,46 @@ export default function ExamManagerPage() {
                 timeLimit: 30,
                 difficulty: "Medium",
                 createdAt: serverTimestamp(),
-                questions: [] // Empty Array initially
+                order: exams.length, // Add to end
+                questions: []
             });
             fetchExams();
             alert("เพิ่มชุดข้อสอบใหม่แล้ว!");
         } catch (err) {
             console.error(err);
         }
-    }
+    };
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = exams.findIndex(e => e.id === active.id);
+        const newIndex = exams.findIndex(e => e.id === over.id);
+
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        // Optimistic update
+        const newExams = arrayMove(exams, oldIndex, newIndex);
+        setExams(newExams);
+
+        // Save to Firestore
+        setIsSavingOrder(true);
+        try {
+            const batch = writeBatch(db);
+            newExams.forEach((exam, index) => {
+                const ref = doc(db, "exams", exam.id);
+                batch.update(ref, { order: index });
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error("Error saving order:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึกลำดับ");
+            fetchExams(); // Revert on error
+        } finally {
+            setIsSavingOrder(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 p-8">
@@ -74,7 +205,10 @@ export default function ExamManagerPage() {
                         <h1 className="text-3xl font-black text-slate-800">จัดการคลังข้อสอบ 📚</h1>
                         <p className="text-slate-500">สร้างและแก้ไขชุดข้อสอบสำหรับนักเรียน</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 items-center">
+                        {isSavingOrder && (
+                            <span className="text-sm text-indigo-500 font-medium animate-pulse">กำลังบันทึกลำดับ...</span>
+                        )}
                         <Link href="/admin" className="px-4 py-2 bg-white text-slate-600 rounded-lg hover:bg-slate-100 font-bold border border-slate-200">
                             ย้อนกลับ
                         </Link>
@@ -98,6 +232,7 @@ export default function ExamManagerPage() {
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold text-sm">
                                 <tr>
+                                    <th className="p-4 w-10"></th>
                                     <th className="p-6">ชื่อชุดข้อสอบ</th>
                                     <th className="p-6">หมวดหมู่</th>
                                     <th className="p-6 text-center">ระดับความยาก</th>
@@ -105,50 +240,15 @@ export default function ExamManagerPage() {
                                     <th className="p-6 text-right">จัดการ</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {exams.map((exam) => (
-                                    <tr key={exam.id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="p-6">
-                                            <div className="font-bold text-slate-800 text-lg">{exam.title}</div>
-                                            <div className="text-sm text-slate-400 line-clamp-1 max-w-sm">{exam.description || "-"}</div>
-                                        </td>
-                                        <td className="p-6">
-                                            <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
-                                                {exam.category} / {exam.level}
-                                            </span>
-                                        </td>
-                                        <td className="p-6 text-center">
-                                            <span className={`text-xs font-bold px-2 py-1 rounded ${exam.difficulty === 'Easy' ? 'text-green-500 bg-green-50' :
-                                                exam.difficulty === 'Hard' ? 'text-red-500 bg-red-50' :
-                                                    'text-amber-500 bg-amber-50'
-                                                }`}>
-                                                {exam.difficulty}
-                                            </span>
-                                        </td>
-                                        <td className="p-6 text-center font-mono text-slate-500">
-                                            {exam.questions?.length || 0}
-                                        </td>
-                                        <td className="p-6 text-right">
-                                            <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                <Link
-                                                    href={`/admin/exams/${exam.id}`}
-                                                    className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg tooltip"
-                                                    title="แก้ไขเนื้อหา (JSON Editor)"
-                                                >
-                                                    <FileJson size={18} />
-                                                </Link>
-                                                <button
-                                                    onClick={() => handleDelete(exam.id)}
-                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg tooltip"
-                                                    title="ลบชุดข้อสอบ"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {exams.map((exam) => (
+                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} />
+                                        ))}
+                                    </tbody>
+                                </SortableContext>
+                            </DndContext>
                         </table>
                     </div>
                 )}
