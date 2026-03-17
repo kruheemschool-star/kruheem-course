@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 
 // API Route for lazy loading exam questions for search
 export async function GET(request: NextRequest) {
     try {
-        const q = query(collection(db, "exams"), orderBy("createdAt", "asc"));
+        const q = query(collection(db, "exams"));
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
             return NextResponse.json({ exams: [] });
         }
 
-        const exams = snapshot.docs.map(doc => {
+        const examsRaw = snapshot.docs.map(doc => {
             const data = doc.data();
 
             // Parse questions
@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
                 themeColor: data.themeColor || "",
                 coverImage: data.coverImage || "",
                 tags: data.tags || [],
+                order: data.order ?? Number.MAX_SAFE_INTEGER,
+                createdAt: data.createdAt?.toDate?.().getTime() || 0,
                 questions: questions.map((q: any, idx: number) => ({
                     index: idx + 1,
                     question: q.question || "",
@@ -48,10 +50,20 @@ export async function GET(request: NextRequest) {
             };
         });
 
+        examsRaw.sort((a, b) => {
+            if (a.order !== b.order) return a.order - b.order;
+            return a.createdAt - b.createdAt;
+        });
+
+        const exams = examsRaw.map(e => {
+            const { order, createdAt, ...rest } = e;
+            return rest;
+        });
+
         return NextResponse.json({ exams }, {
             headers: {
-                // Cache for 5 minutes on CDN
-                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+                // Prevent caching so order changes show up immediately in search
+                'Cache-Control': 'no-store, max-age=0',
             }
         });
     } catch (error) {
@@ -59,3 +71,4 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Failed to fetch data" }, { status: 500 });
     }
 }
+

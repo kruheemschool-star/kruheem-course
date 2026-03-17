@@ -15,8 +15,8 @@ export const metadata: Metadata = {
     keywords: ["ฝึกทำโจทย์คณิต", "คลังข้อสอบ", "จับเวลาทำข้อสอบ", "จำลองสอบ", "ตะลุยโจทย์", "ข้อสอบ A-Level"],
 };
 
-// Cache for 5 minutes (300 seconds)
-export const revalidate = 300;
+// Force dynamic rendering so that admin changes are reflected immediately
+export const dynamic = 'force-dynamic';
 
 // 1. Fetch Data on Server (Metadata only - fast load)
 async function getExams() {
