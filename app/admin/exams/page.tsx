@@ -108,6 +108,8 @@ export default function ExamManagerPage() {
     const [exams, setExams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSavingOrder, setIsSavingOrder] = useState(false);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [newExamTitle, setNewExamTitle] = useState("");
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -170,13 +172,17 @@ export default function ExamManagerPage() {
         }
     };
 
-    const handleQuickAdd = async () => {
-        const title = prompt("ชื่อชุดข้อสอบ:");
-        if (!title) return;
+    const handleQuickAdd = () => {
+        setNewExamTitle("");
+        setIsAddModalOpen(true);
+    };
+
+    const submitQuickAdd = async () => {
+        if (!newExamTitle.trim()) return;
 
         try {
             await addDoc(collection(db, "exams"), {
-                title,
+                title: newExamTitle.trim(),
                 description: "รายละเอียดเบื้องต้น...",
                 category: "ม.ต้น",
                 level: "ม.1",
@@ -188,6 +194,8 @@ export default function ExamManagerPage() {
                 order: exams.length, // Add to end
                 questions: []
             });
+            setIsAddModalOpen(false);
+            setNewExamTitle("");
             fetchExams();
             alert("เพิ่มชุดข้อสอบใหม่แล้ว!");
         } catch (err) {
@@ -284,6 +292,41 @@ export default function ExamManagerPage() {
                 )}
             </div>
             <ConfirmDialog />
+
+            {/* Custom Create Exam Modal */}
+            {isAddModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <h2 className="text-2xl font-black text-slate-800 mb-4">สร้างชุดข้อสอบใหม่</h2>
+                        <div className="mb-6">
+                            <label className="block text-sm font-bold text-slate-600 mb-2">ชื่อชุดข้อสอบ</label>
+                            <input
+                                type="text"
+                                value={newExamTitle}
+                                onChange={(e) => setNewExamTitle(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                placeholder="เช่น สอบเข้า ม.1 ชุดที่ 5"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setIsAddModalOpen(false)}
+                                className="px-6 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+                            >
+                                ยกเลิก
+                            </button>
+                            <button
+                                onClick={submitQuickAdd}
+                                disabled={!newExamTitle.trim()}
+                                className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-lg shadow-indigo-200"
+                            >
+                                ยืนยันสร้าง
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
