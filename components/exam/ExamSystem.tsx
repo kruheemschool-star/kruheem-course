@@ -433,7 +433,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                 <p className="flex items-start gap-3">
                                     <span className="text-xl mt-0.5">💰</span>
                                     <span className="text-slate-600 dark:text-slate-300 font-medium">
-                                        <strong className="text-amber-600 dark:text-amber-400">ประหยัดเงินกว่าเห็นๆ:</strong> สมัครคลังข้อสอบวันนี้ <s className="text-slate-400 text-sm">จาก 990 บาท</s> <strong>เหลือเพียง 250 บาท!</strong> เทียบเท่าซื้อหนังสือแค่ 1 เล่ม แต่ได้ <strong>"แนวข้อสอบนับพันข้อ"</strong> จากสนามจริงทุกระดับชั้น
+                                        <strong className="text-amber-600 dark:text-amber-400">ประหยัดเงินกว่าเห็นๆ:</strong> เทียบเท่าซื้อหนังสือแค่ 1 เล่ม แต่ได้ <strong>"แนวข้อสอบนับพันข้อ"</strong> จากสนามจริงทุกระดับชั้น
                                     </span>
                                 </p>
                                 <p className="flex items-start gap-3">
@@ -454,6 +454,17 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                         <strong className="text-amber-600 dark:text-amber-400">จ่ายครั้งเดียว... ใช้ยาว 5 ปี!:</strong> ไม่มีรายเดือน อัปเดตข้อสอบใหม่ฟรีตลอด คลังข้อสอบของเราคือ <strong>"หนังสือที่ไม่มีวันจบ"</strong>
                                     </span>
                                 </p>
+                            </div>
+
+                            {/* Price Banner */}
+                            <div className="mb-5 bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 dark:from-amber-900/30 dark:via-orange-900/20 dark:to-rose-900/10 border-2 border-amber-300 dark:border-amber-700 rounded-2xl px-6 py-5 max-w-md w-full relative overflow-hidden">
+                                <div className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl rounded-tr-xl">ลดพิเศษ!</div>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm font-bold mb-1 text-center">สมัครคลังข้อสอบวันนี้</p>
+                                <div className="flex items-center justify-center gap-3">
+                                    <span className="text-slate-400 line-through text-xl font-bold">฿990</span>
+                                    <span className="text-4xl font-black bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">฿250</span>
+                                </div>
+                                <p className="text-amber-600 dark:text-amber-400 text-xs font-bold text-center mt-1">ประหยัดไปถึง 75% 🔥</p>
                             </div>
                             
                             <div className="mb-4 text-rose-500/90 dark:text-rose-400 text-sm font-bold animate-pulse text-balance">
