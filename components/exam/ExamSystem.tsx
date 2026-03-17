@@ -433,7 +433,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                 <p className="flex items-start gap-3">
                                     <span className="text-xl mt-0.5">💰</span>
                                     <span className="text-slate-600 dark:text-slate-300 font-medium">
-                                        <strong className="text-amber-600 dark:text-amber-400">ประหยัดเงินกว่าเห็นๆ:</strong> ค่าสมัคร 1 ครั้ง เทียบเท่าซื้อหนังสือแค่ 1 เล่ม แต่ได้ <strong>"ข้อสอบนับพันข้อ"</strong> จากสนามจริงทุกระดับชั้น
+                                        <strong className="text-amber-600 dark:text-amber-400">ประหยัดเงินกว่าเห็นๆ:</strong> ค่าสมัคร 1 ครั้ง เทียบเท่าซื้อหนังสือแค่ 1 เล่ม แต่ได้ <strong>"แนวข้อสอบนับพันข้อ"</strong> จากสนามจริงทุกระดับชั้น
                                     </span>
                                 </p>
                                 <p className="flex items-start gap-3">
