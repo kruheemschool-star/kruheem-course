@@ -10,6 +10,7 @@ interface ExamSystemProps {
     examTitle: string;
     initialQuestionIndex?: number;
     onComplete?: (score: number, total: number) => void;
+    isTrial?: boolean;
 }
 
 // Grade Calculation Helper
@@ -32,7 +33,7 @@ const getGradeFromPercent = (percent: number): { grade: string; label: string; g
 
 // Helper removed: getCorrectIndex (Logic cleanup)
 
-export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, initialQuestionIndex = 0, onComplete }) => {
+export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, initialQuestionIndex = 0, onComplete, isTrial = false }) => {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
     const [answers, setAnswers] = useState<Record<number, number>>({});
     const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({});
@@ -51,7 +52,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     // Sanitize Data: Per-question bounds checking
     // Prioritize answerIndex over correctIndex, auto-fix 1-based if out of bounds
     const sanitizedExamData = React.useMemo(() => {
-        return examData.map((q: any) => {
+        const dataToProcess = isTrial ? examData.slice(0, 5) : examData;
+
+        return dataToProcess.map((q: any) => {
             // Step 1: Resolve the correct answer index from available fields
             const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
 
@@ -79,7 +82,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
             return { ...q, correctIndex: idx };
         });
-    }, [examData]);
+    }, [examData, isTrial]);
 
     const currentQuestion = sanitizedExamData[currentQuestionIndex];
     const totalQuestions = sanitizedExamData.length;
@@ -173,6 +176,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                     {/* Title */}
                     <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 mb-2 text-center">ผลการทดสอบ</h2>
                     <p className="text-stone-500 dark:text-slate-400 mb-8 font-medium text-center">ชุดข้อสอบ: {examTitle}</p>
+
+                    {/* Up-sell Banner (Trial Mode) */}
+                    {isTrial && (
+                        <div className="mb-10 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl p-6 text-center shadow-sm animate-in zoom-in">
+                            <h3 className="text-xl font-bold text-amber-800 dark:text-amber-400 mb-2">💎 สนุกกับการทำโจทย์ใช่ไหมครับ?</h3>
+                            <p className="text-amber-700 dark:text-amber-500 mb-4 max-w-sm mx-auto">
+                                แบบทดสอบชุดนี้มีคำถามทั้งหมดอีกมากมาย พร้อมข้อสอบชุดอื่นๆ ในคลังข้อสอบรออยู่!
+                            </p>
+                            <a href="/payment" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95">
+                                สมัครสมาชิกคลังข้อสอบ VIP
+                            </a>
+                        </div>
+                    )}
 
                     {/* Score Display - Center */}
                     <div className="flex flex-col items-center mb-10">
@@ -289,6 +305,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
             {/* Sidebar: Question Grid (Desktop) */}
             <div className="hidden lg:block w-72 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 sticky top-24">
+                {isTrial && (
+                    <div className="mb-4 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs font-bold px-3 py-2 rounded-xl text-center border border-amber-100 dark:border-amber-800 w-full animate-pulse">
+                        โหมดให้ทดลองทำฟรี 5 ข้อ 🔓
+                    </div>
+                )}
                 <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center justify-between">
                     <span>แผนที่ข้อสอบ</span>
                     <span className="text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-500 dark:text-slate-400">{currentQuestionIndex + 1}/{totalQuestions}</span>
@@ -342,7 +363,14 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                             <Award className="text-amber-500" />
                             {examTitle}
                         </h1>
-                        <p className="text-stone-500 dark:text-slate-400 text-sm mt-1 pl-1">ทดสอบวัดระดับความรู้คณิตศาสตร์</p>
+                        <p className="text-stone-500 dark:text-slate-400 text-sm mt-1 pl-1 flex items-center gap-2">
+                            ทดสอบวัดระดับความรู้คณิตศาสตร์
+                            {isTrial && (
+                                <span className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 px-2 py-0.5 rounded text-xs font-bold">
+                                    ให้ลองทำฟรี 5 ข้อ
+                                </span>
+                            )}
+                        </p>
                     </div>
 
                     {/* Mobile Progress & Grid Toggle */}
