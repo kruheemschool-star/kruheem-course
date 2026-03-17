@@ -189,7 +189,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                 <p className="flex items-start gap-2"><span>✅</span><span>อัพเดทข้อสอบใหม่ <strong>ต่อเนื่องตลอด</strong> ไม่มีค่าใช้จ่ายเพิ่มเติม</span></p>
                                 <p className="flex items-start gap-2"><span>✅</span><span>สมัครครั้งเดียว ใช้ได้ <strong>ยาว 5 ปี</strong> คุ้มค่าที่สุด!</span></p>
                             </div>
-                            <a href="/payment" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                            <a href="/payment?course=vip" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
                                 🔓 ปลดล็อกคลังข้อสอบทั้งหมดเลย
                             </a>
                             <p className="text-xs text-amber-500/80 dark:text-amber-600 mt-3 font-medium">จ่ายครั้งเดียว ไม่มีรายเดือน • เริ่มทำได้ทันทีหลังชำระเงิน</p>
@@ -435,7 +435,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                 <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">⏰</span><span>สมัครครั้งเดียว ใช้ได้ <strong>5 ปีเต็ม</strong> ไม่มีค่ารายเดือน</span></p>
                                 <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">🆕</span><span>อัพเดทข้อสอบใหม่ <strong>ต่อเนื่อง</strong> ไม่มีค่าใช้จ่ายเพิ่ม</span></p>
                             </div>
-                            <a href="/payment" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200/80 dark:shadow-amber-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                            <a href="/payment?course=vip" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200/80 dark:shadow-amber-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
                                 🔓 ปลดล็อกข้อสอบทั้งหมด
                             </a>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 font-medium">จ่ายครั้งเดียว • เริ่มทำได้ทันที • ดูเฉลยครบทุกข้อ</p>
