@@ -426,8 +426,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                 <Lock size={36} />
                             </div>
                             <h3 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-4">อยากเก่งคณิตศาสตร์กว่านี้ไหมครับ? 🚀</h3>
-                            <p className="text-slate-500 dark:text-slate-400 mb-2 max-w-lg font-medium leading-relaxed text-lg">
-                                ข้อสอบชุดนี้มีทั้งหมด <strong className="text-amber-600 dark:text-amber-400">{totalQuestions} ข้อ</strong> — คุณเพิ่งทำได้แค่ 5 ข้อเองครับ!
+                            <p className="text-slate-500 dark:text-slate-400 mb-3 max-w-lg font-medium leading-relaxed text-lg text-balance">
+                                ข้อสอบชุดนี้มี <strong className="text-amber-600 dark:text-amber-400">{totalQuestions} ข้อ</strong> เป็นเพียงแค่ 1 ในหลายๆ ชุดจากคลังข้อสอบของเรา — คุณเพิ่งทดลองทำไปแค่ 5 ข้อเองครับ!
                             </p>
                             <div className="bg-slate-50 dark:bg-slate-700/50 rounded-2xl p-5 mb-6 max-w-md w-full text-left space-y-3">
                                 <p className="flex items-start gap-2.5 text-slate-600 dark:text-slate-300 font-medium"><span className="text-lg">📚</span><span>ข้อสอบหลากหลายชุดจาก <strong>สนามสอบจริง</strong> ทุกระดับชั้น</span></p>
