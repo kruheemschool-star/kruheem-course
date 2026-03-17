@@ -189,7 +189,7 @@ export default function ExamManagerPage() {
                 questionCount: 0,
                 timeLimit: 30,
                 difficulty: "Medium",
-                isFree: false,
+                isFree: true,
                 createdAt: serverTimestamp(),
                 order: exams.length, // Add to end
                 questions: []

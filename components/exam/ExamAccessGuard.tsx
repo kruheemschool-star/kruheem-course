@@ -8,6 +8,9 @@ import Link from "next/link";
 import { Lock, Loader2, ArrowRight } from "lucide-react";
 
 export default function ExamAccessGuard({ isFree, children }: { isFree: boolean; children: React.ReactNode }) {
+    // [TEMPORARY BYPASS]: ปิดระบบล็อกชั่วคราว เพื่อให้ทุกคนเข้ามาทดสอบระบบได้ฟรี
+    return <>{children}</>;
+
     const { user, loading: authLoading } = useUserAuth();
     const [hasAccess, setHasAccess] = useState<boolean | null>(null);
     const [accessStatus, setAccessStatus] = useState<'checking' | 'granted' | 'denied' | 'pending'>('checking');
