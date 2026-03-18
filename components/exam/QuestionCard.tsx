@@ -55,19 +55,29 @@ const formatExplanation = (text: string): string => {
     // ═══ STEP 2: PARAGRAPH BREAKS (\n\n) — Major section transitions ═══
 
     // Before bold section headers like **วิธีทำ:**, **ดักทางคนพลาด:**, etc.
-    result = result.replace(/ (\*\*(?:วิธีทำ|ดักทาง|หลักการ|ข้อควรระวัง|สรุป|ทำไม|เฉลย|คำเตือน|จุดพลาด|ข้อสังเกต|เหตุผลที่ตัวเลือกอื่นผิด|ทำไมตัวเลือกอื่นผิด|ทำไมข้ออื่นผิด|จุดที่ควรระวัง|จุดที่ผิดบ่อย))/g, '\n\n$1');
+    result = result.replace(/ (\*\*(?:วิธีทำ|ดักทาง|หลักการ|ข้อควรระวัง|สรุป|ทำไม|เฉลย|คำเตือน|จุดพลาด|ข้อสังเกต|เหตุผลที่ตัวเลือกอื่นผิด|ทำไมตัวเลือกอื่นผิด|ทำไมข้ออื่นผิด|จุดที่ควรระวัง|จุดที่ผิดบ่อย|จุดที่มักผิด|หลักการคิด))/g, '\n\n$1');
 
     // Non-bold major section headers → auto-wrap in bold + paragraph break
-    ['เหตุผลที่ตัวเลือกอื่นผิด:', 'ทำไมตัวเลือกอื่นผิด:', 'ทำไมข้ออื่นผิด:', 'จุดที่ควรระวัง:', 'จุดที่ผิดบ่อย:'].forEach(p => {
+    ['เหตุผลที่ตัวเลือกอื่นผิด:', 'ทำไมตัวเลือกอื่นผิด:', 'ทำไมข้ออื่นผิด:', 'จุดที่ควรระวัง:', 'จุดที่ผิดบ่อย:', 'จุดที่มักผิด'].forEach(p => {
         const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         if (!result.includes(`**${p}`) && result.includes(p)) {
             result = result.replace(new RegExp(` (${escaped})`, 'g'), '\n\n**$1**');
         }
     });
 
-    // Non-bold "วิธีทำ:" → auto-wrap in bold
-    if (!result.includes('**วิธีทำ') && result.includes('วิธีทำ:')) {
-        result = result.replace(/ (วิธีทำ:)/g, '\n**$1**');
+    // Non-bold "วิธีทำ" → auto-wrap in bold (with or without colon)
+    if (!result.includes('**วิธีทำ')) {
+        result = result.replace(/ (วิธีทำ)/g, '\n\n**$1**');
+    }
+
+    // Non-bold "ข้อควรระวัง" → auto-wrap in bold (with or without colon)
+    if (!result.includes('**ข้อควรระวัง')) {
+        result = result.replace(/ (ข้อควรระวัง)/g, '\n\n**$1**');
+    }
+
+    // Non-bold "หลักการคิด" / "หลักการ" → auto-wrap in bold
+    if (!result.includes('**หลักการ')) {
+        result = result.replace(/ (หลักการคิด:?|หลักการ:)/g, '\n\n**$1**');
     }
 
     // Warning / pitfall / reminder section keywords
@@ -77,12 +87,16 @@ const formatExplanation = (text: string): string => {
 
     // ═══ STEP 3: LINE BREAKS (\n) — Step-by-step transitions ═══
 
-    // Step number markers: "ขั้นที่ 1:", "ขั้นตอนที่ 2:"
+    // Step number markers: "ขั้นที่ 1:", "ขั้นตอนที่ 2:", "บรรทัดที่ 1:"
     result = result.replace(/ (ขั้นที่ \d)/g, '\n$1');
     result = result.replace(/ (ขั้นตอนที่ \d)/g, '\n$1');
+    result = result.replace(/ (บรรทัดที่ \d)/g, '\n$1');
 
     // Numbered steps: "1) ...", "2) ...", "3) ..." (LaTeX already protected)
     result = result.replace(/ (\d+\) )/g, '\n$1');
+
+    // Distractor choice references: "ตัวเลือกที่ 1", "ตัวเลือกที่ 2"
+    result = result.replace(/ (ตัวเลือกที่ \d)/g, '\n$1');
 
     // Thai ordinal step markers (non-bold): "ขั้นแรก", "ขั้นที่สอง", "ชั้นแรก", etc.
     result = result.replace(/ ((?:ขั้น|ชั้น)(?:แรก|ที่สอง|ที่สาม|ที่สี่|ที่ห้า|สุดท้าย))/g, '\n$1');

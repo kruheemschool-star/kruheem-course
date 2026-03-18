@@ -234,11 +234,11 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className = ""
                                     '<strong class="inline-block font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 px-2 py-1 rounded-md border-l-4 border-rose-400 mt-3 mb-1">⚠️ $1</strong>')
 
                                 // 3b. Semantic Bold — Warning/Pitfall (amber)
-                                .replace(/\*\*(ข้อควรระวัง:?|จุดพลาด:?|คำเตือน:?|ข้อผิดพลาดที่พบบ่อย:?|จุดที่ควรระวัง:?|จุดที่ผิดบ่อย:?)\*\*/g,
+                                .replace(/\*\*(ข้อควรระวัง:?|จุดพลาด:?|คำเตือน:?|ข้อผิดพลาดที่พบบ่อย:?|จุดที่ควรระวัง:?|จุดที่ผิดบ่อย:?|จุดที่มักผิด:?)\*\*/g,
                                     '<strong class="inline-block font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded-md border-l-4 border-amber-400 mt-2 mb-1">⚡ $1</strong>')
 
                                 // 3c. Semantic Bold — Method/Principle (blue)
-                                .replace(/\*\*(วิธีทำ:?|หลักการ:?|เฉลย:?)\*\*/g,
+                                .replace(/\*\*(วิธีทำ[^*]*?|หลักการ:?|หลักการคิด:?|เฉลย:?)\*\*/g,
                                     '<strong class="inline-block font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md border-l-4 border-blue-500 mt-1 mb-1">📘 $1</strong>')
 
                                 // 3d. Semantic Bold — Summary (emerald)
