@@ -229,7 +229,31 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className = ""
                                 .replace(/^### (.*$)/gm, '<h3 class="text-lg font-bold text-indigo-900 dark:text-indigo-300 mt-4 mb-2">$1</h3>')
                                 .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-indigo-900 dark:text-indigo-300 mt-5 mb-2 border-b border-indigo-100 dark:border-indigo-800 pb-1">$1</h2>')
 
-                                // 3. Bold (**Text**)
+                                // 3a. Semantic Bold — Distractor explanation section (rose)
+                                .replace(/\*\*(เหตุผลที่ตัวเลือกอื่นผิด:?|ทำไมตัวเลือกอื่นผิด:?|ทำไมข้ออื่นผิด:?)\*\*/g,
+                                    '<strong class="inline-block font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 px-2 py-1 rounded-md border-l-4 border-rose-400 mt-3 mb-1">⚠️ $1</strong>')
+
+                                // 3b. Semantic Bold — Warning/Pitfall (amber)
+                                .replace(/\*\*(ข้อควรระวัง:?|จุดพลาด:?|คำเตือน:?|ข้อผิดพลาดที่พบบ่อย:?|จุดที่ควรระวัง:?|จุดที่ผิดบ่อย:?)\*\*/g,
+                                    '<strong class="inline-block font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded-md border-l-4 border-amber-400 mt-2 mb-1">⚡ $1</strong>')
+
+                                // 3c. Semantic Bold — Method/Principle (blue)
+                                .replace(/\*\*(วิธีทำ:?|หลักการ:?|เฉลย:?)\*\*/g,
+                                    '<strong class="inline-block font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md border-l-4 border-blue-500 mt-1 mb-1">📘 $1</strong>')
+
+                                // 3d. Semantic Bold — Summary (emerald)
+                                .replace(/\*\*(สรุปแล้ว|สรุปได้ว่า|สรุปคือ|สรุป:?)\*\*/g,
+                                    '<strong class="inline-block font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-md border-l-4 border-emerald-500 mt-2 mb-1">✅ $1</strong>')
+
+                                // 3e. Semantic Bold — Steps (teal)
+                                .replace(/\*\*((?:ขั้น|ชั้น)(?:แรก|ที่สอง|ที่สาม|ที่สี่|ที่ห้า|สุดท้าย))\*\*/g,
+                                    '<strong class="font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 px-1.5 py-0.5 rounded">▸ $1</strong>')
+
+                                // 3f. Semantic Bold — Answer badge (indigo)
+                                .replace(/\*\*(คำตอบ:?\s*ข้อ\s*\d\.?)\*\*/g,
+                                    '<strong class="inline-block font-bold text-white bg-indigo-600 dark:bg-indigo-500 px-3 py-1 rounded-lg shadow-sm mb-1">🎯 $1</strong>')
+
+                                // 3g. Generic Bold (default indigo — for everything else)
                                 .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-indigo-900 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 px-1 rounded">$1</strong>')
 
                                 // 4. Italic (*Text*)

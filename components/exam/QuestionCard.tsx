@@ -55,7 +55,20 @@ const formatExplanation = (text: string): string => {
     // ═══ STEP 2: PARAGRAPH BREAKS (\n\n) — Major section transitions ═══
 
     // Before bold section headers like **วิธีทำ:**, **ดักทางคนพลาด:**, etc.
-    result = result.replace(/ (\*\*(?:วิธีทำ|ดักทาง|หลักการ|ข้อควรระวัง|สรุป|ทำไม|เฉลย|คำเตือน|จุดพลาด|ข้อสังเกต))/g, '\n\n$1');
+    result = result.replace(/ (\*\*(?:วิธีทำ|ดักทาง|หลักการ|ข้อควรระวัง|สรุป|ทำไม|เฉลย|คำเตือน|จุดพลาด|ข้อสังเกต|เหตุผลที่ตัวเลือกอื่นผิด|ทำไมตัวเลือกอื่นผิด|ทำไมข้ออื่นผิด|จุดที่ควรระวัง|จุดที่ผิดบ่อย))/g, '\n\n$1');
+
+    // Non-bold major section headers → auto-wrap in bold + paragraph break
+    ['เหตุผลที่ตัวเลือกอื่นผิด:', 'ทำไมตัวเลือกอื่นผิด:', 'ทำไมข้ออื่นผิด:', 'จุดที่ควรระวัง:', 'จุดที่ผิดบ่อย:'].forEach(p => {
+        const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (!result.includes(`**${p}`) && result.includes(p)) {
+            result = result.replace(new RegExp(` (${escaped})`, 'g'), '\n\n**$1**');
+        }
+    });
+
+    // Non-bold "วิธีทำ:" → auto-wrap in bold
+    if (!result.includes('**วิธีทำ') && result.includes('วิธีทำ:')) {
+        result = result.replace(/ (วิธีทำ:)/g, '\n**$1**');
+    }
 
     // Warning / pitfall / reminder section keywords
     ['สำหรับ', 'น่าเสียดาย', 'จำไว้', 'ใครที่ตอบ', 'หากใครตอบ', 'ทำไมข้ออื่น'].forEach(p => {
@@ -68,6 +81,20 @@ const formatExplanation = (text: string): string => {
     result = result.replace(/ (ขั้นที่ \d)/g, '\n$1');
     result = result.replace(/ (ขั้นตอนที่ \d)/g, '\n$1');
 
+    // Thai ordinal step markers (non-bold): "ขั้นแรก", "ขั้นที่สอง", "ชั้นแรก", etc.
+    result = result.replace(/ ((?:ขั้น|ชั้น)(?:แรก|ที่สอง|ที่สาม|ที่สี่|ที่ห้า|สุดท้าย))/g, '\n$1');
+
+    // Bold step markers: "**ขั้นแรก**", "**ขั้นที่สอง**", etc.
+    result = result.replace(/ (\*\*(?:ขั้น|ชั้น)(?:แรก|ที่สอง|ที่สาม|ที่สี่|ที่ห้า|สุดท้าย))/g, '\n$1');
+
+    // Distractor explanation patterns: "XXX ผิดเพราะ"
+    // Thai descriptive answers (longer match first): "เพิ่มขึ้น 10% ผิดเพราะ", "ลดลง 8% ผิดเพราะ"
+    result = result.replace(/ ((?:เพิ่มขึ้น|ลดลง|มากกว่า|น้อยกว่า|เป็นบวก|เป็นลบ) (?:\*\*)?[\d,]+(?:\.\d+)?%?(?:\*\*)? ผิดเพราะ)/g, '\n$1');
+    // Numeric answers: "750 บาท ผิดเพราะ", "56% ผิดเพราะ", "240 คะแนน ผิดเพราะ"
+    result = result.replace(/ ((?:\*\*)?[\d,]+(?:\.\d+)?(?:%| บาท| คะแนน| หน่วย| ตัว| คน| ตารางหน่วย)?(?:\*\*)? ผิดเพราะ)/g, '\n$1');
+    // Reference-based: "ตัวเลือก 1 ผิดเพราะ", "ข้อ 2 ผิดเพราะ"
+    result = result.replace(/ ((?:ตัวเลือก(?:ที่)?|ข้อ) \d\.? ผิดเพราะ)/g, '\n$1');
+
     // List items starting with "- " (safe now — LaTeX subtraction is protected)
     result = result.replace(/([^\n\x00]) (- )/g, '$1\n$2');
 
@@ -78,13 +105,18 @@ const formatExplanation = (text: string): string => {
         'จัดการทีมซ้าย', 'จัดการทีมขวา', 'จัดการวงเล็บ',
         'เคลียร์ชั้นบน', 'เคลียร์ชั้นล่าง',
         'ประกอบร่าง', 'โจทย์ถามหา', 'โจทย์ต้องการ',
-        'สุดท้าย', 'ขั้นสุดท้าย',
+        'สุดท้าย',
         'ถ้านักเรียนตอบ', 'ถ้าตอบ', 'และถ้าตอบ',
         'ส่วนข้อ', 'ส่วนถ้า',
         'เขยิบออกมา', 'ทำต่อใน', 'นำมาลบ', 'นำมาคูณ', 'นำมาหาร',
         'นำไปลบ', 'นำไปคูณ', 'นำไปหาร', 'นำไปบวก',
         'ในวงเล็บเหลี่ยม', 'ในวงเล็บปีกกา', 'ในวงเล็บใหญ่',
         'ดังนั้น',
+        // Exam-style explanation phrases
+        'สมมติให้', 'สมมติว่า',
+        'สรุปแล้ว', 'สรุปได้ว่า', 'สรุปคือ',
+        'เมื่อเทียบกับ', 'เมื่อเปรียบเทียบ',
+        'กลุ่มที่',
     ].forEach(p => {
         const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         result = result.replace(new RegExp(` (${escaped})`, 'g'), '\n$1');
