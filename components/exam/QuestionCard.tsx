@@ -81,6 +81,9 @@ const formatExplanation = (text: string): string => {
     result = result.replace(/ (ขั้นที่ \d)/g, '\n$1');
     result = result.replace(/ (ขั้นตอนที่ \d)/g, '\n$1');
 
+    // Numbered steps: "1) ...", "2) ...", "3) ..." (LaTeX already protected)
+    result = result.replace(/ (\d+\) )/g, '\n$1');
+
     // Thai ordinal step markers (non-bold): "ขั้นแรก", "ขั้นที่สอง", "ชั้นแรก", etc.
     result = result.replace(/ ((?:ขั้น|ชั้น)(?:แรก|ที่สอง|ที่สาม|ที่สี่|ที่ห้า|สุดท้าย))/g, '\n$1');
 
