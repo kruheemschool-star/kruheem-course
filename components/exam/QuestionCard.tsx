@@ -251,7 +251,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                         {index + 1}
                                     </div>
                                     <div className="text-stone-700 dark:text-slate-300 font-medium pt-1 text-lg w-full break-words min-w-0">
-                                        <MathRenderer text={option.replace(/^\s*(?:\d+|[กขคง])[\.\.\)\s]\s*/, '')} />
+                                        <MathRenderer text={option.replace(/^\s*(?:[1-4][\.\)]\s*|[กขคง][\.\)\s]\s*)/, '')} />
                                     </div>
 
                                     {/* Feedback Icons on Result */}
