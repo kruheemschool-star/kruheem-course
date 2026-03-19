@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks } from "lucide-react";
 import ImageUploadHelper from "@/components/admin/ImageUploadHelper";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
+import { thaiLetterToIndex, extractAnswerFromExplanation, transformExamQuestion } from "@/lib/exam-utils";
 
 export default function ExamEditorPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
@@ -80,112 +81,6 @@ export default function ExamEditorPage() {
         setCollapsedBlocks({ ...collapsedBlocks, [index]: !collapsedBlocks[index] });
     };
 
-    // Thai letter to 0-based index mapping
-    const thaiLetterToIndex = (val: any): number | null => {
-        if (typeof val !== 'string') return null;
-        const s = val.trim();
-        const map: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
-        // Match standalone letter or "ก." / "ข้อ ก" patterns
-        const letterMatch = s.match(/^[ข้อ]*\s*([\u0e01\u0e02\u0e04\u0e07])[\s\.\)]/)
-            || s.match(/^([\u0e01\u0e02\u0e04\u0e07])$/);
-        if (letterMatch && map[letterMatch[1]] !== undefined) return map[letterMatch[1]];
-        return null;
-    };
-
-    // Extract stated correct answer from explanation text (returns 0-based index or null)
-    const extractAnswerFromExplanation = (explanation: string): number | null => {
-        if (!explanation || typeof explanation !== 'string') return null;
-        // Strip LaTeX to avoid false matches
-        const clean = explanation
-            .replace(/\\\[[\s\S]*?\\\]/g, '')
-            .replace(/\$\$[\s\S]*?\$\$/g, '')
-            .replace(/\\\([\s\S]*?\\\)/g, '')
-            .replace(/\$[^$]+\$/g, '')
-            .replace(/\*\*/g, '');
-
-        // Number patterns: "คำตอบ: ข้อ 2", "เฉลย: ข้อ 3", "ตอบ ข้อ 1"
-        const numberPatterns = [
-            /คำตอบ\s*:?\s*ข้อ\s*(\d)/,
-            /คำตอบคือ\s*ข้อ\s*(\d)/,
-            /คำตอบที่ถูกต้อง\s*(?:คือ)?\s*:?\s*ข้อ\s*(\d)/,
-            /เฉลย\s*:?\s*ข้อ\s*(\d)/,
-            /ตอบ\s*ข้อ\s*(\d)/,
-            /ข้อที่ถูกต้อง\s*(?:คือ)?\s*:?\s*(?:ข้อ\s*)?(\d)/,
-            /ดังนั้น\s*ข้อ\s*(\d)/,
-            /ตอบข้อ\s*(\d)/,
-        ];
-        for (const pattern of numberPatterns) {
-            const match = clean.match(pattern);
-            if (match) {
-                const num = parseInt(match[1]);
-                if (num >= 1 && num <= 4) return num - 1;
-            }
-        }
-
-        // Thai letter patterns — avoid capturing ข in ข้อ
-        const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
-        const thaiPatterns = [
-            /คำตอบ\s*:?\s*ข้อ\s*([กคง])/,
-            /เฉลย\s*:?\s*ข้อ\s*([กคง])/,
-            /คำตอบ\s*:?\s*([กขคง])(?!้)/,
-            /เฉลย\s*:?\s*([กขคง])(?!้)/,
-        ];
-        for (const pattern of thaiPatterns) {
-            const match = clean.match(pattern);
-            if (match && thaiMap[match[1]] !== undefined) {
-                return thaiMap[match[1]];
-            }
-        }
-        return null;
-    };
-
-    // Transform external exam format to internal format
-    const transformExamQuestion = (q: any) => {
-        let answerIndex = q.answerIndex ?? q.correctIndex ?? 0;
-        if (q.answer && typeof q.answer === 'string') {
-            // Try number format first: "1. ...", "2. ..."
-            const numberMatch = q.answer.match(/^([1-4])\s*\./);
-            if (numberMatch) {
-                answerIndex = parseInt(numberMatch[1]) - 1;
-            } else {
-                // Try Thai letter format: "ก. ...", "ข. ...", "ข้อ ก", etc.
-                const thaiIdx = thaiLetterToIndex(q.answer);
-                if (thaiIdx !== null) answerIndex = thaiIdx;
-            }
-        }
-        // Also check correctAnswer field for Thai letters
-        if (q.correctAnswer && typeof q.correctAnswer === 'string') {
-            const thaiIdx = thaiLetterToIndex(q.correctAnswer);
-            if (thaiIdx !== null) answerIndex = thaiIdx;
-        }
-        // If answerIndex is a Thai letter string
-        const thaiFromIndex = thaiLetterToIndex(String(answerIndex));
-        if (thaiFromIndex !== null) answerIndex = thaiFromIndex;
-
-        answerIndex = Number(answerIndex);
-        if (isNaN(answerIndex)) answerIndex = 0;
-        const optionsLength = q.options?.length || 4;
-        if (answerIndex < 0 || answerIndex >= optionsLength) {
-            answerIndex = 0;
-        }
-
-        // Cross-check: if explanation clearly states a different answer, trust the explanation
-        const explanation = q.solution || q.explanation || "";
-        const explAnswer = extractAnswerFromExplanation(explanation);
-        if (explAnswer !== null && explAnswer !== answerIndex) {
-            console.warn(`⚠️ Answer mismatch fixed: index=${answerIndex} → explanation says ${explAnswer}`);
-            answerIndex = explAnswer;
-        }
-
-        return {
-            question: q.question || "",
-            image: q.image,
-            options: q.options || [],
-            correctIndex: answerIndex,
-            explanation,
-            tags: q.tags || (q.space ? [q.space] : [])
-        };
-    };
 
     // Bulk import multiple questions at once
     const bulkImportQuestions = () => {

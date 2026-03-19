@@ -235,13 +235,21 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className = ""
                                     '<strong class="inline-block font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 px-2 py-1 rounded-md border-l-4 border-rose-400 mt-3 mb-1">⚠️ $1</strong>')
 
                                 // 3b. Semantic Bold — Warning/Pitfall (amber)
-                                // Flexible: catches จุดที่นักเรียนมักพลาด:, จุดที่ควรระวัง:, ข้อควรระวัง, คำเตือน, etc.
+                                // Flexible: catches จุดที่นักเรียนมักพลาด:, จุดที่ควรระวัง:, ข้อควรระวัง, คำเตือน, ข้อผิดพลาดที่พบบ่อย, etc.
                                 .replace(/\*\*((?:ข้อควร|จุดที่|จุดพลาด|คำเตือน|ข้อผิดพลาด)[^*]*?:?)\*\*/g,
                                     '<strong class="inline-block font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded-md border-l-4 border-amber-400 mt-2 mb-1">⚡ $1</strong>')
 
+                                // 3b2. Semantic Bold — Technique/Trick (teal)
+                                .replace(/\*\*((?:เทคนิค|ทริค|เคล็ดลับ)[^*]*?:?)\*\*/g,
+                                    '<strong class="inline-block font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 px-2 py-1 rounded-md border-l-4 border-teal-500 mt-2 mb-1">💡 $1</strong>')
+
+                                // 3b3. Semantic Bold — Formula/Remember (violet)
+                                .replace(/\*\*((?:สูตรสำคัญ|จำให้ขึ้นใจ|จำสูตร)[^*]*?:?)\*\*/g,
+                                    '<strong class="inline-block font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/30 px-2 py-1 rounded-md border-l-4 border-violet-500 mt-2 mb-1">📌 $1</strong>')
+
                                 // 3c. Semantic Bold — Method/Principle (blue)
-                                // Flexible: catches วิธีทำ..., วิธีคิด..., หลักการคิด:, หลักการ:, เฉลย:
-                                .replace(/\*\*((?:วิธี|หลักการ|เฉลย)[^*]*?:?)\*\*/g,
+                                // Flexible: catches วิธีทำ..., วิธีคิด..., หลักการคิด:, หลักการ:, เฉลย:, ดักทาง:
+                                .replace(/\*\*((?:วิธี|หลักการ|เฉลย|ดักทาง)[^*]*?:?)\*\*/g,
                                     '<strong class="inline-block font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md border-l-4 border-blue-500 mt-1 mb-1">📘 $1</strong>')
 
                                 // 3d. Semantic Bold — Summary (emerald)

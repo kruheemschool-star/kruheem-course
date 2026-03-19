@@ -57,7 +57,7 @@ const formatExplanation = (text: string): string => {
 
     // Before any bold section header with known prefixes → paragraph break
     // Uses short prefixes to flexibly catch all variations (e.g. **จุดที่นักเรียนมักพลาด**, **วิธีคิด**, etc.)
-    result = result.replace(/ (\*\*(?:วิธี|หลักการ|ดักทาง|ข้อควร|ข้อสังเกต|สรุป|ทำไม|เฉลย|คำเตือน|จุด|เหตุผล|ตัวเลือกอื่น))/g, '\n\n$1');
+    result = result.replace(/ (\*\*(?:วิธี|หลักการ|ดักทาง|ข้อควร|ข้อสังเกต|สรุป|ทำไม|เฉลย|คำเตือน|จุด|เหตุผล|ตัวเลือกอื่น|เทคนิค|สูตร|จำให้|ข้อผิดพลาด|ทริค|เคล็ดลับ))/g, '\n\n$1');
 
     // Non-bold section headers → auto-wrap in bold + paragraph break
     // Flexible "จุดที่...:", e.g. จุดที่นักเรียนมักพลาด:, จุดที่ผิดบ่อย:, จุดที่ควรระวัง:
@@ -84,6 +84,27 @@ const formatExplanation = (text: string): string => {
     // Non-bold "หลักการ..." → auto-wrap in bold
     if (!result.includes('**หลักการ')) {
         result = result.replace(/ (หลักการ(?:คิด)?:?)/g, '\n\n**$1**');
+    }
+
+    // Non-bold "เทคนิคสำคัญ" / "เคล็ดลับ" / "ทริค" → auto-wrap in bold
+    ['เทคนิคสำคัญ', 'เทคนิค:', 'เคล็ดลับ', 'ทริค'].forEach(p => {
+        const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (!result.includes(`**${p}`) && result.includes(p)) {
+            result = result.replace(new RegExp(` (${escaped})`, 'g'), '\n\n**$1**');
+        }
+    });
+
+    // Non-bold "สูตรสำคัญ" / "จำให้ขึ้นใจ" → auto-wrap in bold
+    ['สูตรสำคัญ', 'จำให้ขึ้นใจ', 'จำสูตร'].forEach(p => {
+        const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (!result.includes(`**${p}`) && result.includes(p)) {
+            result = result.replace(new RegExp(` (${escaped}[^:\n]{0,20}:?)`, 'g'), '\n\n**$1**');
+        }
+    });
+
+    // Non-bold "ข้อผิดพลาดที่พบบ่อย" → auto-wrap in bold
+    if (!result.includes('**ข้อผิดพลาด')) {
+        result = result.replace(/ (ข้อผิดพลาด(?:ที่พบบ่อย)?[^:\n]{0,20}:?)/g, '\n\n**$1**');
     }
 
     // Warning / pitfall / reminder section keywords
@@ -320,6 +341,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 {/* Explanation Section */}
                 {isSubmitted && (
                     <div className="mt-10 animate-in slide-in-from-top-4 fade-in duration-500">
+                        {/* Answer Badge — clear correct answer indicator */}
+                        {showAnswerChecking && (
+                            <div className="mb-4 flex items-center gap-3 px-5 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-black text-sm flex items-center justify-center flex-shrink-0">
+                                    {correctIndex + 1}
+                                </div>
+                                <span className="font-bold text-emerald-700 dark:text-emerald-300">คำตอบที่ถูกต้อง: ข้อ {correctIndex + 1}</span>
+                                {hasAnswered && (
+                                    <span className={`ml-auto text-sm font-bold ${isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                        {isCorrect ? '✓ คุณตอบถูก' : `✗ คุณเลือกข้อ ${selectedOption! + 1}`}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                         <div className="bg-indigo-50/50 dark:bg-indigo-900/30 rounded-2xl p-6 border border-indigo-100 dark:border-indigo-800">
                             <h4 className="flex items-center gap-2 font-bold text-indigo-900 dark:text-indigo-300 mb-4 text-lg">
                                 <HelpCircle className="text-indigo-500" />

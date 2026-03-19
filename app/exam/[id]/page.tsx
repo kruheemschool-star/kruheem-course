@@ -39,6 +39,14 @@ interface Props {
     searchParams: Promise<{ q?: string }>;
 }
 
+async function getExamConfig() {
+    try {
+        const snap = await getDoc(doc(db, 'settings', 'examConfig'));
+        if (snap.exists()) return snap.data() as { showExamDashboard?: boolean; enableResultTracking?: boolean };
+    } catch (e) { /* ignore */ }
+    return { showExamDashboard: false, enableResultTracking: false };
+}
+
 async function getExamData(id: string) {
     try {
         if (!id) return null;
@@ -133,7 +141,7 @@ export default async function ExamRoomPage(props: Props) {
     const params = await props.params;
     const searchParams = await props.searchParams;
 
-    const exam = await getExamData(params.id);
+    const [exam, examConfig] = await Promise.all([getExamData(params.id), getExamConfig()]);
     const initialQuestionIndex = searchParams.q ? parseInt(searchParams.q, 10) : 0;
 
     if (!exam) {
@@ -185,8 +193,12 @@ export default async function ExamRoomPage(props: Props) {
                     <ExamSystem
                         examData={exam.questions || []}
                         examTitle={exam.title}
+                        examId={exam.id}
+                        category={exam.category || ''}
+                        level={exam.level || ''}
                         initialQuestionIndex={initialQuestionIndex}
                         showAnswerChecking={exam.showAnswerChecking || false}
+                        enableResultTracking={examConfig.enableResultTracking || false}
                     />
                 </ExamAccessGuard>
             </main>

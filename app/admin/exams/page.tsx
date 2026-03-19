@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // Drag and Drop imports
@@ -135,11 +135,27 @@ export default function ExamManagerPage() {
     const [isSavingOrder, setIsSavingOrder] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newExamTitle, setNewExamTitle] = useState("");
+    const [examConfig, setExamConfig] = useState<{ showExamDashboard: boolean; enableResultTracking: boolean }>({ showExamDashboard: false, enableResultTracking: false });
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
+
+    const fetchExamConfig = async () => {
+        try {
+            const snap = await getDoc(doc(db, 'settings', 'examConfig'));
+            if (snap.exists()) setExamConfig(snap.data() as any);
+        } catch (e) { console.error('Error fetching exam config:', e); }
+    };
+
+    const toggleExamConfig = async (field: 'showExamDashboard' | 'enableResultTracking') => {
+        const newVal = !examConfig[field];
+        try {
+            await setDoc(doc(db, 'settings', 'examConfig'), { [field]: newVal }, { merge: true });
+            setExamConfig(prev => ({ ...prev, [field]: newVal }));
+        } catch (e) { console.error('Error updating exam config:', e); alert('เกิดข้อผิดพลาด'); }
+    };
 
     const fetchExams = async () => {
         setLoading(true);
@@ -170,6 +186,7 @@ export default function ExamManagerPage() {
 
     useEffect(() => {
         fetchExams();
+        fetchExamConfig();
     }, []);
 
     const handleDelete = (id: string) => {
@@ -301,6 +318,38 @@ export default function ExamManagerPage() {
                         <button onClick={handleQuickAdd} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold flex items-center gap-2 shadow-lg shadow-indigo-200">
                             <Plus size={20} />
                             สร้างข้อสอบใหม่
+                        </button>
+                    </div>
+                </div>
+
+                {/* Global Exam Settings */}
+                <div className="mb-6 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                    <h3 className="font-bold text-slate-700 flex items-center gap-2 mb-4 text-sm">
+                        <Settings size={16} />
+                        ตั้งค่าระบบข้อสอบ
+                    </h3>
+                    <div className="flex flex-wrap gap-4">
+                        <button
+                            onClick={() => toggleExamConfig('enableResultTracking')}
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+                                examConfig.enableResultTracking
+                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'
+                                    : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                            }`}
+                        >
+                            <ClipboardCheck size={16} />
+                            บันทึกผลสอบ: {examConfig.enableResultTracking ? 'เปิด' : 'ปิด'}
+                        </button>
+                        <button
+                            onClick={() => toggleExamConfig('showExamDashboard')}
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+                                examConfig.showExamDashboard
+                                    ? 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'
+                                    : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                            }`}
+                        >
+                            <BarChart3 size={16} />
+                            หน้า Dashboard: {examConfig.showExamDashboard ? 'เปิด' : 'ปิด'}
                         </button>
                     </div>
                 </div>

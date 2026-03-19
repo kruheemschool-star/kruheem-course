@@ -2,16 +2,24 @@
 
 import React, { useState } from 'react';
 import { ExamQuestion } from '@/types/exam';
+import { sanitizeExamData } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock } from 'lucide-react';
+import { useUserAuth } from '@/context/AuthContext';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface ExamSystemProps {
     examData: ExamQuestion[];
     examTitle: string;
+    examId?: string;
+    category?: string;
+    level?: string;
     initialQuestionIndex?: number;
     onComplete?: (score: number, total: number) => void;
     isTrial?: boolean;
     showAnswerChecking?: boolean;
+    enableResultTracking?: boolean;
 }
 
 // Grade Calculation Helper
@@ -34,7 +42,8 @@ const getGradeFromPercent = (percent: number): { grade: string; label: string; g
 
 // Helper removed: getCorrectIndex (Logic cleanup)
 
-export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false }) => {
+export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, examId, category, level, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false, enableResultTracking = false }) => {
+    const { user } = useUserAuth();
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
     const [answers, setAnswers] = useState<Record<number, number>>({});
     const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({});
@@ -42,87 +51,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     const [showGrid, setShowGrid] = useState(false);
     const [finalScore, setFinalScore] = useState<FinalScore | null>(null);
 
-    // Thai letter to 0-based index
-    const thaiToIdx = (val: any): number | null => {
-        if (typeof val !== 'string') return null;
-        const map: Record<string, number> = { '\u0e01': 0, '\u0e02': 1, '\u0e04': 2, '\u0e07': 3 };
-        const m = val.trim().match(/([\u0e01\u0e02\u0e04\u0e07])/);
-        return m && map[m[1]] !== undefined ? map[m[1]] : null;
-    };
-
-    // Extract stated correct answer from explanation text (returns 0-based index or null)
-    const extractAnswerFromExplanation = (explanation: string): number | null => {
-        if (!explanation || typeof explanation !== 'string') return null;
-        const clean = explanation
-            .replace(/\\\[[\s\S]*?\\\]/g, '')
-            .replace(/\$\$[\s\S]*?\$\$/g, '')
-            .replace(/\\\([\s\S]*?\\\)/g, '')
-            .replace(/\$[^$]+\$/g, '')
-            .replace(/\*\*/g, '');
-        // Number patterns: "คำตอบ: ข้อ 2", "เฉลย: ข้อ 3", "ดังนั้น ข้อ 1"
-        const numberPatterns = [
-            /คำตอบ\s*:?\s*ข้อ\s*(\d)/,
-            /คำตอบคือ\s*ข้อ\s*(\d)/,
-            /คำตอบที่ถูกต้อง\s*(?:คือ)?\s*:?\s*ข้อ\s*(\d)/,
-            /เฉลย\s*:?\s*ข้อ\s*(\d)/,
-            /ตอบ\s*ข้อ\s*(\d)/,
-            /ข้อที่ถูกต้อง\s*(?:คือ)?\s*:?\s*(?:ข้อ\s*)?(\d)/,
-            /ดังนั้น\s*ข้อ\s*(\d)/,
-            /ตอบข้อ\s*(\d)/,
-        ];
-        for (const pattern of numberPatterns) {
-            const match = clean.match(pattern);
-            if (match) {
-                const num = parseInt(match[1]);
-                if (num >= 1 && num <= 4) return num - 1;
-            }
-        }
-        // Thai letter patterns: "คำตอบ ก", "เฉลย ข"
-        // IMPORTANT: Use ข้อ prefix to avoid capturing ข in ข้อ
-        const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
-        const thaiLetterPatterns = [
-            /คำตอบ\s*:?\s*ข้อ\s*([กคง])/,
-            /เฉลย\s*:?\s*ข้อ\s*([กคง])/,
-            /คำตอบ\s*:?\s*([กขคง])(?!้)/,
-            /เฉลย\s*:?\s*([กขคง])(?!้)/,
-        ];
-        for (const pattern of thaiLetterPatterns) {
-            const match = clean.match(pattern);
-            if (match && thaiMap[match[1]] !== undefined) return thaiMap[match[1]];
-        }
-        return null;
-    };
-
-    // Sanitize Data: Per-question bounds checking + explanation cross-check
-    // CRITICAL: explanation answer ALWAYS wins over any stored field
-    const sanitizedExamData = React.useMemo(() => {
-        return examData.map((q: any) => {
-            const optLen = Array.isArray(q.options) ? q.options.length : 4;
-
-            // Step 1: Try explanation FIRST — most reliable source of truth
-            const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
-            if (explAnswer !== null && explAnswer >= 0 && explAnswer < optLen) {
-                return { ...q, correctIndex: explAnswer, answerIndex: explAnswer };
-            }
-
-            // Step 2: Fallback to stored fields if no explanation match
-            const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
-            let idx: number;
-            const thaiIdx = thaiToIdx(raw);
-            if (thaiIdx !== null) {
-                idx = thaiIdx;
-            } else {
-                idx = Number(raw);
-                if (isNaN(idx)) idx = 0;
-            }
-
-            // Step 3: Bounds check — 1-based → 0-based
-            if (idx >= optLen && idx > 0) idx = idx - 1;
-            if (idx < 0 || idx >= optLen) idx = 0;
-
-            return { ...q, correctIndex: idx, answerIndex: idx };
-        });
-    }, [examData, isTrial]);
+    // Sanitize Data using shared utility
+    const sanitizedExamData = React.useMemo(() => sanitizeExamData(examData), [examData]);
 
     const currentQuestion = sanitizedExamData[currentQuestionIndex];
     const totalQuestions = sanitizedExamData.length;
@@ -177,6 +107,32 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         setCheckedQuestions(allChecked);
 
         setIsFinished(true);
+
+        // Save exam result to Firestore (only if logged in + tracking enabled + answer checking on)
+        if (user && enableResultTracking && showAnswerChecking && examId && !isTrial) {
+            const wrongIndices: number[] = [];
+            const allTags = new Set<string>();
+            sanitizedExamData.slice(0, answerableCount).forEach((q, idx) => {
+                if (answers[idx] !== q.correctIndex) wrongIndices.push(idx);
+                if (q.tags) q.tags.forEach((t: string) => allTags.add(t));
+            });
+            const resultDoc = {
+                examId,
+                examTitle,
+                category: category || '',
+                level: level || '',
+                score,
+                total: answerableCount,
+                percent,
+                grade: gradeInfo.grade,
+                answers,
+                wrongQuestionIndices: wrongIndices,
+                tags: Array.from(allTags),
+                completedAt: serverTimestamp(),
+            };
+            setDoc(doc(db, 'users', user.uid, 'examResults', examId), resultDoc)
+                .catch(err => console.error('Failed to save exam result:', err));
+        }
 
         if (onComplete) onComplete(score, answerableCount);
     };
