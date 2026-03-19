@@ -63,20 +63,24 @@ export async function POST() {
             const updatedQuestions = questions.map((q: any, idx: number) => {
                 const explanation = q.explanation || q.solution || '';
                 const explAnswer = extractAnswerFromExplanation(explanation);
-                const storedAnswer = q.correctIndex ?? 0;
+                // Check ALL answer fields — any could override the display
+                const displayedAnswer = q.answerIndex ?? q.correctIndex ?? 0;
                 const optLen = Array.isArray(q.options) ? q.options.length : 4;
 
-                if (explAnswer !== null && explAnswer !== storedAnswer && explAnswer >= 0 && explAnswer < optLen) {
+                if (explAnswer !== null && explAnswer !== displayedAnswer && explAnswer >= 0 && explAnswer < optLen) {
                     hasChanges = true;
                     totalFixed++;
                     results.push({
                         exam: data.title || docSnap.id,
                         question: idx + 1,
-                        old: storedAnswer + 1,
+                        old: displayedAnswer + 1,
                         new: explAnswer + 1,
                         text: (q.question || '').substring(0, 60),
                     });
-                    return { ...q, correctIndex: explAnswer };
+                    // Update ALL answer fields to prevent any field from overriding
+                    const fixed = { ...q, correctIndex: explAnswer, answerIndex: explAnswer };
+                    delete fixed.correctAnswer;
+                    return fixed;
                 }
                 return q;
             });
@@ -119,13 +123,14 @@ export async function GET() {
                 if (explAnswer === null) return;
                 checked++;
 
-                const storedAnswer = q.correctIndex ?? 0;
-                if (explAnswer !== storedAnswer) {
+                // Check the ACTUAL displayed answer (answerIndex takes priority in client code)
+                const displayedAnswer = q.answerIndex ?? q.correctIndex ?? 0;
+                if (explAnswer !== displayedAnswer) {
                     mismatches.push({
                         exam: data.title || docSnap.id,
                         examId: docSnap.id,
                         question: idx + 1,
-                        stored: storedAnswer + 1,
+                        stored: displayedAnswer + 1,
                         explained: explAnswer + 1,
                         text: (q.question || '').substring(0, 60),
                     });

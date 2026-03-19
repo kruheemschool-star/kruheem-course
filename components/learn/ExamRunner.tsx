@@ -61,35 +61,29 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
         return null;
     };
 
-    // Resolve correct index per question (same logic as ExamSystem)
+    // Resolve correct index per question — explanation ALWAYS wins
     const getCorrectIndex = (q: any) => {
-        const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
+        const optLen = Array.isArray(q.options) ? q.options.length : 4;
 
-        // Thai letter parsing: ก→0, ข→1, ค→2, ง→3
+        // Step 1: Try explanation FIRST — most reliable source of truth
+        const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
+        if (explAnswer !== null && explAnswer >= 0 && explAnswer < optLen) {
+            return explAnswer;
+        }
+
+        // Step 2: Fallback to stored fields
+        const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
         let idx: number;
         if (typeof raw === 'string') {
             const map: Record<string, number> = { '\u0e01': 0, '\u0e02': 1, '\u0e04': 2, '\u0e07': 3 };
             const m = raw.trim().match(/([\u0e01\u0e02\u0e04\u0e07])/);
-            if (m && map[m[1]] !== undefined) {
-                idx = map[m[1]];
-            } else {
-                idx = Number(raw);
-                if (isNaN(idx)) idx = 0;
-            }
+            idx = (m && map[m[1]] !== undefined) ? map[m[1]] : Number(raw);
         } else {
             idx = Number(raw);
-            if (isNaN(idx)) idx = 0;
         }
-
-        const optLen = Array.isArray(q.options) ? q.options.length : 4;
+        if (isNaN(idx)) idx = 0;
         if (idx >= optLen && idx > 0) idx = idx - 1;
         if (idx < 0 || idx >= optLen) idx = 0;
-
-        // Cross-check with explanation — trust explanation over stored index
-        const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
-        if (explAnswer !== null && explAnswer !== idx && explAnswer >= 0 && explAnswer < optLen) {
-            idx = explAnswer;
-        }
         return idx;
     };
 

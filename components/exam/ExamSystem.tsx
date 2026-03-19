@@ -93,15 +93,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     };
 
     // Sanitize Data: Per-question bounds checking + explanation cross-check
-    // Prioritize answerIndex over correctIndex, auto-fix 1-based if out of bounds
+    // CRITICAL: explanation answer ALWAYS wins over any stored field
     const sanitizedExamData = React.useMemo(() => {
-        const dataToProcess = examData;
+        return examData.map((q: any) => {
+            const optLen = Array.isArray(q.options) ? q.options.length : 4;
 
-        return dataToProcess.map((q: any) => {
-            // Step 1: Resolve the correct answer index from available fields
+            // Step 1: Try explanation FIRST — most reliable source of truth
+            const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
+            if (explAnswer !== null && explAnswer >= 0 && explAnswer < optLen) {
+                return { ...q, correctIndex: explAnswer, answerIndex: explAnswer };
+            }
+
+            // Step 2: Fallback to stored fields if no explanation match
             const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
-
-            // Step 1b: Try Thai letter parsing first
             let idx: number;
             const thaiIdx = thaiToIdx(raw);
             if (thaiIdx !== null) {
@@ -111,26 +115,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                 if (isNaN(idx)) idx = 0;
             }
 
-            // Step 2: Per-question bounds check
-            // If index >= options.length, it's clearly 1-based → subtract 1
-            const optLen = Array.isArray(q.options) ? q.options.length : 4;
-            if (idx >= optLen && idx > 0) {
-                idx = idx - 1;
-            }
+            // Step 3: Bounds check — 1-based → 0-based
+            if (idx >= optLen && idx > 0) idx = idx - 1;
+            if (idx < 0 || idx >= optLen) idx = 0;
 
-            // Step 3: Clamp to valid range [0, optLen-1]
-            if (idx < 0 || idx >= optLen) {
-                idx = 0;
-            }
-
-            // Step 4: Cross-check with explanation — if explanation clearly states
-            // a different answer, trust the explanation over stored correctIndex
-            const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
-            if (explAnswer !== null && explAnswer !== idx && explAnswer >= 0 && explAnswer < optLen) {
-                idx = explAnswer;
-            }
-
-            return { ...q, correctIndex: idx };
+            return { ...q, correctIndex: idx, answerIndex: idx };
         });
     }, [examData, isTrial]);
 
