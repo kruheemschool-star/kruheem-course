@@ -49,7 +49,40 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
         return m && map[m[1]] !== undefined ? map[m[1]] : null;
     };
 
-    // Sanitize Data: Per-question bounds checking
+    // Extract stated correct answer from explanation text (returns 0-based index or null)
+    const extractAnswerFromExplanation = (explanation: string): number | null => {
+        if (!explanation || typeof explanation !== 'string') return null;
+        const clean = explanation
+            .replace(/\\\[[\s\S]*?\\\]/g, '')
+            .replace(/\$\$[\s\S]*?\$\$/g, '')
+            .replace(/\\\([\s\S]*?\\\)/g, '')
+            .replace(/\$[^$]+\$/g, '')
+            .replace(/\*\*/g, '');
+        const numberPatterns = [
+            /คำตอบ\s*:?\s*ข้อ\s*(\d)/,
+            /คำตอบคือ\s*ข้อ\s*(\d)/,
+            /คำตอบที่ถูกต้อง\s*(?:คือ)?\s*:?\s*ข้อ\s*(\d)/,
+            /เฉลย\s*:?\s*ข้อ\s*(\d)/,
+            /ตอบ\s*ข้อ\s*(\d)/,
+            /ข้อที่ถูกต้อง\s*(?:คือ)?\s*:?\s*(?:ข้อ\s*)?(\d)/,
+        ];
+        for (const pattern of numberPatterns) {
+            const match = clean.match(pattern);
+            if (match) {
+                const num = parseInt(match[1]);
+                if (num >= 1 && num <= 4) return num - 1;
+            }
+        }
+        const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
+        const thaiPatterns = [/คำตอบ\s*:?\s*([กขคง])/, /เฉลย\s*:?\s*([กขคง])/];
+        for (const pattern of thaiPatterns) {
+            const match = clean.match(pattern);
+            if (match && thaiMap[match[1]] !== undefined) return thaiMap[match[1]];
+        }
+        return null;
+    };
+
+    // Sanitize Data: Per-question bounds checking + explanation cross-check
     // Prioritize answerIndex over correctIndex, auto-fix 1-based if out of bounds
     const sanitizedExamData = React.useMemo(() => {
         const dataToProcess = examData;
@@ -78,6 +111,13 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
             // Step 3: Clamp to valid range [0, optLen-1]
             if (idx < 0 || idx >= optLen) {
                 idx = 0;
+            }
+
+            // Step 4: Cross-check with explanation — if explanation clearly states
+            // a different answer, trust the explanation over stored correctIndex
+            const explAnswer = extractAnswerFromExplanation(q.explanation || '');
+            if (explAnswer !== null && explAnswer !== idx && explAnswer >= 0 && explAnswer < optLen) {
+                idx = explAnswer;
             }
 
             return { ...q, correctIndex: idx };

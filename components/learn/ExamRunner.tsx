@@ -32,6 +32,29 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
         setRevealed(prev => ({ ...prev, [currentIndex]: true }));
     };
 
+    // Extract stated correct answer from explanation text (returns 0-based index or null)
+    const extractAnswerFromExplanation = (explanation: string): number | null => {
+        if (!explanation || typeof explanation !== 'string') return null;
+        const clean = explanation
+            .replace(/\\\[[\s\S]*?\\\]/g, '').replace(/\$\$[\s\S]*?\$\$/g, '')
+            .replace(/\\\([\s\S]*?\\\)/g, '').replace(/\$[^$]+\$/g, '').replace(/\*\*/g, '');
+        const patterns = [
+            /คำตอบ\s*:?\s*ข้อ\s*(\d)/, /คำตอบคือ\s*ข้อ\s*(\d)/,
+            /คำตอบที่ถูกต้อง\s*(?:คือ)?\s*:?\s*ข้อ\s*(\d)/,
+            /เฉลย\s*:?\s*ข้อ\s*(\d)/, /ตอบ\s*ข้อ\s*(\d)/,
+        ];
+        for (const p of patterns) {
+            const m = clean.match(p);
+            if (m) { const n = parseInt(m[1]); if (n >= 1 && n <= 4) return n - 1; }
+        }
+        const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
+        for (const p of [/คำตอบ\s*:?\s*([กขคง])/, /เฉลย\s*:?\s*([กขคง])/]) {
+            const m = clean.match(p);
+            if (m && thaiMap[m[1]] !== undefined) return thaiMap[m[1]];
+        }
+        return null;
+    };
+
     // Resolve correct index per question (same logic as ExamSystem)
     const getCorrectIndex = (q: any) => {
         const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
@@ -55,6 +78,12 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
         const optLen = Array.isArray(q.options) ? q.options.length : 4;
         if (idx >= optLen && idx > 0) idx = idx - 1;
         if (idx < 0 || idx >= optLen) idx = 0;
+
+        // Cross-check with explanation — trust explanation over stored index
+        const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
+        if (explAnswer !== null && explAnswer !== idx && explAnswer >= 0 && explAnswer < optLen) {
+            idx = explAnswer;
+        }
         return idx;
     };
 
