@@ -61,10 +61,17 @@ async function getExamData(id: string) {
                 questions = await res.json();
             }
 
+            // Normalize question fields for consistency
+            const normalizedQuestions = Array.isArray(questions) ? questions.map((q: any) => ({
+                ...q,
+                explanation: q.explanation || q.solution || '',
+                correctIndex: q.correctIndex ?? q.answerIndex ?? 0,
+            })) : [];
+
             return {
                 id: docSnap.id,
                 ...data,
-                questions
+                questions: normalizedQuestions
             };
         }
 

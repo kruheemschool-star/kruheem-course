@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, getDoc, doc, updateDoc } from "firebase/firestore";
 import Link from "next/link";
 import { ArrowLeft, ShieldCheck, AlertTriangle, CheckCircle2, Loader2, Wrench } from "lucide-react";
 
@@ -32,6 +32,8 @@ function extractAnswerFromExplanation(explanation: string): number | null {
         /เฉลย\s*:?\s*ข้อ\s*(\d)/,
         /ตอบ\s*ข้อ\s*(\d)/,
         /ข้อที่ถูกต้อง\s*(?:คือ)?\s*:?\s*(?:ข้อ\s*)?(\d)/,
+        /ดังนั้น\s*ข้อ\s*(\d)/,
+        /ตอบข้อ\s*(\d)/,
     ];
     for (const pattern of numberPatterns) {
         const match = clean.match(pattern);
@@ -41,10 +43,13 @@ function extractAnswerFromExplanation(explanation: string): number | null {
         }
     }
 
+    // Thai letter patterns — avoid capturing ข in ข้อ
     const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
     const thaiPatterns = [
-        /คำตอบ\s*:?\s*([กขคง])/,
-        /เฉลย\s*:?\s*([กขคง])/,
+        /คำตอบ\s*:?\s*ข้อ\s*([กคง])/,
+        /เฉลย\s*:?\s*ข้อ\s*([กคง])/,
+        /คำตอบ\s*:?\s*([กขคง])(?!้)/,
+        /เฉลย\s*:?\s*([กขคง])(?!้)/,
     ];
     for (const pattern of thaiPatterns) {
         const match = clean.match(pattern);
@@ -140,11 +145,10 @@ export default function ExamValidatorPage() {
             let fixedCount = 0;
             for (const [examId, items] of Object.entries(grouped)) {
                 const docRef = doc(db, "exams", examId);
-                const docSnap = await getDocs(collection(db, "exams"));
-                const examDoc = docSnap.docs.find(d => d.id === examId);
-                if (!examDoc) continue;
+                const docSnap = await getDoc(docRef);
+                if (!docSnap.exists()) continue;
 
-                const data = examDoc.data();
+                const data = docSnap.data();
                 const questions = [...(data.questions || [])];
 
                 items.forEach(m => {

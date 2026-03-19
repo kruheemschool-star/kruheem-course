@@ -58,6 +58,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
             .replace(/\\\([\s\S]*?\\\)/g, '')
             .replace(/\$[^$]+\$/g, '')
             .replace(/\*\*/g, '');
+        // Number patterns: "คำตอบ: ข้อ 2", "เฉลย: ข้อ 3", "ดังนั้น ข้อ 1"
         const numberPatterns = [
             /คำตอบ\s*:?\s*ข้อ\s*(\d)/,
             /คำตอบคือ\s*ข้อ\s*(\d)/,
@@ -65,6 +66,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
             /เฉลย\s*:?\s*ข้อ\s*(\d)/,
             /ตอบ\s*ข้อ\s*(\d)/,
             /ข้อที่ถูกต้อง\s*(?:คือ)?\s*:?\s*(?:ข้อ\s*)?(\d)/,
+            /ดังนั้น\s*ข้อ\s*(\d)/,
+            /ตอบข้อ\s*(\d)/,
         ];
         for (const pattern of numberPatterns) {
             const match = clean.match(pattern);
@@ -73,9 +76,16 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                 if (num >= 1 && num <= 4) return num - 1;
             }
         }
+        // Thai letter patterns: "คำตอบ ก", "เฉลย ข"
+        // IMPORTANT: Use ข้อ prefix to avoid capturing ข in ข้อ
         const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
-        const thaiPatterns = [/คำตอบ\s*:?\s*([กขคง])/, /เฉลย\s*:?\s*([กขคง])/];
-        for (const pattern of thaiPatterns) {
+        const thaiLetterPatterns = [
+            /คำตอบ\s*:?\s*ข้อ\s*([กคง])/,
+            /เฉลย\s*:?\s*ข้อ\s*([กคง])/,
+            /คำตอบ\s*:?\s*([กขคง])(?!้)/,
+            /เฉลย\s*:?\s*([กขคง])(?!้)/,
+        ];
+        for (const pattern of thaiLetterPatterns) {
             const match = clean.match(pattern);
             if (match && thaiMap[match[1]] !== undefined) return thaiMap[match[1]];
         }
@@ -115,7 +125,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
             // Step 4: Cross-check with explanation — if explanation clearly states
             // a different answer, trust the explanation over stored correctIndex
-            const explAnswer = extractAnswerFromExplanation(q.explanation || '');
+            const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
             if (explAnswer !== null && explAnswer !== idx && explAnswer >= 0 && explAnswer < optLen) {
                 idx = explAnswer;
             }

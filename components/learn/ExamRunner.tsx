@@ -42,13 +42,19 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
             /คำตอบ\s*:?\s*ข้อ\s*(\d)/, /คำตอบคือ\s*ข้อ\s*(\d)/,
             /คำตอบที่ถูกต้อง\s*(?:คือ)?\s*:?\s*ข้อ\s*(\d)/,
             /เฉลย\s*:?\s*ข้อ\s*(\d)/, /ตอบ\s*ข้อ\s*(\d)/,
+            /ดังนั้น\s*ข้อ\s*(\d)/, /ตอบข้อ\s*(\d)/,
         ];
         for (const p of patterns) {
             const m = clean.match(p);
             if (m) { const n = parseInt(m[1]); if (n >= 1 && n <= 4) return n - 1; }
         }
+        // Thai letter patterns — avoid capturing ข in ข้อ
         const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
-        for (const p of [/คำตอบ\s*:?\s*([กขคง])/, /เฉลย\s*:?\s*([กขคง])/]) {
+        const thaiPats = [
+            /คำตอบ\s*:?\s*ข้อ\s*([กคง])/, /เฉลย\s*:?\s*ข้อ\s*([กคง])/,
+            /คำตอบ\s*:?\s*([กขคง])(?!้)/, /เฉลย\s*:?\s*([กขคง])(?!้)/,
+        ];
+        for (const p of thaiPats) {
             const m = clean.match(p);
             if (m && thaiMap[m[1]] !== undefined) return thaiMap[m[1]];
         }

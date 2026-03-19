@@ -111,6 +111,8 @@ export default function ExamEditorPage() {
             /เฉลย\s*:?\s*ข้อ\s*(\d)/,
             /ตอบ\s*ข้อ\s*(\d)/,
             /ข้อที่ถูกต้อง\s*(?:คือ)?\s*:?\s*(?:ข้อ\s*)?(\d)/,
+            /ดังนั้น\s*ข้อ\s*(\d)/,
+            /ตอบข้อ\s*(\d)/,
         ];
         for (const pattern of numberPatterns) {
             const match = clean.match(pattern);
@@ -120,11 +122,13 @@ export default function ExamEditorPage() {
             }
         }
 
-        // Thai letter patterns: "คำตอบ: ก", "เฉลย: ข"
+        // Thai letter patterns — avoid capturing ข in ข้อ
         const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
         const thaiPatterns = [
-            /คำตอบ\s*:?\s*([กขคง])/,
-            /เฉลย\s*:?\s*([กขคง])/,
+            /คำตอบ\s*:?\s*ข้อ\s*([กคง])/,
+            /เฉลย\s*:?\s*ข้อ\s*([กคง])/,
+            /คำตอบ\s*:?\s*([กขคง])(?!้)/,
+            /เฉลย\s*:?\s*([กขคง])(?!้)/,
         ];
         for (const pattern of thaiPatterns) {
             const match = clean.match(pattern);
