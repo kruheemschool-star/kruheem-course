@@ -7,6 +7,9 @@ import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+// Force fresh data from Firestore on every request (no stale cache)
+export const dynamic = 'force-dynamic';
+
 // Mock Data Fallback (For Demo/Dev)
 const MOCK_EXAMS: Record<string, any> = {
     "math-m1-algebra": {
