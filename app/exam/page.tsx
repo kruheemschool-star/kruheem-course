@@ -51,9 +51,11 @@ async function getExams() {
                     description: data.description || "",
                     level: data.level || "",
                     category: data.category || "General",
+                    difficulty: data.difficulty || "Medium",
                     themeColor: data.themeColor || "Blue",
                     coverImage: data.coverImage || "",
                     tags: data.tags || [],
+                    isFree: data.isFree || false,
                     questionCount, // Only send count, not full questions
                     order: data.order ?? Number.MAX_SAFE_INTEGER,
                     createdAt: data.createdAt?.toDate?.().toISOString() || null,

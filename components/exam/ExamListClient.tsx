@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb, Loader2 } from "lucide-react";
+import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb, Loader2, SlidersHorizontal, X, ArrowUpDown, ChevronDown, Tag, Zap, BookOpen, BarChart3 } from "lucide-react";
 
 interface ExamListClientProps {
     initialExams: any[];
@@ -23,12 +23,71 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
 
+    // Advanced Filters
+    const [showFilters, setShowFilters] = useState(false);
+    const [selectedDifficulty, setSelectedDifficulty] = useState<string>("ทั้งหมด");
+    const [selectedLevel, setSelectedLevel] = useState<string>("ทั้งหมด");
+    const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [sortBy, setSortBy] = useState<string>("default");
+    const [showFreeOnly, setShowFreeOnly] = useState(false);
+
     // Lazy load search state
     const [searchData, setSearchData] = useState<any[] | null>(null);
     const [isLoadingSearch, setIsLoadingSearch] = useState(false);
     const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
 
     const categories = ["ทั้งหมด", "ประถม", "ม.ต้น", "ม.ปลาย", "สอบเข้า"];
+    const difficulties = ["ทั้งหมด", "Easy", "Medium", "Hard"];
+    const difficultyLabels: Record<string, string> = { "ทั้งหมด": "ทั้งหมด", "Easy": "ง่าย", "Medium": "ปานกลาง", "Hard": "ยาก" };
+    const difficultyColors: Record<string, string> = { "Easy": "text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-900/30 dark:border-emerald-800", "Medium": "text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-900/30 dark:border-amber-800", "Hard": "text-rose-600 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-900/30 dark:border-rose-800" };
+    const sortOptions = [
+        { value: "default", label: "ค่าเริ่มต้น" },
+        { value: "newest", label: "ใหม่ล่าสุด" },
+        { value: "oldest", label: "เก่าสุด" },
+        { value: "most-questions", label: "ข้อมากสุด" },
+        { value: "least-questions", label: "ข้อน้อยสุด" },
+        { value: "name-asc", label: "ชื่อ ก-ฮ" },
+    ];
+
+    // Extract unique levels and tags from exams for filter options
+    const availableLevels = useMemo(() => {
+        const levels = [...new Set(initialExams.map(e => e.level).filter(Boolean))];
+        return ["ทั้งหมด", ...levels.sort()];
+    }, [initialExams]);
+
+    const availableTags = useMemo(() => {
+        const tagSet = new Set<string>();
+        initialExams.forEach(e => {
+            (e.tags || []).forEach((t: string) => tagSet.add(t));
+        });
+        return [...tagSet].sort();
+    }, [initialExams]);
+
+    // Count active filters
+    const activeFilterCount = useMemo(() => {
+        let count = 0;
+        if (selectedDifficulty !== "ทั้งหมด") count++;
+        if (selectedLevel !== "ทั้งหมด") count++;
+        if (selectedTags.length > 0) count++;
+        if (showFreeOnly) count++;
+        if (sortBy !== "default") count++;
+        return count;
+    }, [selectedDifficulty, selectedLevel, selectedTags, showFreeOnly, sortBy]);
+
+    const clearAllFilters = () => {
+        setSelectedCategory("ทั้งหมด");
+        setSelectedDifficulty("ทั้งหมด");
+        setSelectedLevel("ทั้งหมด");
+        setSelectedTags([]);
+        setSortBy("default");
+        setShowFreeOnly(false);
+    };
+
+    const toggleTag = (tag: string) => {
+        setSelectedTags(prev =>
+            prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+        );
+    };
 
     // Helper: Strip LaTeX and clean text for display
     const cleanText = (text: string): string => {
@@ -148,8 +207,50 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
             result = result.filter(exam => exam.category === selectedCategory);
         }
 
+        // Filter by Difficulty
+        if (selectedDifficulty !== "ทั้งหมด") {
+            result = result.filter(exam => exam.difficulty === selectedDifficulty);
+        }
+
+        // Filter by Level
+        if (selectedLevel !== "ทั้งหมด") {
+            result = result.filter(exam => exam.level === selectedLevel);
+        }
+
+        // Filter by Tags (exam must have ALL selected tags)
+        if (selectedTags.length > 0) {
+            result = result.filter(exam =>
+                selectedTags.every(tag => (exam.tags || []).includes(tag))
+            );
+        }
+
+        // Filter free only
+        if (showFreeOnly) {
+            result = result.filter(exam => exam.isFree);
+        }
+
+        // Sort
+        if (sortBy !== "default") {
+            result = [...result].sort((a, b) => {
+                switch (sortBy) {
+                    case "newest":
+                        return (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+                    case "oldest":
+                        return (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                    case "most-questions":
+                        return (b.questionCount || 0) - (a.questionCount || 0);
+                    case "least-questions":
+                        return (a.questionCount || 0) - (b.questionCount || 0);
+                    case "name-asc":
+                        return (a.title || "").localeCompare(b.title || "", "th");
+                    default:
+                        return 0;
+                }
+            });
+        }
+
         return result;
-    }, [initialExams, selectedCategory, searchQuery]);
+    }, [initialExams, selectedCategory, selectedDifficulty, selectedLevel, selectedTags, showFreeOnly, sortBy, searchQuery]);
 
     const isSearchMode = searchQuery.trim().length > 0;
     const totalQuestionMatches = searchResults.reduce((sum, r) => sum + r.questionMatches.length, 0);
@@ -285,8 +386,8 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                     </div>
                 </div>
 
-                {/* Regular Category Filters */}
-                <div className="flex flex-wrap gap-2 mb-10 justify-center">
+                {/* Category + Advanced Filter Row */}
+                <div className="flex flex-wrap items-center gap-2 mb-4 justify-center">
                     {categories.map(cat => (
                         <button
                             key={cat}
@@ -299,7 +400,183 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                             {cat}
                         </button>
                     ))}
+
+                    {/* Filter Toggle Button */}
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-300 border-2 flex items-center gap-1.5 ${
+                            showFilters || activeFilterCount > 0
+                                ? 'bg-indigo-600 dark:bg-indigo-500 text-white border-indigo-600 dark:border-indigo-500 shadow-lg shadow-indigo-500/20'
+                                : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-500 dark:hover:text-indigo-400'
+                        }`}
+                    >
+                        <SlidersHorizontal size={14} />
+                        ตัวกรอง
+                        {activeFilterCount > 0 && (
+                            <span className="w-5 h-5 rounded-full bg-white text-indigo-600 text-xs font-black flex items-center justify-center">
+                                {activeFilterCount}
+                            </span>
+                        )}
+                    </button>
                 </div>
+
+                {/* Advanced Filter Panel */}
+                {showFilters && (
+                    <div className="max-w-4xl mx-auto mb-6 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                        <div className="p-5 space-y-5">
+                            {/* Row 1: Difficulty + Level + Sort */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                {/* Difficulty */}
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <Zap size={12} /> ระดับความยาก
+                                    </label>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {difficulties.map(d => (
+                                            <button
+                                                key={d}
+                                                onClick={() => setSelectedDifficulty(d)}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                                                    selectedDifficulty === d
+                                                        ? d === "ทั้งหมด" ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-900 dark:border-slate-100' : (difficultyColors[d] || '') + ' border-current font-black ring-1 ring-current'
+                                                        : 'bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600'
+                                                }`}
+                                            >
+                                                {difficultyLabels[d] || d}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Level */}
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <BookOpen size={12} /> ระดับชั้น
+                                    </label>
+                                    <select
+                                        value={selectedLevel}
+                                        onChange={(e) => setSelectedLevel(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg text-sm font-medium bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+                                    >
+                                        {availableLevels.map(level => (
+                                            <option key={level} value={level}>{level}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Sort */}
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <ArrowUpDown size={12} /> เรียงตาม
+                                    </label>
+                                    <select
+                                        value={sortBy}
+                                        onChange={(e) => setSortBy(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg text-sm font-medium bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+                                    >
+                                        {sortOptions.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Row 2: Free Only Toggle */}
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setShowFreeOnly(!showFreeOnly)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border flex items-center gap-2 ${
+                                        showFreeOnly
+                                            ? 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border-teal-300 dark:border-teal-700 ring-1 ring-teal-300 dark:ring-teal-700'
+                                            : 'bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600'
+                                    }`}
+                                >
+                                    {showFreeOnly ? '🔓' : '🔒'}
+                                    เฉพาะข้อสอบฟรี
+                                </button>
+                            </div>
+
+                            {/* Row 3: Tags */}
+                            {availableTags.length > 0 && (
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                        <Tag size={12} /> กรองตามหัวข้อ (เลือกได้หลายรายการ)
+                                    </label>
+                                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                                        {availableTags.map(tag => (
+                                            <button
+                                                key={tag}
+                                                onClick={() => toggleTag(tag)}
+                                                className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
+                                                    selectedTags.includes(tag)
+                                                        ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 ring-1 ring-indigo-300 dark:ring-indigo-700'
+                                                        : 'bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600'
+                                                }`}
+                                            >
+                                                {tag}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Active Filters Summary + Clear */}
+                            {activeFilterCount > 0 && (
+                                <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs font-bold text-slate-400 dark:text-slate-500">ตัวกรองที่ใช้:</span>
+                                        {selectedDifficulty !== "ทั้งหมด" && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                {difficultyLabels[selectedDifficulty]}
+                                                <button onClick={() => setSelectedDifficulty("ทั้งหมด")} className="hover:text-rose-500"><X size={12} /></button>
+                                            </span>
+                                        )}
+                                        {selectedLevel !== "ทั้งหมด" && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                {selectedLevel}
+                                                <button onClick={() => setSelectedLevel("ทั้งหมด")} className="hover:text-rose-500"><X size={12} /></button>
+                                            </span>
+                                        )}
+                                        {selectedTags.map(tag => (
+                                            <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-full text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                                                {tag}
+                                                <button onClick={() => toggleTag(tag)} className="hover:text-rose-500"><X size={12} /></button>
+                                            </span>
+                                        ))}
+                                        {showFreeOnly && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-50 dark:bg-teal-900/30 rounded-full text-xs font-bold text-teal-600 dark:text-teal-400">
+                                                ฟรีเท่านั้น
+                                                <button onClick={() => setShowFreeOnly(false)} className="hover:text-rose-500"><X size={12} /></button>
+                                            </span>
+                                        )}
+                                        {sortBy !== "default" && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300">
+                                                {sortOptions.find(o => o.value === sortBy)?.label}
+                                                <button onClick={() => setSortBy("default")} className="hover:text-rose-500"><X size={12} /></button>
+                                            </span>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={clearAllFilters}
+                                        className="text-xs font-bold text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition-colors flex items-center gap-1"
+                                    >
+                                        <X size={14} />
+                                        ล้างทั้งหมด
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Results count */}
+                {!isSearchMode && (activeFilterCount > 0 || selectedCategory !== "ทั้งหมด") && (
+                    <div className="max-w-4xl mx-auto mb-4 text-center">
+                        <p className="text-sm font-medium text-slate-400 dark:text-slate-500">
+                            พบ {filteredExams.length} ชุดข้อสอบ {initialExams.length > filteredExams.length && <span className="text-slate-300 dark:text-slate-600">(from {initialExams.length})</span>}
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Main Content */}
