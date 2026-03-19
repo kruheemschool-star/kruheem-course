@@ -230,15 +230,18 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ text, className = ""
                                 .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-indigo-900 dark:text-indigo-300 mt-5 mb-2 border-b border-indigo-100 dark:border-indigo-800 pb-1">$1</h2>')
 
                                 // 3a. Semantic Bold — Distractor explanation section (rose)
-                                .replace(/\*\*(เหตุผลที่ตัวเลือกอื่นผิด:?|ทำไมตัวเลือกอื่นผิด:?|ทำไมข้ออื่นผิด:?)\*\*/g,
+                                // Flexible: catches เหตุผลที่...ผิด, ทำไม...ผิด, ตัวเลือกอื่น...ผิด
+                                .replace(/\*\*((?:เหตุผล|ทำไม|ตัวเลือกอื่น)[^*]*?ผิด[^*]*?:?)\*\*/g,
                                     '<strong class="inline-block font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30 px-2 py-1 rounded-md border-l-4 border-rose-400 mt-3 mb-1">⚠️ $1</strong>')
 
                                 // 3b. Semantic Bold — Warning/Pitfall (amber)
-                                .replace(/\*\*(ข้อควรระวัง:?|จุดพลาด:?|คำเตือน:?|ข้อผิดพลาดที่พบบ่อย:?|จุดที่ควรระวัง:?|จุดที่ผิดบ่อย:?|จุดที่มักผิด:?)\*\*/g,
+                                // Flexible: catches จุดที่นักเรียนมักพลาด:, จุดที่ควรระวัง:, ข้อควรระวัง, คำเตือน, etc.
+                                .replace(/\*\*((?:ข้อควร|จุดที่|จุดพลาด|คำเตือน|ข้อผิดพลาด)[^*]*?:?)\*\*/g,
                                     '<strong class="inline-block font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded-md border-l-4 border-amber-400 mt-2 mb-1">⚡ $1</strong>')
 
                                 // 3c. Semantic Bold — Method/Principle (blue)
-                                .replace(/\*\*(วิธีทำ[^*]*?|หลักการ:?|หลักการคิด:?|เฉลย:?)\*\*/g,
+                                // Flexible: catches วิธีทำ..., วิธีคิด..., หลักการคิด:, หลักการ:, เฉลย:
+                                .replace(/\*\*((?:วิธี|หลักการ|เฉลย)[^*]*?:?)\*\*/g,
                                     '<strong class="inline-block font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md border-l-4 border-blue-500 mt-1 mb-1">📘 $1</strong>')
 
                                 // 3d. Semantic Bold — Summary (emerald)

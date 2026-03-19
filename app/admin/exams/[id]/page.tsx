@@ -92,6 +92,49 @@ export default function ExamEditorPage() {
         return null;
     };
 
+    // Extract stated correct answer from explanation text (returns 0-based index or null)
+    const extractAnswerFromExplanation = (explanation: string): number | null => {
+        if (!explanation || typeof explanation !== 'string') return null;
+        // Strip LaTeX to avoid false matches
+        const clean = explanation
+            .replace(/\\\[[\s\S]*?\\\]/g, '')
+            .replace(/\$\$[\s\S]*?\$\$/g, '')
+            .replace(/\\\([\s\S]*?\\\)/g, '')
+            .replace(/\$[^$]+\$/g, '')
+            .replace(/\*\*/g, '');
+
+        // Number patterns: "คำตอบ: ข้อ 2", "เฉลย: ข้อ 3", "ตอบ ข้อ 1"
+        const numberPatterns = [
+            /คำตอบ\s*:?\s*ข้อ\s*(\d)/,
+            /คำตอบคือ\s*ข้อ\s*(\d)/,
+            /คำตอบที่ถูกต้อง\s*(?:คือ)?\s*:?\s*ข้อ\s*(\d)/,
+            /เฉลย\s*:?\s*ข้อ\s*(\d)/,
+            /ตอบ\s*ข้อ\s*(\d)/,
+            /ข้อที่ถูกต้อง\s*(?:คือ)?\s*:?\s*(?:ข้อ\s*)?(\d)/,
+        ];
+        for (const pattern of numberPatterns) {
+            const match = clean.match(pattern);
+            if (match) {
+                const num = parseInt(match[1]);
+                if (num >= 1 && num <= 4) return num - 1;
+            }
+        }
+
+        // Thai letter patterns: "คำตอบ: ก", "เฉลย: ข"
+        const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
+        const thaiPatterns = [
+            /คำตอบ\s*:?\s*([กขคง])/,
+            /เฉลย\s*:?\s*([กขคง])/,
+        ];
+        for (const pattern of thaiPatterns) {
+            const match = clean.match(pattern);
+            if (match && thaiMap[match[1]] !== undefined) {
+                return thaiMap[match[1]];
+            }
+        }
+        return null;
+    };
+
     // Transform external exam format to internal format
     const transformExamQuestion = (q: any) => {
         let answerIndex = q.answerIndex ?? q.correctIndex ?? 0;
@@ -121,12 +164,21 @@ export default function ExamEditorPage() {
         if (answerIndex < 0 || answerIndex >= optionsLength) {
             answerIndex = 0;
         }
+
+        // Cross-check: if explanation clearly states a different answer, trust the explanation
+        const explanation = q.solution || q.explanation || "";
+        const explAnswer = extractAnswerFromExplanation(explanation);
+        if (explAnswer !== null && explAnswer !== answerIndex) {
+            console.warn(`⚠️ Answer mismatch fixed: index=${answerIndex} → explanation says ${explAnswer}`);
+            answerIndex = explAnswer;
+        }
+
         return {
             question: q.question || "",
             image: q.image,
             options: q.options || [],
             correctIndex: answerIndex,
-            explanation: q.solution || q.explanation || "",
+            explanation,
             tags: q.tags || (q.space ? [q.space] : [])
         };
     };
@@ -497,6 +549,29 @@ export default function ExamEditorPage() {
                     alert(`⚠️ พบข้อผิดพลาดทางตรรกะ:\nข้อที่ ${invalidIndices.join(", ")} มีการระบุคำตอบ (correctIndex) ไม่ตรงกับจำนวนตัวเลือก\n\nกรุณาแก้ไขก่อนบันทึก`);
                     setSaving(false);
                     return;
+                }
+
+                // Answer Cross-Validation: Check correctIndex vs explanation stated answer
+                const answerMismatches: { idx: number; stored: number; explained: number }[] = [];
+                parsedQuestions.forEach((q: any, idx: number) => {
+                    const explAnswer = extractAnswerFromExplanation(q.explanation || '');
+                    if (explAnswer !== null && explAnswer !== q.correctIndex) {
+                        answerMismatches.push({ idx: idx + 1, stored: q.correctIndex + 1, explained: explAnswer + 1 });
+                    }
+                });
+
+                if (answerMismatches.length > 0) {
+                    const details = answerMismatches.map(m => `  ข้อ ${m.idx}: ระบบ=ข้อ ${m.stored}, เฉลย=ข้อ ${m.explained}`).join('\n');
+                    const fix = confirm(`⚠️ พบคำตอบไม่ตรงกัน ${answerMismatches.length} ข้อ:\n${details}\n\nกด OK เพื่อแก้ไขอัตโนมัติ (ใช้คำตอบจากเฉลย)\nกด Cancel เพื่อบันทึกตามเดิม`);
+                    if (fix) {
+                        answerMismatches.forEach(m => {
+                            parsedQuestions[m.idx - 1].correctIndex = m.explained - 1;
+                        });
+                        // Update editor UI
+                        const updatedJson = JSON.stringify(parsedQuestions, null, 2);
+                        setJsonContent(updatedJson);
+                        setSmartBlocks(parsedQuestions.map((q: any) => JSON.stringify(q, null, 2)));
+                    }
                 }
 
             } catch (err) {

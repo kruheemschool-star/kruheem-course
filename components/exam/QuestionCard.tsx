@@ -54,30 +54,35 @@ const formatExplanation = (text: string): string => {
 
     // ═══ STEP 2: PARAGRAPH BREAKS (\n\n) — Major section transitions ═══
 
-    // Before bold section headers like **วิธีทำ:**, **ดักทางคนพลาด:**, etc.
-    result = result.replace(/ (\*\*(?:วิธีทำ|ดักทาง|หลักการ|ข้อควรระวัง|สรุป|ทำไม|เฉลย|คำเตือน|จุดพลาด|ข้อสังเกต|เหตุผลที่ตัวเลือกอื่นผิด|ทำไมตัวเลือกอื่นผิด|ทำไมข้ออื่นผิด|จุดที่ควรระวัง|จุดที่ผิดบ่อย|จุดที่มักผิด|หลักการคิด))/g, '\n\n$1');
+    // Before any bold section header with known prefixes → paragraph break
+    // Uses short prefixes to flexibly catch all variations (e.g. **จุดที่นักเรียนมักพลาด**, **วิธีคิด**, etc.)
+    result = result.replace(/ (\*\*(?:วิธี|หลักการ|ดักทาง|ข้อควร|ข้อสังเกต|สรุป|ทำไม|เฉลย|คำเตือน|จุด|เหตุผล|ตัวเลือกอื่น))/g, '\n\n$1');
 
-    // Non-bold major section headers → auto-wrap in bold + paragraph break
-    ['เหตุผลที่ตัวเลือกอื่นผิด:', 'ทำไมตัวเลือกอื่นผิด:', 'ทำไมข้ออื่นผิด:', 'จุดที่ควรระวัง:', 'จุดที่ผิดบ่อย:', 'จุดที่มักผิด'].forEach(p => {
+    // Non-bold section headers → auto-wrap in bold + paragraph break
+    // Flexible "จุดที่...:", e.g. จุดที่นักเรียนมักพลาด:, จุดที่ผิดบ่อย:, จุดที่ควรระวัง:
+    result = result.replace(/ (จุดที่[^:\n]{1,40}:)/g, (m, p1) => result.includes(`**${p1}`) ? m : `\n\n**${p1}**`);
+
+    // Flexible "เหตุผลที่.../ทำไม...ผิด"
+    ['เหตุผลที่ตัวเลือกอื่นผิด:', 'ทำไมตัวเลือกอื่นผิด:', 'ทำไมข้ออื่นผิด:'].forEach(p => {
         const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         if (!result.includes(`**${p}`) && result.includes(p)) {
             result = result.replace(new RegExp(` (${escaped})`, 'g'), '\n\n**$1**');
         }
     });
 
-    // Non-bold "วิธีทำ" → auto-wrap in bold (with or without colon)
-    if (!result.includes('**วิธีทำ')) {
-        result = result.replace(/ (วิธีทำ)/g, '\n\n**$1**');
+    // Non-bold "วิธีทำ" / "วิธีคิด" / "วิธีแก้" → auto-wrap in bold
+    if (!result.includes('**วิธี')) {
+        result = result.replace(/ (วิธี(?:ทำ|คิด|แก้)[^:\n]{0,20}:?)/g, '\n\n**$1**');
     }
 
-    // Non-bold "ข้อควรระวัง" → auto-wrap in bold (with or without colon)
+    // Non-bold "ข้อควรระวัง" → auto-wrap in bold
     if (!result.includes('**ข้อควรระวัง')) {
-        result = result.replace(/ (ข้อควรระวัง)/g, '\n\n**$1**');
+        result = result.replace(/ (ข้อควรระวัง[^:\n]{0,10}:?)/g, '\n\n**$1**');
     }
 
-    // Non-bold "หลักการคิด" / "หลักการ" → auto-wrap in bold
+    // Non-bold "หลักการ..." → auto-wrap in bold
     if (!result.includes('**หลักการ')) {
-        result = result.replace(/ (หลักการคิด:?|หลักการ:)/g, '\n\n**$1**');
+        result = result.replace(/ (หลักการ(?:คิด)?:?)/g, '\n\n**$1**');
     }
 
     // Warning / pitfall / reminder section keywords
