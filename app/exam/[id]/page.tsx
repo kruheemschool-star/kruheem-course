@@ -186,6 +186,7 @@ export default async function ExamRoomPage(props: Props) {
                         examData={exam.questions || []}
                         examTitle={exam.title}
                         initialQuestionIndex={initialQuestionIndex}
+                        showAnswerChecking={exam.showAnswerChecking || false}
                     />
                 </ExamAccessGuard>
             </main>

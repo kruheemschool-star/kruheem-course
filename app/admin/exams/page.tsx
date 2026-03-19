@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // Drag and Drop imports
@@ -14,7 +14,7 @@ import { CSS } from '@dnd-kit/utilities';
 import React from "react";
 
 // Sortable Table Row Component
-function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden }: { exam: any; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void }) {
+function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking }: { exam: any; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void }) {
     const {
         attributes,
         listeners,
@@ -84,6 +84,19 @@ function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden }: { exa
                     ) : (
                         <><Lock size={14} /> เฉพาะสมาชิก</>
                     )}
+                </button>
+            </td>
+            <td className="p-6 text-center">
+                <button
+                    onClick={() => onToggleAnswerChecking(exam.id, exam.showAnswerChecking || false)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
+                        exam.showAnswerChecking
+                            ? "bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 hover:shadow"
+                            : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 hover:shadow"
+                    }`}
+                >
+                    <ClipboardCheck size={14} />
+                    {exam.showAnswerChecking ? 'เปิดตรวจ' : 'ปิดตรวจ'}
                 </button>
             </td>
             <td className="p-6 text-right">
@@ -196,6 +209,18 @@ export default function ExamManagerPage() {
         }
     };
 
+    const handleToggleAnswerChecking = async (id: string, currentStatus: boolean) => {
+        try {
+            await updateDoc(doc(db, "exams", id), {
+                showAnswerChecking: !currentStatus
+            });
+            setExams(prev => prev.map(exam => exam.id === id ? { ...exam, showAnswerChecking: !currentStatus } : exam));
+        } catch (error) {
+            console.error("Error updating answer checking status:", error);
+            alert("เกิดข้อผิดพลาดในการอัปเดตสถานะตรวจคำตอบ");
+        }
+    };
+
     const handleQuickAdd = () => {
         setNewExamTitle("");
         setIsAddModalOpen(true);
@@ -299,6 +324,7 @@ export default function ExamManagerPage() {
                                     <th className="p-6 text-center">ระดับความยาก</th>
                                     <th className="p-6 text-center">จำนวนข้อ</th>
                                     <th className="p-6 text-center">สิทธิ์การเข้าถึง</th>
+                                    <th className="p-6 text-center">ตรวจคำตอบ</th>
                                     <th className="p-6 text-right">จัดการ</th>
                                 </tr>
                             </thead>
@@ -306,7 +332,7 @@ export default function ExamManagerPage() {
                                 <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
                                     <tbody className="divide-y divide-slate-50">
                                         {exams.map((exam) => (
-                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} />
+                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} />
                                         ))}
                                     </tbody>
                                 </SortableContext>

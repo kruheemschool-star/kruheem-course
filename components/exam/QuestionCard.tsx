@@ -13,6 +13,7 @@ interface QuestionCardProps {
     selectedOption: number | null;
     onSelectOption: (optionIndex: number) => void;
     isSubmitted: boolean; // ถ้า true จะแสดงเฉลย
+    showAnswerChecking?: boolean; // ถ้า true จะแสดงสีเขียว/แดง ถูก/ผิด
 }
 
 // Convert Thai letter references (ก ข ค ง) to numbers (1 2 3 4) in explanation text
@@ -156,9 +157,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     totalQuestions,
     selectedOption,
     onSelectOption,
-    isSubmitted
+    isSubmitted,
+    showAnswerChecking = false
 }) => {
     const hasAnswered = selectedOption !== null;
+    const isCorrect = hasAnswered && selectedOption === question.correctIndex;
+    const correctIndex = question.correctIndex;
 
     return (
         <div className="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl shadow-stone-200/50 dark:shadow-slate-900/50 overflow-hidden border border-stone-100 dark:border-slate-700 transition-all duration-300">
@@ -175,7 +179,17 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 </div>
 
                 {/* Badge - Show when submitted */}
-                {isSubmitted && hasAnswered && (
+                {isSubmitted && hasAnswered && showAnswerChecking && (
+                    <div className={`px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 animate-in slide-in-from-right duration-300 ${
+                        isCorrect
+                            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
+                            : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-700'
+                    }`}>
+                        {isCorrect ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                        <span>{isCorrect ? 'ตอบถูก!' : 'ตอบผิด'}</span>
+                    </div>
+                )}
+                {isSubmitted && hasAnswered && !showAnswerChecking && (
                     <div className="px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 animate-in slide-in-from-right duration-300 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700">
                         <CheckCircle2 size={18} />
                         <span>ดูเฉลยด้านล่าง</span>
@@ -219,15 +233,30 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                             let indicatorClass = "w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all";
 
                             const isSelectedOption = index === selectedOption;
+                            const isCorrectOption = index === correctIndex;
 
                             if (isSubmitted) {
-                                // เฉลยแล้ว — แสดงตัวเลือกแบบ neutral (ไม่ highlight ถูก/ผิด)
-                                if (isSelectedOption) {
-                                    containerClass += " bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-600 shadow-sm";
-                                    indicatorClass += " bg-amber-500 border-amber-500 text-white";
+                                if (showAnswerChecking) {
+                                    // โหมดตรวจคำตอบ: แสดงสีเขียว/แดง
+                                    if (isCorrectOption) {
+                                        containerClass += " bg-emerald-50 dark:bg-emerald-900/30 border-emerald-400 dark:border-emerald-600 shadow-sm";
+                                        indicatorClass += " bg-emerald-500 border-emerald-500 text-white";
+                                    } else if (isSelectedOption) {
+                                        containerClass += " bg-rose-50 dark:bg-rose-900/30 border-rose-300 dark:border-rose-600 shadow-sm";
+                                        indicatorClass += " bg-rose-500 border-rose-500 text-white";
+                                    } else {
+                                        containerClass += " border-stone-100 dark:border-slate-700 opacity-60";
+                                        indicatorClass += " border-stone-200 dark:border-slate-600 text-stone-400 dark:text-slate-500";
+                                    }
                                 } else {
-                                    containerClass += " border-stone-100 dark:border-slate-700 opacity-60";
-                                    indicatorClass += " border-stone-200 dark:border-slate-600 text-stone-400 dark:text-slate-500";
+                                    // โหมด neutral: ไม่แสดงถูก/ผิด
+                                    if (isSelectedOption) {
+                                        containerClass += " bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-600 shadow-sm";
+                                        indicatorClass += " bg-amber-500 border-amber-500 text-white";
+                                    } else {
+                                        containerClass += " border-stone-100 dark:border-slate-700 opacity-60";
+                                        indicatorClass += " border-stone-200 dark:border-slate-600 text-stone-400 dark:text-slate-500";
+                                    }
                                 }
                             } else {
                                 // ยังไม่เฉลย (ให้เลือก)
@@ -247,7 +276,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                     onClick={() => !isSubmitted && onSelectOption(index)}
                                 >
                                     <div className={indicatorClass}>
-                                        {index + 1}
+                                        {isSubmitted && showAnswerChecking && isCorrectOption ? <CheckCircle2 size={16} /> : isSubmitted && showAnswerChecking && isSelectedOption ? <XCircle size={16} /> : index + 1}
                                     </div>
                                     <div className="text-stone-700 dark:text-slate-300 font-medium pt-1 text-lg w-full break-words min-w-0">
                                         <MathRenderer text={option.replace(/^\s*(?:[1-4][\.\)]\s*|[กขคง][\.\)\s]\s*)/, '')} />
