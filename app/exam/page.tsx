@@ -25,7 +25,9 @@ async function getExams() {
         const snapshot = await getDocs(q);
 
         if (!snapshot.empty) {
-            const examList = snapshot.docs.map(doc => {
+            const examList = snapshot.docs
+                .filter(doc => !doc.data().hidden) // Hide exams marked as hidden
+                .map(doc => {
                 const data = doc.data();
 
                 // Count questions without sending full data

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // Drag and Drop imports
@@ -14,7 +14,7 @@ import { CSS } from '@dnd-kit/utilities';
 import React from "react";
 
 // Sortable Table Row Component
-function SortableExamRow({ exam, onDelete, onToggleFree }: { exam: any; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void }) {
+function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden }: { exam: any; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void }) {
     const {
         attributes,
         listeners,
@@ -34,7 +34,7 @@ function SortableExamRow({ exam, onDelete, onToggleFree }: { exam: any; onDelete
     };
 
     return (
-        <tr ref={setNodeRef} style={style} className="hover:bg-slate-50/50 transition-colors group">
+        <tr ref={setNodeRef} style={style} className={`hover:bg-slate-50/50 transition-colors group ${exam.hidden ? 'opacity-50' : ''}`}>
             <td className="p-4 w-10">
                 <button
                     {...attributes}
@@ -46,7 +46,12 @@ function SortableExamRow({ exam, onDelete, onToggleFree }: { exam: any; onDelete
                 </button>
             </td>
             <td className="p-6">
-                <div className="font-bold text-slate-800 text-lg">{exam.title}</div>
+                <div className="flex items-center gap-2">
+                    <div className="font-bold text-slate-800 text-lg">{exam.title}</div>
+                    {exam.hidden && (
+                        <span className="px-2 py-0.5 bg-rose-50 text-rose-500 rounded-full text-xs font-bold border border-rose-100">ซ่อนอยู่</span>
+                    )}
+                </div>
                 <div className="text-sm text-slate-400 line-clamp-1 max-w-sm">{exam.description || "-"}</div>
             </td>
             <td className="p-6">
@@ -83,6 +88,13 @@ function SortableExamRow({ exam, onDelete, onToggleFree }: { exam: any; onDelete
             </td>
             <td className="p-6 text-right">
                 <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <button
+                        onClick={() => onToggleHidden(exam.id, exam.hidden || false)}
+                        className={`p-2 rounded-lg tooltip ${exam.hidden ? 'text-rose-500 hover:bg-rose-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
+                        title={exam.hidden ? 'แสดงข้อสอบ (ปลดซ่อน)' : 'ซ่อนข้อสอบ'}
+                    >
+                        {exam.hidden ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                     <Link
                         href={`/admin/exams/${exam.id}`}
                         className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg tooltip"
@@ -169,6 +181,18 @@ export default function ExamManagerPage() {
         } catch (error) {
             console.error("Error updating exam free status:", error);
             alert("เกิดข้อผิดพลาดในการอัปเดตสิทธิ์การเข้าถึง");
+        }
+    };
+
+    const handleToggleHidden = async (id: string, currentStatus: boolean) => {
+        try {
+            await updateDoc(doc(db, "exams", id), {
+                hidden: !currentStatus
+            });
+            setExams(prev => prev.map(exam => exam.id === id ? { ...exam, hidden: !currentStatus } : exam));
+        } catch (error) {
+            console.error("Error updating exam hidden status:", error);
+            alert("เกิดข้อผิดพลาดในการอัปเดตสถานะซ่อน");
         }
     };
 
@@ -282,7 +306,7 @@ export default function ExamManagerPage() {
                                 <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
                                     <tbody className="divide-y divide-slate-50">
                                         {exams.map((exam) => (
-                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} onToggleFree={handleToggleFree} />
+                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} />
                                         ))}
                                     </tbody>
                                 </SortableContext>

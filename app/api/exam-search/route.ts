@@ -12,7 +12,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ exams: [] });
         }
 
-        const examsRaw = snapshot.docs.map(doc => {
+        const examsRaw = snapshot.docs
+            .filter(doc => !doc.data().hidden) // Hide exams marked as hidden
+            .map(doc => {
             const data = doc.data();
 
             // Parse questions
