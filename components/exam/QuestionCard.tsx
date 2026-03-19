@@ -158,8 +158,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     onSelectOption,
     isSubmitted
 }) => {
-    // Calculate result for badge
-    const isCorrect = selectedOption === question.correctIndex;
     const hasAnswered = selectedOption !== null;
 
     return (
@@ -176,23 +174,11 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     </span>
                 </div>
 
-                {/* Result Badge - Show when submitted */}
+                {/* Badge - Show when submitted */}
                 {isSubmitted && hasAnswered && (
-                    <div className={`px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 animate-in slide-in-from-right duration-300 ${isCorrect
-                        ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700'
-                        : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-700'
-                        }`}>
-                        {isCorrect ? (
-                            <>
-                                <CheckCircle2 size={18} />
-                                <span>ตอบถูก!</span>
-                            </>
-                        ) : (
-                            <>
-                                <XCircle size={18} />
-                                <span>ตอบผิด</span>
-                            </>
-                        )}
+                    <div className="px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 animate-in slide-in-from-right duration-300 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700">
+                        <CheckCircle2 size={18} />
+                        <span>ดูเฉลยด้านล่าง</span>
                     </div>
                 )}
                 {isSubmitted && !hasAnswered && (
@@ -232,24 +218,15 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                             let containerClass = "relative p-4 md:p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 group flex items-start gap-4 hover:shadow-md";
                             let indicatorClass = "w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all";
 
-                            const actualCorrectIndex = question.correctIndex;
-                            const isCorrectOption = index === actualCorrectIndex;
                             const isSelectedOption = index === selectedOption;
-                            const isWrongSelection = isSelectedOption && !isCorrectOption;
 
                             if (isSubmitted) {
-                                // เฉลยแล้ว (Show Solution Mode)
-                                if (isCorrectOption) {
-                                    // ข้อที่ถูก (สีเขียวเสมอ) - Always show correct answer in green
-                                    containerClass += " bg-emerald-50 dark:bg-emerald-900/30 border-emerald-400 dark:border-emerald-600 shadow-sm";
-                                    indicatorClass += " bg-emerald-500 border-emerald-500 text-white";
-                                } else if (isWrongSelection) {
-                                    // ข้อที่เลือกแต่ผิด - Show in RED
-                                    containerClass += " bg-rose-50 dark:bg-rose-900/30 border-rose-400 dark:border-rose-600 shadow-sm";
-                                    indicatorClass += " bg-rose-500 border-rose-500 text-white";
+                                // เฉลยแล้ว — แสดงตัวเลือกแบบ neutral (ไม่ highlight ถูก/ผิด)
+                                if (isSelectedOption) {
+                                    containerClass += " bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-600 shadow-sm";
+                                    indicatorClass += " bg-amber-500 border-amber-500 text-white";
                                 } else {
-                                    // ข้ออื่นๆ
-                                    containerClass += " opacity-40 border-stone-100 dark:border-slate-700 grayscale";
+                                    containerClass += " border-stone-100 dark:border-slate-700 opacity-60";
                                     indicatorClass += " border-stone-200 dark:border-slate-600 text-stone-400 dark:text-slate-500";
                                 }
                             } else {
@@ -276,17 +253,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                         <MathRenderer text={option.replace(/^\s*(?:[1-4][\.\)]\s*|[กขคง][\.\)\s]\s*)/, '')} />
                                     </div>
 
-                                    {/* Feedback Icons on Result */}
-                                    {isSubmitted && isCorrectOption && (
-                                        <div className="absolute top-4 right-4 text-emerald-500 animate-in zoom-in duration-300">
-                                            <CheckCircle2 size={24} />
-                                        </div>
-                                    )}
-                                    {isSubmitted && isWrongSelection && (
-                                        <div className="absolute top-4 right-4 text-rose-500 animate-in zoom-in duration-300">
-                                            <XCircle size={24} />
-                                        </div>
-                                    )}
                                 </div>
                             );
                         })}
