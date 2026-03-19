@@ -3,7 +3,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb, Loader2, SlidersHorizontal, X, ArrowUpDown, ChevronDown, Tag, Zap, BookOpen, BarChart3 } from "lucide-react";
+import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb, Loader2, SlidersHorizontal, X, ArrowUpDown, ChevronDown, Tag, Zap, BookOpen, BarChart3, Heart } from "lucide-react";
+import { useBookmarks } from "@/hooks/useBookmarks";
 
 interface ExamListClientProps {
     initialExams: any[];
@@ -22,6 +23,10 @@ interface SearchMatch {
 export default function ExamListClient({ initialExams }: ExamListClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
+
+    // Bookmarks
+    const { bookmarkedIds, isBookmarked, toggleBookmark, isLoggedIn } = useBookmarks();
+    const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
 
     // Advanced Filters
     const [showFilters, setShowFilters] = useState(false);
@@ -70,9 +75,10 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
         if (selectedLevel !== "ทั้งหมด") count++;
         if (selectedTags.length > 0) count++;
         if (showFreeOnly) count++;
+        if (showBookmarkedOnly) count++;
         if (sortBy !== "default") count++;
         return count;
-    }, [selectedDifficulty, selectedLevel, selectedTags, showFreeOnly, sortBy]);
+    }, [selectedDifficulty, selectedLevel, selectedTags, showFreeOnly, showBookmarkedOnly, sortBy]);
 
     const clearAllFilters = () => {
         setSelectedCategory("ทั้งหมด");
@@ -81,6 +87,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
         setSelectedTags([]);
         setSortBy("default");
         setShowFreeOnly(false);
+        setShowBookmarkedOnly(false);
     };
 
     const toggleTag = (tag: string) => {
@@ -229,6 +236,11 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
             result = result.filter(exam => exam.isFree);
         }
 
+        // Filter bookmarked only
+        if (showBookmarkedOnly) {
+            result = result.filter(exam => bookmarkedIds.has(exam.id));
+        }
+
         // Sort
         if (sortBy !== "default") {
             result = [...result].sort((a, b) => {
@@ -250,7 +262,7 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
         }
 
         return result;
-    }, [initialExams, selectedCategory, selectedDifficulty, selectedLevel, selectedTags, showFreeOnly, sortBy, searchQuery]);
+    }, [initialExams, selectedCategory, selectedDifficulty, selectedLevel, selectedTags, showFreeOnly, showBookmarkedOnly, bookmarkedIds, sortBy, searchQuery]);
 
     const isSearchMode = searchQuery.trim().length > 0;
     const totalQuestionMatches = searchResults.reduce((sum, r) => sum + r.questionMatches.length, 0);
@@ -481,8 +493,8 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                 </div>
                             </div>
 
-                            {/* Row 2: Free Only Toggle */}
-                            <div className="flex items-center gap-3">
+                            {/* Row 2: Free Only + Bookmarked Toggle */}
+                            <div className="flex items-center gap-3 flex-wrap">
                                 <button
                                     onClick={() => setShowFreeOnly(!showFreeOnly)}
                                     className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border flex items-center gap-2 ${
@@ -494,6 +506,19 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                     {showFreeOnly ? '🔓' : '🔒'}
                                     เฉพาะข้อสอบฟรี
                                 </button>
+                                {isLoggedIn && (
+                                    <button
+                                        onClick={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all border flex items-center gap-2 ${
+                                            showBookmarkedOnly
+                                                ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-700 ring-1 ring-rose-300 dark:ring-rose-700'
+                                                : 'bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600'
+                                        }`}
+                                    >
+                                        <Heart size={14} className={showBookmarkedOnly ? 'fill-current' : ''} />
+                                        เฉพาะที่บันทึกไว้ {bookmarkedIds.size > 0 && `(${bookmarkedIds.size})`}
+                                    </button>
+                                )}
                             </div>
 
                             {/* Row 3: Tags */}
@@ -547,6 +572,12 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                             <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-50 dark:bg-teal-900/30 rounded-full text-xs font-bold text-teal-600 dark:text-teal-400">
                                                 ฟรีเท่านั้น
                                                 <button onClick={() => setShowFreeOnly(false)} className="hover:text-rose-500"><X size={12} /></button>
+                                            </span>
+                                        )}
+                                        {showBookmarkedOnly && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-full text-xs font-bold text-rose-600 dark:text-rose-400">
+                                                บันทึกไว้
+                                                <button onClick={() => setShowBookmarkedOnly(false)} className="hover:text-rose-500"><X size={12} /></button>
                                             </span>
                                         )}
                                         {sortBy !== "default" && (
@@ -769,6 +800,21 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                                                 className="w-10 h-10 object-contain filter drop-shadow-md"
                                             />
                                         </div>
+
+                                        {/* Bookmark Button */}
+                                        {isLoggedIn && (
+                                            <button
+                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBookmark(exam.id); }}
+                                                className={`absolute top-4 right-4 z-30 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm ${
+                                                    isBookmarked(exam.id)
+                                                        ? 'bg-rose-500/90 text-white shadow-lg shadow-rose-500/30 scale-110'
+                                                        : 'bg-black/30 text-white/70 hover:bg-black/50 hover:text-white opacity-0 group-hover:opacity-100'
+                                                }`}
+                                                title={isBookmarked(exam.id) ? 'ยกเลิกบันทึก' : 'บันทึกข้อสอบนี้'}
+                                            >
+                                                <Heart size={18} className={isBookmarked(exam.id) ? 'fill-current' : ''} />
+                                            </button>
+                                        )}
 
                                         {/* Cover Image */}
                                         <div className="absolute inset-0 z-0 bg-slate-800 overflow-hidden">

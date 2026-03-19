@@ -4,6 +4,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { ExamSystem } from "@/components/exam/ExamSystem";
 import ExamAccessGuard from "@/components/exam/ExamAccessGuard";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import BookmarkButton from "@/components/exam/BookmarkButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -185,7 +186,7 @@ export default async function ExamRoomPage(props: Props) {
                 <div className="font-bold text-slate-800 truncate max-w-xs md:max-w-md">
                     {exam.title}
                 </div>
-                <div className="w-8"></div> {/* Spacer */}
+                <BookmarkButton examId={exam.id} />
             </div>
 
             <main className="pt-24 pb-12 container mx-auto px-4 flex-grow">
