@@ -520,7 +520,7 @@ export default function ExamEditorPage() {
         // ... (rest of save logic)
         try {
             // Validate JSON
-            let parsedQuestions = [];
+            let parsedQuestions: any[] = [];
             try {
                 parsedQuestions = JSON.parse(jsonContent);
                 if (!Array.isArray(parsedQuestions)) throw new Error("Root must be an array");
