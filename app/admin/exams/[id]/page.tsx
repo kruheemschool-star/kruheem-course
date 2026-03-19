@@ -7,10 +7,11 @@ import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
-import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks } from "lucide-react";
+import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks, Tag, Search, X } from "lucide-react";
 import ImageUploadHelper from "@/components/admin/ImageUploadHelper";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { thaiLetterToIndex, extractAnswerFromExplanation, transformExamQuestion } from "@/lib/exam-utils";
+import { detectTagsFromQuestion, getAllAvailableTags, type DetectionResult } from "@/lib/tag-detector";
 
 export default function ExamEditorPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
@@ -79,6 +80,45 @@ export default function ExamEditorPage() {
 
     const toggleBlockCollapse = (index: number) => {
         setCollapsedBlocks({ ...collapsedBlocks, [index]: !collapsedBlocks[index] });
+    };
+
+    // Tag management helpers
+    const detectTagsForBlock = (idx: number): DetectionResult[] => {
+        try {
+            const parsed = JSON.parse(smartBlocks[idx]);
+            return detectTagsFromQuestion(parsed);
+        } catch { return []; }
+    };
+
+    const addTagToBlock = (idx: number, tag: string) => {
+        try {
+            const parsed = JSON.parse(smartBlocks[idx]);
+            const tags: string[] = parsed.tags || [];
+            if (!tags.includes(tag)) {
+                parsed.tags = [...tags, tag];
+                updateSmartBlock(idx, JSON.stringify(parsed, null, 2));
+            }
+        } catch { /* invalid JSON */ }
+    };
+
+    const removeTagFromBlock = (idx: number, tag: string) => {
+        try {
+            const parsed = JSON.parse(smartBlocks[idx]);
+            parsed.tags = (parsed.tags || []).filter((t: string) => t !== tag);
+            updateSmartBlock(idx, JSON.stringify(parsed, null, 2));
+        } catch { /* invalid JSON */ }
+    };
+
+    const applyAllSuggestedTags = (idx: number) => {
+        const detected = detectTagsForBlock(idx);
+        if (detected.length === 0) return;
+        try {
+            const parsed = JSON.parse(smartBlocks[idx]);
+            const existing: string[] = parsed.tags || [];
+            const newTags = detected.map(d => d.tag).filter(t => !existing.includes(t));
+            parsed.tags = [...existing, ...newTags];
+            updateSmartBlock(idx, JSON.stringify(parsed, null, 2));
+        } catch { /* invalid JSON */ }
     };
 
 
@@ -923,6 +963,66 @@ export default function ExamEditorPage() {
                                                                     );
                                                                 } catch (e) {
                                                                     return null; // Invalid JSON, don't show uploader
+                                                                }
+                                                            })()}
+
+                                                            {/* Tag Editor for this block */}
+                                                            {(() => {
+                                                                try {
+                                                                    const parsed = JSON.parse(block);
+                                                                    const currentTags: string[] = parsed.tags || [];
+                                                                    const detected = detectTagsForBlock(idx);
+                                                                    const suggestedTags = detected.filter(d => !currentTags.includes(d.tag));
+
+                                                                    return (
+                                                                        <div className="px-3 py-2.5 bg-[#252526] border-t border-[#3d3d3d]">
+                                                                            <div className="flex items-center justify-between mb-2">
+                                                                                <span className="text-xs text-slate-400 font-bold flex items-center gap-1.5">
+                                                                                    <Tag size={12} className="text-teal-400" /> Tags
+                                                                                </span>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {suggestedTags.length > 0 && (
+                                                                                        <button
+                                                                                            onClick={() => applyAllSuggestedTags(idx)}
+                                                                                            className="text-[10px] px-2 py-0.5 bg-teal-500/15 text-teal-300 rounded border border-teal-500/30 hover:bg-teal-500/25 transition-colors font-bold"
+                                                                                        >
+                                                                                            + ใช้ทั้งหมด ({suggestedTags.length})
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div className="flex flex-wrap gap-1.5">
+                                                                                {/* Existing tags */}
+                                                                                {currentTags.map((tag, ti) => (
+                                                                                    <span key={`tag-${ti}`} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-500/20 text-teal-300 text-[11px] rounded-md border border-teal-500/30 font-bold">
+                                                                                        {tag}
+                                                                                        <button onClick={() => removeTagFromBlock(idx, tag)} className="hover:text-rose-300 transition-colors">
+                                                                                            <X size={10} />
+                                                                                        </button>
+                                                                                    </span>
+                                                                                ))}
+
+                                                                                {/* Suggested tags */}
+                                                                                {suggestedTags.map((d, si) => (
+                                                                                    <button
+                                                                                        key={`sug-${si}`}
+                                                                                        onClick={() => addTagToBlock(idx, d.tag)}
+                                                                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#333] text-slate-400 text-[11px] rounded-md border border-dashed border-[#555] hover:border-teal-500/50 hover:text-teal-300 hover:bg-teal-500/10 transition-all font-medium"
+                                                                                        title={`${d.category} (${Math.round(d.confidence * 100)}%)`}
+                                                                                    >
+                                                                                        <Plus size={10} /> {d.tag}
+                                                                                    </button>
+                                                                                ))}
+
+                                                                                {currentTags.length === 0 && suggestedTags.length === 0 && (
+                                                                                    <span className="text-[10px] text-slate-600 italic">ไม่พบ tags (ลองเพิ่มเนื้อหาโจทย์/เฉลย)</span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                } catch {
+                                                                    return null;
                                                                 }
                                                             })()}
                                                         </>

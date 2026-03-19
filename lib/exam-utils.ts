@@ -1,4 +1,5 @@
 import { ExamQuestion } from '@/types/exam';
+import { detectTagsFromQuestion } from '@/lib/tag-detector';
 
 // Thai letter to 0-based index mapping
 export const thaiToIdx = (val: any): number | null => {
@@ -141,12 +142,37 @@ export const transformExamQuestion = (q: any) => {
         }
     }
 
+    // Build base question for tag detection
+    const baseQuestion: ExamQuestion = {
+        id: q.id || 0,
+        question: q.question || "",
+        options: q.options || [],
+        correctIndex: answerIndex,
+        explanation: finalExplanation,
+    };
+
+    // Auto-detect tags if none provided
+    const existingTags: string[] = q.tags || (q.space ? [q.space] : []);
+    let finalTags = existingTags;
+    let suggestedTags: string[] = [];
+
+    if (existingTags.length === 0) {
+        const detected = detectTagsFromQuestion(baseQuestion);
+        finalTags = detected.map(d => d.tag);
+        suggestedTags = finalTags;
+    } else {
+        // Still detect for suggestions, but keep existing tags
+        const detected = detectTagsFromQuestion(baseQuestion);
+        suggestedTags = detected.map(d => d.tag).filter(t => !existingTags.includes(t));
+    }
+
     return {
         question: q.question || "",
         image: q.image,
         options: q.options || [],
         correctIndex: answerIndex,
         explanation: finalExplanation,
-        tags: q.tags || (q.space ? [q.space] : [])
+        tags: finalTags,
+        suggestedTags,
     };
 };
