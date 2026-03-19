@@ -6,6 +6,91 @@
 
 ---
 
+## 📋 JSON Format Requirements (สำคัญมาก!)
+
+### ⚠️ Format ที่ kruheem-course ต้องการ
+
+```json
+[
+  {
+    "question": "โจทย์ (รองรับ LaTeX ด้วย $ ... $)",
+    "options": ["ตัวเลือก 1", "ตัวเลือก 2", "ตัวเลือก 3", "ตัวเลือก 4"],
+    "correctIndex": 2,
+    "explanation": "เฉลยละเอียด (รองรับ LaTeX)",
+    "tags": ["tag1", "tag2", "tag3"]
+  }
+]
+```
+
+### ✅ Field ที่ต้องมี
+
+| Field | Type | ค่าที่ยอมรับ | คำอธิบาย |
+|-------|------|-------------|----------|
+| `question` | string | ข้อความ + LaTeX | โจทย์ข้อสอบ |
+| `options` | string[] | array 4 ตัว | ตัวเลือก 4 ข้อ |
+| `correctIndex` | number | 0-3 | คำตอบที่ถูก (ข้อ 1=0, ข้อ 2=1, ข้อ 3=2, ข้อ 4=3) |
+| `explanation` | string | ข้อความ + LaTeX | เฉลยละเอียด |
+| `tags` | string[] | array of strings | tags สำหรับจำแนกหัวข้อ |
+
+### ❌ Field ที่ไม่รองรับ
+
+- ❌ `"answer"` - ระบบไม่อ่าน field นี้
+- ❌ `"solution"` - ต้องใช้ `"explanation"` แทน
+- ❌ `"space"` - ไม่ต้องใส่ (เป็น legacy field)
+- ❌ **ห้ามใส่ comment (`//`) ใน JSON** - JSON ไม่รองรับ comment
+
+### 🔄 ตัวอย่างการแปลง
+
+**❌ Format เดิม (ไม่ทำงานกับ kruheem-course):**
+```json
+[
+  {
+    "question": "ครูฮีมต้องการสร้างสนามหญ้ารูปวงกลมที่มีรัศมียาว $14$ เมตร...",
+    "options": ["$154$", "$1,386$", "$770$", "$616$"],
+    "answer": "3. $770$",
+    "solution": "**คำตอบ: ข้อ 3.** สวัสดีครับ ครูฮีมเองครับ!...",
+    "tags": ["รูปวงกลม", "พื้นที่วงกลม", "วงกลม", "พื้นที่", "เรขาคณิต"]
+  }
+]
+```
+
+**✅ Format ใหม่ (ใช้งานได้):**
+```json
+[
+  {
+    "question": "ครูฮีมต้องการสร้างสนามหญ้ารูปวงกลมที่มีรัศมียาว $14$ เมตร...",
+    "options": ["$154$", "$1,386$", "$770$", "$616$"],
+    "correctIndex": 2,
+    "explanation": "**คำตอบ: ข้อ 3.** สวัสดีครับ ครูฮีมเองครับ!...",
+    "tags": ["รูปวงกลม", "พื้นที่วงกลม", "วงกลม", "พื้นที่", "เรขาคณิต"]
+  }
+]
+```
+
+**การเปลี่ยนแปลง:**
+1. ❌ ลบ `"answer": "3. $770$"` ออก
+2. ✅ เพิ่ม `"correctIndex": 2` (เพราะข้อ 3 = index 2, นับจาก 0)
+3. ✅ เปลี่ยน `"solution"` → `"explanation"`
+
+### 💡 วิธีแปลง "answer" เป็น "correctIndex"
+
+```javascript
+// ถ้า AI ของคุณ output "answer": "3. $770$"
+// ให้แปลงเป็น correctIndex ดังนี้:
+
+const answerText = "3. $770$";
+const answerNumber = parseInt(answerText.match(/^(\d+)\./)[1]); // ได้ 3
+const correctIndex = answerNumber - 1; // ได้ 2 (เพราะนับจาก 0)
+```
+
+**ตัวอย่าง:**
+- `"answer": "1. ..."` → `"correctIndex": 0`
+- `"answer": "2. ..."` → `"correctIndex": 1`
+- `"answer": "3. ..."` → `"correctIndex": 2`
+- `"answer": "4. ..."` → `"correctIndex": 3`
+
+---
+
 ## 📋 ภาพรวมระบบ
 
 ### ข้อมูลที่มีอยู่ใน MathCraft AI
