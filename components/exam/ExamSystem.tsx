@@ -200,28 +200,24 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
     };
 
     if (isFinished && finalScore) {
-        const wrongCount = totalQuestions - finalScore.score;
-
         return (
             <div className="max-w-4xl mx-auto py-12 px-6">
                 <div className="bg-white dark:bg-slate-800 rounded-[3rem] shadow-xl p-8 md:p-12 border border-stone-100 dark:border-slate-700 relative overflow-hidden">
-                    {/* Background Gradient based on Grade */}
-                    <div className={`absolute top-0 inset-x-0 h-60 bg-gradient-to-b ${finalScore.bgColor} opacity-10 -z-10`}></div>
+                    <div className="absolute top-0 inset-x-0 h-60 bg-gradient-to-b from-indigo-500 opacity-10 -z-10"></div>
 
-                    {/* Trophy/Icon */}
-                    <div className={`w-24 h-24 ${finalScore.bgColor} rounded-full flex items-center justify-center mx-auto mb-6 text-white shadow-lg`}>
-                        <Trophy size={48} />
+                    <div className="w-24 h-24 bg-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6 text-white shadow-lg">
+                        <CheckCircle size={48} />
                     </div>
 
-                    {/* Title */}
-                    <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 mb-2 text-center">ผลการทดสอบ</h2>
-                    <p className="text-stone-500 dark:text-slate-400 mb-8 font-medium text-center">ชุดข้อสอบ: {examTitle}</p>
+                    <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 mb-2 text-center">ส่งคำตอบเรียบร้อย!</h2>
+                    <p className="text-stone-500 dark:text-slate-400 mb-4 font-medium text-center">ชุดข้อสอบ: {examTitle}</p>
+                    <p className="text-indigo-600 dark:text-indigo-400 mb-8 font-bold text-center text-lg">ตอบแล้ว {Object.keys(answers).length}/{finalScore.total} ข้อ — กดที่ข้อใดก็ได้เพื่อดูเฉลยละเอียด</p>
 
                     {/* Up-sell Banner (Trial Mode) */}
                     {isTrial && (
                         <div className="mb-10 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 dark:from-amber-900/40 dark:via-orange-900/20 dark:to-rose-900/10 border border-amber-200 dark:border-amber-700/50 rounded-3xl p-8 text-center shadow-lg animate-in zoom-in relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-200/30 rounded-full blur-3xl -mr-10 -mt-10"></div>
-                            <h3 className="text-2xl font-black text-amber-800 dark:text-amber-400 mb-3">🏆 ปลดล็อกข้อสอบทั้งหมด แล้วเก่งขึ้นแบบก้าวกระโดด!</h3>
+                            <h3 className="text-2xl font-black text-amber-800 dark:text-amber-400 mb-3">ปลดล็อกข้อสอบทั้งหมด แล้วเก่งขึ้นแบบก้าวกระโดด!</h3>
                             <div className="text-amber-700 dark:text-amber-500 mb-5 max-w-lg mx-auto space-y-2 text-left">
                                 <p className="flex items-start gap-2"><span>✅</span><span>เข้าถึงข้อสอบ <strong>ทุกชุด ทุกระดับชั้น</strong> พร้อมเฉลยละเอียดทุกข้อ</span></p>
                                 <p className="flex items-start gap-2"><span>✅</span><span>ข้อสอบจาก <strong>สนามสอบจริง</strong> ทั้ง O-NET, A-Level, สอบเข้า ม.1</span></p>
@@ -229,77 +225,20 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                 <p className="flex items-start gap-2"><span>✅</span><span>สมัครครั้งเดียว ใช้ได้ <strong>ยาว 5 ปี</strong> คุ้มค่าที่สุด!</span></p>
                             </div>
                             <a href="/payment?course=vip" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
-                                🔓 ปลดล็อกคลังข้อสอบทั้งหมดเลย
+                                ปลดล็อกคลังข้อสอบทั้งหมดเลย
                             </a>
                             <p className="text-xs text-amber-500/80 dark:text-amber-600 mt-3 font-medium">จ่ายครั้งเดียว ไม่มีรายเดือน • เริ่มทำได้ทันทีหลังชำระเงิน</p>
                         </div>
                     )}
 
-                    {/* Score Display - Center */}
-                    <div className="flex flex-col items-center mb-10">
-                        {/* Circular Progress */}
-                        <div className="relative w-48 h-48 mb-6">
-                            <svg className="w-48 h-48 transform -rotate-90" viewBox="0 0 100 100">
-                                {/* Background Circle */}
-                                <circle
-                                    cx="50" cy="50" r="45"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="8"
-                                    className="text-slate-100 dark:text-slate-700"
-                                />
-                                {/* Progress Circle */}
-                                <circle
-                                    cx="50" cy="50" r="45"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="8"
-                                    strokeLinecap="round"
-                                    strokeDasharray={`${finalScore.percent * 2.83} 283`}
-                                    className={finalScore.gradeColor.replace('text-', 'text-').replace('600', '500')}
-                                    style={{ transition: 'stroke-dasharray 1s ease-out' }}
-                                />
-                            </svg>
-                            {/* Center Text */}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className={`text-5xl font-black ${finalScore.gradeColor}`}>{finalScore.percent}%</span>
-                                <span className="text-stone-400 dark:text-slate-500 text-sm font-bold">{finalScore.score}/{finalScore.total} ข้อ</span>
-                            </div>
-                        </div>
-
-                        {/* Grade Badge */}
-                        <div className={`px-8 py-3 rounded-2xl ${finalScore.bgColor} text-white font-black text-2xl shadow-lg mb-4`}>
-                            Grade {finalScore.grade}
-                        </div>
-                        <p className={`text-xl font-bold ${finalScore.gradeColor}`}>{finalScore.label}</p>
-                    </div>
-
-                    {/* Stats Row */}
-                    <div className="grid grid-cols-3 gap-4 mb-10 text-center">
-                        <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl p-4">
-                            <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{finalScore.score}</div>
-                            <div className="text-emerald-600 dark:text-emerald-400 text-sm font-medium">ตอบถูก ✓</div>
-                        </div>
-                        <div className="bg-rose-50 dark:bg-rose-900/30 rounded-2xl p-4">
-                            <div className="text-3xl font-black text-rose-600 dark:text-rose-400">{wrongCount}</div>
-                            <div className="text-rose-600 dark:text-rose-400 text-sm font-medium">ตอบผิด ✗</div>
-                        </div>
-                        <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-4">
-                            <div className="text-3xl font-black text-slate-600 dark:text-slate-300">{totalQuestions}</div>
-                            <div className="text-slate-500 dark:text-slate-400 text-sm font-medium">ข้อทั้งหมด</div>
-                        </div>
-                    </div>
-
                     {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row justify-center gap-4">
-                        {wrongCount > 0 && (
-                            <button
-                                onClick={handleReviewWrongAnswers}
-                                className="px-8 py-4 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors flex items-center justify-center gap-2"
-                            >
-                                📝 ดูข้อที่ผิด ({wrongCount} ข้อ)
-                            </button>
-                        )}
+                    <div className="flex flex-col sm:flex-row justify-center gap-4 mb-10">
+                        <button
+                            onClick={() => { setCurrentQuestionIndex(0); setIsFinished(false); }}
+                            className="px-8 py-4 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-2"
+                        >
+                            📝 ดูเฉลยทุกข้อ
+                        </button>
                         <button
                             onClick={handleRestart}
                             className="px-8 py-4 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
@@ -312,28 +251,23 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
 
                 {/* Question Map with Results */}
                 <div className="mt-8 bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
-                    <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4">แผนที่ข้อสอบ - ผลลัพธ์</h3>
+                    <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4">แผนที่ข้อสอบ</h3>
                     <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
                         {sanitizedExamData.slice(0, finalScore.total).map((q, idx) => {
-                            const userAnswer = answers[idx];
-                            const isCorrect = userAnswer === q.correctIndex;
-                            const isUnanswered = userAnswer === undefined;
+                            const isUnanswered = answers[idx] === undefined;
 
-                            let btnClass = "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-600"; // Unanswered
-                            if (!isUnanswered) {
-                                btnClass = isCorrect
-                                    ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700"
-                                    : "bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-700";
-                            }
+                            const btnClass = isUnanswered
+                                ? "bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-600"
+                                : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-700";
 
                             return (
                                 <button
                                     key={idx}
                                     onClick={() => { setCurrentQuestionIndex(idx); setIsFinished(false); }}
                                     className={`aspect-square rounded-lg text-sm font-bold flex items-center justify-center border transition-all hover:scale-105 ${btnClass}`}
-                                    title={isUnanswered ? "ไม่ได้ตอบ" : isCorrect ? "ถูก" : "ผิด"}
+                                    title={isUnanswered ? "ไม่ได้ตอบ" : "ตอบแล้ว"}
                                 >
-                                    {isUnanswered ? idx + 1 : isCorrect ? "✓" : "✗"}
+                                    {idx + 1}
                                 </button>
                             );
                         })}
@@ -364,22 +298,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                         const isAnswered = answers[idx] !== undefined;
                         const isCurrent = currentQuestionIndex === idx;
                         const isChecked = checkedQuestions[idx];
-                        const isCorrect = isChecked && answers[idx] === q.correctIndex;
-                        const isWrong = isChecked && answers[idx] !== q.correctIndex && isAnswered;
 
                         let btnClass = "bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-600 border-transparent"; // Default
-                        let content: React.ReactNode = idx + 1;
 
                         if (isChecked) {
-                            if (isCorrect) {
-                                btnClass = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-bold border-emerald-300 dark:border-emerald-700";
-                                content = "✓";
-                            } else if (isWrong) {
-                                btnClass = "bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-bold border-rose-300 dark:border-rose-700";
-                                content = "✗";
-                            } else {
-                                btnClass = "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold border-amber-200 dark:border-amber-700";
-                            }
+                            btnClass = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold border-indigo-200 dark:border-indigo-700";
                         } else if (isAnswered) {
                             btnClass = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-bold border-blue-200 dark:border-blue-700";
                         }
@@ -392,7 +315,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, ini
                                 onClick={() => setCurrentQuestionIndex(idx)}
                                 className={`aspect-square rounded-lg text-sm flex items-center justify-center transition-all border ${btnClass}`}
                             >
-                                {isTrial && idx >= 5 ? <Lock size={14} className="opacity-50" /> : content}
+                                {isTrial && idx >= 5 ? <Lock size={14} className="opacity-50" /> : idx + 1}
                             </button>
                         );
                     })}
