@@ -188,7 +188,7 @@ export default async function ExamRoomPage(props: Props) {
                     {exam.title}
                 </div>
                 <div className="flex items-center gap-1">
-                    <ExamPrintButton examId={exam.id} />
+                    {/* <ExamPrintButton examId={exam.id} /> */}
                     <BookmarkButton examId={exam.id} />
                 </div>
             </div>
