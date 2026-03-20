@@ -187,51 +187,37 @@ function SortableQuestionBlock({
                         }
                     })()}
 
-                    {/* SVG Editor */}
+                    {/* SVG Auto Preview - แสดงอัตโนมัติถ้า JSON มี svg field */}
                     {(() => {
                         try {
                             const parsed = JSON.parse(block);
-                            const hasSvg = !!parsed.svg;
+                            if (!parsed.svg || typeof parsed.svg !== 'string' || !parsed.svg.trim().startsWith('<svg')) return null;
                             return (
                                 <div className="p-3 bg-[#252526] border-t border-[#3d3d3d]">
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-xs text-slate-400 font-bold flex items-center gap-1.5">
-                                            <ImageIcon size={12} className="text-violet-400" /> SVG Diagram
+                                            <ImageIcon size={12} className="text-violet-400" /> รูปภาพ SVG (อัตโนมัติ)
                                         </span>
-                                        <div className="flex items-center gap-2">
-                                            {!hasSvg && (
-                                                <button
-                                                    onClick={() => {
-                                                        const newObj = { ...parsed, svg: '<svg viewBox="0 0 300 200" width="300" height="200" xmlns="http://www.w3.org/2000/svg">\n  \n</svg>' };
-                                                        onUpdate(JSON.stringify(newObj, null, 2));
-                                                    }}
-                                                    className="text-[10px] px-2 py-0.5 bg-violet-500/15 text-violet-300 rounded border border-violet-500/30 hover:bg-violet-500/25 transition-colors font-bold"
-                                                >
-                                                    + เพิ่ม SVG
-                                                </button>
-                                            )}
-                                            {hasSvg && (
-                                                <button
-                                                    onClick={() => {
-                                                        const newObj = { ...parsed };
-                                                        delete newObj.svg;
-                                                        onUpdate(JSON.stringify(newObj, null, 2));
-                                                    }}
-                                                    className="text-[10px] px-2 py-0.5 bg-rose-500/15 text-rose-300 rounded border border-rose-500/30 hover:bg-rose-500/25 transition-colors font-bold"
-                                                >
-                                                    ลบ SVG
-                                                </button>
-                                            )}
-                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                const newObj = { ...parsed };
+                                                delete newObj.svg;
+                                                onUpdate(JSON.stringify(newObj, null, 2));
+                                            }}
+                                            className="text-[10px] px-2 py-0.5 bg-rose-500/15 text-rose-300 rounded border border-rose-500/30 hover:bg-rose-500/25 transition-colors font-bold"
+                                        >
+                                            ลบ SVG
+                                        </button>
                                     </div>
-                                    {hasSvg && (
-                                        <div className="bg-white rounded-lg p-3 border border-[#3d3d3d] flex justify-center">
-                                            <div
-                                                className="[&>svg]:max-w-full [&>svg]:h-auto"
-                                                dangerouslySetInnerHTML={{ __html: parsed.svg }}
-                                            />
-                                        </div>
-                                    )}
+                                    <div
+                                        className="bg-white rounded-lg p-4 border border-[#3d3d3d] flex items-center justify-center overflow-auto"
+                                        style={{ minHeight: '100px' }}
+                                    >
+                                        <div
+                                            style={{ maxWidth: '100%' }}
+                                            dangerouslySetInnerHTML={{ __html: parsed.svg }}
+                                        />
+                                    </div>
                                 </div>
                             );
                         } catch {
