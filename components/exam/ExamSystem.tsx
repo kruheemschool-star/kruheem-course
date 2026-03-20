@@ -532,8 +532,20 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             </button>
                         )}
 
-                        {/* Next / Finish Button */}
-                        {currentQuestionIndex < totalQuestions - 1 ? (
+                        {/* Submit Button - always visible when at least 1 answer */}
+                        {Object.keys(answers).length > 0 && !isTrial && (
+                            <button
+                                onClick={handleFinishExam}
+                                className="px-5 sm:px-6 py-3 rounded-full font-bold text-white bg-green-600 shadow-lg hover:bg-green-700 hover:shadow-xl hover:-translate-y-0.5 transition-all transform active:scale-95 flex items-center gap-2 text-sm sm:text-base"
+                            >
+                                <CheckCircle size={18} />
+                                <span className="hidden sm:inline">ส่งคำตอบ ({Object.keys(answers).length}/{totalQuestions})</span>
+                                <span className="sm:hidden">ส่ง ({Object.keys(answers).length})</span>
+                            </button>
+                        )}
+
+                        {/* Next Button */}
+                        {currentQuestionIndex < totalQuestions - 1 && (
                             <button
                                 onClick={handleNext}
                                 className="px-6 sm:px-8 py-3 rounded-full font-bold text-white bg-slate-800 shadow-lg hover:bg-slate-900 hover:shadow-xl hover:-translate-y-1 transition-all transform active:scale-95 flex items-center gap-2"
@@ -541,15 +553,6 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <span className="hidden sm:inline">ข้อถัดไป</span>
                                 <span className="sm:hidden">ถัดไป</span>
                                 <ChevronRight size={20} />
-                            </button>
-                        ) : (
-                            <button
-                                onClick={handleFinishExam}
-                                className="px-6 sm:px-8 py-3 rounded-full font-bold text-white bg-green-600 shadow-lg hover:bg-green-700 hover:shadow-xl hover:-translate-y-1 transition-all transform active:scale-95 flex items-center gap-2"
-                            >
-                                <CheckCircle size={20} />
-                                <span className="hidden sm:inline">ส่งคำตอบ</span>
-                                <span className="sm:hidden">ส่ง</span>
                             </button>
                         )}
                     </div>
