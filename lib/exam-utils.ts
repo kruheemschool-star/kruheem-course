@@ -169,6 +169,7 @@ export const transformExamQuestion = (q: any) => {
     return {
         question: q.question || "",
         image: q.image,
+        svg: q.svg,
         options: q.options || [],
         correctIndex: answerIndex,
         explanation: finalExplanation,
