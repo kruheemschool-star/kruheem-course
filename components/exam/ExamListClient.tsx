@@ -347,6 +347,15 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                         <span className="text-amber-600 dark:text-amber-400">คลังข้อสอบ</span> ออนไลน์ 📚
                     </h2>
                     <p className="text-slate-500 dark:text-slate-400">ค้นหาข้อสอบที่ต้องการฝึกฝน หรือเลือกตามหมวดหมู่ด้านล่าง</p>
+                    {isLoggedIn && (
+                        <Link
+                            href="/exam/dashboard"
+                            className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-indigo-500/25 hover:-translate-y-0.5 transition-all duration-300"
+                        >
+                            <BarChart3 size={18} />
+                            ดูสถิติของฉัน
+                        </Link>
+                    )}
                 </div>
 
                 {/* Grand Search Bar */}
