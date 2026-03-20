@@ -51,6 +51,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const [showGrid, setShowGrid] = useState(false);
     const [finalScore, setFinalScore] = useState<FinalScore | null>(null);
 
+    // Time tracking
+    const examStartTime = React.useRef<number>(Date.now());
+    const questionStartTime = React.useRef<number>(Date.now());
+    const questionTimes = React.useRef<Record<number, number>>({});
+
     // Sanitize Data using shared utility
     const sanitizedExamData = React.useMemo(() => sanitizeExamData(examData), [examData]);
 
@@ -61,6 +66,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     const handleSelectOption = (optionIndex: number) => {
         if (checkedQuestions[currentQuestionIndex]) return;
+        // Track time spent on this question when first answered
+        if (answers[currentQuestionIndex] === undefined) {
+            const elapsed = Math.round((Date.now() - questionStartTime.current) / 1000);
+            questionTimes.current[currentQuestionIndex] = (questionTimes.current[currentQuestionIndex] || 0) + elapsed;
+        }
         setAnswers({ ...answers, [currentQuestionIndex]: optionIndex });
     };
 
@@ -69,11 +79,17 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     };
 
     const handlePrev = () => {
-        if (currentQuestionIndex > 0) setCurrentQuestionIndex(prev => prev - 1);
+        if (currentQuestionIndex > 0) {
+            questionStartTime.current = Date.now();
+            setCurrentQuestionIndex(prev => prev - 1);
+        }
     };
 
     const handleNext = () => {
-        if (currentQuestionIndex < totalQuestions - 1) setCurrentQuestionIndex(prev => prev + 1);
+        if (currentQuestionIndex < totalQuestions - 1) {
+            questionStartTime.current = Date.now();
+            setCurrentQuestionIndex(prev => prev + 1);
+        }
     };
 
     const handleFinishExam = () => {
@@ -116,6 +132,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 if (answers[idx] !== q.correctIndex) wrongIndices.push(idx);
                 if (q.tags) q.tags.forEach((t: string) => allTags.add(t));
             });
+            const totalDurationSec = Math.round((Date.now() - examStartTime.current) / 1000);
+            const avgTimePerQuestion = answerableCount > 0 ? Math.round(totalDurationSec / answerableCount) : 0;
             const resultDoc = {
                 examId,
                 examTitle,
@@ -129,6 +147,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 wrongQuestionIndices: wrongIndices,
                 tags: Array.from(allTags),
                 completedAt: serverTimestamp(),
+                durationSeconds: totalDurationSec,
+                avgTimePerQuestion,
+                questionTimes: questionTimes.current,
             };
             setDoc(doc(db, 'users', user.uid, 'examResults', examId), resultDoc)
                 .catch(err => console.error('Failed to save exam result:', err));

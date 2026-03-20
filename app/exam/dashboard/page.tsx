@@ -8,8 +8,13 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import {
     BarChart3, Trophy, Target, TrendingUp, ArrowLeft, BookOpen,
-    CheckCircle2, XCircle, ChevronRight, Loader2, LogIn, ShieldOff
+    CheckCircle2, XCircle, ChevronRight, Loader2, LogIn, ShieldOff,
+    Flame, Clock, Users, Zap, Timer, Calendar
 } from "lucide-react";
+import {
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+    ResponsiveContainer, Area, AreaChart, ReferenceLine
+} from "recharts";
 
 interface ExamResult {
     examId: string;
@@ -24,6 +29,19 @@ interface ExamResult {
     wrongQuestionIndices: number[];
     tags: string[];
     completedAt: any;
+    durationSeconds?: number;
+    avgTimePerQuestion?: number;
+    questionTimes?: Record<number, number>;
+}
+
+interface GlobalAverages {
+    globalAvgPercent: number;
+    globalAvgDuration: number;
+    globalAvgTimePerQ: number;
+    totalExams: number;
+    totalUsers: number;
+    categories: { name: string; avgPercent: number; count: number }[];
+    tags: { name: string; avgPercent: number; count: number }[];
 }
 
 const gradeColors: Record<string, { text: string; bg: string; border: string }> = {
@@ -38,6 +56,7 @@ export default function ExamDashboardPage() {
     const [results, setResults] = useState<ExamResult[]>([]);
     const [loading, setLoading] = useState(true);
     const [dashboardEnabled, setDashboardEnabled] = useState<boolean | null>(null);
+    const [globalAvg, setGlobalAvg] = useState<GlobalAverages | null>(null);
 
     // Check if dashboard is enabled
     useEffect(() => {
@@ -74,6 +93,14 @@ export default function ExamDashboardPage() {
                     return tB - tA;
                 });
                 setResults(fetched);
+                // Fetch global averages for comparison
+                try {
+                    const res = await fetch('/api/exam-averages');
+                    if (res.ok) {
+                        const data = await res.json();
+                        setGlobalAvg(data);
+                    }
+                } catch { /* ignore */ }
             } catch (err) {
                 console.error("Error fetching exam results:", err);
             } finally {
@@ -133,7 +160,82 @@ export default function ExamDashboardPage() {
             }))
             .sort((a, b) => a.percent - b.percent);
 
-        return { totalCorrect, totalQuestions, avgPercent, totalWrong, gradeDist, categories, tags };
+        // === Progress over time (for line chart) ===
+        const sortedByDate = [...results]
+            .filter(r => r.completedAt?.seconds)
+            .sort((a, b) => (a.completedAt.seconds || 0) - (b.completedAt.seconds || 0));
+        
+        const progressData = sortedByDate.map((r, i) => {
+            const date = new Date(r.completedAt.seconds * 1000);
+            return {
+                date: date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }),
+                fullDate: date.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: '2-digit' }),
+                percent: r.percent,
+                examTitle: r.examTitle,
+                score: r.score,
+                total: r.total,
+            };
+        });
+
+        // Running average for trend line
+        let runningTotal = 0;
+        const progressWithTrend = progressData.map((d, i) => {
+            runningTotal += d.percent;
+            return { ...d, trend: Math.round(runningTotal / (i + 1)) };
+        });
+
+        // === Streak Counter ===
+        const examDates = sortedByDate.map(r => {
+            const d = new Date(r.completedAt.seconds * 1000);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        });
+        const uniqueDates = [...new Set(examDates)].sort().reverse();
+        
+        let streak = 0;
+        const today = new Date();
+        let checkDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        
+        for (let i = 0; i < 365; i++) {
+            const dateStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+            if (uniqueDates.includes(dateStr)) {
+                streak++;
+                checkDate.setDate(checkDate.getDate() - 1);
+            } else if (i === 0) {
+                // Today might not have exam yet, check from yesterday
+                checkDate.setDate(checkDate.getDate() - 1);
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        // === Time Analytics ===
+        const resultsWithTime = results.filter(r => typeof r.durationSeconds === 'number' && r.durationSeconds > 0);
+        const totalDuration = resultsWithTime.reduce((s, r) => s + (r.durationSeconds || 0), 0);
+        const avgDuration = resultsWithTime.length > 0 ? Math.round(totalDuration / resultsWithTime.length) : 0;
+        const resultsWithAvgTime = results.filter(r => typeof r.avgTimePerQuestion === 'number' && r.avgTimePerQuestion > 0);
+        const avgTimePerQ = resultsWithAvgTime.length > 0 
+            ? Math.round(resultsWithAvgTime.reduce((s, r) => s + (r.avgTimePerQuestion || 0), 0) / resultsWithAvgTime.length) 
+            : 0;
+        const fastestExam = resultsWithTime.length > 0 
+            ? resultsWithTime.reduce((f, r) => (r.avgTimePerQuestion || 999) < (f.avgTimePerQuestion || 999) ? r : f)
+            : null;
+        const slowestExam = resultsWithTime.length > 0
+            ? resultsWithTime.reduce((s, r) => (r.avgTimePerQuestion || 0) > (s.avgTimePerQuestion || 0) ? r : s)
+            : null;
+
+        // === Heatmap data (tags with strength levels) ===
+        const heatmapData = tags.map(t => ({
+            ...t,
+            level: t.percent >= 80 ? 'strong' as const : t.percent >= 60 ? 'good' as const : t.percent >= 40 ? 'weak' as const : 'critical' as const,
+        }));
+
+        return {
+            totalCorrect, totalQuestions, avgPercent, totalWrong, gradeDist, categories, tags,
+            progressWithTrend, streak, uniqueDates,
+            avgDuration, avgTimePerQ, fastestExam, slowestExam, resultsWithTime,
+            heatmapData,
+        };
     }, [results]);
 
     // Loading / Auth / Disabled states
@@ -241,6 +343,53 @@ export default function ExamDashboardPage() {
                             />
                         </div>
 
+                        {/* Streak & Time Stats Row */}
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Flame className="text-orange-500" size={22} />
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Streak</span>
+                                </div>
+                                <div className="flex items-baseline gap-1.5">
+                                    <span className="text-3xl font-black text-slate-800 dark:text-white">{stats.streak}</span>
+                                    <span className="text-sm font-bold text-slate-400">วันติดต่อกัน</span>
+                                </div>
+                                {stats.streak >= 3 && <p className="text-xs text-orange-500 font-bold mt-1">ทำได้ดีมาก! อย่าหยุด!</p>}
+                                {stats.streak === 0 && <p className="text-xs text-slate-400 font-medium mt-1">ทำข้อสอบวันนี้เพื่อเริ่ม Streak!</p>}
+                            </div>
+                            {stats.avgTimePerQ > 0 && (
+                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Timer className="text-cyan-500" size={22} />
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">เวลาเฉลี่ย/ข้อ</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-3xl font-black text-slate-800 dark:text-white">{stats.avgTimePerQ}</span>
+                                        <span className="text-sm font-bold text-slate-400">วินาที</span>
+                                    </div>
+                                    {globalAvg && globalAvg.globalAvgTimePerQ > 0 && (
+                                        <p className={`text-xs font-bold mt-1 ${stats.avgTimePerQ <= globalAvg.globalAvgTimePerQ ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                            {stats.avgTimePerQ <= globalAvg.globalAvgTimePerQ ? 'เร็วกว่า' : 'ช้ากว่า'}ค่าเฉลี่ย ({globalAvg.globalAvgTimePerQ} วิ)
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                            {stats.avgDuration > 0 && (
+                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-5">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Clock className="text-violet-500" size={22} />
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">เวลาเฉลี่ย/ชุด</span>
+                                    </div>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-3xl font-black text-slate-800 dark:text-white">
+                                            {stats.avgDuration >= 60 ? `${Math.floor(stats.avgDuration / 60)}:${String(stats.avgDuration % 60).padStart(2, '0')}` : stats.avgDuration}
+                                        </span>
+                                        <span className="text-sm font-bold text-slate-400">{stats.avgDuration >= 60 ? 'นาที' : 'วินาที'}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Score Progress Bar */}
                         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 mb-8">
                             <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
@@ -273,6 +422,186 @@ export default function ExamDashboardPage() {
                                 })}
                             </div>
                         </div>
+
+                        {/* === Progress Graph (Line Chart) === */}
+                        {stats.progressWithTrend.length >= 2 && (
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 mb-8">
+                                <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-2">
+                                    <TrendingUp size={18} className="text-emerald-500" />
+                                    กราฟความก้าวหน้า
+                                </h3>
+                                <p className="text-xs text-slate-400 mb-4">คะแนนแต่ละชุด + เส้นค่าเฉลี่ยสะสม</p>
+                                <div className="h-64 md:h-80">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={stats.progressWithTrend} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                                            <defs>
+                                                <linearGradient id="colorPercent" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                            <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                                            <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                                            <Tooltip
+                                                contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 13, fontWeight: 600 }}
+                                                formatter={(value: any, name: any) => [
+                                                    `${value}%`,
+                                                    name === 'percent' ? 'คะแนน' : 'ค่าเฉลี่ยสะสม'
+                                                ]}
+                                                labelFormatter={(label: any, payload: readonly any[]) => {
+                                                    const item = payload?.[0]?.payload;
+                                                    return item ? `${item.examTitle} (${item.fullDate})` : String(label);
+                                                }}
+                                            />
+                                            {globalAvg && (
+                                                <ReferenceLine y={globalAvg.globalAvgPercent} stroke="#f59e0b" strokeDasharray="5 5" label={{ value: `ค่าเฉลี่ยรวม ${globalAvg.globalAvgPercent}%`, position: 'insideTopRight', fontSize: 11, fill: '#f59e0b' }} />
+                                            )}
+                                            <Area type="monotone" dataKey="percent" stroke="#6366f1" strokeWidth={2} fill="url(#colorPercent)" dot={{ r: 4, fill: '#6366f1' }} activeDot={{ r: 6 }} />
+                                            <Line type="monotone" dataKey="trend" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="flex items-center gap-6 mt-3 text-xs text-slate-500">
+                                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-indigo-500"></span> คะแนนแต่ละชุด</span>
+                                    <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-emerald-500 inline-block" style={{borderTop: '2px dashed'}}></span> ค่าเฉลี่ยสะสม</span>
+                                    {globalAvg && <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-amber-500 inline-block" style={{borderTop: '2px dashed'}}></span> ค่าเฉลี่ยรวมทุกคน</span>}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* === Comparison with Global Average === */}
+                        {globalAvg && (
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 mb-8">
+                                <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
+                                    <Users size={18} className="text-blue-500" />
+                                    เปรียบเทียบกับค่าเฉลี่ยรวม
+                                </h3>
+                                <p className="text-xs text-slate-400 mb-4">จากผู้ใช้งานทั้งหมด {globalAvg.totalUsers} คน / {globalAvg.totalExams} ครั้ง</p>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Overall comparison */}
+                                    <div className="space-y-3">
+                                        <div className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">คะแนนภาพรวม</div>
+                                        <CompareBar label="คุณ" value={stats.avgPercent} color="bg-indigo-500" />
+                                        <CompareBar label="ค่าเฉลี่ย" value={globalAvg.globalAvgPercent} color="bg-amber-500" />
+                                        <p className={`text-sm font-bold mt-2 ${stats.avgPercent >= globalAvg.globalAvgPercent ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                            {stats.avgPercent >= globalAvg.globalAvgPercent
+                                                ? `สูงกว่าค่าเฉลี่ย +${stats.avgPercent - globalAvg.globalAvgPercent}%`
+                                                : `ต่ำกว่าค่าเฉลี่ย ${stats.avgPercent - globalAvg.globalAvgPercent}%`
+                                            }
+                                        </p>
+                                    </div>
+
+                                    {/* Per-category comparison */}
+                                    {globalAvg.categories.length > 0 && stats.categories.length > 0 && (
+                                        <div className="space-y-3">
+                                            <div className="text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">แยกตามหมวดหมู่</div>
+                                            {stats.categories.map(cat => {
+                                                const globalCat = globalAvg.categories.find(c => c.name === cat.name);
+                                                if (!globalCat) return null;
+                                                const diff = cat.percent - globalCat.avgPercent;
+                                                return (
+                                                    <div key={cat.name} className="flex items-center justify-between text-sm">
+                                                        <span className="font-medium text-slate-600 dark:text-slate-300 truncate mr-2">{cat.name}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-slate-500">{cat.percent}%</span>
+                                                            <span className="text-slate-300 dark:text-slate-600">vs</span>
+                                                            <span className="text-slate-400">{globalCat.avgPercent}%</span>
+                                                            <span className={`font-bold text-xs px-1.5 py-0.5 rounded ${diff >= 0 ? 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30' : 'text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30'}`}>
+                                                                {diff >= 0 ? '+' : ''}{diff}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* === Topic Heatmap === */}
+                        {stats.heatmapData.length > 0 && (
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 mb-8">
+                                <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-2">
+                                    <Zap size={18} className="text-purple-500" />
+                                    Heatmap หัวข้อที่แข็งแกร่ง / อ่อนแอ
+                                </h3>
+                                <p className="text-xs text-slate-400 mb-4">สีแสดงระดับความเข้าใจในแต่ละหัวข้อ</p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                    {stats.heatmapData.map(item => {
+                                        const heatColors = {
+                                            strong: 'bg-emerald-100 dark:bg-emerald-900/40 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300',
+                                            good: 'bg-blue-100 dark:bg-blue-900/40 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300',
+                                            weak: 'bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300',
+                                            critical: 'bg-rose-100 dark:bg-rose-900/40 border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300',
+                                        };
+                                        const levelLabels = { strong: 'แข็งแกร่ง', good: 'ดี', weak: 'ควรเสริม', critical: 'อ่อนแอ' };
+                                        return (
+                                            <div key={item.name} className={`rounded-xl border p-3 ${heatColors[item.level]} transition-all hover:scale-105`}>
+                                                <div className="font-bold text-sm truncate">{item.name}</div>
+                                                <div className="flex items-center justify-between mt-1">
+                                                    <span className="text-2xl font-black">{item.percent}%</span>
+                                                    <span className="text-xs font-bold opacity-70">{levelLabels[item.level]}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex items-center gap-4 mt-4 text-xs flex-wrap">
+                                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-200 dark:bg-emerald-800 border border-emerald-400"></span> แข็งแกร่ง (80%+)</span>
+                                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-blue-200 dark:bg-blue-800 border border-blue-400"></span> ดี (60-79%)</span>
+                                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-200 dark:bg-amber-800 border border-amber-400"></span> ควรเสริม (40-59%)</span>
+                                    <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-rose-200 dark:bg-rose-800 border border-rose-400"></span> อ่อนแอ (&lt;40%)</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* === Time Analytics Detail === */}
+                        {stats.resultsWithTime.length > 0 && (
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 mb-8">
+                                <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
+                                    <Timer size={18} className="text-cyan-500" />
+                                    วิเคราะห์เวลาทำข้อสอบ
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                    <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 text-center">
+                                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">เวลาเฉลี่ยต่อข้อ</div>
+                                        <div className="text-2xl font-black text-slate-800 dark:text-white">{stats.avgTimePerQ} <span className="text-sm font-bold text-slate-400">วินาที</span></div>
+                                    </div>
+                                    {stats.fastestExam && (
+                                        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 text-center">
+                                            <div className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">เร็วที่สุด</div>
+                                            <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300">{stats.fastestExam.avgTimePerQuestion} <span className="text-sm font-bold text-emerald-500">วิ/ข้อ</span></div>
+                                            <div className="text-xs text-emerald-600 dark:text-emerald-400 truncate mt-1">{stats.fastestExam.examTitle}</div>
+                                        </div>
+                                    )}
+                                    {stats.slowestExam && (
+                                        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 text-center">
+                                            <div className="text-xs font-bold text-amber-500 uppercase tracking-wider mb-1">ช้าที่สุด</div>
+                                            <div className="text-2xl font-black text-amber-700 dark:text-amber-300">{stats.slowestExam.avgTimePerQuestion} <span className="text-sm font-bold text-amber-500">วิ/ข้อ</span></div>
+                                            <div className="text-xs text-amber-600 dark:text-amber-400 truncate mt-1">{stats.slowestExam.examTitle}</div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="space-y-2">
+                                    {stats.resultsWithTime.map((r, i) => {
+                                        const dur = r.durationSeconds || 0;
+                                        const min = Math.floor(dur / 60);
+                                        const sec = dur % 60;
+                                        return (
+                                            <div key={`time-${r.examId}-${i}`} className="flex items-center gap-3 text-sm">
+                                                <Clock size={14} className="text-slate-300 flex-shrink-0" />
+                                                <span className="font-medium text-slate-600 dark:text-slate-300 truncate flex-grow">{r.examTitle}</span>
+                                                <span className="font-bold text-slate-500 flex-shrink-0">{min > 0 ? `${min}น. ${sec}วิ.` : `${sec}วิ.`}</span>
+                                                <span className="text-xs text-slate-400 flex-shrink-0">({r.avgTimePerQuestion || '-'} วิ/ข้อ)</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Category Weakness Analysis */}
                         {stats.categories.length > 0 && (
@@ -428,6 +757,20 @@ function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: s
             <div className="flex items-baseline gap-1.5">
                 <span className="text-2xl font-black text-slate-800 dark:text-white">{value}</span>
                 <span className="text-sm font-bold text-slate-400">{sub}</span>
+            </div>
+        </div>
+    );
+}
+
+function CompareBar({ label, value, color }: { label: string; value: number; color: string }) {
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-1">
+                <span className="text-sm font-bold text-slate-600 dark:text-slate-300">{label}</span>
+                <span className="text-sm font-black text-slate-700 dark:text-slate-200">{value}%</span>
+            </div>
+            <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${value}%` }} />
             </div>
         </div>
     );
