@@ -230,10 +230,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     <MathRenderer text={question.question.replace(/\n{3,}/g, '\n\n')} />
                 </div>
 
-                {/* Question SVG Diagram - แสดงอัตโนมัติถ้ามี svg field (ขยาย 150%) */}
+                {/* Question SVG Diagram - แสดงอัตโนมัติถ้ามี svg field */}
                 {question.svg && typeof question.svg === 'string' && question.svg.trim().startsWith('<svg') && (
                     <div className="my-8 flex justify-center w-full">
-                        <div className="relative rounded-2xl overflow-hidden border-2 border-slate-100 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-700 p-3 sm:p-5" style={{ width: '90%', maxWidth: '680px' }}>
+                        <div className="relative rounded-2xl overflow-hidden border-2 border-slate-100 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-700 p-3 sm:p-4" style={{ width: '70%', maxWidth: '520px' }}>
                             <div
                                 className="w-full"
                                 style={{ width: '100%' }}
