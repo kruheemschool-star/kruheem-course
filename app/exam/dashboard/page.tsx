@@ -84,17 +84,20 @@ export default function ExamDashboardPage() {
                 setResults(fetched);
                 console.log('[Dashboard] Results set:', fetched.length);
                 
-                // Fetch global averages for comparison
-                try {
-                    const res = await fetch('/api/exam-averages');
-                    if (res.ok) {
-                        const data = await res.json();
-                        setGlobalAvg(data);
-                        console.log('[Dashboard] Global averages loaded');
-                    }
-                } catch (e) { 
-                    console.log('[Dashboard] Failed to fetch global averages:', e);
-                }
+                // Fetch global averages for comparison (non-blocking with timeout)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                fetch('/api/exam-averages', { signal: controller.signal })
+                    .then(res => res.ok ? res.json() : null)
+                    .then(data => {
+                        if (data) {
+                            setGlobalAvg(data);
+                            console.log('[Dashboard] Global averages loaded');
+                        }
+                    })
+                    .catch(e => console.log('[Dashboard] Failed to fetch global averages:', e))
+                    .finally(() => clearTimeout(timeoutId));
             } catch (err) {
                 console.error("[Dashboard] Error fetching exam results:", err);
             } finally {
