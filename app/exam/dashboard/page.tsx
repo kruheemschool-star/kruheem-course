@@ -59,14 +59,21 @@ export default function ExamDashboardPage() {
 
     // Fetch exam results
     useEffect(() => {
+        console.log('[Dashboard] useEffect triggered, user:', user?.uid);
+        
         if (!user) {
+            console.log('[Dashboard] No user, setting loading to false');
             setLoading(false);
             return;
         }
 
+        console.log('[Dashboard] Fetching exam results for user:', user.uid);
+        setLoading(true);
+        
         (async () => {
             try {
                 const snap = await getDocs(collection(db, "users", user.uid, "examResults"));
+                console.log('[Dashboard] Fetched results count:', snap.docs.length);
                 const fetched: ExamResult[] = snap.docs.map(d => ({ ...d.data() } as ExamResult));
                 // Sort by completedAt desc
                 fetched.sort((a, b) => {
@@ -75,17 +82,23 @@ export default function ExamDashboardPage() {
                     return tB - tA;
                 });
                 setResults(fetched);
+                console.log('[Dashboard] Results set:', fetched.length);
+                
                 // Fetch global averages for comparison
                 try {
                     const res = await fetch('/api/exam-averages');
                     if (res.ok) {
                         const data = await res.json();
                         setGlobalAvg(data);
+                        console.log('[Dashboard] Global averages loaded');
                     }
-                } catch { /* ignore */ }
+                } catch (e) { 
+                    console.log('[Dashboard] Failed to fetch global averages:', e);
+                }
             } catch (err) {
-                console.error("Error fetching exam results:", err);
+                console.error("[Dashboard] Error fetching exam results:", err);
             } finally {
+                console.log('[Dashboard] Setting loading to false');
                 setLoading(false);
             }
         })();
