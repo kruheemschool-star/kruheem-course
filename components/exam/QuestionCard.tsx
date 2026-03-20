@@ -230,6 +230,18 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     <MathRenderer text={question.question.replace(/\n{3,}/g, '\n\n')} />
                 </div>
 
+                {/* Question SVG Diagram */}
+                {question.svg && (
+                    <div className="my-8 flex justify-center w-full">
+                        <div className="relative inline-block rounded-2xl overflow-hidden border-2 border-slate-100 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-700 p-2 sm:p-4">
+                            <div
+                                className="max-w-full [&>svg]:max-w-full [&>svg]:h-auto [&>svg]:mx-auto"
+                                dangerouslySetInnerHTML={{ __html: question.svg }}
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {/* Question Image (Standard Display only - No Zoom) */}
                 {question.image && (
                     <div className="my-8 flex justify-center w-full">

@@ -12,6 +12,7 @@ interface Question {
     id: number | string;
     question: string;
     image?: string;
+    svg?: string;
     options: string[];
     correctIndex: number;
     explanation: string;
@@ -184,6 +185,14 @@ export default function PrintPageClient({ exam, mode }: { exam: ExamData; mode: 
                                     <div className="font-bold text-slate-800 leading-relaxed text-[15px] print:text-sm">
                                         <MathRenderer text={q.question} />
                                     </div>
+                                    {q.svg && (
+                                        <div className="mt-2 flex justify-center">
+                                            <div
+                                                className="[&>svg]:max-w-full [&>svg]:h-auto border border-slate-200 rounded-lg p-2 bg-white"
+                                                dangerouslySetInnerHTML={{ __html: q.svg }}
+                                            />
+                                        </div>
+                                    )}
                                     {q.image && (
                                         <div className="mt-2 print:max-w-xs">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}

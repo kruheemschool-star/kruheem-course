@@ -2,6 +2,7 @@ export interface ExamQuestion {
     id: number | string;
     question: string; // รองรับ LaTeX ในรูปแบบ \( ... \) หรือ $ ... $
     image?: string; // URL ของรูปประกอบโจทย์ (Optional)
+    svg?: string; // Inline SVG code สำหรับรูปภาพที่สร้างด้วย SVG (Optional)
     options: string[]; // 4 ตัวเลือก
     correctIndex: number; // 0-3 (Legacy field, may be incorrect)
     answerIndex?: number; // 0-3 (Preferred field if available)
