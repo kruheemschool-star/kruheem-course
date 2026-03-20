@@ -55,32 +55,14 @@ export default function ExamDashboardPage() {
     const { user, loading: authLoading } = useUserAuth();
     const [results, setResults] = useState<ExamResult[]>([]);
     const [loading, setLoading] = useState(true);
-    const [dashboardEnabled, setDashboardEnabled] = useState<boolean | null>(null);
     const [globalAvg, setGlobalAvg] = useState<GlobalAverages | null>(null);
-
-    // Check if dashboard is enabled
-    useEffect(() => {
-        (async () => {
-            try {
-                const snap = await getDoc(doc(db, "settings", "examConfig"));
-                if (snap.exists()) {
-                    setDashboardEnabled(snap.data().showExamDashboard ?? false);
-                } else {
-                    setDashboardEnabled(false);
-                }
-            } catch {
-                setDashboardEnabled(false);
-            }
-        })();
-    }, []);
 
     // Fetch exam results
     useEffect(() => {
-        if (!user || dashboardEnabled === false) {
+        if (!user) {
             setLoading(false);
             return;
         }
-        if (dashboardEnabled === null) return; // still checking
 
         (async () => {
             try {
@@ -107,7 +89,7 @@ export default function ExamDashboardPage() {
                 setLoading(false);
             }
         })();
-    }, [user, dashboardEnabled]);
+    }, [user]);
 
     // Computed Stats
     const stats = useMemo(() => {
@@ -238,29 +220,13 @@ export default function ExamDashboardPage() {
         };
     }, [results]);
 
-    // Loading / Auth / Disabled states
-    if (authLoading || dashboardEnabled === null) {
+    // Loading / Auth states
+    if (authLoading) {
         return (
             <div className="min-h-screen bg-white dark:bg-slate-950">
                 <Navbar />
                 <div className="flex items-center justify-center pt-32">
                     <Loader2 className="animate-spin text-indigo-500" size={32} />
-                </div>
-            </div>
-        );
-    }
-
-    if (dashboardEnabled === false) {
-        return (
-            <div className="min-h-screen bg-white dark:bg-slate-950">
-                <Navbar />
-                <div className="flex flex-col items-center justify-center pt-32 px-4 text-center">
-                    <ShieldOff size={48} className="text-slate-300 mb-4" />
-                    <h1 className="text-2xl font-black text-slate-700 dark:text-slate-200 mb-2">Dashboard ยังไม่เปิดใช้งาน</h1>
-                    <p className="text-slate-400 mb-6">ระบบ Dashboard สำหรับข้อสอบยังไม่เปิดใช้งานในขณะนี้</p>
-                    <Link href="/exam" className="px-6 py-3 bg-slate-800 text-white rounded-full font-bold hover:bg-slate-900 transition-all">
-                        กลับไปคลังข้อสอบ
-                    </Link>
                 </div>
             </div>
         );
