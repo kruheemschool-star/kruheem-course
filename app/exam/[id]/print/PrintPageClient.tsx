@@ -1,10 +1,6 @@
 "use client";
 
-import { useUserAuth } from "@/context/AuthContext";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { useState, useEffect } from "react";
-import { Printer, ArrowLeft, Loader2, Lock } from "lucide-react";
+import { Printer, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 interface Question {
@@ -27,61 +23,6 @@ interface ExamData {
 }
 
 export default function PrintPageClient({ exam, mode }: { exam: ExamData; mode: 'exam' | 'answer' }) {
-    const { user, loading: authLoading } = useUserAuth();
-    const [hasAccess, setHasAccess] = useState<boolean | null>(null);
-
-    // Check access for paid exams
-    useEffect(() => {
-        if (exam.isFree) {
-            setHasAccess(true);
-            return;
-        }
-
-        if (authLoading) return;
-
-        if (!user) {
-            setHasAccess(false);
-            return;
-        }
-
-        // Check enrollment
-        (async () => {
-            try {
-                const q = query(
-                    collection(db, "enrollments"),
-                    where("userId", "==", user.uid),
-                    where("status", "==", "approved")
-                );
-                const snap = await getDocs(q);
-                setHasAccess(snap.docs.length > 0);
-            } catch {
-                setHasAccess(false);
-            }
-        })();
-    }, [user, authLoading, exam.isFree]);
-
-    // Loading
-    if (authLoading || (!exam.isFree && hasAccess === null)) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="animate-spin text-indigo-500" size={32} />
-            </div>
-        );
-    }
-
-    // No access
-    if (!exam.isFree && !hasAccess) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
-                <Lock size={48} className="text-slate-300 mb-4" />
-                <h1 className="text-2xl font-black text-slate-700 mb-2">ต้องสมัครสมาชิกก่อน</h1>
-                <p className="text-slate-400 mb-6">ข้อสอบชุดนี้ต้องสมัครสมาชิกเพื่อ Export เป็น PDF</p>
-                <Link href={`/exam/${exam.id}`} className="px-6 py-3 bg-indigo-600 text-white rounded-full font-bold hover:bg-indigo-700 transition-all">
-                    กลับไปหน้าข้อสอบ
-                </Link>
-            </div>
-        );
-    }
 
     const optionLabels = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ'];
 
