@@ -7,11 +7,241 @@ import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
-import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks, Tag, Search, X } from "lucide-react";
+import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks, Tag, Search, X, GripVertical } from "lucide-react";
 import ImageUploadHelper from "@/components/admin/ImageUploadHelper";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { thaiLetterToIndex, extractAnswerFromExplanation, transformExamQuestion } from "@/lib/exam-utils";
 import { detectTagsFromQuestion, getAllAvailableTags, type DetectionResult } from "@/lib/tag-detector";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+interface SortableQuestionBlockProps {
+    id: string;
+    idx: number;
+    block: string;
+    isCollapsed: boolean;
+    isSelected: boolean;
+    onToggleCollapse: () => void;
+    onToggleSelection: () => void;
+    onDelete: () => void;
+    onUpdate: (val: string) => void;
+    detectTags: () => DetectionResult[];
+    onAddTag: (tag: string) => void;
+    onRemoveTag: (tag: string) => void;
+    onApplyAllTags: () => void;
+}
+
+function SortableQuestionBlock({
+    id,
+    idx,
+    block,
+    isCollapsed,
+    isSelected,
+    onToggleCollapse,
+    onToggleSelection,
+    onDelete,
+    onUpdate,
+    detectTags,
+    onAddTag,
+    onRemoveTag,
+    onApplyAllTags,
+}: SortableQuestionBlockProps) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    const currentTags: string[] = (() => {
+        try {
+            const parsed = JSON.parse(block);
+            return parsed.tags || [];
+        } catch {
+            return [];
+        }
+    })();
+
+    const detected = detectTags();
+    const suggestedTags = detected.filter(d => !currentTags.includes(d.tag));
+
+    return (
+        <div ref={setNodeRef} style={style} className="bg-[#2d2d2d] rounded-xl border border-[#3d3d3d] overflow-hidden shadow-lg group hover:border-emerald-500/50 transition-colors">
+            {/* Card Header */}
+            <div className="bg-[#252526] p-3 flex items-center justify-between cursor-pointer" onClick={onToggleCollapse}>
+                <div className="flex items-center gap-3">
+                    <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-700 rounded transition-colors">
+                        <GripVertical size={16} className="text-slate-500" />
+                    </div>
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                            e.stopPropagation();
+                            onToggleSelection();
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-4 h-4 rounded border-[#3d3d3d] bg-[#1e1e1e] text-emerald-500 focus:ring-emerald-500 focus:ring-offset-[#252526] cursor-pointer"
+                    />
+                    <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">
+                        {idx + 1}
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">Question Block</span>
+                    <button className="p-1 text-slate-500 hover:text-slate-300 transition-colors">
+                        {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    </button>
+                </div>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                        onClick={onDelete}
+                        className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 rounded transition-colors"
+                        title="ลบข้อนี้"
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Editor Area - Only show when expanded */}
+            {!isCollapsed && (
+                <>
+                    <div className="relative">
+                        <textarea
+                            value={block}
+                            onChange={(e) => onUpdate(e.target.value)}
+                            className="w-full h-48 bg-[#1e1e1e] text-[#d4d4d4] p-4 text-sm font-mono outline-none resize-y leading-relaxed"
+                            spellCheck="false"
+                        />
+                        <div className="absolute right-2 bottom-2 pointer-events-none opacity-50">
+                            <FileJsonIcon size={12} className="text-slate-600" />
+                        </div>
+                    </div>
+
+                    {/* Smart Image Uploader */}
+                    {(() => {
+                        try {
+                            const parsed = JSON.parse(block);
+                            return (
+                                <div className="p-3 bg-[#252526] border-t border-[#3d3d3d] flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        {parsed.image ? (
+                                            <div className="relative group w-10 h-10 rounded bg-black border border-slate-700 overflow-hidden">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img src={parsed.image} alt="preview" className="w-full h-full object-contain" />
+                                            </div>
+                                        ) : (
+                                            <div className="w-10 h-10 rounded bg-[#333] border border-[#444] flex items-center justify-center text-slate-500">
+                                                <ImageIcon size={14} />
+                                            </div>
+                                        )}
+                                        <div>
+                                            <label className="cursor-pointer px-3 py-1.5 bg-[#3d3d3d] hover:bg-[#4d4d4d] text-slate-300 text-xs rounded border border-[#555] flex items-center gap-2 transition-all group">
+                                                <UploadCloud size={14} className="text-amber-500 group-hover:scale-110 transition-transform" />
+                                                <span className="font-bold">{parsed.image ? "เปลี่ยนรูปภาพ" : "แนบรูปภาพ"}</span>
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept="image/*"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+                                                        try {
+                                                            const filename = `exam-q-images/${Date.now()}_${idx}_${file.name}`;
+                                                            const url = await uploadImageToStorage(file, filename);
+                                                            const newObj = { ...parsed, image: url };
+                                                            onUpdate(JSON.stringify(newObj, null, 2));
+                                                        } catch (err) {
+                                                            console.error(err);
+                                                            alert("อัปโหลดไม่สำเร็จ");
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {parsed.image && (
+                                        <button
+                                            onClick={() => {
+                                                const newObj = { ...parsed };
+                                                delete newObj.image;
+                                                onUpdate(JSON.stringify(newObj, null, 2));
+                                            }}
+                                            className="text-rose-400 hover:text-rose-300 text-xs flex items-center gap-1 bg-rose-950/20 px-2 py-1 rounded border border-rose-900/30 transition-colors"
+                                        >
+                                            <Trash2 size={12} /> ลบรูป
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        } catch (e) {
+                            return null;
+                        }
+                    })()}
+
+                    {/* Tag Editor */}
+                    {(() => {
+                        try {
+                            const parsed = JSON.parse(block);
+                            return (
+                                <div className="px-3 py-2.5 bg-[#252526] border-t border-[#3d3d3d]">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs text-slate-400 font-bold flex items-center gap-1.5">
+                                            <Tag size={12} className="text-teal-400" /> Tags
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            {suggestedTags.length > 0 && (
+                                                <button
+                                                    onClick={onApplyAllTags}
+                                                    className="text-[10px] px-2 py-0.5 bg-teal-500/15 text-teal-300 rounded border border-teal-500/30 hover:bg-teal-500/25 transition-colors font-bold"
+                                                >
+                                                    + ใช้ทั้งหมด ({suggestedTags.length})
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {currentTags.map((tag, ti) => (
+                                            <span key={`tag-${ti}`} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-500/20 text-teal-300 text-[11px] rounded-md border border-teal-500/30 font-bold">
+                                                {tag}
+                                                <button onClick={() => onRemoveTag(tag)} className="hover:text-rose-300 transition-colors">
+                                                    <X size={10} />
+                                                </button>
+                                            </span>
+                                        ))}
+                                        {suggestedTags.map((d, si) => (
+                                            <button
+                                                key={`sug-${si}`}
+                                                onClick={() => onAddTag(d.tag)}
+                                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#333] text-slate-400 text-[11px] rounded-md border border-dashed border-[#555] hover:border-teal-500/50 hover:text-teal-300 hover:bg-teal-500/10 transition-all font-medium"
+                                                title={`${d.category} (${Math.round(d.confidence * 100)}%)`}
+                                            >
+                                                <Plus size={10} /> {d.tag}
+                                            </button>
+                                        ))}
+                                        {currentTags.length === 0 && suggestedTags.length === 0 && (
+                                            <span className="text-[10px] text-slate-600 italic">ไม่พบ tags (ลองเพิ่มเนื้อหาโจทย์/เฉลย)</span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        } catch {
+                            return null;
+                        }
+                    })()}
+                </>
+            )}
+        </div>
+    );
+}
 
 export default function ExamEditorPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
@@ -201,6 +431,29 @@ export default function ExamEditorPage() {
             setJsonContent(`[\n${newBlocks.join(',\n')}\n]`);
             setSelectedBlocks(new Set());
         }, true);
+    };
+
+    // Drag and Drop handlers
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = smartBlocks.findIndex((_, idx) => `question-${idx}` === active.id);
+        const newIndex = smartBlocks.findIndex((_, idx) => `question-${idx}` === over.id);
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+            const reordered = arrayMove(smartBlocks, oldIndex, newIndex);
+            isManualUpdate.current = true;
+            setSmartBlocks(reordered);
+            setJsonContent(`[\n${reordered.join(',\n')}\n]`);
+        }
     };
 
     // ... (state)
@@ -851,185 +1104,28 @@ export default function ExamEditorPage() {
                                             </div>
                                         )}
 
-                                        {smartBlocks.map((block, idx) => {
-                                            const isCollapsed = collapsedBlocks[idx] ?? true; // Default collapsed
-                                            return (
-                                                <div key={idx} className="bg-[#2d2d2d] rounded-xl border border-[#3d3d3d] overflow-hidden shadow-lg group hover:border-emerald-500/50 transition-colors">
-                                                    {/* Card Header */}
-                                                    <div className="bg-[#252526] p-3 flex items-center justify-between cursor-pointer" onClick={() => toggleBlockCollapse(idx)}>
-                                                        <div className="flex items-center gap-3">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedBlocks.has(idx)}
-                                                                onChange={(e) => {
-                                                                    e.stopPropagation();
-                                                                    toggleBlockSelection(idx);
-                                                                }}
-                                                                onClick={(e) => e.stopPropagation()}
-                                                                className="w-4 h-4 rounded border-[#3d3d3d] bg-[#1e1e1e] text-emerald-500 focus:ring-emerald-500 focus:ring-offset-[#252526] cursor-pointer"
-                                                            />
-                                                            <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">
-                                                                {idx + 1}
-                                                            </span>
-                                                            <span className="text-xs text-slate-400 font-mono">Question Block</span>
-                                                            <button className="p-1 text-slate-500 hover:text-slate-300 transition-colors">
-                                                                {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                                                            </button>
-                                                        </div>
-                                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                            <button
-                                                                onClick={() => deleteSmartQuestion(idx)}
-                                                                className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 rounded transition-colors"
-                                                                title="ลบข้อนี้"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Editor Area - Only show when expanded */}
-                                                    {!isCollapsed && (
-                                                        <>
-                                                            <div className="relative">
-                                                                <textarea
-                                                                    value={block}
-                                                                    onChange={(e) => updateSmartBlock(idx, e.target.value)}
-                                                                    className="w-full h-48 bg-[#1e1e1e] text-[#d4d4d4] p-4 text-sm font-mono outline-none resize-y leading-relaxed"
-                                                                    spellCheck="false"
-                                                                />
-                                                                {/* Mini Help */}
-                                                                <div className="absolute right-2 bottom-2 pointer-events-none opacity-50">
-                                                                    <FileJsonIcon size={12} className="text-slate-600" />
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Smart Image Uploader for this block */}
-                                                            {(() => {
-                                                                try {
-                                                                    const parsed = JSON.parse(block);
-                                                                    return (
-                                                                        <div className="p-3 bg-[#252526] border-t border-[#3d3d3d] flex items-center justify-between">
-                                                                            <div className="flex items-center gap-3">
-                                                                                {parsed.image ? (
-                                                                                    <div className="relative group w-10 h-10 rounded bg-black border border-slate-700 overflow-hidden">
-                                                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                                        <img src={parsed.image} alt="preview" className="w-full h-full object-contain" />
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div className="w-10 h-10 rounded bg-[#333] border border-[#444] flex items-center justify-center text-slate-500">
-                                                                                        <ImageIcon size={14} />
-                                                                                    </div>
-                                                                                )}
-
-                                                                                <div>
-                                                                                    <label className="cursor-pointer px-3 py-1.5 bg-[#3d3d3d] hover:bg-[#4d4d4d] text-slate-300 text-xs rounded border border-[#555] flex items-center gap-2 transition-all group">
-                                                                                        <UploadCloud size={14} className="text-amber-500 group-hover:scale-110 transition-transform" />
-                                                                                        <span className="font-bold">{parsed.image ? "เปลี่ยนรูปภาพ" : "แนบรูปภาพ"}</span>
-                                                                                        <input
-                                                                                            type="file"
-                                                                                            className="hidden"
-                                                                                            accept="image/*"
-                                                                                            onChange={async (e) => {
-                                                                                                const file = e.target.files?.[0];
-                                                                                                if (!file) return;
-                                                                                                try {
-                                                                                                    const filename = `exam-q-images/${Date.now()}_${idx}_${file.name}`;
-                                                                                                    const url = await uploadImageToStorage(file, filename);
-
-                                                                                                    const newObj = { ...parsed, image: url };
-                                                                                                    updateSmartBlock(idx, JSON.stringify(newObj, null, 2));
-                                                                                                } catch (err) {
-                                                                                                    console.error(err);
-                                                                                                    alert("อัปโหลดไม่สำเร็จ");
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                    </label>
-                                                                                </div>
-                                                                            </div>
-                                                                            {parsed.image && (
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        const newObj = { ...parsed };
-                                                                                        delete newObj.image;
-                                                                                        updateSmartBlock(idx, JSON.stringify(newObj, null, 2));
-                                                                                    }}
-                                                                                    className="text-rose-400 hover:text-rose-300 text-xs flex items-center gap-1 bg-rose-950/20 px-2 py-1 rounded border border-rose-900/30 transition-colors"
-                                                                                >
-                                                                                    <Trash2 size={12} /> ลบรูป
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                } catch (e) {
-                                                                    return null; // Invalid JSON, don't show uploader
-                                                                }
-                                                            })()}
-
-                                                            {/* Tag Editor for this block */}
-                                                            {(() => {
-                                                                try {
-                                                                    const parsed = JSON.parse(block);
-                                                                    const currentTags: string[] = parsed.tags || [];
-                                                                    const detected = detectTagsForBlock(idx);
-                                                                    const suggestedTags = detected.filter(d => !currentTags.includes(d.tag));
-
-                                                                    return (
-                                                                        <div className="px-3 py-2.5 bg-[#252526] border-t border-[#3d3d3d]">
-                                                                            <div className="flex items-center justify-between mb-2">
-                                                                                <span className="text-xs text-slate-400 font-bold flex items-center gap-1.5">
-                                                                                    <Tag size={12} className="text-teal-400" /> Tags
-                                                                                </span>
-                                                                                <div className="flex items-center gap-2">
-                                                                                    {suggestedTags.length > 0 && (
-                                                                                        <button
-                                                                                            onClick={() => applyAllSuggestedTags(idx)}
-                                                                                            className="text-[10px] px-2 py-0.5 bg-teal-500/15 text-teal-300 rounded border border-teal-500/30 hover:bg-teal-500/25 transition-colors font-bold"
-                                                                                        >
-                                                                                            + ใช้ทั้งหมด ({suggestedTags.length})
-                                                                                        </button>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-
-                                                                            <div className="flex flex-wrap gap-1.5">
-                                                                                {/* Existing tags */}
-                                                                                {currentTags.map((tag, ti) => (
-                                                                                    <span key={`tag-${ti}`} className="inline-flex items-center gap-1 px-2 py-0.5 bg-teal-500/20 text-teal-300 text-[11px] rounded-md border border-teal-500/30 font-bold">
-                                                                                        {tag}
-                                                                                        <button onClick={() => removeTagFromBlock(idx, tag)} className="hover:text-rose-300 transition-colors">
-                                                                                            <X size={10} />
-                                                                                        </button>
-                                                                                    </span>
-                                                                                ))}
-
-                                                                                {/* Suggested tags */}
-                                                                                {suggestedTags.map((d, si) => (
-                                                                                    <button
-                                                                                        key={`sug-${si}`}
-                                                                                        onClick={() => addTagToBlock(idx, d.tag)}
-                                                                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#333] text-slate-400 text-[11px] rounded-md border border-dashed border-[#555] hover:border-teal-500/50 hover:text-teal-300 hover:bg-teal-500/10 transition-all font-medium"
-                                                                                        title={`${d.category} (${Math.round(d.confidence * 100)}%)`}
-                                                                                    >
-                                                                                        <Plus size={10} /> {d.tag}
-                                                                                    </button>
-                                                                                ))}
-
-                                                                                {currentTags.length === 0 && suggestedTags.length === 0 && (
-                                                                                    <span className="text-[10px] text-slate-600 italic">ไม่พบ tags (ลองเพิ่มเนื้อหาโจทย์/เฉลย)</span>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                } catch {
-                                                                    return null;
-                                                                }
-                                                            })()}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
+                                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                            <SortableContext items={smartBlocks.map((_, idx) => `question-${idx}`)} strategy={verticalListSortingStrategy}>
+                                                {smartBlocks.map((block, idx) => (
+                                                    <SortableQuestionBlock
+                                                        key={`question-${idx}`}
+                                                        id={`question-${idx}`}
+                                                        idx={idx}
+                                                        block={block}
+                                                        isCollapsed={collapsedBlocks[idx] ?? true}
+                                                        isSelected={selectedBlocks.has(idx)}
+                                                        onToggleCollapse={() => toggleBlockCollapse(idx)}
+                                                        onToggleSelection={() => toggleBlockSelection(idx)}
+                                                        onDelete={() => deleteSmartQuestion(idx)}
+                                                        onUpdate={(val: string) => updateSmartBlock(idx, val)}
+                                                        detectTags={() => detectTagsForBlock(idx)}
+                                                        onAddTag={(tag: string) => addTagToBlock(idx, tag)}
+                                                        onRemoveTag={(tag: string) => removeTagFromBlock(idx, tag)}
+                                                        onApplyAllTags={() => applyAllSuggestedTags(idx)}
+                                                    />
+                                                ))}
+                                            </SortableContext>
+                                        </DndContext>
 
                                         <div className="h-10"></div>
                                     </div>
