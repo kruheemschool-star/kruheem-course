@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { ExamQuestion } from '@/types/exam';
 import { sanitizeExamData } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
+import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -44,6 +45,7 @@ const getGradeFromPercent = (percent: number): { grade: string; label: string; g
 
 export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, examId, category, level, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false, enableResultTracking = false }) => {
     const { user } = useUserAuth();
+    const savedQ = useSavedQuestions();
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
     const [answers, setAnswers] = useState<Record<number, number>>({});
     const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({});
@@ -500,6 +502,15 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             onSelectOption={handleSelectOption}
                             isSubmitted={!!checkedQuestions[currentQuestionIndex]}
                             showAnswerChecking={showAnswerChecking}
+                            isQuestionSaved={examId ? savedQ.isSaved(examId, currentQuestionIndex) : false}
+                            onToggleSaveQuestion={examId ? () => savedQ.toggleSaveQuestion(
+                                examId,
+                                examTitle,
+                                currentQuestionIndex,
+                                currentQuestion,
+                                category,
+                                level,
+                            ) : undefined}
                         />
                     )}
                 </div>

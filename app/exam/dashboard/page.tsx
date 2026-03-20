@@ -9,7 +9,7 @@ import Navbar from "@/components/Navbar";
 import {
     BarChart3, Trophy, Target, TrendingUp, ArrowLeft, BookOpen,
     CheckCircle2, XCircle, ChevronRight, Loader2, LogIn, ShieldOff,
-    Flame, Clock, Users, Zap, Timer, Calendar
+    Flame, Clock, Users, Zap, Timer, Calendar, Bookmark
 } from "lucide-react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -279,6 +279,12 @@ export default function ExamDashboardPage() {
                             สถิติการทำข้อสอบ
                         </h1>
                     </div>
+                    <Link
+                        href="/exam/saved-questions"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-700 rounded-xl font-bold text-sm hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all"
+                    >
+                        <Bookmark size={16} className="fill-current" /> ข้อที่บันทึกไว้
+                    </Link>
                 </div>
 
                 {loading ? (

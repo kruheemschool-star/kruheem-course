@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { ExamQuestion } from '@/types/exam';
 import MathRenderer from './MathRenderer';
-import { CheckCircle2, XCircle, HelpCircle, ZoomIn, X, ImageIcon } from 'lucide-react';
+import { CheckCircle2, XCircle, HelpCircle, ZoomIn, X, ImageIcon, Bookmark } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface QuestionCardProps {
@@ -14,6 +14,8 @@ interface QuestionCardProps {
     onSelectOption: (optionIndex: number) => void;
     isSubmitted: boolean; // ถ้า true จะแสดงเฉลย
     showAnswerChecking?: boolean; // ถ้า true จะแสดงสีเขียว/แดง ถูก/ผิด
+    isQuestionSaved?: boolean;
+    onToggleSaveQuestion?: () => void;
 }
 
 // Convert Thai letter references (ก ข ค ง) to numbers (1 2 3 4) in explanation text
@@ -179,7 +181,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     selectedOption,
     onSelectOption,
     isSubmitted,
-    showAnswerChecking = false
+    showAnswerChecking = false,
+    isQuestionSaved = false,
+    onToggleSaveQuestion,
 }) => {
     const hasAnswered = selectedOption !== null;
     const isCorrect = hasAnswered && selectedOption === question.correctIndex;
@@ -197,6 +201,19 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     <span className="text-stone-500 dark:text-slate-400 font-medium text-sm uppercase tracking-wider">
                         คำถามที่ {questionNumber} จาก {totalQuestions}
                     </span>
+                    {onToggleSaveQuestion && (
+                        <button
+                            onClick={onToggleSaveQuestion}
+                            className={`ml-1 p-1.5 rounded-lg transition-all duration-200 ${
+                                isQuestionSaved
+                                    ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50'
+                                    : 'text-stone-300 dark:text-slate-500 hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                            }`}
+                            title={isQuestionSaved ? 'ยกเลิกบันทึกข้อนี้' : 'บันทึกข้อนี้'}
+                        >
+                            <Bookmark size={18} className={isQuestionSaved ? 'fill-current' : ''} />
+                        </button>
+                    )}
                 </div>
 
                 {/* Badge - Show when submitted */}
