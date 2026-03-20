@@ -124,8 +124,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
         setIsFinished(true);
 
-        // Save exam result to Firestore (only if logged in + tracking enabled + answer checking on)
-        if (user && enableResultTracking && showAnswerChecking && examId && !isTrial) {
+        // Save exam result to Firestore (only if logged in and not trial)
+        if (user && examId && !isTrial) {
+            console.log('[ExamSystem] Saving exam result for user:', user.uid, 'exam:', examId);
             const wrongIndices: number[] = [];
             const allTags = new Set<string>();
             sanitizedExamData.slice(0, answerableCount).forEach((q, idx) => {
@@ -151,8 +152,12 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 avgTimePerQuestion,
                 questionTimes: questionTimes.current,
             };
+            console.log('[ExamSystem] Result doc:', resultDoc);
             setDoc(doc(db, 'users', user.uid, 'examResults', examId), resultDoc)
-                .catch(err => console.error('Failed to save exam result:', err));
+                .then(() => console.log('[ExamSystem] Exam result saved successfully'))
+                .catch(err => console.error('[ExamSystem] Failed to save exam result:', err));
+        } else {
+            console.log('[ExamSystem] Not saving result - user:', !!user, 'examId:', !!examId, 'isTrial:', isTrial);
         }
 
         if (onComplete) onComplete(score, answerableCount);
