@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, Star } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // Drag and Drop imports
@@ -14,7 +14,7 @@ import { CSS } from '@dnd-kit/utilities';
 import React from "react";
 
 // Sortable Table Row Component
-function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking }: { exam: any; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void }) {
+function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking, onToggleFeatured }: { exam: any; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void; onToggleFeatured: (id: string, currentStatus: boolean) => void }) {
     const {
         attributes,
         listeners,
@@ -103,6 +103,19 @@ function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden, onToggl
                     ) : (
                         <><Lock size={14} /> เฉพาะสมาชิก</>
                     )}
+                </button>
+            </td>
+            <td className="p-6 text-center">
+                <button
+                    onClick={() => onToggleFeatured(exam.id, exam.featured || false)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
+                        exam.featured
+                            ? "bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 hover:shadow"
+                            : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 hover:shadow"
+                    }`}
+                >
+                    <Star size={14} className={exam.featured ? 'fill-current' : ''} />
+                    {exam.featured ? 'แนะนำ' : 'ปกติ'}
                 </button>
             </td>
             <td className="p-6 text-center">
@@ -266,6 +279,18 @@ export default function ExamManagerPage() {
         }
     };
 
+    const handleToggleFeatured = async (id: string, currentStatus: boolean) => {
+        try {
+            await updateDoc(doc(db, "exams", id), {
+                featured: !currentStatus
+            });
+            setExams(prev => prev.map(exam => exam.id === id ? { ...exam, featured: !currentStatus } : exam));
+        } catch (error) {
+            console.error("Error updating featured status:", error);
+            alert("เกิดข้อผิดพลาดในการอัปเดตสถานะแนะนำ");
+        }
+    };
+
     const handleQuickAdd = () => {
         setNewExamTitle("");
         setIsAddModalOpen(true);
@@ -403,6 +428,7 @@ export default function ExamManagerPage() {
                                     <th className="p-6 text-center">ระดับความยาก</th>
                                     <th className="p-6 text-center">จำนวนข้อ</th>
                                     <th className="p-6 text-center">สิทธิ์การเข้าถึง</th>
+                                    <th className="p-6 text-center">แนะนำ</th>
                                     <th className="p-6 text-center">ตรวจคำตอบ</th>
                                     <th className="p-6 text-right">จัดการ</th>
                                 </tr>
@@ -411,7 +437,7 @@ export default function ExamManagerPage() {
                                 <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
                                     <tbody className="divide-y divide-slate-50">
                                         {exams.map((exam) => (
-                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} />
+                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onToggleFeatured={handleToggleFeatured} />
                                         ))}
                                     </tbody>
                                 </SortableContext>

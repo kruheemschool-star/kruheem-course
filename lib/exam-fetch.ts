@@ -13,6 +13,7 @@ export interface ExamMeta {
     coverImage: string;
     tags: string[];
     isFree: boolean;
+    featured: boolean;
     questionCount: number;
     order: number;
     createdAt: string | null;
@@ -56,6 +57,7 @@ export async function fetchAllExams(): Promise<ExamMeta[]> {
                     coverImage: data.coverImage || "",
                     tags: data.tags || [],
                     isFree: data.isFree || false,
+                    featured: data.featured || false,
                     questionCount,
                     order: data.order ?? Number.MAX_SAFE_INTEGER,
                     createdAt: data.createdAt?.toDate?.().toISOString() || null,
@@ -92,4 +94,23 @@ export function countExamsByType(exams: ExamMeta[]): Record<string, number> {
         if (e.isFree && type !== "free") counts.free++;
     });
     return counts;
+}
+
+export function fetchFeaturedExams(exams: ExamMeta[]): ExamMeta[] {
+    const featured = exams.filter(e => e.featured);
+    if (featured.length > 0) return featured;
+    // Fallback: show free exams if no featured
+    return exams.filter(e => e.isFree).slice(0, 5);
+}
+
+export function groupExamsByType(exams: ExamMeta[]): Record<string, ExamMeta[]> {
+    const groups: Record<string, ExamMeta[]> = { entrance: [], practice: [], chapter: [], free: [] };
+    exams.forEach(e => {
+        const type = e.examType || "practice";
+        if (groups[type]) groups[type].push(e);
+        if (e.isFree && type !== "free" && !groups.free.find(x => x.id === e.id)) {
+            groups.free.push(e);
+        }
+    });
+    return groups;
 }
