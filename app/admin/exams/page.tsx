@@ -55,9 +55,28 @@ function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden, onToggl
                 <div className="text-sm text-slate-400 line-clamp-1 max-w-sm">{exam.description || "-"}</div>
             </td>
             <td className="p-6">
-                <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
-                    {exam.category} / {exam.level}
-                </span>
+                <div className="flex flex-col gap-1.5">
+                    <select
+                        value={exam.examType || 'practice'}
+                        onChange={async (e) => {
+                            const newType = e.target.value;
+                            try {
+                                await updateDoc(doc(db, "exams", exam.id), { examType: newType, isFree: newType === 'free' ? true : exam.isFree });
+                                window.location.reload();
+                            } catch (err) { console.error(err); alert('เกิดข้อผิดพลาด'); }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs font-bold rounded-lg border px-2 py-1 outline-none cursor-pointer bg-white"
+                    >
+                        <option value="entrance">ข้อสอบเข้า</option>
+                        <option value="practice">แบบฝึกหัด</option>
+                        <option value="chapter">แนวข้อสอบรายบท</option>
+                        <option value="free">ข้อสอบฟรี</option>
+                    </select>
+                    <span className="px-2 py-0.5 bg-slate-50 text-slate-500 rounded text-[10px] font-medium border border-slate-100 text-center">
+                        {exam.category} / {exam.level}
+                    </span>
+                </div>
             </td>
             <td className="p-6 text-center">
                 <span className={`text-xs font-bold px-2 py-1 rounded ${exam.difficulty === 'Easy' ? 'text-green-500 bg-green-50' :
@@ -135,7 +154,16 @@ export default function ExamManagerPage() {
     const [isSavingOrder, setIsSavingOrder] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newExamTitle, setNewExamTitle] = useState("");
+    const [newExamType, setNewExamType] = useState("practice");
     const [examConfig, setExamConfig] = useState<{ showExamDashboard: boolean; enableResultTracking: boolean }>({ showExamDashboard: false, enableResultTracking: false });
+
+    const examTypeOptions = [
+        { value: "entrance", label: "ข้อสอบเข้า", color: "bg-indigo-50 text-indigo-600 border-indigo-200" },
+        { value: "practice", label: "แบบฝึกหัด", color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+        { value: "chapter", label: "แนวข้อสอบรายบท", color: "bg-violet-50 text-violet-600 border-violet-200" },
+        { value: "free", label: "ข้อสอบฟรี", color: "bg-teal-50 text-teal-600 border-teal-200" },
+    ];
+    const getExamTypeLabel = (type: string) => examTypeOptions.find(o => o.value === type) || examTypeOptions[1];
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -250,18 +278,20 @@ export default function ExamManagerPage() {
             await addDoc(collection(db, "exams"), {
                 title: newExamTitle.trim(),
                 description: "รายละเอียดเบื้องต้น...",
-                category: "ม.ต้น",
+                examType: newExamType,
+                category: newExamType === "entrance" ? "สอบเข้า" : "ม.ต้น",
                 level: "ม.1",
                 questionCount: 0,
                 timeLimit: 30,
                 difficulty: "Medium",
-                isFree: true,
+                isFree: newExamType === "free",
                 createdAt: serverTimestamp(),
-                order: exams.length, // Add to end
+                order: exams.length,
                 questions: []
             });
             setIsAddModalOpen(false);
             setNewExamTitle("");
+            setNewExamType("practice");
             fetchExams();
             alert("เพิ่มชุดข้อสอบใหม่แล้ว!");
         } catch (err) {
@@ -369,7 +399,7 @@ export default function ExamManagerPage() {
                                 <tr>
                                     <th className="p-4 w-10"></th>
                                     <th className="p-6">ชื่อชุดข้อสอบ</th>
-                                    <th className="p-6">หมวดหมู่</th>
+                                    <th className="p-6">ประเภท / หมวด</th>
                                     <th className="p-6 text-center">ระดับความยาก</th>
                                     <th className="p-6 text-center">จำนวนข้อ</th>
                                     <th className="p-6 text-center">สิทธิ์การเข้าถึง</th>
@@ -397,7 +427,7 @@ export default function ExamManagerPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                     <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
                         <h2 className="text-2xl font-black text-slate-800 mb-4">สร้างชุดข้อสอบใหม่</h2>
-                        <div className="mb-6">
+                        <div className="mb-4">
                             <label className="block text-sm font-bold text-slate-600 mb-2">ชื่อชุดข้อสอบ</label>
                             <input
                                 type="text"
@@ -407,6 +437,25 @@ export default function ExamManagerPage() {
                                 placeholder="เช่น สอบเข้า ม.1 ชุดที่ 5"
                                 autoFocus
                             />
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-sm font-bold text-slate-600 mb-2">ประเภทข้อสอบ</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {examTypeOptions.map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setNewExamType(opt.value)}
+                                        className={`px-3 py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
+                                            newExamType === opt.value
+                                                ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-2 ring-indigo-200'
+                                                : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         <div className="flex justify-end gap-3">
                             <button

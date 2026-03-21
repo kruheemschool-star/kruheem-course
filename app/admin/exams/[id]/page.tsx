@@ -684,6 +684,7 @@ export default function ExamEditorPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [coverImage, setCoverImage] = useState("");
+    const [examType, setExamType] = useState("practice");
     const [category, setCategory] = useState("ม.ต้น");
     const [level, setLevel] = useState("ม.1");
     const [timeLimit, setTimeLimit] = useState(30);
@@ -701,6 +702,7 @@ export default function ExamEditorPage() {
                     setTitle(data.title || "");
                     setDescription(data.description || "");
                     setCoverImage(data.coverImage || "");
+                    setExamType(data.examType || "practice");
                     setCategory(data.category || "ม.ต้น");
                     setLevel(data.level || "");
                     setTimeLimit(data.timeLimit || 30);
@@ -815,6 +817,7 @@ export default function ExamEditorPage() {
                 title,
                 description,
                 coverImage,
+                examType,
                 category,
                 level,
                 timeLimit: Number(timeLimit),
@@ -847,7 +850,7 @@ export default function ExamEditorPage() {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [jsonContent, title, description, coverImage, category, level, timeLimit, difficulty, themeColor]); // Deps need to be current for handleSave closure if not using refs (React state closure trap), strictly relying on state in handleSave
+    }, [jsonContent, title, description, coverImage, examType, category, level, timeLimit, difficulty, themeColor]); // Deps need to be current for handleSave closure if not using refs (React state closure trap), strictly relying on state in handleSave
 
     // Toast State (Local helper)
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
@@ -938,6 +941,21 @@ export default function ExamEditorPage() {
                                     rows={3}
                                     className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
                                 />
+                            </div>
+
+                            {/* Exam Type */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-500 mb-2">ประเภทข้อสอบ</label>
+                                <select
+                                    value={examType}
+                                    onChange={(e) => setExamType(e.target.value)}
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold"
+                                >
+                                    <option value="entrance">ข้อสอบเข้า</option>
+                                    <option value="practice">แบบฝึกหัด</option>
+                                    <option value="chapter">แนวข้อสอบรายบท</option>
+                                    <option value="free">ข้อสอบฟรี</option>
+                                </select>
                             </div>
 
                             {/* ... Categories, Level, Time, Difficulty ... */}
