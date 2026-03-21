@@ -97,52 +97,56 @@ function ScrollRow({ title, icon, href, accent, exams }: { title: string; icon: 
                             <Link
                                 href={`/exam/${exam.id}`}
                                 key={exam.id}
-                                className="group/card relative flex-shrink-0 w-[220px] sm:w-[250px] md:w-[280px] rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-slate-300 transition-all duration-300 hover:scale-[1.03] hover:z-10 shadow-sm hover:shadow-xl"
+                                className="group/card relative flex-shrink-0 w-[220px] sm:w-[250px] md:w-[280px] aspect-[3/4] rounded-2xl overflow-hidden bg-white border border-slate-200 hover:border-slate-300 transition-all duration-300 hover:scale-[1.03] hover:z-10 shadow-sm hover:shadow-xl"
                                 style={{ scrollSnapAlign: 'start' }}
                             >
                                 {/* Cover Image */}
-                                <div className="relative w-full aspect-[4/3] bg-slate-100 overflow-hidden">
-                                    {exam.coverImage ? (
-                                        <Image src={exam.coverImage} alt={exam.title} fill sizes="280px" className="object-cover transition-transform duration-500 group-hover/card:scale-110" />
-                                    ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-                                            <span className="text-5xl opacity-30">📚</span>
-                                        </div>
-                                    )}
-                                    {/* Hover play button */}
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/card:opacity-100 transition-all duration-300 flex items-center justify-center">
-                                        <div className={`w-14 h-14 rounded-full ${ct.bg} text-white flex items-center justify-center shadow-xl`}>
-                                            <Play size={24} className="ml-1" fill="currentColor" />
-                                        </div>
+                                {exam.coverImage ? (
+                                    <Image src={exam.coverImage} alt={exam.title} fill sizes="280px" className="object-cover transition-transform duration-500 group-hover/card:scale-110" />
+                                ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                                        <span className="text-5xl opacity-30">📚</span>
                                     </div>
-                                    {/* Badges on image */}
-                                    <div className="absolute top-3 left-3 flex gap-1.5">
-                                        {exam.isFree && (
-                                            <span className="text-[10px] font-black text-white bg-teal-500 px-2 py-0.5 rounded-md shadow">ฟรี</span>
-                                        )}
+                                )}
+
+                                {/* Gradient overlay for text readability */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                                {/* Hover play button */}
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/card:opacity-100 transition-all duration-300 flex items-center justify-center z-10">
+                                    <div className={`w-14 h-14 rounded-full ${ct.bg} text-white flex items-center justify-center shadow-xl`}>
+                                        <Play size={24} className="ml-1" fill="currentColor" />
                                     </div>
-                                    {/* Bookmark */}
-                                    {isLoggedIn && (
-                                        <button
-                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBookmark(exam.id); }}
-                                            className={`absolute top-3 right-3 z-30 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                                                isBookmarked(exam.id)
-                                                    ? 'bg-rose-500 text-white shadow-lg scale-110'
-                                                    : 'bg-white/80 backdrop-blur-sm text-slate-400 hover:text-rose-500 opacity-0 group-hover/card:opacity-100 shadow'
-                                            }`}
-                                        >
-                                            <Heart size={14} className={isBookmarked(exam.id) ? 'fill-current' : ''} />
-                                        </button>
+                                </div>
+
+                                {/* Badges on image */}
+                                <div className="absolute top-3 left-3 flex gap-1.5 z-20">
+                                    {exam.isFree && (
+                                        <span className="text-[10px] font-black text-white bg-teal-500 px-2 py-0.5 rounded-md shadow">ฟรี</span>
                                     )}
                                 </div>
 
-                                {/* Card Body */}
-                                <div className="p-4">
+                                {/* Bookmark */}
+                                {isLoggedIn && (
+                                    <button
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBookmark(exam.id); }}
+                                        className={`absolute top-3 right-3 z-30 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                                            isBookmarked(exam.id)
+                                                ? 'bg-rose-500 text-white shadow-lg scale-110'
+                                                : 'bg-white/80 backdrop-blur-sm text-slate-400 hover:text-rose-500 opacity-0 group-hover/card:opacity-100 shadow'
+                                        }`}
+                                    >
+                                        <Heart size={14} className={isBookmarked(exam.id) ? 'fill-current' : ''} />
+                                    </button>
+                                )}
+
+                                {/* Text Content - Slides up on hover */}
+                                <div className="absolute bottom-0 left-0 right-0 p-4 z-20 transform translate-y-full group-hover/card:translate-y-0 transition-transform duration-300">
                                     <div className="flex gap-1.5 mb-2 flex-wrap">
-                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{exam.level}</span>
-                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">{exam.questionCount || 0} ข้อ</span>
+                                        <span className="text-[10px] font-bold text-white/90 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full">{exam.level}</span>
+                                        <span className="text-[10px] font-bold text-white/90 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full">{exam.questionCount || 0} ข้อ</span>
                                     </div>
-                                    <h3 className={`font-bold text-base leading-snug line-clamp-2 text-slate-800 whitespace-pre-line`}>
+                                    <h3 className="font-bold text-base leading-snug line-clamp-2 text-white drop-shadow-lg whitespace-pre-line">
                                         {dispTitle}
                                     </h3>
                                 </div>
@@ -198,28 +202,27 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
                                 }`}
                             >
                                 <Link href={`/exam/${exam.id}`} className="group block">
-                                    <div className="relative w-full aspect-[21/9] md:aspect-[21/8] rounded-3xl overflow-hidden shadow-2xl shadow-slate-200/60 border border-slate-200/80">
-                                        {/* Cover Image — Full and Prominent */}
+                                    <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-xl shadow-slate-200/60 border border-slate-200/80">
+                                        {/* Cover Image */}
                                         {exam.coverImage ? (
                                             <Image
                                                 src={exam.coverImage}
                                                 alt={exam.title}
                                                 fill
-                                                sizes="(max-width: 768px) 100vw, 1200px"
-                                                className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                                sizes="(max-width: 768px) 100vw, 600px"
+                                                className="object-cover transition-transform duration-500 group-hover:scale-110"
                                                 priority={idx === 0}
                                             />
                                         ) : (
                                             <div className="w-full h-full bg-gradient-to-br from-indigo-100 via-violet-50 to-blue-100" />
                                         )}
 
-                                        {/* Subtle gradient for text readability */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                                        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-transparent" />
+                                        {/* Gradient overlay for text readability */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                                        {/* Content Overlay */}
-                                        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10 z-10">
-                                            <div className="max-w-2xl">
+                                        {/* Content Overlay - Slides up on hover */}
+                                        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-10 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                                            <div>
                                                 {/* Badges */}
                                                 <div className="flex items-center gap-2 mb-3 flex-wrap">
                                                     {exam.isFree && (
@@ -230,24 +233,24 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
                                                 </div>
 
                                                 {/* Title */}
-                                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white mb-2 leading-tight tracking-tight drop-shadow-lg whitespace-pre-line">
+                                                <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white mb-2 leading-tight tracking-tight drop-shadow-lg whitespace-pre-line">
                                                     {(exam.title || "").replace(/<br\s*\/?>/gi, '\n')}
                                                 </h1>
 
                                                 {/* Description */}
-                                                <p className="text-sm md:text-base text-white/80 mb-5 max-w-lg leading-relaxed line-clamp-2 drop-shadow">
+                                                <p className="text-sm md:text-base text-white/90 mb-4 leading-relaxed line-clamp-2 drop-shadow">
                                                     {exam.description}
                                                 </p>
 
                                                 {/* CTA */}
                                                 <div className="flex items-center gap-3">
-                                                    <span className="px-6 py-3 bg-white text-slate-900 rounded-xl font-black text-sm flex items-center gap-2 shadow-lg group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300">
-                                                        <Play size={18} fill="currentColor" />
+                                                    <span className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-black text-sm flex items-center gap-2 shadow-lg">
+                                                        <Play size={16} fill="currentColor" />
                                                         ทำข้อสอบเลย
                                                     </span>
                                                     {isLoggedIn && (
-                                                        <span className="px-5 py-3 bg-white/15 backdrop-blur-md text-white rounded-xl font-bold text-sm flex items-center gap-2 border border-white/20 hover:bg-white/25 transition-all">
-                                                            <BarChart3 size={16} />
+                                                        <span className="px-4 py-2.5 bg-white/15 backdrop-blur-md text-white rounded-xl font-bold text-sm flex items-center gap-2 border border-white/20">
+                                                            <BarChart3 size={14} />
                                                             สถิติ
                                                         </span>
                                                     )}
@@ -257,8 +260,8 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
 
                                         {/* Hover play overlay */}
                                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                                            <div className="w-20 h-20 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center">
-                                                <Play size={36} className="text-white ml-1" fill="currentColor" />
+                                            <div className="w-16 h-16 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center">
+                                                <Play size={28} className="text-white ml-1" fill="currentColor" />
                                             </div>
                                         </div>
                                     </div>
