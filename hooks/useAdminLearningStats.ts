@@ -200,11 +200,40 @@ export const useAdminLearningStats = () => {
 
             courseIds.forEach(courseId => {
                 const course = courseMap[courseId];
-                if (!course || course.lessonIds.length === 0) return;
+                if (!course) return;
+
+                // Count enrolled students for this course
+                const enrolledStudentCount = enrollments.filter(e => e.courseId === courseId).length;
+
+                // Special courses (no lessons, e.g. VIP exam access)
+                if (course.lessonIds.length === 0) {
+                    completionRates.push({
+                        courseId,
+                        title: course.title,
+                        totalLessons: 0,
+                        totalStudents: enrolledStudentCount,
+                        completedStudents: enrolledStudentCount, // All enrolled = "completed" for access-type courses
+                        avgProgress: 100 // Access granted = 100%
+                    });
+                    return;
+                }
 
                 const courseProgress = progressData.filter(p => p.courseId === courseId);
                 const totalStudents = courseProgress.length;
-                if (totalStudents === 0) return;
+                if (totalStudents === 0) {
+                    // Has lessons but no progress data — still show with 0%
+                    if (enrolledStudentCount > 0) {
+                        completionRates.push({
+                            courseId,
+                            title: course.title,
+                            totalLessons: course.lessonIds.length,
+                            totalStudents: enrolledStudentCount,
+                            completedStudents: 0,
+                            avgProgress: 0
+                        });
+                    }
+                    return;
+                }
 
                 let sumPercent = 0;
                 let completedStudents = 0;

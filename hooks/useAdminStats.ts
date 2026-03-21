@@ -157,10 +157,29 @@ export const useAdminStats = (selectedYear: number) => {
         const uniqueOnline = Array.from(onlineMap.values());
         const finalOnlineUsers = uniqueOnline.map((user: any) => {
             const isMember = approvedData.some(e => e.userEmail === user.userEmail);
+            const isStudying = user.isStudying || false;
+
+            // Find which course this member is enrolled in
+            const enrolledCourse = isMember ? approvedData.find(e => e.userEmail === user.userEmail) : null;
+
+            let userType = 'ผู้เยี่ยมชม';
+            let currentActivity = user.currentActivity || 'กำลังเยี่ยมชมเว็บไซต์';
+
+            if (isMember && isStudying) {
+                userType = 'สมาชิก';
+                // currentActivity already set from enrollment data
+                currentActivity = user.currentActivity;
+            } else if (isMember) {
+                userType = 'สมาชิก';
+                currentActivity = `สมัครคอร์ส: ${enrolledCourse?.courseTitle || 'ไม่ระบุ'}`;
+            }
+
             return {
                 ...user,
-                isMember: isMember,
-                userType: isMember ? 'สมาชิก' : 'แขกทั่วไป'
+                isMember,
+                isStudying,
+                userType,
+                currentActivity,
             };
         });
 
