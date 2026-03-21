@@ -183,15 +183,31 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
 
     return (
         <div className="bg-white min-h-screen">
+            {/* ═══ PAGE HEADER ═══ */}
+            <div className="px-6 md:px-12 pt-10 pb-2">
+                <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                        <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
+                            📚 คลังข้อสอบคณิตศาสตร์
+                        </h1>
+                        <p className="text-sm text-slate-400 mt-1">ฝึกทำโจทย์ จับเวลาจำลองสอบจริง พร้อมเฉลยละเอียด</p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-4 py-2 rounded-xl">
+                        <BarChart3 size={18} className="text-indigo-500" />
+                        <span className="text-sm font-bold text-indigo-600">รวม {totalExams} ชุดข้อสอบ</span>
+                    </div>
+                </div>
+            </div>
+
             {/* ═══ HERO SLIDER ═══ */}
             {featuredExams.length > 0 && (
                 <div
-                    className="relative px-6 md:px-12 pt-8 pb-12"
+                    className="relative px-6 md:px-12 pt-6 pb-10"
                     onMouseEnter={() => setIsPaused(true)}
                     onMouseLeave={() => setIsPaused(false)}
                 >
-                    {/* Slide Cards */}
-                    <div className="relative w-full max-w-6xl mx-auto">
+                    {/* Slide Cards — max-w-md = 420px, 50% bigger than category cards (280px) */}
+                    <div className="relative w-full max-w-[420px] mx-auto">
                         {featuredExams.map((exam: any, idx: number) => (
                             <div
                                 key={exam.id}
@@ -202,14 +218,14 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
                                 }`}
                             >
                                 <Link href={`/exam/${exam.id}`} className="group block">
-                                    <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-xl shadow-slate-200/60 border border-slate-200/80">
+                                    <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden shadow-xl shadow-slate-300/50 border border-slate-200">
                                         {/* Cover Image */}
                                         {exam.coverImage ? (
                                             <Image
                                                 src={exam.coverImage}
                                                 alt={exam.title}
                                                 fill
-                                                sizes="(max-width: 768px) 100vw, 600px"
+                                                sizes="420px"
                                                 className="object-cover transition-transform duration-500 group-hover:scale-110"
                                                 priority={idx === 0}
                                             />
@@ -221,47 +237,45 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
                                         {/* Content Overlay - Slides up on hover */}
-                                        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 z-10 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                                            <div>
-                                                {/* Badges */}
-                                                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                                                    {exam.isFree && (
-                                                        <span className="px-3 py-1 bg-teal-500 text-white text-xs font-black rounded-lg uppercase tracking-wider shadow-md">ดูฟรี</span>
-                                                    )}
-                                                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md text-white text-xs font-bold rounded-lg">{exam.level}</span>
-                                                    <span className="px-3 py-1 bg-white/20 backdrop-blur-md text-white text-xs font-bold rounded-lg">{exam.questionCount || 0} ข้อ</span>
-                                                </div>
+                                        <div className="absolute bottom-0 left-0 right-0 p-5 z-10 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                                            {/* Badges */}
+                                            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                                                {exam.isFree && (
+                                                    <span className="px-2.5 py-0.5 bg-teal-500 text-white text-[10px] font-black rounded-md uppercase tracking-wider shadow">ดูฟรี</span>
+                                                )}
+                                                <span className="px-2.5 py-0.5 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold rounded-md">{exam.level}</span>
+                                                <span className="px-2.5 py-0.5 bg-white/20 backdrop-blur-md text-white text-[10px] font-bold rounded-md">{exam.questionCount || 0} ข้อ</span>
+                                            </div>
 
-                                                {/* Title */}
-                                                <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white mb-2 leading-tight tracking-tight drop-shadow-lg whitespace-pre-line">
-                                                    {(exam.title || "").replace(/<br\s*\/?>/gi, '\n')}
-                                                </h1>
+                                            {/* Title */}
+                                            <h2 className="text-lg sm:text-xl font-black text-white mb-1.5 leading-tight tracking-tight drop-shadow-lg whitespace-pre-line line-clamp-2">
+                                                {(exam.title || "").replace(/<br\s*\/?>/gi, '\n')}
+                                            </h2>
 
-                                                {/* Description */}
-                                                <p className="text-sm md:text-base text-white/90 mb-4 leading-relaxed line-clamp-2 drop-shadow">
-                                                    {exam.description}
-                                                </p>
+                                            {/* Description */}
+                                            <p className="text-xs text-white/85 mb-3 leading-relaxed line-clamp-2 drop-shadow">
+                                                {exam.description}
+                                            </p>
 
-                                                {/* CTA */}
-                                                <div className="flex items-center gap-3">
-                                                    <span className="px-5 py-2.5 bg-white text-slate-900 rounded-xl font-black text-sm flex items-center gap-2 shadow-lg">
-                                                        <Play size={16} fill="currentColor" />
-                                                        ทำข้อสอบเลย
+                                            {/* CTA */}
+                                            <div className="flex items-center gap-2">
+                                                <span className="px-4 py-2 bg-white text-slate-900 rounded-lg font-black text-xs flex items-center gap-1.5 shadow-lg">
+                                                    <Play size={14} fill="currentColor" />
+                                                    ทำข้อสอบเลย
+                                                </span>
+                                                {isLoggedIn && (
+                                                    <span className="px-3 py-2 bg-white/15 backdrop-blur-md text-white rounded-lg font-bold text-xs flex items-center gap-1.5 border border-white/20">
+                                                        <BarChart3 size={12} />
+                                                        สถิติ
                                                     </span>
-                                                    {isLoggedIn && (
-                                                        <span className="px-4 py-2.5 bg-white/15 backdrop-blur-md text-white rounded-xl font-bold text-sm flex items-center gap-2 border border-white/20">
-                                                            <BarChart3 size={14} />
-                                                            สถิติ
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                )}
                                             </div>
                                         </div>
 
                                         {/* Hover play overlay */}
                                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-all duration-300">
-                                            <div className="w-16 h-16 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center">
-                                                <Play size={28} className="text-white ml-1" fill="currentColor" />
+                                            <div className="w-14 h-14 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center">
+                                                <Play size={24} className="text-white ml-0.5" fill="currentColor" />
                                             </div>
                                         </div>
                                     </div>
@@ -272,18 +286,17 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
                         {/* Slider Controls */}
                         {slideCount > 1 && (
                             <>
-                                {/* Left/Right arrows */}
                                 <button
                                     onClick={() => goToSlide(currentSlide - 1)}
-                                    className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 shadow-lg border border-slate-200 text-slate-600 flex items-center justify-center hover:bg-white hover:shadow-xl transition-all opacity-0 group-hover:opacity-100"
+                                    className="absolute -left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 text-slate-500 flex items-center justify-center hover:bg-slate-50 hover:shadow-xl transition-all"
                                 >
-                                    <ChevronLeft size={22} />
+                                    <ChevronLeft size={20} />
                                 </button>
                                 <button
                                     onClick={() => goToSlide(currentSlide + 1)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/90 shadow-lg border border-slate-200 text-slate-600 flex items-center justify-center hover:bg-white hover:shadow-xl transition-all opacity-0 group-hover:opacity-100"
+                                    className="absolute -right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-200 text-slate-500 flex items-center justify-center hover:bg-slate-50 hover:shadow-xl transition-all"
                                 >
-                                    <ChevronRight size={22} />
+                                    <ChevronRight size={20} />
                                 </button>
                             </>
                         )}
@@ -291,13 +304,13 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
 
                     {/* Dots — below the card */}
                     {slideCount > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-6">
+                        <div className="flex items-center justify-center gap-2 mt-5">
                             {featuredExams.map((_: any, idx: number) => (
                                 <button
                                     key={idx}
                                     onClick={() => goToSlide(idx)}
-                                    className={`h-2 rounded-full transition-all duration-300 ${
-                                        idx === currentSlide ? 'w-8 bg-indigo-500' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                                        idx === currentSlide ? 'w-7 bg-indigo-500' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
                                     }`}
                                 />
                             ))}
@@ -307,7 +320,7 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
             )}
 
             {/* ═══ CATEGORY ROWS ═══ */}
-            <div className="pt-4 pb-16">
+            <div className="pt-8 pb-16">
                 {categoryConfig.map(cat => (
                     <ScrollRow
                         key={cat.key}
@@ -320,10 +333,8 @@ export default function ExamHubClient({ featuredExams, groupedExams, totalExams 
                 ))}
             </div>
 
-            {/* Stats bar */}
-            <div className="text-center pb-12 text-slate-400 text-sm">
-                รวม {totalExams} ชุดข้อสอบ
-            </div>
+            {/* Bottom spacer */}
+            <div className="pb-8" />
         </div>
     );
 }
