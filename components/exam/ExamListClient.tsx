@@ -41,7 +41,15 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
     const [isLoadingSearch, setIsLoadingSearch] = useState(false);
     const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
 
-    const categories = ["ทั้งหมด", "ประถม", "ม.ต้น", "ม.ปลาย", "สอบเข้า"];
+    const categories = [
+        "ทั้งหมด", 
+        "ข้อสอบเข้าชั้น", 
+        "ข้อสอบประจำชั้น", 
+        "ข้อสอบสอบเข้า", 
+        "ข้อสอบ O-NET",
+        "ข้อสอบ A-Level",
+        "ข้อสอบทั่วไป"
+    ];
     const difficulties = ["ทั้งหมด", "Easy", "Medium", "Hard"];
     const difficultyLabels: Record<string, string> = { "ทั้งหมด": "ทั้งหมด", "Easy": "ง่าย", "Medium": "ปานกลาง", "Hard": "ยาก" };
     const difficultyColors: Record<string, string> = { "Easy": "text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-900/30 dark:border-emerald-800", "Medium": "text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-900/30 dark:border-amber-800", "Hard": "text-rose-600 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-900/30 dark:border-rose-800" };
@@ -57,7 +65,10 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
     // Extract unique levels and tags from exams for filter options
     const availableLevels = useMemo(() => {
         const levels = [...new Set(initialExams.map(e => e.level).filter(Boolean))];
-        return ["ทั้งหมด", ...levels.sort()];
+        // Add standard grade levels if not present
+        const standardLevels = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6", "ทั่วไป"];
+        const allLevels = new Set([...levels, ...standardLevels]);
+        return ["ทั้งหมด", ...Array.from(allLevels).sort()];
     }, [initialExams]);
 
     const availableTags = useMemo(() => {
@@ -440,6 +451,31 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                         )}
                     </button>
                 </div>
+
+                {/* Grade Level Filter - Show only for specific categories */}
+                {(selectedCategory === "ข้อสอบเข้าชั้น" || selectedCategory === "ข้อสอบประจำชั้น") && (
+                    <div className="max-w-2xl mx-auto mb-6">
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                            <span className="text-slate-500 dark:text-slate-400 text-sm flex items-center gap-1">
+                                <BookOpen size={14} />
+                                ระดับชั้น:
+                            </span>
+                            {["ทั้งหมด", "ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6", "ทั่วไป"].map(level => (
+                                <button
+                                    key={level}
+                                    onClick={() => setSelectedLevel(level)}
+                                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
+                                        selectedLevel === level
+                                            ? 'bg-amber-500 text-white border-amber-500 shadow-lg scale-105'
+                                            : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-amber-400 hover:text-amber-600 dark:hover:border-amber-500'
+                                    }`}
+                                >
+                                    {level}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Advanced Filter Panel */}
                 {showFilters && (
