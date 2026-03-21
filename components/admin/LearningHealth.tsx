@@ -87,15 +87,9 @@ export default function LearningHealth({
                                                         </svg>
                                                         {course.totalStudents} คน
                                                     </span>
-                                                    {course.totalLessons === 0 ? (
-                                                        <span className="inline-flex items-center px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-bold">
-                                                            คอร์สพิเศษ (เข้าถึงข้อสอบ)
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-[10px] text-slate-500">
-                                                            {course.completedStudents} คนจบ ({course.avgProgress}%)
-                                                        </span>
-                                                    )}
+                                                    <span className="text-[10px] text-slate-500">
+                                                        {course.completedStudents} คนจบ ({course.avgProgress}%)
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>

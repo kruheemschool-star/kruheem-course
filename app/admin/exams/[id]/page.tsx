@@ -684,7 +684,7 @@ export default function ExamEditorPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [coverImage, setCoverImage] = useState("");
-    const [category, setCategory] = useState("ข้อสอบประจำชั้น");
+    const [category, setCategory] = useState("ม.ต้น");
     const [level, setLevel] = useState("ม.1");
     const [timeLimit, setTimeLimit] = useState(30);
     const [difficulty, setDifficulty] = useState("Medium");
@@ -943,42 +943,27 @@ export default function ExamEditorPage() {
                             {/* ... Categories, Level, Time, Difficulty ... */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-500 mb-2">ประเภทข้อสอบ</label>
+                                    <label className="block text-sm font-bold text-slate-500 mb-2">หมวดหมู่</label>
                                     <select
                                         value={category}
                                         onChange={(e) => setCategory(e.target.value)}
                                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                                     >
-                                        <option value="ข้อสอบเข้าชั้น">ข้อสอบเข้าชั้น</option>
-                                        <option value="ข้อสอบประจำชั้น">ข้อสอบประจำชั้น</option>
-                                        <option value="ข้อสอบสอบเข้า">ข้อสอบสอบเข้า</option>
-                                        <option value="ข้อสอบ O-NET">ข้อสอบ O-NET</option>
-                                        <option value="ข้อสอบ A-Level">ข้อสอบ A-Level</option>
-                                        <option value="ข้อสอบทั่วไป">ข้อสอบทั่วไป</option>
-                                        <option value="ประถม">ประถม (เก่า)</option>
-                                        <option value="ม.ต้น">ม.ต้น (เก่า)</option>
-                                        <option value="ม.ปลาย">ม.ปลาย (เก่า)</option>
-                                        <option value="สอบเข้า">สอบเข้า (เก่า)</option>
+                                        <option value="ประถม">ประถม</option>
+                                        <option value="ม.ต้น">ม.ต้น</option>
+                                        <option value="ม.ปลาย">ม.ปลาย</option>
+                                        <option value="สอบเข้า">สอบเข้า</option>
                                     </select>
-                                    <p className="text-xs text-slate-400 mt-1">เลือกประเภทข้อสอบเพื่อจัดหมวดหมู่ในคลังข้อสอบ</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-slate-500 mb-2">ระดับชั้น</label>
-                                    <select
+                                    <input
+                                        type="text"
                                         value={level}
                                         onChange={(e) => setLevel(e.target.value)}
+                                        placeholder="เช่น ม.1"
                                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                                    >
-                                        <option value="">เลือกระดับชั้น</option>
-                                        <option value="ม.1">ม.1</option>
-                                        <option value="ม.2">ม.2</option>
-                                        <option value="ม.3">ม.3</option>
-                                        <option value="ม.4">ม.4</option>
-                                        <option value="ม.5">ม.5</option>
-                                        <option value="ม.6">ม.6</option>
-                                        <option value="ทั่วไป">ทั่วไป</option>
-                                    </select>
-                                    <p className="text-xs text-slate-400 mt-1">ระดับชั้นที่เหมาะสมกับข้อสอบ (จะแสดงเมื่อเลือกประเภทที่เกี่ยวข้อง)</p>
+                                    />
                                 </div>
                             </div>
 
