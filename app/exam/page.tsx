@@ -18,7 +18,7 @@ export default async function ExamHubPage() {
     const groupedExams = groupExamsByType(allExams);
 
     return (
-        <div className="min-h-screen bg-slate-950 font-sans flex flex-col">
+        <div className="min-h-screen bg-white font-sans flex flex-col">
             <Navbar />
 
             <div className="pt-16">
