@@ -163,19 +163,18 @@ export const useAdminStats = (selectedYear: number) => {
 
         const onlineMap = new Map();
 
-        snapOnlineUsers.docs.forEach(doc => {
-            const data = doc.data();
-            if (data.email) {
-                onlineMap.set(data.email, {
-                    ...data,
-                    userName: data.displayName || data.email,
-                    userEmail: data.email,
-                    lastAccessedAt: data.lastActive,
-                    isMember: false,
-                    currentActivity: 'กำลังเยี่ยมชมเว็บไซต์',
-                    sessionStart: data.sessionStart,
-                });
-            }
+        snapOnlineUsers.docs.forEach(userDoc => {
+            const data = userDoc.data();
+            const key = data.email || userDoc.id; // Use email if available, else uid
+            onlineMap.set(key, {
+                ...data,
+                userName: data.displayName || data.email || userDoc.id,
+                userEmail: data.email || userDoc.id,
+                lastAccessedAt: data.lastActive,
+                isMember: false,
+                currentActivity: 'กำลังเยี่ยมชมเว็บไซต์',
+                sessionStart: data.sessionStart,
+            });
         });
 
         snapOnlineEnrollments.docs.forEach(doc => {

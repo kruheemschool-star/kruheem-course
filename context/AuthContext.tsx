@@ -59,7 +59,9 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             const result = await signInWithPopup(auth, provider);
             if (result.user) {
                 await setDoc(doc(db, "users", result.user.uid), {
-                    authProvider: 'google'
+                    authProvider: 'google',
+                    email: result.user.email || '',
+                    displayName: result.user.displayName || '',
                 }, { merge: true });
             }
         } catch (error) {
@@ -73,7 +75,8 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             const result = await signInWithEmailAndPassword(auth, email, password);
             if (result.user) {
                 await setDoc(doc(db, "users", result.user.uid), {
-                    authProvider: 'email'
+                    authProvider: 'email',
+                    email: result.user.email || '',
                 }, { merge: true });
             }
         } catch (error) {
@@ -86,7 +89,8 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             const result = await createUserWithEmailAndPassword(auth, email, password);
             if (result.user) {
                 await setDoc(doc(db, "users", result.user.uid), {
-                    authProvider: 'email'
+                    authProvider: 'email',
+                    email: result.user.email || '',
                 }, { merge: true });
             }
         } catch (error) {
@@ -192,34 +196,27 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
                     const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
                     const HEARTBEAT_CHECK_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 
-                    const updateData: any = {};
-                    let shouldUpdate = false;
+                    const updateData: any = {
+                        lastActive: serverTimestamp(),
+                        email: user.email || '',
+                    };
 
-                    // Logic: 
-                    // 1. If inactive > 30 mins -> New Session (Update sessionStart & lastActive)
-                    // 2. If inactive > 5 mins -> Heartbeat (Update lastActive only)
-
+                    // If inactive > 30 mins -> Start New Session (also set sessionStart)
                     if (lastActiveTime === 0 || diff > SESSION_TIMEOUT) {
-                        // New Session
                         updateData.sessionStart = serverTimestamp();
-                        updateData.lastActive = serverTimestamp();
-                        shouldUpdate = true;
-                    } else if (diff > HEARTBEAT_CHECK_THRESHOLD) {
-                        // Within session, just heartbeat
-                        updateData.lastActive = serverTimestamp();
-                        shouldUpdate = true;
+                        updateData.displayName = user.displayName || '';
                     }
 
-                    if (shouldUpdate) {
-                        setDoc(doc(db, "users", user.uid), updateData, { merge: true })
-                            .catch(err => console.error("Update activity failed", err));
-                    }
+                    // Always update on initial load so user appears online immediately
+                    setDoc(doc(db, "users", user.uid), updateData, { merge: true })
+                        .catch(err => console.error("Update activity failed", err));
 
                     // Start Continuous Heartbeat
                     // This sets lastActive periodically while user has the app open
                     heartbeatInterval = setInterval(() => {
                         setDoc(doc(db, "users", user.uid), {
-                            lastActive: serverTimestamp()
+                            lastActive: serverTimestamp(),
+                            email: user.email || '',
                         }, { merge: true }).catch(err => console.error("Interval heartbeat failed", err));
                     }, 3 * 60 * 1000); // 3 minutes heartbeat
                 }
