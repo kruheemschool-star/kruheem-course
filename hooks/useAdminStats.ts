@@ -129,14 +129,27 @@ export const useAdminStats = (selectedYear: number) => {
         try {
             const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
-            // Fetch registered online users AND anonymous visitors in parallel, but handle rejections individually
+            // Fetch registered online users AND anonymous visitors in parallel
+            // If the indexed query fails (e.g. missing composite index), fallback to fetching all and filtering in memory
             const [snapOnlineEnrollments, snapOnlineUsers, snapAnonymous] = await Promise.all([
                 getDocs(query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo)))
-                    .catch(e => { console.error("Online enrollments fetch err:", e); return { docs: [] }; }),
+                    .catch(async (e) => {
+                        console.warn("Online enrollments index missing, using fallback filtering in memory.");
+                        const allDocs = await getDocs(collection(db, "enrollments"));
+                        return { docs: allDocs.docs.filter(d => d.data().lastAccessedAt?.toDate() > tenMinutesAgo) };
+                    }),
                 getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo)))
-                    .catch(e => { console.error("Online users fetch err:", e); return { docs: [] }; }),
+                    .catch(async (e) => {
+                        console.warn("Online users index missing, using fallback filtering in memory.");
+                        const allDocs = await getDocs(collection(db, "users"));
+                        return { docs: allDocs.docs.filter(d => d.data().lastActive?.toDate() > tenMinutesAgo) };
+                    }),
                 getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", ">", tenMinutesAgo)))
-                    .catch(e => { console.error("Anon visitors fetch err:", e); return { docs: [] }; }),
+                    .catch(async (e) => {
+                        console.warn("Anon visitors index missing, using fallback filtering in memory.");
+                        const allDocs = await getDocs(collection(db, "anonymous_visitors"));
+                        return { docs: allDocs.docs.filter(d => d.data().lastActive?.toDate() > tenMinutesAgo) };
+                    }),
             ]);
 
         const onlineMap = new Map();
