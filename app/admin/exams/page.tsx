@@ -14,7 +14,7 @@ import { CSS } from '@dnd-kit/utilities';
 import React from "react";
 
 // Sortable Table Row Component
-function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking }: { exam: any; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void }) {
+function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking, onCategoryChange }: { exam: any; categories: any[]; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void; onCategoryChange: (id: string, newCategory: string) => void }) {
     const {
         attributes,
         listeners,
@@ -55,9 +55,19 @@ function SortableExamRow({ exam, onDelete, onToggleFree, onToggleHidden, onToggl
                 <div className="text-sm text-slate-400 line-clamp-1 max-w-sm">{exam.description || "-"}</div>
             </td>
             <td className="p-6">
-                <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
-                    {exam.category} / {exam.level}
-                </span>
+                <select
+                    value={exam.category || ""}
+                    onChange={(e) => onCategoryChange(exam.id, e.target.value)}
+                    className="px-3 py-2 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold border border-amber-200 hover:bg-amber-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all cursor-pointer"
+                >
+                    <option value="" disabled>เลือกหมวดหมู่</option>
+                    {categories.map((cat) => (
+                        <option key={cat.id} value={cat.name}>
+                            {cat.name}
+                        </option>
+                    ))}
+                </select>
+                <div className="text-xs text-slate-400 mt-1">{exam.level}</div>
             </td>
             <td className="p-6 text-center">
                 <span className={`text-xs font-bold px-2 py-1 rounded ${exam.difficulty === 'Easy' ? 'text-green-500 bg-green-50' :
@@ -273,6 +283,18 @@ export default function ExamManagerPage() {
         }
     };
 
+    const handleCategoryChange = async (id: string, newCategory: string) => {
+        try {
+            await updateDoc(doc(db, "exams", id), {
+                category: newCategory
+            });
+            setExams(prev => prev.map(exam => exam.id === id ? { ...exam, category: newCategory } : exam));
+        } catch (error) {
+            console.error("Error updating exam category:", error);
+            alert("เกิดข้อผิดพลาดในการอัปเดตหมวดหมู่");
+        }
+    };
+
     const handleQuickAdd = () => {
         setNewExamTitle("");
         setIsAddModalOpen(true);
@@ -420,7 +442,7 @@ export default function ExamManagerPage() {
                                 <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
                                     <tbody className="divide-y divide-slate-50">
                                         {exams.map((exam) => (
-                                            <SortableExamRow key={exam.id} exam={exam} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} />
+                                            <SortableExamRow key={exam.id} exam={exam} categories={categories} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} />
                                         ))}
                                     </tbody>
                                 </SortableContext>
