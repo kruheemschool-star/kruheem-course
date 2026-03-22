@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Target, Award } from "lucide-react";
@@ -19,6 +19,17 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 // 1. Fetch Data on Server (Metadata only - fast load)
+async function getEnrollmentCount() {
+    try {
+        const q = query(collection(db, "enrollments"), where("status", "==", "approved"));
+        const snapshot = await getDocs(q);
+        return snapshot.size;
+    } catch (error) {
+        console.error("Error fetching enrollment count:", error);
+        return 0;
+    }
+}
+
 async function getExams() {
     try {
         const q = query(collection(db, "exams"));
@@ -86,7 +97,7 @@ async function getExams() {
 
 export default async function ExamHubPage() {
     // 2. Await Data
-    const exams = await getExams();
+    const [exams, enrollmentCount] = await Promise.all([getExams(), getEnrollmentCount()]);
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
@@ -94,7 +105,7 @@ export default async function ExamHubPage() {
 
             {/* 3. Pass Data to Client Component for Interactivity */}
             <div className="pt-24">
-                <ExamListClient initialExams={exams} />
+                <ExamListClient initialExams={exams} enrollmentCount={enrollmentCount} />
             </div>
 
             {/* Netflix-style Hero Banner (Moved to Bottom) */}

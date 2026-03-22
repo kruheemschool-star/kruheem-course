@@ -3,11 +3,14 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb, Loader2, SlidersHorizontal, X, ArrowUpDown, ChevronDown, Tag, Zap, BookOpen, BarChart3, Heart } from "lucide-react";
+import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb, Loader2, SlidersHorizontal, X, ArrowUpDown, ChevronDown, Tag, Zap, BookOpen, BarChart3, Heart, Users, Flame, LibraryBig, ClipboardList } from "lucide-react";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { useBookmarks } from "@/hooks/useBookmarks";
 
 interface ExamListClientProps {
     initialExams: any[];
+    enrollmentCount?: number;
 }
 
 interface SearchMatch {
@@ -20,7 +23,7 @@ interface SearchMatch {
     questionMatches: { index: number; preview: string }[];
 }
 
-export default function ExamListClient({ initialExams }: ExamListClientProps) {
+export default function ExamListClient({ initialExams, enrollmentCount = 0 }: ExamListClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
 
@@ -35,6 +38,25 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
     const [sortBy, setSortBy] = useState<string>("default");
     const [showFreeOnly, setShowFreeOnly] = useState(false);
+
+    // Stats
+    const [activeUsers, setActiveUsers] = useState(0);
+    const totalExamSets = initialExams.length;
+    const totalQuestions = useMemo(() => initialExams.reduce((sum: number, e: any) => sum + (e.questionCount || 0), 0), [initialExams]);
+
+    // Fetch active users count (client-side, real-time feel)
+    useEffect(() => {
+        const fetchActiveUsers = async () => {
+            try {
+                const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+                const snap = await getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo)));
+                setActiveUsers(snap.size);
+            } catch { setActiveUsers(0); }
+        };
+        fetchActiveUsers();
+        const interval = setInterval(fetchActiveUsers, 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     // Lazy load search state
     const [searchData, setSearchData] = useState<any[] | null>(null);
@@ -356,6 +378,42 @@ export default function ExamListClient({ initialExams }: ExamListClientProps) {
                             ดูสถิติของฉัน
                         </Link>
                     )}
+
+                    {/* Stats Banner */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 max-w-3xl mx-auto">
+                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/60 dark:border-amber-700/40 rounded-2xl px-4 py-3 text-center group hover:scale-105 transition-transform duration-200">
+                            <div className="flex items-center justify-center gap-1.5 mb-1">
+                                <LibraryBig size={16} className="text-amber-500" />
+                                <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{totalExamSets}</span>
+                            </div>
+                            <p className="text-[11px] font-bold text-amber-700/70 dark:text-amber-400/70 uppercase tracking-wider">ชุดข้อสอบ</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200/60 dark:border-blue-700/40 rounded-2xl px-4 py-3 text-center group hover:scale-105 transition-transform duration-200">
+                            <div className="flex items-center justify-center gap-1.5 mb-1">
+                                <ClipboardList size={16} className="text-blue-500" />
+                                <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{totalQuestions.toLocaleString()}+</span>
+                            </div>
+                            <p className="text-[11px] font-bold text-blue-700/70 dark:text-blue-400/70 uppercase tracking-wider">ข้อสอบรวม</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 border border-violet-200/60 dark:border-violet-700/40 rounded-2xl px-4 py-3 text-center group hover:scale-105 transition-transform duration-200">
+                            <div className="flex items-center justify-center gap-1.5 mb-1">
+                                <Users size={16} className="text-violet-500" />
+                                <span className="text-2xl font-black text-violet-600 dark:text-violet-400">{enrollmentCount > 0 ? `${enrollmentCount.toLocaleString()}+` : '—'}</span>
+                            </div>
+                            <p className="text-[11px] font-bold text-violet-700/70 dark:text-violet-400/70 uppercase tracking-wider">นักเรียนลงทะเบียน</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/60 dark:border-emerald-700/40 rounded-2xl px-4 py-3 text-center group hover:scale-105 transition-transform duration-200">
+                            <div className="flex items-center justify-center gap-1.5 mb-1">
+                                <Flame size={16} className="text-emerald-500" />
+                                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{activeUsers}</span>
+                                <span className="relative flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                                </span>
+                            </div>
+                            <p className="text-[11px] font-bold text-emerald-700/70 dark:text-emerald-400/70 uppercase tracking-wider">กำลังทำอยู่ตอนนี้</p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Grand Search Bar */}
