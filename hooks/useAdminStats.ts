@@ -136,19 +136,28 @@ export const useAdminStats = (selectedYear: number) => {
                     .catch(async (e) => {
                         console.warn("Online enrollments index missing, using fallback filtering in memory.");
                         const allDocs = await getDocs(collection(db, "enrollments"));
-                        return { docs: allDocs.docs.filter(d => d.data().lastAccessedAt?.toDate() > tenMinutesAgo) };
+                        return { docs: allDocs.docs.filter(d => {
+                            const date = d.data().lastAccessedAt?.toDate?.();
+                            return date ? date > tenMinutesAgo : false;
+                        }) };
                     }),
                 getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo)))
                     .catch(async (e) => {
                         console.warn("Online users index missing, using fallback filtering in memory.");
                         const allDocs = await getDocs(collection(db, "users"));
-                        return { docs: allDocs.docs.filter(d => d.data().lastActive?.toDate() > tenMinutesAgo) };
+                        return { docs: allDocs.docs.filter(d => {
+                            const date = d.data().lastActive?.toDate?.();
+                            return date ? date > tenMinutesAgo : false;
+                        }) };
                     }),
                 getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", ">", tenMinutesAgo)))
                     .catch(async (e) => {
                         console.warn("Anon visitors index missing, using fallback filtering in memory.");
                         const allDocs = await getDocs(collection(db, "anonymous_visitors"));
-                        return { docs: allDocs.docs.filter(d => d.data().lastActive?.toDate() > tenMinutesAgo) };
+                        return { docs: allDocs.docs.filter(d => {
+                            const date = d.data().lastActive?.toDate?.();
+                            return date ? date > tenMinutesAgo : false;
+                        }) };
                     }),
             ]);
 

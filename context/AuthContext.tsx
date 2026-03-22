@@ -152,6 +152,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         if (!user) return;
 
         let isActivityChecked = false; // Local flag to ensure we only check once per connection
+        let heartbeatInterval: NodeJS.Timeout;
 
         // Real-time listener for user profile
         const unsubscribeProfile = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
@@ -189,7 +190,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
 
                     const diff = now.getTime() - lastActiveTime;
                     const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-                    const HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes (Throttle writes)
+                    const HEARTBEAT_CHECK_THRESHOLD = 5 * 60 * 1000; // 5 minutes
 
                     const updateData: any = {};
                     let shouldUpdate = false;
@@ -203,7 +204,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
                         updateData.sessionStart = serverTimestamp();
                         updateData.lastActive = serverTimestamp();
                         shouldUpdate = true;
-                    } else if (diff > HEARTBEAT_INTERVAL) {
+                    } else if (diff > HEARTBEAT_CHECK_THRESHOLD) {
                         // Within session, just heartbeat
                         updateData.lastActive = serverTimestamp();
                         shouldUpdate = true;
@@ -213,6 +214,14 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
                         setDoc(doc(db, "users", user.uid), updateData, { merge: true })
                             .catch(err => console.error("Update activity failed", err));
                     }
+
+                    // Start Continuous Heartbeat
+                    // This sets lastActive periodically while user has the app open
+                    heartbeatInterval = setInterval(() => {
+                        setDoc(doc(db, "users", user.uid), {
+                            lastActive: serverTimestamp()
+                        }, { merge: true }).catch(err => console.error("Interval heartbeat failed", err));
+                    }, 3 * 60 * 1000); // 3 minutes heartbeat
                 }
             } else {
                 setUserProfile(null);
@@ -220,7 +229,10 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
         });
 
-        return () => unsubscribeProfile();
+        return () => {
+            unsubscribeProfile();
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+        };
     }, [user?.uid]);
 
     // 3. Admin Pending Count (polling every 5 min instead of real-time listener)
