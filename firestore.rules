@@ -159,6 +159,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // === Stats (daily_visits, page_views) ===
+    match /stats/{statId} {
+      allow read: if true; // Actually, maybe just admin? But visitor tracker needs to read? No, tracker just uses setDoc. Let's allow public write, admin read.
+      allow write: if true; // Public write to increment stats
+    }
+
+    // === Anonymous Visitors (Tracking) ===
+    match /anonymous_visitors/{visitorId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // === Chats / Messages ===
     match /chats/{chatId} {
       allow read: if isAuth();

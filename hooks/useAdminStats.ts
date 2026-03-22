@@ -56,11 +56,16 @@ export const useAdminStats = (selectedYear: number) => {
         try {
             // Run ALL independent queries in parallel
             const [snapApproved, snapPending, snapTickets, statsDoc, pageDoc] = await Promise.all([
-                getDocs(query(collection(db, "enrollments"), where("status", "==", "approved"))),
-                getDocs(query(collection(db, "enrollments"), where("status", "==", "pending"))),
-                getDocs(query(collection(db, "support_tickets"), where("status", "==", "pending"))),
-                getDoc(doc(db, "stats", "daily_visits")),
-                getDoc(doc(db, "stats", "page_views")),
+                getDocs(query(collection(db, "enrollments"), where("status", "==", "approved")))
+                    .catch(err => { console.error("Enrollments fetch err:", err); return { docs: [], size: 0 }; }),
+                getDocs(query(collection(db, "enrollments"), where("status", "==", "pending")))
+                    .catch(err => { console.error("Pending enrollments err:", err); return { size: 0 }; }),
+                getDocs(query(collection(db, "support_tickets"), where("status", "==", "pending")))
+                    .catch(err => { console.error("Tickets fetch err:", err); return { size: 0 }; }),
+                getDoc(doc(db, "stats", "daily_visits"))
+                    .catch(err => { console.error("Stats daily fetch err:", err); return { exists: () => false, data: () => ({}) }; }),
+                getDoc(doc(db, "stats", "page_views"))
+                    .catch(err => { console.error("PageViews fetch err:", err); return { exists: () => false, data: () => ({}) }; }),
             ]);
 
             // Process results
@@ -121,14 +126,18 @@ export const useAdminStats = (selectedYear: number) => {
     };
 
     const fetchOnlineUsers = async (approvedData: Enrollment[]) => {
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+        try {
+            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
-        // Fetch registered online users AND anonymous visitors in parallel
-        const [snapOnlineEnrollments, snapOnlineUsers, snapAnonymous] = await Promise.all([
-            getDocs(query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo))),
-            getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo))),
-            getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", ">", tenMinutesAgo))),
-        ]);
+            // Fetch registered online users AND anonymous visitors in parallel, but handle rejections individually
+            const [snapOnlineEnrollments, snapOnlineUsers, snapAnonymous] = await Promise.all([
+                getDocs(query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo)))
+                    .catch(e => { console.error("Online enrollments fetch err:", e); return { docs: [] }; }),
+                getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo)))
+                    .catch(e => { console.error("Online users fetch err:", e); return { docs: [] }; }),
+                getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", ">", tenMinutesAgo)))
+                    .catch(e => { console.error("Anon visitors fetch err:", e); return { docs: [] }; }),
+            ]);
 
         const onlineMap = new Map();
 
@@ -173,7 +182,7 @@ export const useAdminStats = (selectedYear: number) => {
         });
 
         // Add anonymous visitors as "เยี่ยมชม 1", "เยี่ยมชม 2", etc.
-        const anonymousUsers: OnlineUser[] = snapAnonymous.docs.map((doc, idx) => {
+        const anonymousUsers: OnlineUser[] = snapAnonymous.docs.map((doc: any, idx: number) => {
             const data = doc.data();
             return {
                 userEmail: `anonymous_${doc.id}`,
@@ -198,6 +207,9 @@ export const useAdminStats = (selectedYear: number) => {
                 staleSnap.docs.forEach(d => deleteDoc(d.ref).catch(() => {}));
             })
             .catch(() => {});
+        } catch (err) {
+            console.error("Error computing online users:", err);
+        }
     };
 
     // Calculate Financial Stats
