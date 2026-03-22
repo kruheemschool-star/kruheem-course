@@ -54,7 +54,6 @@ function isAdminSession(): boolean {
 }
 
 export default function VisitorTracker() {
-    const hasRun = useRef(false);
     const pathname = usePathname();
     const lastPathRef = useRef<string | null>(null);
 
@@ -70,8 +69,8 @@ export default function VisitorTracker() {
 
     // === 1. Daily Visit Counter (Runs Once Per Day) ===
     useEffect(() => {
-        if (hasRun.current) return;
-        hasRun.current = true;
+        // Wait for auth to fully load before recording
+        if (loading) return;
 
         const recordDailyVisit = async () => {
             // ❌ Skip tracking for Admin users
@@ -114,10 +113,8 @@ export default function VisitorTracker() {
             }
         };
 
-        // Wait a bit for auth to settle before checking admin status
-        const timeoutId = setTimeout(recordDailyVisit, 500);
-        return () => clearTimeout(timeoutId);
-    }, [isAdmin]);
+        recordDailyVisit();
+    }, [loading, isAdmin]);
 
     // === 1b. Anonymous Visitor Presence (Heartbeat for non-logged-in users) ===
     const heartbeatRef = useRef<NodeJS.Timeout | null>(null);

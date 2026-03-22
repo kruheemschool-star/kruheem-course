@@ -72,7 +72,16 @@ export const useAdminStats = (selectedYear: number) => {
             // Stats (Visits, Devices, Sources)
             if (statsDoc.exists()) {
                 const data = statsDoc.data();
-                setDailyVisits(data as Record<string, number>);
+
+                // Filter: only keep date keys (YYYY-MM-DD format)
+                const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+                const filteredVisits: Record<string, number> = {};
+                Object.keys(data).forEach(key => {
+                    if (datePattern.test(key) && typeof data[key] === 'number') {
+                        filteredVisits[key] = data[key];
+                    }
+                });
+                setDailyVisits(filteredVisits);
                 setTotalVisits(data.total_visits || 0);
 
                 setDeviceStats({
@@ -93,9 +102,8 @@ export const useAdminStats = (selectedYear: number) => {
                 const pageData = pageDoc.data();
                 const pages: Record<string, number> = {};
                 Object.keys(pageData).forEach(key => {
-                    if (!key.includes('_') && key !== 'total_page_views' && key !== 'last_updated' && typeof pageData[key] === 'number') {
-                        pages[key] = pageData[key];
-                    } else if (key.startsWith('/')) {
+                    // Only include actual page paths (start with /)
+                    if (key.startsWith('/') && typeof pageData[key] === 'number') {
                         pages[key] = pageData[key];
                     }
                 });
