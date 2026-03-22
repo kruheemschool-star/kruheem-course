@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Target, Award } from "lucide-react";
 import ExamListClient from "@/components/exam/ExamListClient";
+import { adminDb } from "@/lib/firebase-admin";
 
 // SEO Metadata
 export const metadata: Metadata = {
@@ -21,9 +22,13 @@ export const dynamic = 'force-dynamic';
 // 1. Fetch Data on Server (Metadata only - fast load)
 async function getEnrollmentCount() {
     try {
-        const q = query(collection(db, "enrollments"), where("status", "==", "approved"));
-        const snapshot = await getDocs(q);
-        return snapshot.size;
+        const snapshot = await adminDb.collection("enrollments").where("status", "==", "approved").get();
+        const uniqueEmails = new Set<string>();
+        snapshot.docs.forEach((doc: any) => {
+            const email = doc.data().userEmail;
+            if (email) uniqueEmails.add(email);
+        });
+        return uniqueEmails.size > 0 ? uniqueEmails.size : snapshot.size;
     } catch (error) {
         console.error("Error fetching enrollment count:", error);
         return 0;

@@ -36,28 +36,15 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
     const totalExamSets = initialExams.length;
     const totalQuestions = useMemo(() => initialExams.reduce((sum: number, e: any) => sum + (e.questionCount || 0), 0), [initialExams]);
 
-    // Fetch active users count AND enrollment count (client-side, real-time feel)
+    // Fetch active users count (client-side, real-time feel)
     useEffect(() => {
         const fetchStats = async () => {
             try {
                 const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-                const [usersSnap, enrollSnap] = await Promise.all([
-                    getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo)))
-                        .catch(() => ({ size: 0 })),
-                    getDocs(query(collection(db, "enrollments"), where("status", "==", "approved")))
-                        .catch(() => ({ docs: [] as any[], size: 0 })),
-                ]);
+                const usersSnap = await getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo)))
+                    .catch(() => ({ size: 0 }));
+                
                 setActiveUsers(usersSnap.size);
-
-                // Count unique students (by userEmail)
-                const uniqueEmails = new Set<string>();
-                if ('docs' in enrollSnap) {
-                    enrollSnap.docs.forEach((d: any) => {
-                        const email = d.data().userEmail;
-                        if (email) uniqueEmails.add(email);
-                    });
-                }
-                setEnrollmentCount(uniqueEmails.size > 0 ? uniqueEmails.size : enrollSnap.size);
             } catch {
                 setActiveUsers(0);
             }
