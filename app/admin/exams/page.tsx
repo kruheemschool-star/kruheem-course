@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus, Copy, Download } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // Drag and Drop imports
@@ -12,9 +12,14 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import React from "react";
+import type { Exam, ExamCategory, ExamConfig } from "@/types/exam";
 
 // Sortable Table Row Component
-function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking, onCategoryChange }: { exam: any; categories: any[]; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void; onCategoryChange: (id: string, newCategory: string) => void }) {
+const LEVELS = ["ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6", "มหาวิทยาลัย"];
+const DIFFICULTIES = ["Easy", "Medium", "Hard"];
+const DIFFICULTY_LABELS: Record<string, string> = { Easy: "ง่าย", Medium: "ปานกลาง", Hard: "ยาก" };
+
+function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking, onCategoryChange, onLevelChange, onDifficultyChange, onDuplicate }: { exam: Exam; categories: ExamCategory[]; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void; onCategoryChange: (id: string, newCategory: string) => void; onLevelChange: (id: string, newLevel: string) => void; onDifficultyChange: (id: string, newDifficulty: string) => void; onDuplicate: (id: string) => void }) {
     const {
         attributes,
         listeners,
@@ -67,15 +72,31 @@ function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHid
                         </option>
                     ))}
                 </select>
-                <div className="text-xs text-slate-400 mt-1">{exam.level}</div>
+                <select
+                    value={exam.level || ""}
+                    onChange={(e) => onLevelChange(exam.id, e.target.value)}
+                    className="mt-1 px-2 py-1 bg-slate-50 text-slate-600 rounded-lg text-xs font-bold border border-slate-200 hover:bg-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all cursor-pointer"
+                >
+                    <option value="" disabled>ระดับชั้น</option>
+                    {LEVELS.map((lv) => (
+                        <option key={lv} value={lv}>{lv}</option>
+                    ))}
+                </select>
             </td>
             <td className="p-6 text-center">
-                <span className={`text-xs font-bold px-2 py-1 rounded ${exam.difficulty === 'Easy' ? 'text-green-500 bg-green-50' :
-                    exam.difficulty === 'Hard' ? 'text-red-500 bg-red-50' :
-                        'text-amber-500 bg-amber-50'
-                    }`}>
-                    {exam.difficulty}
-                </span>
+                <select
+                    value={exam.difficulty || "Medium"}
+                    onChange={(e) => onDifficultyChange(exam.id, e.target.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border outline-none transition-all cursor-pointer ${
+                        exam.difficulty === 'Easy' ? 'text-green-600 bg-green-50 border-green-200 hover:bg-green-100' :
+                        exam.difficulty === 'Hard' ? 'text-red-600 bg-red-50 border-red-200 hover:bg-red-100' :
+                        'text-amber-600 bg-amber-50 border-amber-200 hover:bg-amber-100'
+                    }`}
+                >
+                    {DIFFICULTIES.map((d) => (
+                        <option key={d} value={d}>{DIFFICULTY_LABELS[d]}</option>
+                    ))}
+                </select>
             </td>
             <td className="p-6 text-center font-mono text-slate-500">
                 {exam.questions?.length || 0}
@@ -118,6 +139,13 @@ function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHid
                     >
                         {exam.hidden ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
+                    <button
+                        onClick={() => onDuplicate(exam.id)}
+                        className="p-2 text-amber-500 hover:bg-amber-50 rounded-lg tooltip"
+                        title="คัดลอกชุดข้อสอบ"
+                    >
+                        <Copy size={18} />
+                    </button>
                     <Link
                         href={`/admin/exams/${exam.id}`}
                         className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg tooltip"
@@ -140,13 +168,16 @@ function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHid
 
 export default function ExamManagerPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
-    const [exams, setExams] = useState<any[]>([]);
+    const [exams, setExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSavingOrder, setIsSavingOrder] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newExamTitle, setNewExamTitle] = useState("");
-    const [examConfig, setExamConfig] = useState<{ showExamDashboard: boolean; enableResultTracking: boolean }>({ showExamDashboard: false, enableResultTracking: false });
-    const [categories, setCategories] = useState<any[]>([]);
+    const [newExamCategory, setNewExamCategory] = useState("");
+    const [newExamLevel, setNewExamLevel] = useState("");
+    const [newExamDifficulty, setNewExamDifficulty] = useState("Medium");
+    const [examConfig, setExamConfig] = useState<ExamConfig>({ showExamDashboard: false, enableResultTracking: false });
+    const [categories, setCategories] = useState<ExamCategory[]>([]);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -158,7 +189,7 @@ export default function ExamManagerPage() {
     const fetchExamConfig = async () => {
         try {
             const snap = await getDoc(doc(db, 'settings', 'examConfig'));
-            if (snap.exists()) setExamConfig(snap.data() as any);
+            if (snap.exists()) setExamConfig(snap.data() as ExamConfig);
         } catch (e) { console.error('Error fetching exam config:', e); }
     };
 
@@ -175,10 +206,10 @@ export default function ExamManagerPage() {
         try {
             const q = query(collection(db, "exams"));
             const snapshot = await getDocs(q);
-            const fetchedExams = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const fetchedExams = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Exam));
 
             // Sort by order field, fallback to createdAt desc
-            fetchedExams.sort((a: any, b: any) => {
+            fetchedExams.sort((a, b) => {
                 const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
                 const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
                 if (orderA !== orderB) return orderA - orderB;
@@ -200,8 +231,8 @@ export default function ExamManagerPage() {
     const fetchCategories = async () => {
         try {
             const snap = await getDocs(collection(db, "examCategories"));
-            const cats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            cats.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+            const cats = snap.docs.map(d => ({ id: d.id, ...d.data() } as ExamCategory));
+            cats.sort((a, b) => (a.order || 0) - (b.order || 0));
             setCategories(cats);
         } catch (e) { console.error('Error fetching categories:', e); }
     };
@@ -285,9 +316,7 @@ export default function ExamManagerPage() {
 
     const handleCategoryChange = async (id: string, newCategory: string) => {
         try {
-            await updateDoc(doc(db, "exams", id), {
-                category: newCategory
-            });
+            await updateDoc(doc(db, "exams", id), { category: newCategory });
             setExams(prev => prev.map(exam => exam.id === id ? { ...exam, category: newCategory } : exam));
         } catch (error) {
             console.error("Error updating exam category:", error);
@@ -295,8 +324,63 @@ export default function ExamManagerPage() {
         }
     };
 
+    const handleLevelChange = async (id: string, newLevel: string) => {
+        try {
+            await updateDoc(doc(db, "exams", id), { level: newLevel });
+            setExams(prev => prev.map(exam => exam.id === id ? { ...exam, level: newLevel } : exam));
+        } catch (error) {
+            console.error("Error updating exam level:", error);
+            alert("เกิดข้อผิดพลาดในการอัปเดตระดับชั้น");
+        }
+    };
+
+    const handleDifficultyChange = async (id: string, newDifficulty: string) => {
+        try {
+            await updateDoc(doc(db, "exams", id), { difficulty: newDifficulty });
+            setExams(prev => prev.map(exam => exam.id === id ? { ...exam, difficulty: newDifficulty } : exam));
+        } catch (error) {
+            console.error("Error updating exam difficulty:", error);
+            alert("เกิดข้อผิดพลาดในการอัปเดตระดับความยาก");
+        }
+    };
+
+    const handleDuplicate = async (id: string) => {
+        const original = exams.find(e => e.id === id);
+        if (!original) return;
+        confirmModal("ยืนยันการคัดลอก", `คัดลอกชุดข้อสอบ "${original.title}"?`, async () => {
+            try {
+                const { id: _id, ...data } = original;
+                await addDoc(collection(db, "exams"), {
+                    ...data,
+                    title: `${data.title} (สำเนา)`,
+                    createdAt: serverTimestamp(),
+                    order: exams.length,
+                });
+                fetchExams();
+                alert("คัดลอกสำเร็จ!");
+            } catch (error) {
+                console.error("Error duplicating exam:", error);
+                alert("เกิดข้อผิดพลาดในการคัดลอก");
+            }
+        });
+    };
+
+    const handleExportAll = () => {
+        const exportData = exams.map(({ id, ...rest }) => rest);
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `exams-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     const handleQuickAdd = () => {
         setNewExamTitle("");
+        setNewExamCategory(categories.length > 0 ? categories[0].name : "");
+        setNewExamLevel("");
+        setNewExamDifficulty("Medium");
         setIsAddModalOpen(true);
     };
 
@@ -306,15 +390,15 @@ export default function ExamManagerPage() {
         try {
             await addDoc(collection(db, "exams"), {
                 title: newExamTitle.trim(),
-                description: "รายละเอียดเบื้องต้น...",
-                category: "ม.ต้น",
-                level: "ม.1",
+                description: "",
+                category: newExamCategory,
+                level: newExamLevel,
                 questionCount: 0,
                 timeLimit: 30,
-                difficulty: "Medium",
+                difficulty: newExamDifficulty,
                 isFree: true,
                 createdAt: serverTimestamp(),
-                order: exams.length, // Add to end
+                order: exams.length,
                 questions: []
             });
             setIsAddModalOpen(false);
@@ -375,6 +459,10 @@ export default function ExamManagerPage() {
                         <button onClick={() => setIsCategoryModalOpen(true)} className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-bold flex items-center gap-2 shadow-lg shadow-amber-200">
                             <FolderPlus size={20} />
                             จัดการหมวดหมู่
+                        </button>
+                        <button onClick={handleExportAll} className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 font-bold flex items-center gap-2 shadow-lg shadow-slate-200">
+                            <Download size={20} />
+                            Export
                         </button>
                         <button onClick={handleQuickAdd} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold flex items-center gap-2 shadow-lg shadow-indigo-200">
                             <Plus size={20} />
@@ -442,7 +530,7 @@ export default function ExamManagerPage() {
                                 <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
                                     <tbody className="divide-y divide-slate-50">
                                         {exams.map((exam) => (
-                                            <SortableExamRow key={exam.id} exam={exam} categories={categories} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} />
+                                            <SortableExamRow key={exam.id} exam={exam} categories={categories} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} onLevelChange={handleLevelChange} onDifficultyChange={handleDifficultyChange} onDuplicate={handleDuplicate} />
                                         ))}
                                     </tbody>
                                 </SortableContext>
@@ -457,17 +545,59 @@ export default function ExamManagerPage() {
             {isAddModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                     <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <h2 className="text-2xl font-black text-slate-800 mb-4">สร้างชุดข้อสอบใหม่</h2>
-                        <div className="mb-6">
-                            <label className="block text-sm font-bold text-slate-600 mb-2">ชื่อชุดข้อสอบ</label>
-                            <input
-                                type="text"
-                                value={newExamTitle}
-                                onChange={(e) => setNewExamTitle(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                                placeholder="เช่น สอบเข้า ม.1 ชุดที่ 5"
-                                autoFocus
-                            />
+                        <h2 className="text-2xl font-black text-slate-800 mb-6">สร้างชุดข้อสอบใหม่</h2>
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-600 mb-2">ชื่อชุดข้อสอบ</label>
+                                <input
+                                    type="text"
+                                    value={newExamTitle}
+                                    onChange={(e) => setNewExamTitle(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                    placeholder="เช่น สอบเข้า ม.1 ชุดที่ 5"
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">หมวดหมู่</label>
+                                    <select
+                                        value={newExamCategory}
+                                        onChange={(e) => setNewExamCategory(e.target.value)}
+                                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm font-bold text-slate-700 bg-white"
+                                    >
+                                        <option value="">เลือก</option>
+                                        {categories.map((cat) => (
+                                            <option key={cat.id} value={cat.name}>{cat.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">ระดับชั้น</label>
+                                    <select
+                                        value={newExamLevel}
+                                        onChange={(e) => setNewExamLevel(e.target.value)}
+                                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm font-bold text-slate-700 bg-white"
+                                    >
+                                        <option value="">เลือก</option>
+                                        {LEVELS.map((lv) => (
+                                            <option key={lv} value={lv}>{lv}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1.5">ความยาก</label>
+                                    <select
+                                        value={newExamDifficulty}
+                                        onChange={(e) => setNewExamDifficulty(e.target.value)}
+                                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all text-sm font-bold text-slate-700 bg-white"
+                                    >
+                                        {DIFFICULTIES.map((d) => (
+                                            <option key={d} value={d}>{DIFFICULTY_LABELS[d]}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         <div className="flex justify-end gap-3">
                             <button

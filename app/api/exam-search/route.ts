@@ -46,7 +46,6 @@ export async function GET(request: NextRequest) {
                     index: idx + 1,
                     question: q.question || "",
                     options: q.options || [],
-                    explanation: q.explanation || "",
                     tags: q.tags || [],
                 })),
             };

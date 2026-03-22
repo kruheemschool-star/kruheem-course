@@ -16,3 +16,50 @@ export interface ExamState {
     isSubmitted: boolean; // ส่งคำตอบทั้งหมดหรือยัง
     score: number;
 }
+
+export interface Exam {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    level: string;
+    difficulty: string;
+    questions: ExamQuestion[] | string; // array or JSON string
+    questionCount?: number;
+    timeLimit?: number;
+    isFree?: boolean;
+    hidden?: boolean;
+    showAnswerChecking?: boolean;
+    themeColor?: string;
+    coverImage?: string;
+    tags?: string[];
+    order?: number;
+    createdAt?: any; // Firestore Timestamp
+}
+
+export interface ExamCategory {
+    id: string;
+    name: string;
+    order?: number;
+    createdAt?: any;
+}
+
+export interface ExamConfig {
+    showExamDashboard: boolean;
+    enableResultTracking: boolean;
+}
+
+export interface ExamListItem {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    level: string;
+    difficulty: string;
+    questionCount: number;
+    isFree?: boolean;
+    hidden?: boolean;
+    themeColor?: string;
+    coverImage?: string;
+    tags?: string[];
+}

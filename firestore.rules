@@ -61,11 +61,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // === Coupons ===
+    // === Coupons (admin full access, users create own review rewards, update for payment) ===
     match /coupons/{couponId} {
       allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
+      allow create: if isAdmin() || (isAuth() && request.resource.data.userId == request.auth.uid);
+      allow update: if isAdmin() || isAuth();
       allow delete: if isAdmin();
     }
 
@@ -111,11 +111,23 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // === Polls (public read, admin manage) ===
+    // === Exam Categories (public read, admin write) ===
+    match /examCategories/{catId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === Settings (public read for config, admin write) ===
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === Polls (public read, authenticated voting, admin manage) ===
     match /polls/{pollId} {
       allow read: if true;
       allow create: if isAdmin();
-      allow update: if true; // Allow voting
+      allow update: if isAuth();
       allow delete: if isAdmin();
     }
 
@@ -139,11 +151,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // === Visitors (analytics - public write for tracking) ===
+    // === Visitors (analytics - public write for tracking, size-limited) ===
     match /visitors/{visitorId} {
       allow read: if isAdmin();
       allow create: if true;
       allow update: if true;
+      allow delete: if false;
     }
 
     // === Chats / Messages ===
