@@ -216,9 +216,6 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
 
     // ========== UX Enhancements ==========
 
-    // Popular tags for quick search
-    const popularTags = ["เศษส่วน", "ทศนิยม", "สมการ", "พื้นที่", "ปริมาตร", "ร้อยละ", "เปรียบเทียบ", "บวก ลบ คูณ หาร"];
-
     // Suggested keywords when no results
     const suggestedKeywords = ["จำนวนเต็ม", "อัตราส่วน", "เลขยกกำลัง", "รูปเรขาคณิต", "สถิติ", "ความน่าจะเป็น"];
 
@@ -283,21 +280,25 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
 
                     {/* Stats Banner */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 max-w-4xl mx-auto">
-                        <div className="bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center">
-                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100">{totalExamSets}</span>
+                        {/* Card 1: ชุดข้อสอบพร้อมฝึก - Indigo glow */}
+                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-500/10 hover:border-indigo-200 dark:hover:border-indigo-800/50 cursor-default">
+                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{totalExamSets}</span>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">ชุดข้อสอบพร้อมฝึก</p>
                         </div>
-                        <div className="bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center">
-                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100">{totalQuestions.toLocaleString()}<span className="text-amber-500">+</span></span>
+                        {/* Card 2: โจทย์ให้ตะลุย - Amber glow */}
+                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-200 dark:hover:border-amber-800/50 cursor-default">
+                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-amber-600 dark:group-hover:text-amber-400">{totalQuestions.toLocaleString()}<span className="text-amber-500">+</span></span>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">โจทย์ให้ตะลุย</p>
                         </div>
-                        <div className="bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center">
-                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100">{enrollmentCount > 0 ? enrollmentCount.toLocaleString() : '—'}<span className="text-amber-500">+</span></span>
+                        {/* Card 3: คนที่เรียนคอร์สนี้แล้ว - Emerald glow */}
+                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-200 dark:hover:border-emerald-800/50 cursor-default">
+                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400">{enrollmentCount > 0 ? enrollmentCount.toLocaleString() : '—'}<span className="text-amber-500">+</span></span>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">คนที่เรียนคอร์สนี้แล้ว</p>
                         </div>
-                        <div className="bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center">
+                        {/* Card 4: กำลังลุยข้อสอบอยู่ตอนนี้ - Rose glow */}
+                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:shadow-rose-500/10 hover:border-rose-200 dark:hover:border-rose-800/50 cursor-default">
                             <div className="flex items-center justify-center gap-2">
-                                <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100">{activeUsers}</span>
+                                <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-rose-600 dark:group-hover:text-rose-400">{activeUsers}</span>
                                 {activeUsers > 0 && (
                                     <span className="relative flex h-2.5 w-2.5">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -337,25 +338,6 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
                                 /
                             </div>
                         )}
-                    </div>
-                </div>
-
-                {/* Popular Tags */}
-                <div className="max-w-2xl mx-auto mb-8">
-                    <div className="flex items-center justify-center gap-2 flex-wrap">
-                        <span className="text-slate-400 dark:text-slate-500 text-sm flex items-center gap-1">
-                            <Sparkles size={14} />
-                            ค้นหายอดนิยม:
-                        </span>
-                        {popularTags.map(tag => (
-                            <button
-                                key={tag}
-                                onClick={() => setSearchQuery(tag)}
-                                className="px-3 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors border border-amber-100 dark:border-amber-800"
-                            >
-                                {tag}
-                            </button>
-                        ))}
                     </div>
                 </div>
 
