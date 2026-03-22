@@ -23,12 +23,9 @@ interface SearchMatch {
     questionMatches: { index: number; preview: string }[];
 }
 
-const ITEMS_PER_PAGE = 12;
-
 export default function ExamListClient({ initialExams, enrollmentCount = 0 }: ExamListClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
-    const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 
     // Bookmarks
     const { bookmarkedIds, isBookmarked, toggleBookmark, isLoggedIn } = useBookmarks();
@@ -150,11 +147,13 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
             if (exam.questions && Array.isArray(exam.questions)) {
                 exam.questions.forEach((q: any) => {
                     const questionText = String(q.question || "").toLowerCase();
+                    const explanationText = String(q.explanation || "").toLowerCase();
                     const optionsText = (q.options || []).map((o: string) => String(o).toLowerCase()).join(" ");
                     const questionTags = (q.tags || []).map((t: string) => String(t).toLowerCase()).join(" ");
 
                     if (
                         questionText.includes(queryLower) ||
+                        explanationText.includes(queryLower) ||
                         optionsText.includes(queryLower) ||
                         questionTags.includes(queryLower)
                     ) {
@@ -188,14 +187,6 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
         }
         return initialExams.filter(e => e.category === selectedCategory);
     }, [initialExams, selectedCategory]);
-
-    // Reset pagination when category changes
-    useEffect(() => {
-        setVisibleCount(ITEMS_PER_PAGE);
-    }, [selectedCategory]);
-
-    const visibleExams = useMemo(() => filteredExams.slice(0, visibleCount), [filteredExams, visibleCount]);
-    const hasMore = visibleCount < filteredExams.length;
 
     const isSearchMode = searchQuery.trim().length > 0;
     const totalQuestionMatches = searchResults.reduce((sum, r) => sum + r.questionMatches.length, 0);
@@ -551,9 +542,8 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
                 ) : (
                     /* Normal Grid Mode (No Search Query) */
                     filteredExams.length > 0 ? (
-                        <>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                            {visibleExams.map((exam, index) => {
+                            {filteredExams.map((exam, index) => {
                                 const theme = getTheme(exam.themeColor, index);
                                 const dispTitle = (exam.title || "").replace(/<br\s*\/?>/gi, '\n');
 
@@ -665,18 +655,6 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
                                 );
                             })}
                         </div>
-                        {hasMore && (
-                            <div className="flex justify-center mt-10">
-                                <button
-                                    onClick={() => setVisibleCount(prev => prev + ITEMS_PER_PAGE)}
-                                    className="px-8 py-3 bg-slate-900 dark:bg-slate-700 text-white font-bold rounded-full hover:bg-slate-800 dark:hover:bg-slate-600 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2"
-                                >
-                                    <ChevronDown size={18} />
-                                    โหลดเพิ่มเติม ({filteredExams.length - visibleCount} ชุดที่เหลือ)
-                                </button>
-                            </div>
-                        )}
-                        </>
                     ) : (
                         <div className="text-center py-20 bg-white rounded-[3rem] border border-slate-100">
                             <div className="text-4xl mb-4 opacity-50">📚</div>

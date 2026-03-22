@@ -7,7 +7,7 @@ import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
-import { doc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface ExamSystemProps {
@@ -155,7 +155,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 questionTimes: questionTimes.current,
             };
             console.log('[ExamSystem] Result doc:', resultDoc);
-            addDoc(collection(db, 'users', user.uid, 'examResults'), resultDoc)
+            setDoc(doc(db, 'users', user.uid, 'examResults', examId), resultDoc)
                 .then(() => console.log('[ExamSystem] Exam result saved successfully'))
                 .catch(err => console.error('[ExamSystem] Failed to save exam result:', err));
         } else {
