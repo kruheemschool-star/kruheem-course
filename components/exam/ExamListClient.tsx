@@ -63,7 +63,23 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
     const [isLoadingSearch, setIsLoadingSearch] = useState(false);
     const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
 
-    const categories = ["ทั้งหมด", "ประถม", "ม.ต้น", "ม.ปลาย", "สอบเข้า"];
+    const [categories, setCategories] = useState<string[]>(["ทั้งหมด"]);
+
+    // Fetch categories from Firestore
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const snap = await getDocs(collection(db, "examCategories"));
+                const cats = snap.docs.map(d => d.data().name as string);
+                cats.sort();
+                setCategories(["ทั้งหมด", ...cats]);
+            } catch (e) {
+                console.error('Error fetching categories:', e);
+                setCategories(["ทั้งหมด", "ประถม", "ม.ต้น", "ม.ปลาย", "สอบเข้า"]);
+            }
+        };
+        fetchCategories();
+    }, []);
     const difficulties = ["ทั้งหมด", "Easy", "Medium", "Hard"];
     const difficultyLabels: Record<string, string> = { "ทั้งหมด": "ทั้งหมด", "Easy": "ง่าย", "Medium": "ปานกลาง", "Hard": "ยาก" };
     const difficultyColors: Record<string, string> = { "Easy": "text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-900/30 dark:border-emerald-800", "Medium": "text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-900/30 dark:border-amber-800", "Hard": "text-rose-600 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-900/30 dark:border-rose-800" };
@@ -380,38 +396,30 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
                     )}
 
                     {/* Stats Banner */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 max-w-3xl mx-auto">
-                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200/60 dark:border-amber-700/40 rounded-2xl px-4 py-3 text-center group hover:scale-105 transition-transform duration-200">
-                            <div className="flex items-center justify-center gap-1.5 mb-1">
-                                <LibraryBig size={16} className="text-amber-500" />
-                                <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{totalExamSets}</span>
-                            </div>
-                            <p className="text-[11px] font-bold text-amber-700/70 dark:text-amber-400/70 uppercase tracking-wider">ชุดข้อสอบ</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 max-w-4xl mx-auto">
+                        <div className="bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center">
+                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100">{totalExamSets}</span>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">ชุดข้อสอบพร้อมฝึก</p>
                         </div>
-                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200/60 dark:border-blue-700/40 rounded-2xl px-4 py-3 text-center group hover:scale-105 transition-transform duration-200">
-                            <div className="flex items-center justify-center gap-1.5 mb-1">
-                                <ClipboardList size={16} className="text-blue-500" />
-                                <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{totalQuestions.toLocaleString()}+</span>
-                            </div>
-                            <p className="text-[11px] font-bold text-blue-700/70 dark:text-blue-400/70 uppercase tracking-wider">ข้อสอบรวม</p>
+                        <div className="bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center">
+                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100">{totalQuestions.toLocaleString()}<span className="text-amber-500">+</span></span>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">โจทย์ให้ตะลุย</p>
                         </div>
-                        <div className="bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 border border-violet-200/60 dark:border-violet-700/40 rounded-2xl px-4 py-3 text-center group hover:scale-105 transition-transform duration-200">
-                            <div className="flex items-center justify-center gap-1.5 mb-1">
-                                <Users size={16} className="text-violet-500" />
-                                <span className="text-2xl font-black text-violet-600 dark:text-violet-400">{enrollmentCount > 0 ? `${enrollmentCount.toLocaleString()}+` : '—'}</span>
-                            </div>
-                            <p className="text-[11px] font-bold text-violet-700/70 dark:text-violet-400/70 uppercase tracking-wider">นักเรียนลงทะเบียน</p>
+                        <div className="bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center">
+                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100">{enrollmentCount > 0 ? enrollmentCount.toLocaleString() : '—'}<span className="text-amber-500">+</span></span>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">คนที่เรียนคอร์สนี้แล้ว</p>
                         </div>
-                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200/60 dark:border-emerald-700/40 rounded-2xl px-4 py-3 text-center group hover:scale-105 transition-transform duration-200">
-                            <div className="flex items-center justify-center gap-1.5 mb-1">
-                                <Flame size={16} className="text-emerald-500" />
-                                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{activeUsers}</span>
-                                <span className="relative flex h-2.5 w-2.5">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                                </span>
+                        <div className="bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                                <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100">{activeUsers}</span>
+                                {activeUsers > 0 && (
+                                    <span className="relative flex h-2.5 w-2.5">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                                    </span>
+                                )}
                             </div>
-                            <p className="text-[11px] font-bold text-emerald-700/70 dark:text-emerald-400/70 uppercase tracking-wider">กำลังทำอยู่ตอนนี้</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">กำลังลุยข้อสอบอยู่ตอนนี้</p>
                         </div>
                     </div>
                 </div>
@@ -867,6 +875,15 @@ export default function ExamListClient({ initialExams, enrollmentCount = 0 }: Ex
                                                 className="w-10 h-10 object-contain filter drop-shadow-md"
                                             />
                                         </div>
+
+                                        {/* FREEMIUM Badge */}
+                                        {exam.isFree && (
+                                            <div className="absolute top-4 right-16 z-30 animate-pulse">
+                                                <div className="px-3 py-1.5 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-white text-[10px] font-black rounded-full shadow-lg shadow-amber-500/50 tracking-wider">
+                                                    FREEMIUM
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Bookmark Button */}
                                         {isLoggedIn && (

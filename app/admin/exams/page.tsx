@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // Drag and Drop imports
@@ -136,6 +136,9 @@ export default function ExamManagerPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newExamTitle, setNewExamTitle] = useState("");
     const [examConfig, setExamConfig] = useState<{ showExamDashboard: boolean; enableResultTracking: boolean }>({ showExamDashboard: false, enableResultTracking: false });
+    const [categories, setCategories] = useState<any[]>([]);
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState("");
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -184,9 +187,41 @@ export default function ExamManagerPage() {
         }
     };
 
+    const fetchCategories = async () => {
+        try {
+            const snap = await getDocs(collection(db, "examCategories"));
+            const cats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            cats.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+            setCategories(cats);
+        } catch (e) { console.error('Error fetching categories:', e); }
+    };
+
+    const addCategory = async () => {
+        if (!newCategoryName.trim()) return;
+        try {
+            await addDoc(collection(db, "examCategories"), {
+                name: newCategoryName.trim(),
+                order: categories.length,
+                createdAt: serverTimestamp()
+            });
+            setNewCategoryName("");
+            fetchCategories();
+        } catch (e) { console.error('Error adding category:', e); alert('เกิดข้อผิดพลาด'); }
+    };
+
+    const deleteCategory = async (id: string) => {
+        confirmModal("ยืนยันการลบหมวดหมู่", "คุณแน่ใจหรือไม่? ข้อสอบที่ใช้หมวดหมู่นี้จะยังคงอยู่", async () => {
+            try {
+                await deleteDoc(doc(db, "examCategories", id));
+                fetchCategories();
+            } catch (e) { console.error('Error deleting category:', e); alert('เกิดข้อผิดพลาด'); }
+        }, true);
+    };
+
     useEffect(() => {
         fetchExams();
         fetchExamConfig();
+        fetchCategories();
     }, []);
 
     const handleDelete = (id: string) => {
@@ -315,6 +350,10 @@ export default function ExamManagerPage() {
                         <Link href="/admin" className="px-4 py-2 bg-white text-slate-600 rounded-lg hover:bg-slate-100 font-bold border border-slate-200">
                             ย้อนกลับ
                         </Link>
+                        <button onClick={() => setIsCategoryModalOpen(true)} className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-bold flex items-center gap-2 shadow-lg shadow-amber-200">
+                            <FolderPlus size={20} />
+                            จัดการหมวดหมู่
+                        </button>
                         <button onClick={handleQuickAdd} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold flex items-center gap-2 shadow-lg shadow-indigo-200">
                             <Plus size={20} />
                             สร้างข้อสอบใหม่
@@ -421,6 +460,62 @@ export default function ExamManagerPage() {
                                 className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-lg shadow-indigo-200"
                             >
                                 ยืนยันสร้าง
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Category Management Modal */}
+            {isCategoryModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <h2 className="text-2xl font-black text-slate-800 mb-6">จัดการหมวดหมู่ข้อสอบ</h2>
+                        
+                        {/* Add New Category */}
+                        <div className="mb-6 flex gap-2">
+                            <input
+                                type="text"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+                                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"
+                                placeholder="ชื่อหมวดหมู่ใหม่ เช่น ม.6"
+                            />
+                            <button
+                                onClick={addCategory}
+                                disabled={!newCategoryName.trim()}
+                                className="px-6 py-3 rounded-xl font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 transition-colors shadow-lg shadow-amber-200"
+                            >
+                                เพิ่ม
+                            </button>
+                        </div>
+
+                        {/* Category List */}
+                        <div className="mb-6 max-h-64 overflow-y-auto space-y-2">
+                            {categories.length === 0 ? (
+                                <p className="text-center text-slate-400 py-8">ยังไม่มีหมวดหมู่</p>
+                            ) : (
+                                categories.map((cat) => (
+                                    <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                                        <span className="font-bold text-slate-700">{cat.name}</span>
+                                        <button
+                                            onClick={() => deleteCategory(cat.id)}
+                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <div className="flex justify-end">
+                            <button
+                                onClick={() => setIsCategoryModalOpen(false)}
+                                className="px-6 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+                            >
+                                ปิด
                             </button>
                         </div>
                     </div>
