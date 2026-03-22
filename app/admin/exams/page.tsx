@@ -138,6 +138,50 @@ function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHid
     );
 }
 
+// Sortable Category Row Component
+function SortableCategoryRow({ category, onDelete }: { category: any; onDelete: (id: string) => void }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: category.id });
+
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 50 : 1,
+        position: 'relative',
+        backgroundColor: isDragging ? '#f1f5f9' : undefined,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors group border border-transparent hover:border-slate-200">
+            <div className="flex items-center gap-3">
+                <button
+                    {...attributes}
+                    {...listeners}
+                    className="flex items-center justify-center w-8 h-8 cursor-grab active:cursor-grabbing text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition"
+                    aria-label="ลากเพื่อเรียงลำดับ"
+                >
+                    <GripVertical size={16} />
+                </button>
+                <span className="font-bold text-slate-700">{category.name}</span>
+            </div>
+            <button
+                onClick={() => onDelete(category.id)}
+                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                title="ลบหมวดหมู่"
+            >
+                <Trash2 size={16} />
+            </button>
+        </div>
+    );
+}
+
 export default function ExamManagerPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [exams, setExams] = useState<any[]>([]);
@@ -149,6 +193,7 @@ export default function ExamManagerPage() {
     const [categories, setCategories] = useState<any[]>([]);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState("");
+    const [isSavingCategoryOrder, setIsSavingCategoryOrder] = useState(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -357,6 +402,37 @@ export default function ExamManagerPage() {
         }
     };
 
+    const handleCategoryDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = categories.findIndex(c => c.id === active.id);
+        const newIndex = categories.findIndex(c => c.id === over.id);
+
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        // Optimistic update
+        const newCategories = arrayMove(categories, oldIndex, newIndex);
+        setCategories(newCategories);
+
+        // Save to Firestore
+        setIsSavingCategoryOrder(true);
+        try {
+            const batch = writeBatch(db);
+            newCategories.forEach((cat, index) => {
+                const ref = doc(db, "examCategories", cat.id);
+                batch.update(ref, { order: index });
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error("Error saving category order:", error);
+            alert("เกิดข้อผิดพลาดในการบันทึกลำดับหมวดหมู่");
+            fetchCategories(); // Revert on error
+        } finally {
+            setIsSavingCategoryOrder(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 p-8">
             <div className="max-w-6xl mx-auto">
@@ -514,22 +590,26 @@ export default function ExamManagerPage() {
                         </div>
 
                         {/* Category List */}
-                        <div className="mb-6 max-h-64 overflow-y-auto space-y-2">
-                            {categories.length === 0 ? (
-                                <p className="text-center text-slate-400 py-8">ยังไม่มีหมวดหมู่</p>
-                            ) : (
-                                categories.map((cat) => (
-                                    <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                                        <span className="font-bold text-slate-700">{cat.name}</span>
-                                        <button
-                                            onClick={() => deleteCategory(cat.id)}
-                                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                ))
-                            )}
+                        <div className="mb-6">
+                            <div className="flex justify-between items-center mb-3 px-1">
+                                <span className="text-sm font-bold text-slate-500">ลำดับหมวดหมู่ (ลากเพื่อสลับตำแหน่ง)</span>
+                                {isSavingCategoryOrder && <span className="text-xs font-bold text-amber-500 animate-pulse">กำลังบันทึก...</span>}
+                            </div>
+                            <div className="max-h-64 overflow-y-auto space-y-2 p-1">
+                                {categories.length === 0 ? (
+                                    <p className="text-center text-slate-400 py-8">ยังไม่มีหมวดหมู่</p>
+                                ) : (
+                                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+                                        <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                                            <div className="space-y-2">
+                                                {categories.map((cat) => (
+                                                    <SortableCategoryRow key={cat.id} category={cat} onDelete={deleteCategory} />
+                                                ))}
+                                            </div>
+                                        </SortableContext>
+                                    </DndContext>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex justify-end">
