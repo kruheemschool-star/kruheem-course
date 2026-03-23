@@ -224,6 +224,9 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
                 setUserProfile(null);
             }
             setLoading(false);
+        }, (error) => {
+            console.error("Profile listener error:", error);
+            setLoading(false);
         });
 
         return () => {

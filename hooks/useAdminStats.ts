@@ -44,25 +44,41 @@ export const useAdminStats = (selectedYear: number) => {
     const [pageViewStats, setPageViewStats] = useState<Record<string, number>>({});
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
         let isMounted = true;
+        
+        // Initial fetch or fetch on year change
+        setLoading(true);
+        fetchData();
 
-        fetchData().then(() => {
-            // Only start refresh interval if component is still mounted after initial load
-            if (isMounted) {
-                interval = setInterval(fetchData, 5 * 60 * 1000); // 5 min refresh
-            }
-        });
+        const interval = setInterval(() => {
+            if (isMounted) fetchData();
+        }, 5 * 60 * 1000); // 5 min refresh
 
         return () => {
             isMounted = false;
             if (interval) clearInterval(interval);
         };
+    }, [selectedYear]);
+
+    // Separate effect for background cleanup to run only once on mount
+    useEffect(() => {
+        const cleanupStaleAnonymous = async () => {
+            try {
+                const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+                const staleSnap = await getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", "<", fifteenMinutesAgo)));
+                staleSnap.docs.forEach(d => deleteDoc(d.ref).catch(() => {}));
+            } catch (err) {
+                // Ignore cleanup errors
+            }
+        };
+
+        const timeout = setTimeout(cleanupStaleAnonymous, 10000); // Delay cleanup to avoid competing with main dashboard load
+        return () => clearTimeout(timeout);
     }, []);
 
     const fetchData = async () => {
         try {
-            // Run ALL independent queries in parallel
+            // Run independent queries in parallel
             const [snapApproved, countPending, countTickets, statsDoc, pageDoc] = await Promise.all([
                 getDocs(query(collection(db, "enrollments"), where("status", "==", "approved")))
                     .catch(err => { console.error("Enrollments fetch err:", err); return { docs: [] }; }),
@@ -228,14 +244,6 @@ export const useAdminStats = (selectedYear: number) => {
         });
 
         setOnlineUsers([...finalOnlineUsers, ...anonymousUsers]);
-
-        // Cleanup stale anonymous visitors (older than 15 min) in background
-        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-        getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", "<", fifteenMinutesAgo)))
-            .then(staleSnap => {
-                staleSnap.docs.forEach(d => deleteDoc(d.ref).catch(() => {}));
-            })
-            .catch(() => {});
         } catch (err) {
             console.error("Error computing online users:", err);
         }
