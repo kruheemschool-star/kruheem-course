@@ -111,6 +111,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // === Exam Categories (public read, admin write) ===
+    match /examCategories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === Settings (admin only) ===
+    match /settings/{settingId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     // === Polls (public read, admin manage) ===
     match /polls/{pollId} {
       allow read: if true;

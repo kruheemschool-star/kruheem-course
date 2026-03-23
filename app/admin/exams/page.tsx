@@ -251,7 +251,6 @@ export default function ExamManagerPage() {
             const snap = await getDocs(collection(db, "examCategories"));
             const cats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             cats.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
-            console.log('📁 Fetched categories:', cats);
             setCategories(cats);
         } catch (e) { console.error('Error fetching categories:', e); }
     };
