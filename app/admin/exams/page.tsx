@@ -61,11 +61,15 @@ function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHid
                     className="px-3 py-2 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold border border-amber-200 hover:bg-amber-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all cursor-pointer"
                 >
                     <option value="" disabled>เลือกหมวดหมู่</option>
-                    {categories.map((cat) => (
-                        <option key={cat.id} value={cat.name}>
-                            {cat.name}
-                        </option>
-                    ))}
+                    {categories && categories.length > 0 ? (
+                        categories.map((cat) => (
+                            <option key={cat.id} value={cat.name}>
+                                {cat.name}
+                            </option>
+                        ))
+                    ) : (
+                        <option value="" disabled>ไม่มีหมวดหมู่</option>
+                    )}
                 </select>
                 <div className="text-xs text-slate-400 mt-1">{exam.level}</div>
             </td>
@@ -247,6 +251,7 @@ export default function ExamManagerPage() {
             const snap = await getDocs(collection(db, "examCategories"));
             const cats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             cats.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+            console.log('📁 Fetched categories:', cats);
             setCategories(cats);
         } catch (e) { console.error('Error fetching categories:', e); }
     };
