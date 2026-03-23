@@ -99,6 +99,22 @@ export default function AdminEnrollmentsPage() {
                     // Don't block approval if coupon update fails, just log it
                 }
             }
+
+            // ✅ Recalculate and update public_stats for total unique enrolled students
+            try {
+                const qAppr = query(collection(db, "enrollments"), where("status", "==", "approved"));
+                const snapAppr = await getDocs(qAppr);
+                const uniqueEmails = new Set<string>();
+                snapAppr.docs.forEach(d => {
+                    const email = d.data().userEmail;
+                    if (email) uniqueEmails.add(email);
+                });
+                const totalStudents = uniqueEmails.size > 0 ? uniqueEmails.size : snapAppr.size;
+                await setDoc(doc(db, "public_stats", "enrollments"), { count: totalStudents }, { merge: true });
+            } catch (statError) {
+                console.error("Error updating public_stats:", statError);
+            }
+
             alert("✅ อนุมัติเรียบร้อย! (กำหนดเวลาเรียน 5 ปี)");
             setConfirmApproveId(null);
             fetchData(); // รีโหลดข้อมูล
@@ -113,6 +129,18 @@ export default function AdminEnrollmentsPage() {
         confirmModal("ยืนยันการลบ", "ยืนยันการลบรายการนี้? (กรณีสลิปปลอมหรือข้อมูลผิด)", async () => {
             try {
                 await deleteDoc(doc(db, "enrollments", id));
+                
+                // ✅ Recalculate public stats if needed
+                const qAppr = query(collection(db, "enrollments"), where("status", "==", "approved"));
+                const snapAppr = await getDocs(qAppr);
+                const uniqueEmails = new Set<string>();
+                snapAppr.docs.forEach(d => {
+                    const email = d.data().userEmail;
+                    if (email) uniqueEmails.add(email);
+                });
+                const totalStudents = uniqueEmails.size > 0 ? uniqueEmails.size : snapAppr.size;
+                await setDoc(doc(db, "public_stats", "enrollments"), { count: totalStudents }, { merge: true });
+
                 fetchData();
             } catch (error) {
                 console.error("Error:", error);

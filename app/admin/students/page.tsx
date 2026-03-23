@@ -169,9 +169,26 @@ export default function AdminStudentsPage() {
     const currentItems = filteredEnrollments.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredEnrollments.length / ITEMS_PER_PAGE);
 
+    const recalculatePublicStats = async () => {
+        try {
+            const qAppr = query(collection(db, "enrollments"), where("status", "==", "approved"));
+            const snapAppr = await getDocs(qAppr);
+            const uniqueEmails = new Set<string>();
+            snapAppr.docs.forEach(d => {
+                const email = d.data().userEmail;
+                if (email) uniqueEmails.add(email);
+            });
+            const totalStudents = uniqueEmails.size > 0 ? uniqueEmails.size : snapAppr.size;
+            await setDoc(doc(db, "public_stats", "enrollments"), { count: totalStudents }, { merge: true });
+        } catch (error) {
+            console.error("Error updating public_stats:", error);
+        }
+    };
+
     const handleDelete = async (id: string) => {
         confirmModal("ยืนยันการลบ", "ยืนยันการลบข้อมูลการลงทะเบียนนี้?", async () => {
             await deleteDoc(doc(db, "enrollments", id));
+            await recalculatePublicStats();
             fetchData();
         }, true);
     };
@@ -239,6 +256,7 @@ export default function AdminStudentsPage() {
                 accessType: editingItem.accessType || "limited",
                 expiryDate: editingItem.expiryDate || null
             });
+            await recalculatePublicStats();
             setIsEditOpen(false);
             fetchData();
         } catch (error) {
@@ -321,10 +339,16 @@ export default function AdminStudentsPage() {
                             if (Object.keys(upd).length > 0) updates.push(updateDoc(doc(db, "enrollments", docSnap.id), upd));
                         }
                     }
-                    if (updates.length > 0) { await Promise.all(updates); fetchData(); }
+                    if (updates.length > 0) { 
+                        await Promise.all(updates); 
+                        fetchData(); 
+                    }
                 };
                 fixData();
             }
+            
+            // Auto sync stats on load
+            recalculatePublicStats();
         }
     }, [enrollments]);
 
