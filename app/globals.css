@@ -379,3 +379,20 @@ h6 {
 .animate-glass-shine {
     animation: glass-shine 0.7s ease-in-out forwards;
 }
+
+/* Hide YouTube watermark logo in embedded player */
+.youtube-hide-logo {
+    overflow: hidden;
+}
+
+.youtube-hide-logo::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 120px;
+    height: 40px;
+    background: linear-gradient(to right, transparent, rgba(0,0,0,0.9) 30%);
+    z-index: 11;
+    pointer-events: none;
+}

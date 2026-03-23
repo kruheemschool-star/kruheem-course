@@ -351,7 +351,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                     <div className="w-full h-full bg-black flex flex-col items-center justify-center relative group">
                         {safeVideoId ? (
                             <>
-                                <div className="w-full aspect-video max-h-full relative flex items-center justify-center bg-black">
+                                <div className="w-full aspect-video max-h-full relative flex items-center justify-center bg-black youtube-hide-logo">
                                     <YouTube
                                         key={safeVideoId}
                                         videoId={safeVideoId}
@@ -362,7 +362,9 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                             height: '100%',
                                             playerVars: {
                                                 autoplay: 0,
+                                                controls: 1,
                                                 rel: 0,
+                                                modestbranding: 1,
                                                 start: startTime,
                                             },
                                         }}
