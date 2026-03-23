@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where, doc, getDoc, deleteDoc, orderBy, limit, Timestamp, getCountFromServer } from "firebase/firestore";
 
@@ -29,12 +29,25 @@ export interface OnlineUser {
     device?: string;
 }
 
-export const useAdminStats = (selectedYear: number) => {
+interface MenuCovers {
+    [key: string]: string | null;
+}
+
+interface RecentActivity {
+    id: string;
+    type: 'enrollment';
+    userName: string;
+    timestamp: Date;
+    description: string;
+}
+
+export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number) => {
     const [loading, setLoading] = useState(true);
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-    const [pendingCount, setPendingCount] = useState(0);
     const [ticketsCount, setTicketsCount] = useState(0);
     const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+    const [onlineLoading, setOnlineLoading] = useState(false);
+    const [onlineFetched, setOnlineFetched] = useState(false);
     const [dailyVisits, setDailyVisits] = useState<Record<string, number>>({});
     const [totalVisits, setTotalVisits] = useState(0);
 
@@ -43,66 +56,77 @@ export const useAdminStats = (selectedYear: number) => {
     const [sourceStats, setSourceStats] = useState<Record<string, number>>({});
     const [pageViewStats, setPageViewStats] = useState<Record<string, number>>({});
 
+    // Lifted from child components
+    const [menuCovers, setMenuCovers] = useState<MenuCovers>({});
+    const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+
     useEffect(() => {
         let isMounted = true;
-        
-        // Initial fetch or fetch on year change
+
         setLoading(true);
         fetchData();
 
         const interval = setInterval(() => {
             if (isMounted) fetchData();
-        }, 5 * 60 * 1000); // 5 min refresh
+        }, 5 * 60 * 1000);
 
         return () => {
             isMounted = false;
-            if (interval) clearInterval(interval);
+            clearInterval(interval);
         };
     }, [selectedYear]);
 
-    // Separate effect for background cleanup to run only once on mount
+    // Delayed background cleanup (runs once, 30s after mount)
     useEffect(() => {
-        const cleanupStaleAnonymous = async () => {
+        const timeout = setTimeout(async () => {
             try {
                 const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
                 const staleSnap = await getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", "<", fifteenMinutesAgo)));
                 staleSnap.docs.forEach(d => deleteDoc(d.ref).catch(() => {}));
-            } catch (err) {
-                // Ignore cleanup errors
-            }
-        };
-
-        const timeout = setTimeout(cleanupStaleAnonymous, 10000); // Delay cleanup to avoid competing with main dashboard load
+            } catch (_) {}
+        }, 30000);
         return () => clearTimeout(timeout);
     }, []);
 
     const fetchData = async () => {
         try {
-            // Run independent queries in parallel
-            const [snapApproved, countPending, countTickets, statsDoc, pageDoc] = await Promise.all([
+            // === ALL initial queries in ONE Promise.all ===
+            // Total: 4 queries (was 5+2 child = 7)
+            // Removed: duplicate pending count (use AuthContext), menu covers & recent activity lifted here
+            const [snapApproved, countTickets, statsDoc, pageDoc, menuDoc] = await Promise.all([
                 getDocs(query(collection(db, "enrollments"), where("status", "==", "approved")))
                     .catch(err => { console.error("Enrollments fetch err:", err); return { docs: [] }; }),
-                getCountFromServer(query(collection(db, "enrollments"), where("status", "==", "pending")))
-                    .catch(err => { console.error("Pending enrollments err:", err); return { data: () => ({ count: 0 }) }; }),
                 getCountFromServer(query(collection(db, "support_tickets"), where("status", "==", "pending")))
                     .catch(err => { console.error("Tickets fetch err:", err); return { data: () => ({ count: 0 }) }; }),
                 getDoc(doc(db, "stats", "daily_visits"))
                     .catch(err => { console.error("Stats daily fetch err:", err); return { exists: () => false, data: () => ({}) }; }),
                 getDoc(doc(db, "stats", "page_views"))
                     .catch(err => { console.error("PageViews fetch err:", err); return { exists: () => false, data: () => ({}) }; }),
+                getDoc(doc(db, "settings", "admin_menu"))
+                    .catch(err => { console.error("Menu covers fetch err:", err); return { exists: () => false, data: () => ({}) }; }),
             ]);
 
-            // Process results
-            const approvedData = snapApproved.docs ? snapApproved.docs.map(doc => ({ id: doc.id, ...doc.data() } as Enrollment)) : [];
+            // Process enrollments
+            const approvedData = snapApproved.docs ? snapApproved.docs.map(d => ({ id: d.id, ...d.data() } as Enrollment)) : [];
             setEnrollments(approvedData);
-            setPendingCount(countPending.data().count);
             setTicketsCount(countTickets.data().count);
 
-            // Stats (Visits, Devices, Sources)
+            // Derive recent activities from approved enrollments (no separate query needed!)
+            const sorted = [...approvedData]
+                .filter(e => e.approvedAt?.toDate)
+                .sort((a, b) => (b.approvedAt?.toDate?.()?.getTime() || 0) - (a.approvedAt?.toDate?.()?.getTime() || 0))
+                .slice(0, 5);
+            setRecentActivities(sorted.map(e => ({
+                id: e.id,
+                type: 'enrollment' as const,
+                userName: e.userName || e.userEmail || 'Unknown',
+                timestamp: e.approvedAt?.toDate() || new Date(),
+                description: `ลงทะเบียนคอร์ส ${e.courseTitle}`
+            })));
+
+            // Process stats
             if (statsDoc.exists()) {
                 const data = statsDoc.data();
-
-                // Filter: only keep date keys (YYYY-MM-DD format)
                 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
                 const filteredVisits: Record<string, number> = {};
                 Object.keys(data).forEach(key => {
@@ -112,13 +136,11 @@ export const useAdminStats = (selectedYear: number) => {
                 });
                 setDailyVisits(filteredVisits);
                 setTotalVisits(data.total_visits || 0);
-
                 setDeviceStats({
                     mobile: data.device_mobile || 0,
                     tablet: data.device_tablet || 0,
                     desktop: data.device_desktop || 0,
                 });
-
                 const sources: Record<string, number> = {};
                 ['google', 'facebook', 'line', 'instagram', 'youtube', 'tiktok', 'direct', 'other'].forEach(src => {
                     if (data[`source_${src}`]) sources[src] = data[`source_${src}`];
@@ -131,7 +153,6 @@ export const useAdminStats = (selectedYear: number) => {
                 const pageData = pageDoc.data();
                 const pages: Record<string, number> = {};
                 Object.keys(pageData).forEach(key => {
-                    // Only include actual page paths (start with /)
                     if (key.startsWith('/') && typeof pageData[key] === 'number') {
                         pages[key] = pageData[key];
                     }
@@ -139,8 +160,10 @@ export const useAdminStats = (selectedYear: number) => {
                 setPageViewStats(pages);
             }
 
-            // Online Users (depends on approvedData)
-            await fetchOnlineUsers(approvedData);
+            // Menu Covers (lifted from useMenuCovers)
+            if (menuDoc.exists()) {
+                setMenuCovers(menuDoc.data()?.covers || {});
+            }
 
         } catch (error) {
             console.error("Error fetching admin stats:", error);
@@ -149,105 +172,88 @@ export const useAdminStats = (selectedYear: number) => {
         }
     };
 
-    const fetchOnlineUsers = async (approvedData: Enrollment[]) => {
+    // === Online Users: Lazy-loaded on demand ===
+    const fetchOnlineUsers = useCallback(async () => {
+        if (onlineLoading) return;
+        setOnlineLoading(true);
         try {
             const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
-            // Fetch registered online users AND anonymous visitors in parallel
-            // If the indexed query fails (e.g. missing composite index), fallback to fetching all and filtering in memory
+            // 3 queries for online presence (no fallbacks — if index missing, just show empty)
             const [snapOnlineEnrollments, snapOnlineUsers, snapAnonymous] = await Promise.all([
                 getDocs(query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo)))
-                    .catch(async (e) => {
-                        console.warn("Online enrollments index missing, using fallback filtering in memory.");
-                        const allDocs = await getDocs(collection(db, "enrollments"));
-                        return { docs: allDocs.docs.filter(d => {
-                            const date = d.data().lastAccessedAt?.toDate?.();
-                            return date ? date > tenMinutesAgo : false;
-                        }) };
-                    }),
+                    .catch(() => ({ docs: [] as any[] })),
                 getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo)))
-                    .catch(async (e) => {
-                        console.warn("Online users index missing, using fallback filtering in memory.");
-                        const allDocs = await getDocs(collection(db, "users"));
-                        return { docs: allDocs.docs.filter(d => {
-                            const date = d.data().lastActive?.toDate?.();
-                            return date ? date > tenMinutesAgo : false;
-                        }) };
-                    }),
+                    .catch(() => ({ docs: [] as any[] })),
                 getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", ">", tenMinutesAgo)))
-                    .catch(async (e) => {
-                        console.warn("Anon visitors index missing, using fallback filtering in memory.");
-                        const allDocs = await getDocs(collection(db, "anonymous_visitors"));
-                        return { docs: allDocs.docs.filter(d => {
-                            const date = d.data().lastActive?.toDate?.();
-                            return date ? date > tenMinutesAgo : false;
-                        }) };
-                    }),
+                    .catch(() => ({ docs: [] as any[] })),
             ]);
 
-        const onlineMap = new Map();
+            const onlineMap = new Map();
 
-        snapOnlineUsers.docs.forEach(userDoc => {
-            const data = userDoc.data();
-            const key = data.email || userDoc.id; // Use email if available, else uid
-            onlineMap.set(key, {
-                ...data,
-                userName: data.displayName || data.email || userDoc.id,
-                userEmail: data.email || userDoc.id,
-                lastAccessedAt: data.lastActive,
-                isMember: false,
-                currentActivity: 'กำลังเยี่ยมชมเว็บไซต์',
-                sessionStart: data.sessionStart,
-            });
-        });
-
-        snapOnlineEnrollments.docs.forEach(doc => {
-            const data = doc.data();
-            if (data.userEmail) {
-                const existing = onlineMap.get(data.userEmail) || {};
-                onlineMap.set(data.userEmail, {
-                    ...existing,
+            snapOnlineUsers.docs.forEach((userDoc: any) => {
+                const data = userDoc.data();
+                const key = data.email || userDoc.id;
+                onlineMap.set(key, {
                     ...data,
-                    userName: data.userName || existing.userName || data.userEmail,
-                    userEmail: data.userEmail,
-                    currentActivity: `กำลังเรียน: ${data.courseTitle || 'ไม่ระบุวิชา'}`,
-                    isStudying: true
+                    userName: data.displayName || data.email || userDoc.id,
+                    userEmail: data.email || userDoc.id,
+                    lastAccessedAt: data.lastActive,
+                    isMember: false,
+                    currentActivity: 'กำลังเยี่ยมชมเว็บไซต์',
+                    sessionStart: data.sessionStart,
                 });
-            }
-        });
+            });
 
-        const uniqueOnline = Array.from(onlineMap.values());
-        const finalOnlineUsers = uniqueOnline.map((user: any) => {
-            const isMember = approvedData.some(e => e.userEmail === user.userEmail);
-            return {
-                ...user,
-                isMember: isMember,
-                userType: isMember ? 'สมาชิก' : 'แขกทั่วไป'
-            };
-        });
+            snapOnlineEnrollments.docs.forEach((d: any) => {
+                const data = d.data();
+                if (data.userEmail) {
+                    const existing = onlineMap.get(data.userEmail) || {};
+                    onlineMap.set(data.userEmail, {
+                        ...existing,
+                        ...data,
+                        userName: data.userName || existing.userName || data.userEmail,
+                        userEmail: data.userEmail,
+                        currentActivity: `กำลังเรียน: ${data.courseTitle || 'ไม่ระบุวิชา'}`,
+                        isStudying: true
+                    });
+                }
+            });
 
-        // Add anonymous visitors as "เยี่ยมชม 1", "เยี่ยมชม 2", etc.
-        const anonymousUsers: OnlineUser[] = snapAnonymous.docs.map((doc: any, idx: number) => {
-            const data = doc.data();
-            return {
-                userEmail: `anonymous_${doc.id}`,
-                userName: `เยี่ยมชม ${idx + 1}`,
-                currentActivity: `กำลังดูหน้า: ${data.currentPage || '/'}`,
-                isMember: false,
-                isStudying: false,
-                userType: 'ผู้เยี่ยมชม',
-                sessionStart: data.createdAt,
-                lastAccessedAt: data.lastActive,
-                isAnonymous: true,
-                device: data.device,
-            } as OnlineUser;
-        });
+            const uniqueOnline = Array.from(onlineMap.values());
+            const finalOnlineUsers = uniqueOnline.map((user: any) => {
+                const isMember = enrollments.some(e => e.userEmail === user.userEmail);
+                return {
+                    ...user,
+                    isMember,
+                    userType: isMember ? 'สมาชิก' : 'แขกทั่วไป'
+                };
+            });
 
-        setOnlineUsers([...finalOnlineUsers, ...anonymousUsers]);
+            const anonymousUsers: OnlineUser[] = snapAnonymous.docs.map((d: any, idx: number) => {
+                const data = d.data();
+                return {
+                    userEmail: `anonymous_${d.id}`,
+                    userName: `เยี่ยมชม ${idx + 1}`,
+                    currentActivity: `กำลังดูหน้า: ${data.currentPage || '/'}`,
+                    isMember: false,
+                    isStudying: false,
+                    userType: 'ผู้เยี่ยมชม',
+                    sessionStart: data.createdAt,
+                    lastAccessedAt: data.lastActive,
+                    isAnonymous: true,
+                    device: data.device,
+                } as OnlineUser;
+            });
+
+            setOnlineUsers([...finalOnlineUsers, ...anonymousUsers]);
+            setOnlineFetched(true);
         } catch (err) {
             console.error("Error computing online users:", err);
+        } finally {
+            setOnlineLoading(false);
         }
-    };
+    }, [enrollments, onlineLoading]);
 
     // Calculate Financial Stats
     const stats = useMemo(() => {
@@ -269,15 +275,14 @@ export const useAdminStats = (selectedYear: number) => {
             return date.getFullYear() === selectedYear - 1;
         });
 
-        // --- Monthly Data Construction ---
+        // --- Monthly Data ---
         const monthlyData = Array(12).fill(0).map((_, i) => ({
             month: new Date(0, i).toLocaleString('th-TH', { month: 'short' }),
             revenue: 0,
             students: 0,
-            prevRevenue: 0 // For comparison
+            prevRevenue: 0
         }));
 
-        // Current Year Data
         filteredByYear.forEach(item => {
             const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
             const monthIndex = date.getMonth();
@@ -285,37 +290,31 @@ export const useAdminStats = (selectedYear: number) => {
             monthlyData[monthIndex].students += 1;
         });
 
-        // Previous Year Data
         filteredPrevYear.forEach(item => {
             const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
             const monthIndex = date.getMonth();
             monthlyData[monthIndex].prevRevenue += (Number(item.price) || 0);
         });
 
-        // --- KPI Calculations ---
-
-        // A. Revenue Growth (Month-over-Month)
+        // --- KPIs ---
         const currentMonthRevenue = monthlyData[currentMonthIndex].revenue;
         const lastMonthRevenue = currentMonthIndex > 0 ? monthlyData[currentMonthIndex - 1].revenue : 0;
         const revenueGrowth = lastMonthRevenue > 0
             ? ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
             : 0;
 
-        // B. Total Stats
         const totalRevenue = filteredByYear.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
         const totalStudents = filteredByYear.length;
 
-        // C. Student Analytics (LTV, Retention)
         const studentMap: Record<string, { totalSpent: number, courses: number, name: string, lastActive: any }> = {};
-
-        enrollments.forEach(item => { // Use ALL time enrollments for LTV
+        enrollments.forEach(item => {
             if (!item.userEmail) return;
             if (!studentMap[item.userEmail]) {
                 studentMap[item.userEmail] = {
                     totalSpent: 0,
                     courses: 0,
                     name: item.userName || 'Unknown',
-                    lastActive: item.approvedAt // Approximation
+                    lastActive: item.approvedAt
                 };
             }
             studentMap[item.userEmail].totalSpent += (Number(item.price) || 0);
@@ -324,19 +323,12 @@ export const useAdminStats = (selectedYear: number) => {
 
         const studentList = Object.values(studentMap);
         const uniqueStudentsCount = studentList.length || 1;
-
-        // Avg Order Value (AOV)
-        const aov = totalStudents > 0 ? totalRevenue / totalStudents : 0; // Per Order (Enrollment)
-
-        // Lifetime Value (LTV) -> Avg revenue per unique student
-        // Here we calculate average LTV across all students
+        const aov = totalStudents > 0 ? totalRevenue / totalStudents : 0;
         const globalLTV = studentList.reduce((sum, s) => sum + s.totalSpent, 0) / uniqueStudentsCount;
-
-        // Retention Rate -> % of students with > 1 course
         const retainedStudents = studentList.filter(s => s.courses > 1).length;
         const retentionRate = (retainedStudents / uniqueStudentsCount) * 100;
 
-        // --- Daily Data (for 30-day chart view) ---
+        // --- Daily Data ---
         const dailyMap: Record<string, { revenue: number; students: number }> = {};
         filteredByYear.forEach(item => {
             const date = item.approvedAt?.toDate ? item.approvedAt.toDate() : (item.createdAt?.toDate ? item.createdAt.toDate() : new Date());
@@ -346,7 +338,6 @@ export const useAdminStats = (selectedYear: number) => {
             dailyMap[dateStr].students += 1;
         });
 
-        // Fill in last 90 days for complete chart
         const dailyData: { date: string; revenue: number; students: number }[] = [];
         for (let i = 89; i >= 0; i--) {
             const d = new Date();
@@ -363,9 +354,7 @@ export const useAdminStats = (selectedYear: number) => {
         const courseMap: Record<string, { title: string, revenue: number, students: number }> = {};
         filteredByYear.forEach(item => {
             const title = item.courseTitle || "ไม่ระบุชื่อคอร์ส";
-            if (!courseMap[title]) {
-                courseMap[title] = { title, revenue: 0, students: 0 };
-            }
+            if (!courseMap[title]) courseMap[title] = { title, revenue: 0, students: 0 };
             courseMap[title].revenue += (Number(item.price) || 0);
             courseMap[title].students += 1;
         });
@@ -379,7 +368,6 @@ export const useAdminStats = (selectedYear: number) => {
             monthlyData,
             courseData,
             maxMonthlyRevenue,
-            // New Metrics
             revenueGrowth,
             aov,
             ltv: globalLTV,
@@ -391,15 +379,20 @@ export const useAdminStats = (selectedYear: number) => {
     return {
         loading,
         enrollments,
-        pendingCount,
+        pendingCount: pendingCountFromAuth,
         ticketsCount,
         onlineUsers,
+        onlineLoading,
+        onlineFetched,
+        fetchOnlineUsers,
         dailyVisits,
         totalVisits,
         deviceStats,
         sourceStats,
         pageViewStats,
         stats,
-        fetchData
+        fetchData,
+        menuCovers,
+        recentActivities,
     };
 };

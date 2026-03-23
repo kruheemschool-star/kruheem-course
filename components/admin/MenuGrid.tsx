@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useMenuCovers } from '@/hooks/useMenuCovers';
 
 interface MenuGridProps {
     pendingCount: number;
     ticketsCount: number;
+    covers?: Record<string, string | null>;
 }
 
 // Menu items configuration with cover colors
@@ -127,8 +127,7 @@ const menuItems = [
     },
 ];
 
-export default function MenuGrid({ pendingCount, ticketsCount }: MenuGridProps) {
-    const { covers } = useMenuCovers();
+export default function MenuGrid({ pendingCount, ticketsCount, covers = {} }: MenuGridProps) {
 
     const getBadgeCount = (key?: 'pending' | 'tickets') => {
         if (key === 'pending') return pendingCount;
