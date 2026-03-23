@@ -49,33 +49,6 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     const [isClosing, setIsClosing] = React.useState(false);
     const videoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const hasUsedInitialTime = useRef(false);
-    const playerRef = useRef<any>(null);
-    const [volume, setVolume] = React.useState(100);
-    const [isMuted, setIsMuted] = React.useState(false);
-    const [showVolumeSlider, setShowVolumeSlider] = React.useState(false);
-    const prevVolume = useRef(100);
-
-    const handleVolumeChange = useCallback((newVolume: number) => {
-        setVolume(newVolume);
-        setIsMuted(newVolume === 0);
-        if (playerRef.current) {
-            try {
-                playerRef.current.setVolume(newVolume);
-                if (newVolume === 0) playerRef.current.mute();
-                else playerRef.current.unMute();
-            } catch (_) {}
-        }
-    }, []);
-
-    const toggleMute = useCallback(() => {
-        if (isMuted) {
-            const restoreVol = prevVolume.current > 0 ? prevVolume.current : 50;
-            handleVolumeChange(restoreVol);
-        } else {
-            prevVolume.current = volume;
-            handleVolumeChange(0);
-        }
-    }, [isMuted, volume, handleVolumeChange]);
 
     // Cleanup video progress interval on unmount or lesson change
     useEffect(() => {
@@ -396,12 +369,10 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                             },
                                         }}
                                         onReady={(event) => {
-                                            playerRef.current = event.target;
                                             try {
                                                 event.target.setPlaybackQuality('default');
-                                                const vol = event.target.getVolume();
-                                                setVolume(vol);
-                                                setIsMuted(event.target.isMuted());
+                                                event.target.setVolume(100);
+                                                event.target.unMute();
                                             } catch (_) { /* ignore */ }
                                         }}
                                         onError={(event) => {
@@ -443,38 +414,6 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                             }
                                         }}
                                     />
-                                </div>
-
-                                {/* ✅ Custom Volume Control */}
-                                <div className="absolute bottom-2 left-3 z-20 flex items-center gap-1" onMouseLeave={() => setShowVolumeSlider(false)}>
-                                    <button
-                                        onClick={toggleMute}
-                                        onMouseEnter={() => setShowVolumeSlider(true)}
-                                        className="w-9 h-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white transition-all backdrop-blur-sm"
-                                        title={isMuted ? 'เปิดเสียง' : 'ปิดเสียง'}
-                                    >
-                                        {isMuted || volume === 0 ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-                                        ) : volume < 50 ? (
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                                        )}
-                                    </button>
-                                    {showVolumeSlider && (
-                                        <div className="flex items-center bg-black/70 backdrop-blur-sm rounded-full px-3 py-1.5 animate-in fade-in slide-in-from-left-2 duration-200">
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max="100"
-                                                value={volume}
-                                                onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                                                className="w-20 h-1 accent-white cursor-pointer"
-                                                style={{ accentColor: 'white' }}
-                                            />
-                                            <span className="text-white text-xs font-mono ml-2 w-7 text-right">{volume}</span>
-                                        </div>
-                                    )}
                                 </div>
 
                                 {/* ✅ Floating Action Buttons */}
