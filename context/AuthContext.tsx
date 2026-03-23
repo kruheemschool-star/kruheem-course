@@ -11,7 +11,7 @@ import {
     createUserWithEmailAndPassword,
     sendPasswordResetEmail
 } from "firebase/auth";
-import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, where, getDocs, getCountFromServer } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
@@ -243,8 +243,8 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         const fetchPendingCount = async () => {
             try {
                 const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
-                const snapshot = await getDocs(q);
-                setPendingCount(snapshot.size);
+                const snapshot = await getCountFromServer(q);
+                setPendingCount(snapshot.data().count);
             } catch (error) {
                 console.error("Error fetching pending count:", error);
             }

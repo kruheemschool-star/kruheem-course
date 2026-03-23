@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, doc, getDoc, deleteDoc, orderBy, limit, Timestamp } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc, deleteDoc, orderBy, limit, Timestamp, getCountFromServer } from "firebase/firestore";
 
 export interface Enrollment {
     id: string;
@@ -63,13 +63,13 @@ export const useAdminStats = (selectedYear: number) => {
     const fetchData = async () => {
         try {
             // Run ALL independent queries in parallel
-            const [snapApproved, snapPending, snapTickets, statsDoc, pageDoc] = await Promise.all([
+            const [snapApproved, countPending, countTickets, statsDoc, pageDoc] = await Promise.all([
                 getDocs(query(collection(db, "enrollments"), where("status", "==", "approved")))
-                    .catch(err => { console.error("Enrollments fetch err:", err); return { docs: [], size: 0 }; }),
-                getDocs(query(collection(db, "enrollments"), where("status", "==", "pending")))
-                    .catch(err => { console.error("Pending enrollments err:", err); return { size: 0 }; }),
-                getDocs(query(collection(db, "support_tickets"), where("status", "==", "pending")))
-                    .catch(err => { console.error("Tickets fetch err:", err); return { size: 0 }; }),
+                    .catch(err => { console.error("Enrollments fetch err:", err); return { docs: [] }; }),
+                getCountFromServer(query(collection(db, "enrollments"), where("status", "==", "pending")))
+                    .catch(err => { console.error("Pending enrollments err:", err); return { data: () => ({ count: 0 }) }; }),
+                getCountFromServer(query(collection(db, "support_tickets"), where("status", "==", "pending")))
+                    .catch(err => { console.error("Tickets fetch err:", err); return { data: () => ({ count: 0 }) }; }),
                 getDoc(doc(db, "stats", "daily_visits"))
                     .catch(err => { console.error("Stats daily fetch err:", err); return { exists: () => false, data: () => ({}) }; }),
                 getDoc(doc(db, "stats", "page_views"))
@@ -77,10 +77,10 @@ export const useAdminStats = (selectedYear: number) => {
             ]);
 
             // Process results
-            const approvedData = snapApproved.docs.map(doc => ({ id: doc.id, ...doc.data() } as Enrollment));
+            const approvedData = snapApproved.docs ? snapApproved.docs.map(doc => ({ id: doc.id, ...doc.data() } as Enrollment)) : [];
             setEnrollments(approvedData);
-            setPendingCount(snapPending.size);
-            setTicketsCount(snapTickets.size);
+            setPendingCount(countPending.data().count);
+            setTicketsCount(countTickets.data().count);
 
             // Stats (Visits, Devices, Sources)
             if (statsDoc.exists()) {
