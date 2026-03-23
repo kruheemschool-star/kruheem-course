@@ -159,13 +159,13 @@ export default function VisitorTracker() {
             createdAt: serverTimestamp(),
         }, { merge: true }).catch(() => {});
 
-        // Heartbeat every 3 minutes (uses ref for latest pathname)
+        // Heartbeat every 5 minutes (uses ref for latest pathname)
         heartbeatRef.current = setInterval(() => {
             setDoc(doc(db, "anonymous_visitors", sessionId!), {
                 lastActive: serverTimestamp(),
                 currentPage: pathnameRef.current || '/',
             }, { merge: true }).catch(() => {});
-        }, 3 * 60 * 1000);
+        }, 5 * 60 * 1000);
 
         // Cleanup on unmount / page close
         const cleanup = () => {

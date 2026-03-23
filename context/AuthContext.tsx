@@ -225,13 +225,13 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
                 // Update once on initial load
                 await setDoc(userDocRef, updateData, { merge: true });
 
-                // Start heartbeat (every 5 min instead of 3 to reduce writes)
+                // Start heartbeat (every 10 min to reduce writes & onSnapshot triggers)
                 heartbeatInterval = setInterval(() => {
                     setDoc(userDocRef, {
                         lastActive: serverTimestamp(),
                         email: user.email || '',
                     }, { merge: true }).catch(err => console.error("Heartbeat failed", err));
-                }, 5 * 60 * 1000);
+                }, 10 * 60 * 1000);
             } catch (err) {
                 console.error("Activity init failed", err);
                 setLoading(false);

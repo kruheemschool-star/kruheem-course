@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
 import { useAdminStats } from "@/hooks/useAdminStats";
 import { useAdminLearningStats } from "@/hooks/useAdminLearningStats";
-import { Home, LogOut, Loader2, Users } from "lucide-react";
+import { Home, LogOut, Loader2, Users, RefreshCw } from "lucide-react";
 
 // Components
 import StatsOverview from "@/components/admin/StatsOverview";
@@ -39,9 +39,17 @@ export default function AdminDashboard() {
         sourceStats,
         pageViewStats,
         stats,
+        fetchData: refreshStats,
         menuCovers,
         recentActivities,
     } = useAdminStats(selectedYear, authPendingCount);
+
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const handleRefreshStats = async () => {
+        setIsRefreshing(true);
+        await refreshStats();
+        setIsRefreshing(false);
+    };
 
     // Learning Stats Hook (manual trigger)
     const {
@@ -160,6 +168,16 @@ export default function AdminDashboard() {
                     </div>
                 ) : (
                     <div className="space-y-6">
+                        <div className="flex items-center justify-end">
+                            <button
+                                onClick={fetchOnlineUsers}
+                                disabled={onlineLoading}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                            >
+                                <RefreshCw size={12} className={onlineLoading ? 'animate-spin' : ''} />
+                                รีเฟรช
+                            </button>
+                        </div>
                         <OnlineUsersWidget
                             onlineUsers={onlineUsers}
                             formatOnlineDuration={formatOnlineDuration}
@@ -197,9 +215,19 @@ export default function AdminDashboard() {
                 <div id="report-section">
                     {/* Section Header */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                        <div className="flex items-center gap-2">
-                            <span className="text-lg">📈</span>
-                            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">รายงานสถิติ</h2>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg">📈</span>
+                                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">รายงานสถิติ</h2>
+                            </div>
+                            <button
+                                onClick={handleRefreshStats}
+                                disabled={isRefreshing || loading}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                            >
+                                <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+                                {isRefreshing ? 'กำลังโหลด...' : 'รีเฟรชข้อมูล'}
+                            </button>
                         </div>
                         <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 rounded-lg">
                             <span className="text-sm">📅</span>

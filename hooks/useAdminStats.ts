@@ -61,32 +61,9 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
     const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
 
     useEffect(() => {
-        let isMounted = true;
-
         setLoading(true);
         fetchData();
-
-        const interval = setInterval(() => {
-            if (isMounted) fetchData();
-        }, 5 * 60 * 1000);
-
-        return () => {
-            isMounted = false;
-            clearInterval(interval);
-        };
     }, [selectedYear]);
-
-    // Delayed background cleanup (runs once, 30s after mount)
-    useEffect(() => {
-        const timeout = setTimeout(async () => {
-            try {
-                const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-                const staleSnap = await getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", "<", fifteenMinutesAgo)));
-                staleSnap.docs.forEach(d => deleteDoc(d.ref).catch(() => {}));
-            } catch (_) {}
-        }, 30000);
-        return () => clearTimeout(timeout);
-    }, []);
 
     const fetchData = async () => {
         try {
@@ -177,6 +154,13 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
         if (onlineLoading) return;
         setOnlineLoading(true);
         try {
+            // Cleanup stale anonymous visitors before fetching fresh data
+            try {
+                const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+                const staleSnap = await getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", "<", fifteenMinutesAgo)));
+                staleSnap.docs.forEach(d => deleteDoc(d.ref).catch(() => {}));
+            } catch (_) {}
+
             const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
             // 3 queries for online presence (no fallbacks — if index missing, just show empty)
