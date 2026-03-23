@@ -45,11 +45,19 @@ export const useAdminStats = (selectedYear: number) => {
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
+        let isMounted = true;
+
         fetchData().then(() => {
-            // Only start refresh interval after initial load completes
-            interval = setInterval(fetchData, 5 * 60 * 1000); // 5 min refresh
+            // Only start refresh interval if component is still mounted after initial load
+            if (isMounted) {
+                interval = setInterval(fetchData, 5 * 60 * 1000); // 5 min refresh
+            }
         });
-        return () => { if (interval) clearInterval(interval); };
+
+        return () => {
+            isMounted = false;
+            if (interval) clearInterval(interval);
+        };
     }, []);
 
     const fetchData = async () => {
