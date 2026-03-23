@@ -16,10 +16,5 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
-// Use WebSocket transport instead of long-polling to reduce HTTP requests
-// Long-polling creates a new HTTP request every ~30s per listener
-// WebSocket maintains a single persistent connection
-export const db = getApps().length <= 1
-  ? initializeFirestore(app, { experimentalAutoDetectLongPolling: true })
-  : getFirestore(app);
+export const db = getFirestore(app);
 export const storage = getStorage(app); // ✅ 2. ต้องส่งออกตัวนี้ออกไปใช้
