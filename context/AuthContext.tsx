@@ -11,7 +11,7 @@ import {
     createUserWithEmailAndPassword,
     sendPasswordResetEmail
 } from "firebase/auth";
-import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, where, getDocs, getCountFromServer } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, where, getDocs, getDoc, getCountFromServer } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
@@ -151,75 +151,20 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         return () => unsubscribeAuth();
     }, []);
 
-    // 2. Profile Listener & Activity Logic
+    // 2. Profile Listener (READ ONLY - no writes inside onSnapshot to prevent feedback loop)
     useEffect(() => {
         if (!user) return;
 
-        let isActivityChecked = false; // Local flag to ensure we only check once per connection
-        let heartbeatInterval: NodeJS.Timeout;
-
-        // Real-time listener for user profile
         const unsubscribeProfile = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data() as UserProfile;
 
-                // Optimization: Deep compare to prevent redundant updates
+                // Optimization: Deep compare to prevent redundant state updates
                 const dataStr = JSON.stringify(data);
                 if (lastProfileStr.current === dataStr) return;
                 lastProfileStr.current = dataStr;
 
                 setUserProfile(data);
-
-                // Calculate Days Since Last Active (Only once per session)
-                if (!isActivityChecked) {
-                    const now = new Date();
-                    // Days calculation
-                    if (data.lastActive?.toDate) {
-                        const last = data.lastActive.toDate();
-                        const diffDays = now.getTime() - last.getTime();
-                        const days = Math.floor(diffDays / (1000 * 60 * 60 * 24));
-                        setDaysSinceLastActive(days);
-                    } else {
-                        setDaysSinceLastActive(0);
-                    }
-
-                    isActivityChecked = true;
-                    setHasCheckedActivity(true);
-
-                    // Calculate time difference for 'Online' status
-                    let lastActiveTime = 0;
-                    if (data.lastActive?.toDate) {
-                        lastActiveTime = data.lastActive.toDate().getTime();
-                    }
-
-                    const diff = now.getTime() - lastActiveTime;
-                    const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-                    const HEARTBEAT_CHECK_THRESHOLD = 5 * 60 * 1000; // 5 minutes
-
-                    const updateData: any = {
-                        lastActive: serverTimestamp(),
-                        email: user.email || '',
-                    };
-
-                    // If inactive > 30 mins -> Start New Session (also set sessionStart)
-                    if (lastActiveTime === 0 || diff > SESSION_TIMEOUT) {
-                        updateData.sessionStart = serverTimestamp();
-                        updateData.displayName = user.displayName || '';
-                    }
-
-                    // Always update on initial load so user appears online immediately
-                    setDoc(doc(db, "users", user.uid), updateData, { merge: true })
-                        .catch(err => console.error("Update activity failed", err));
-
-                    // Start Continuous Heartbeat
-                    // This sets lastActive periodically while user has the app open
-                    heartbeatInterval = setInterval(() => {
-                        setDoc(doc(db, "users", user.uid), {
-                            lastActive: serverTimestamp(),
-                            email: user.email || '',
-                        }, { merge: true }).catch(err => console.error("Interval heartbeat failed", err));
-                    }, 3 * 60 * 1000); // 3 minutes heartbeat
-                }
             } else {
                 setUserProfile(null);
             }
@@ -229,8 +174,73 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
         });
 
+        return () => unsubscribeProfile();
+    }, [user?.uid]);
+
+    // 2b. Activity Tracking & Heartbeat (WRITE ONLY - separated from listener to prevent loop)
+    useEffect(() => {
+        if (!user) return;
+
+        let heartbeatInterval: NodeJS.Timeout;
+
+        const initActivity = async () => {
+            try {
+                const userDocRef = doc(db, "users", user.uid);
+                const docSnap = await getDoc(userDocRef);
+                const data = docSnap.exists() ? docSnap.data() as UserProfile : undefined;
+
+                const now = new Date();
+
+                // Calculate Days Since Last Active
+                if (data?.lastActive?.toDate) {
+                    const last = data.lastActive.toDate();
+                    const diffDays = now.getTime() - last.getTime();
+                    const days = Math.floor(diffDays / (1000 * 60 * 60 * 24));
+                    setDaysSinceLastActive(days);
+                } else {
+                    setDaysSinceLastActive(0);
+                }
+                setHasCheckedActivity(true);
+
+                // Calculate time difference for session tracking
+                let lastActiveTime = 0;
+                if (data?.lastActive?.toDate) {
+                    lastActiveTime = data.lastActive.toDate().getTime();
+                }
+
+                const diff = now.getTime() - lastActiveTime;
+                const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
+                const updateData: any = {
+                    lastActive: serverTimestamp(),
+                    email: user.email || '',
+                };
+
+                // If inactive > 30 mins -> Start New Session
+                if (lastActiveTime === 0 || diff > SESSION_TIMEOUT) {
+                    updateData.sessionStart = serverTimestamp();
+                    updateData.displayName = user.displayName || '';
+                }
+
+                // Update once on initial load
+                await setDoc(userDocRef, updateData, { merge: true });
+
+                // Start heartbeat (every 5 min instead of 3 to reduce writes)
+                heartbeatInterval = setInterval(() => {
+                    setDoc(userDocRef, {
+                        lastActive: serverTimestamp(),
+                        email: user.email || '',
+                    }, { merge: true }).catch(err => console.error("Heartbeat failed", err));
+                }, 5 * 60 * 1000);
+            } catch (err) {
+                console.error("Activity init failed", err);
+                setLoading(false);
+            }
+        };
+
+        initActivity();
+
         return () => {
-            unsubscribeProfile();
             if (heartbeatInterval) clearInterval(heartbeatInterval);
         };
     }, [user?.uid]);

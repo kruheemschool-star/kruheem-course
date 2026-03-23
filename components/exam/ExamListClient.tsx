@@ -50,7 +50,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
             }
         };
         fetchStats();
-        const interval = setInterval(fetchStats, 60 * 1000);
+        const interval = setInterval(fetchStats, 180 * 1000);
         return () => clearInterval(interval);
     }, []);
 
@@ -249,7 +249,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isSearchMode, searchResults]);
+    }, [isSearchMode, searchResults.length]);
 
     // Highlight matched text helper
     const highlightText = (text: string, query: string): React.ReactNode => {
