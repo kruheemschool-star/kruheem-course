@@ -112,8 +112,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${mitr.variable} ${ibmLoop.variable} font-sans`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
           disableTransitionOnChange
         >
           <div className="noise-overlay"></div>
