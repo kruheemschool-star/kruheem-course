@@ -137,6 +137,7 @@ export default function RelatedCourses({ summaryTitle, summaryKeywords, summaryT
                     <Link
                         key={course.id}
                         href={`/course/${course.id}`}
+                        prefetch={false}
                         className="group flex items-center justify-between py-3 px-4 -mx-4 rounded-xl hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 transition-all"
                     >
                         <div className="flex items-center gap-3">
@@ -178,6 +179,7 @@ export default function RelatedCourses({ summaryTitle, summaryKeywords, summaryT
                 {courses.length > 0 && (
                     <Link
                         href={`/course/${courses[0].id}`}
+                        prefetch={false}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white text-sm font-bold rounded-full shadow-lg shadow-teal-500/20 hover:shadow-xl hover:shadow-teal-500/30 hover:-translate-y-0.5 transition-all"
                     >
                         <Sparkles size={16} />

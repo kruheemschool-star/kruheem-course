@@ -437,6 +437,7 @@ export default function HomePage() {
                       <Link
                         href={`/course/${course.id}`}
                         key={course.id}
+                        prefetch={false}
                         className="group relative bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl hover:shadow-glow hover:-translate-y-2 transition-all duration-500 flex flex-col h-full overflow-hidden border border-slate-100 dark:border-slate-800"
                       >
                         {/* Shine Effect Overlay */}
