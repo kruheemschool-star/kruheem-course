@@ -55,18 +55,18 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     const googleSignIn = useCallback(async () => {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
-        try {
-            const result = await signInWithPopup(auth, provider);
-            if (result.user) {
+        const result = await signInWithPopup(auth, provider);
+        if (result.user) {
+            // Safety net: a Firestore rules misconfig should not block login.
+            try {
                 await setDoc(doc(db, "users", result.user.uid), {
                     authProvider: 'google',
                     email: result.user.email || '',
                     displayName: result.user.displayName || '',
                 }, { merge: true });
+            } catch (error) {
+                console.error("Post-login profile write failed (users/{uid}):", error);
             }
-        } catch (error) {
-            console.error("Google Sign In Error:", error);
-            throw error;
         }
     }, []);
 
@@ -74,10 +74,15 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         try {
             const result = await signInWithEmailAndPassword(auth, email, password);
             if (result.user) {
-                await setDoc(doc(db, "users", result.user.uid), {
-                    authProvider: 'email',
-                    email: result.user.email || '',
-                }, { merge: true });
+                // Safety net: do not fail login if Firestore write is blocked by rules.
+                try {
+                    await setDoc(doc(db, "users", result.user.uid), {
+                        authProvider: 'email',
+                        email: result.user.email || '',
+                    }, { merge: true });
+                } catch (error) {
+                    console.error("Post-login profile write failed (users/{uid}):", error);
+                }
             }
         } catch (error) {
             throw error;
@@ -88,10 +93,15 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         try {
             const result = await createUserWithEmailAndPassword(auth, email, password);
             if (result.user) {
-                await setDoc(doc(db, "users", result.user.uid), {
-                    authProvider: 'email',
-                    email: result.user.email || '',
-                }, { merge: true });
+                // Safety net: account creation should succeed even if Firestore rules are misconfigured.
+                try {
+                    await setDoc(doc(db, "users", result.user.uid), {
+                        authProvider: 'email',
+                        email: result.user.email || '',
+                    }, { merge: true });
+                } catch (error) {
+                    console.error("Post-signup profile write failed (users/{uid}):", error);
+                }
             }
         } catch (error) {
             console.error("Email Sign Up Error:", error);
