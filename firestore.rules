@@ -19,6 +19,40 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == uid;
     }
 
+    // Coupon helpers
+    function isValidReviewRewardCouponCreate() {
+      return isAuth()
+        && request.resource.data.source == "review_reward"
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.isUsed == false
+        && request.resource.data.discountAmount == 100
+        // REVIEW-XXXXXX (6 chars A-Z/0-9)
+        && request.resource.data.code.matches('^REVIEW-[A-Z0-9]{6}$');
+    }
+
+    function isValidCouponRedeemUpdate() {
+      // Non-admin can only "redeem" a coupon: flip isUsed false -> true (and optionally write usedAt/usedForCourseId)
+      return isAuth()
+        && resource.data.isUsed == false
+        && request.resource.data.isUsed == true
+        // If coupon is bound to a user (review reward), only that user can redeem it.
+        && (resource.data.userId == null || resource.data.userId == request.auth.uid)
+        // Do not allow client to mutate discount/source/ownership/etc.
+        && request.resource.data.code == resource.data.code
+        && request.resource.data.source == resource.data.source
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.courseId == resource.data.courseId
+        && request.resource.data.discountAmount == resource.data.discountAmount
+        && request.resource.data.discountPercent == resource.data.discountPercent
+        && request.resource.data.createdAt == resource.data.createdAt
+        // Only allow these fields to change via client redeem.
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "isUsed",
+          "usedAt",
+          "usedForCourseId"
+        ]);
+    }
+
     // === Users ===
     match /users/{userId} {
       allow read: if isAuth();
@@ -48,7 +82,11 @@ service cloud.firestore {
     // === Enrollments ===
     match /enrollments/{enrollmentId} {
       allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
-      allow create: if isAuth();
+      allow create: if isAdmin() || (
+        isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == "pending"
+      );
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -64,8 +102,8 @@ service cloud.firestore {
     // === Coupons ===
     match /coupons/{couponId} {
       allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
+      allow create: if isAdmin() || isValidReviewRewardCouponCreate();
+      allow update: if isAdmin() || isValidCouponRedeemUpdate();
       allow delete: if isAdmin();
     }
 
