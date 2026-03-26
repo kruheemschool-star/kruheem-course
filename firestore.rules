@@ -25,6 +25,8 @@ service cloud.firestore {
         && request.resource.data.source == "review_reward"
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.isUsed == false
+        // Prevent injecting a percentage discount into "review_reward" coupons.
+        && request.resource.data.discountPercent == null
         && request.resource.data.discountAmount == 100
         // REVIEW-XXXXXX (6 chars A-Z/0-9)
         && request.resource.data.code.matches('^REVIEW-[A-Z0-9]{6}$');
