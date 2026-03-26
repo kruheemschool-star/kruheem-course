@@ -12,15 +12,23 @@ service firebase.storage {
     }
 
     // Allow authenticated users to upload slips
-    match /slips/{allPaths=**} {
+    //
+    // Note: our app uploads slips as `slips/${uid}_${timestamp}` (single path segment),
+    // so we match a single filename here to keep the rule type-safe.
+    match /slips/{fileName} {
       // Slips contain sensitive payment info: only the owner (based on filename prefix)
       // and admins can read them.
       allow read: if isAdmin()
-                 || (isAuth() && allPaths.matches('^' + request.auth.uid + '_.*'));
+                 || (isAuth() && fileName.matches('^' + request.auth.uid + '_.*'));
       allow write: if isAuth()
-                   && allPaths.matches('^' + request.auth.uid + '_.*')
+                   && fileName.matches('^' + request.auth.uid + '_.*')
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
+    }
+
+    // Disallow nested slip paths (defense-in-depth).
+    match /slips/{allPaths=**} {
+      allow read, write: if false;
     }
 
     // Allow authenticated users to upload summary images/covers
