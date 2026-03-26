@@ -312,6 +312,15 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                                 </div>
                             </div>
 
+                            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+                                <div className="rounded-2xl border border-emerald-200/70 dark:border-emerald-800/60 bg-emerald-50/70 dark:bg-emerald-950/20 px-4 py-3 text-center font-extrabold text-emerald-700 dark:text-emerald-300">
+                                    ซื้อครั้งเดียว ใช้ได้ตลอด
+                                </div>
+                                <div className="rounded-2xl border border-amber-200/70 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/20 px-4 py-3 text-center font-extrabold text-amber-700 dark:text-amber-300">
+                                    ข้อสอบเพิ่ม = ได้ทั้งหมด
+                                </div>
+                            </div>
+
                             <div className="mt-3 text-xs font-semibold text-slate-400 dark:text-slate-500">
                                 (นับจากจำนวนโจทย์ทั้งหมดในคลังข้อสอบ)
                             </div>
