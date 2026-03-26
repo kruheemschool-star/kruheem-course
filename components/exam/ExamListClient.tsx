@@ -320,9 +320,8 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                                     ข้อสอบเพิ่ม = ได้ทั้งหมด
                                 </div>
                             </div>
-
-                            <div className="mt-3 text-xs font-semibold text-slate-400 dark:text-slate-500">
-                                (นับจากจำนวนโจทย์ทั้งหมดในคลังข้อสอบ)
+                            <div className="mt-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                ดูย้อนหลังได้ตลอดเวลานานถึง 5 ปี
                             </div>
                         </div>
                     </div>
