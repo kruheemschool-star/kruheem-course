@@ -2,24 +2,52 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
+export const runtime = "nodejs";
+
+function getBearerToken(request: NextRequest): string | null {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader) return null;
+    const match = authHeader.match(/^Bearer\s+(.+)$/i);
+    return match?.[1] ?? null;
+}
+
 export async function POST(request: NextRequest) {
     try {
-        // 1. Parse request body
-        const { userId, adminEmail } = await request.json();
-
-        if (!userId || !adminEmail) {
+        // 0) Verify requester identity (do NOT trust client-provided emails)
+        const token = getBearerToken(request);
+        if (!token) {
             return NextResponse.json(
-                { error: "Missing userId or adminEmail" },
-                { status: 400 }
+                { error: "Missing Authorization Bearer token" },
+                { status: 401 }
             );
         }
 
-        // 2. Verify the requester is an admin
-        const isAdmin = ADMIN_EMAILS.map(e => e.toLowerCase()).includes(adminEmail.toLowerCase());
-        if (!isAdmin) {
+        let requesterEmail = "";
+        try {
+            const decoded = await adminAuth.verifyIdToken(token);
+            requesterEmail = (decoded.email || "").toLowerCase();
+        } catch (err) {
+            return NextResponse.json(
+                { error: "Invalid or expired token" },
+                { status: 401 }
+            );
+        }
+
+        const isAdminRequester = ADMIN_EMAILS.map(e => e.toLowerCase()).includes(requesterEmail);
+        if (!isAdminRequester) {
             return NextResponse.json(
                 { error: "Unauthorized: Not an admin" },
                 { status: 403 }
+            );
+        }
+
+        // 1. Parse request body
+        const { userId } = await request.json();
+
+        if (!userId) {
+            return NextResponse.json(
+                { error: "Missing userId" },
+                { status: 400 }
             );
         }
 

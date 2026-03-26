@@ -195,7 +195,7 @@ export default function AdminStudentsPage() {
 
     const handleDeleteUser = async (item: any) => {
         if (!item.userId) return alert("ไม่พบ User ID สำหรับรายการนี้");
-        if (!user?.email) return alert("กรุณาเข้าสู่ระบบก่อน");
+        if (!user) return alert("กรุณาเข้าสู่ระบบก่อน");
 
         const userName = item.userName || item.userEmail || 'ไม่ระบุ';
         const msg = `⚠️ ลบบัญชีผู้ใช้: ${userName}\nอีเมล: ${item.userEmail || '-'}\n\nการดำเนินการนี้จะ:\n• ลบบัญชี Firebase Authentication\n• ลบข้อมูล Profile ใน Firestore\n• ลบข้อมูลความคืบหน้าการเรียน\n• ลบข้อมูลกิจกรรม\n\n(ข้อมูลการลงทะเบียนจะยังเก็บไว้เป็นหลักฐาน)\n\nยืนยันการลบบัญชีผู้ใช้นี้?`;
@@ -203,12 +203,15 @@ export default function AdminStudentsPage() {
         confirmModal("ยืนยันการลบบัญชี", msg, async () => {
             setDeletingUserId(item.userId);
             try {
+                const idToken = await user.getIdToken();
                 const res = await fetch('/api/admin/delete-user', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`,
+                    },
                     body: JSON.stringify({
                         userId: item.userId,
-                        adminEmail: user.email
                     })
                 });
 
