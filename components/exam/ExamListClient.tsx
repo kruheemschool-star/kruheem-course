@@ -269,6 +269,55 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
             {/* Search & Filter Section */}
             <div className="px-6 py-8 relative">
                 <div className="max-w-4xl mx-auto text-center mb-8">
+                    {/* Hero */}
+                    <div className="relative overflow-hidden rounded-[2.75rem] border border-slate-100/80 dark:border-slate-800/70 bg-gradient-to-br from-slate-50 via-white to-amber-50/40 dark:from-slate-900/30 dark:via-slate-950 dark:to-amber-950/15 p-7 md:p-10 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)] mb-10">
+                        {/* Atmospheric background */}
+                        <div className="pointer-events-none absolute inset-0">
+                            <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-amber-200/50 blur-3xl dark:bg-amber-500/10" />
+                            <div className="absolute -bottom-28 -right-28 h-80 w-80 rounded-full bg-indigo-200/50 blur-3xl dark:bg-indigo-500/10" />
+                            <div className="absolute inset-0 opacity-[0.5] dark:opacity-[0.35] bg-[radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.06)_1px,transparent_0)] [background-size:16px_16px]" />
+                        </div>
+
+                        <div className="relative flex flex-col items-center">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-white/70 dark:bg-slate-950/60 border border-slate-200/70 dark:border-slate-700/60 px-4 py-2 text-sm font-extrabold text-slate-700 dark:text-slate-200 shadow-sm backdrop-blur">
+                                <ClipboardList className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                <span>
+                                    ข้อสอบ{" "}
+                                    <span className="font-mono tracking-tight">{totalQuestions.toLocaleString()}</span>
+                                    <span className="text-amber-600 dark:text-amber-400">+</span>{" "}
+                                    ข้อ
+                                </span>
+                            </div>
+
+                            <h1 className="mt-5 text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.05] text-slate-900 dark:text-slate-50">
+                                ฝึกครบ{" "}
+                                <span className="inline-block align-middle px-2 md:px-3">
+                                    <span className="inline-flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm">
+                                        =
+                                    </span>
+                                </span>{" "}
+                                <span className="relative inline-block">
+                                    <span className="absolute -inset-x-2 bottom-2 md:bottom-3 h-3 md:h-4 rounded-full bg-amber-200/70 dark:bg-amber-500/15" />
+                                    <span className="relative text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500">
+                                        สอบติด
+                                    </span>
+                                </span>
+                            </h1>
+
+                            <div className="mt-4 text-base md:text-lg font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
+                                <div>ฝึกเหมือนสอบจริง พร้อมเฉลยละเอียดทุกข้อ</div>
+                                <div>
+                                    ทำซ้ำจน{" "}
+                                    <span className="text-slate-900 dark:text-white">“คิดเป็น ไม่ใช่เดา”</span>
+                                </div>
+                            </div>
+
+                            <div className="mt-3 text-xs font-semibold text-slate-400 dark:text-slate-500">
+                                (นับจากจำนวนโจทย์ทั้งหมดในคลังข้อสอบ)
+                            </div>
+                        </div>
+                    </div>
+
                     <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2 flex items-center justify-center gap-2">
                         <span className="text-amber-600 dark:text-amber-400">คลังข้อสอบ</span> ออนไลน์ 📚
                     </h2>
