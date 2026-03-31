@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
+import { getCachedData } from "@/lib/dataCache";
 import { ChevronRight, Sparkles, Zap } from "lucide-react";
 
 interface RelatedCoursesProps {
@@ -79,11 +80,13 @@ export default function RelatedCourses({ summaryTitle, summaryKeywords, summaryT
 
         const fetchCourses = async () => {
             try {
-                const snapshot = await getDocs(collection(db, "courses"));
-                const allCourses = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                })) as Course[];
+                const allCourses = await getCachedData("all_courses_related", async () => {
+                    const snapshot = await getDocs(collection(db, "courses"));
+                    return snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    })) as Course[];
+                });
 
                 const matchedCourses = findMatchingCourses(
                     allCourses,

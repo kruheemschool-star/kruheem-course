@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { getCachedData } from "@/lib/dataCache";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -43,9 +44,12 @@ export default function HomePage() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const q = query(collection(db, "courses"), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        setCourses(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Course[]);
+        const data = await getCachedData("home_courses", async () => {
+          const q = query(collection(db, "courses"), orderBy("createdAt", "desc"));
+          const querySnapshot = await getDocs(q);
+          return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Course[];
+        });
+        setCourses(data);
       } catch (error) {
         console.error("Error fetching courses:", error);
       } finally {

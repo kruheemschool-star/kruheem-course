@@ -2344,7 +2344,7 @@ export default function CourseSalesPage() {
                                 <div className="relative rounded-[2rem] overflow-hidden shadow-inner">
                                     {course.image ? (
                                         /* eslint-disable-next-line @next/next/no-img-element */
-                                        <img src={course.image} alt={course.title} className="w-full h-auto object-cover" />
+                                        <img src={course.image} alt={course.title} className="w-full h-auto object-cover" loading="lazy" />
                                     ) : (
                                         <div className="w-full h-80 bg-indigo-50 flex items-center justify-center text-6xl">📚</div>
                                     )}

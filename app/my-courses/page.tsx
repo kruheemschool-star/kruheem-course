@@ -360,7 +360,7 @@ export default function MyCoursesPage() {
                                             <div className="w-full md:w-64 aspect-video rounded-2xl overflow-hidden shadow-md relative group-hover:shadow-lg transition-all duration-500 shrink-0 border border-slate-100 dark:border-slate-700">
                                                 {resumeCourse?.image ? (
                                                     /* eslint-disable-next-line @next/next/no-img-element */
-                                                    <img src={resumeCourse.image} alt={resumeCourse.title} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                                                    <img src={resumeCourse.image} alt={resumeCourse.title} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" loading="lazy" />
                                                 ) : (
                                                     <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-5xl">📚</div>
                                                 )}
@@ -653,7 +653,7 @@ function CourseCard({ course, progress, isReviewed, onReview }: { course: Course
             <div className="aspect-video bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4 overflow-hidden relative">
                 {course.image ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-4xl text-slate-300">📘</div>
                 )}

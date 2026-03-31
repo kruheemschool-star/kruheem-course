@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs, where } from "firebase/firestore";
+import { getCachedData } from "@/lib/dataCache";
 import Navbar from "@/components/Navbar";
 import { Calendar, ArrowRight, BookOpen, ArrowLeft } from "lucide-react";
 import Image from "next/image";
@@ -29,12 +30,14 @@ export default function BlogIndexPage() {
             // If it fails, I'll remove 'where' and filter client side for MVP.
             // Let's try client side filtering to avoid index creation delay for the user.
             try {
-                const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-                const querySnapshot = await getDocs(q);
-                const data = querySnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                })) as Post[];
+                const data = await getCachedData("blog_posts", async () => {
+                    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+                    const querySnapshot = await getDocs(q);
+                    return querySnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    })) as Post[];
+                });
 
                 // Filter only published
                 setPosts(data.filter(p => p.status === 'published' || !p.status)); // Support old posts without status if any

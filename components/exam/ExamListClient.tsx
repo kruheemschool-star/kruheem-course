@@ -487,6 +487,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                                             <Link
                                                 ref={idx === 0 ? firstResultRef : undefined}
                                                 href={`/exam/${result.examId}`}
+                                                prefetch={false}
                                                 className="flex items-center gap-4 p-5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                                             >
                                                 {/* Cover Image or Placeholder */}
@@ -545,6 +546,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                                                             <Link
                                                                 key={match.index}
                                                                 href={`/exam/${result.examId}?q=${match.index - 1}`}
+                                                                prefetch={false}
                                                                 className="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-all text-sm group"
                                                             >
                                                                 <span className={`w-6 h-6 rounded-full ${theme.bg} text-white text-xs font-bold flex items-center justify-center`}>
@@ -613,6 +615,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                                     <Link
                                         href={`/exam/${exam.id}`}
                                         key={exam.id}
+                                        prefetch={false}
                                         className={`group relative flex flex-col bg-slate-900 rounded-2xl overflow-hidden aspect-[3/4] transition-all duration-500 hover:-translate-y-3 hover:scale-[1.02] border border-transparent ${theme.border} ${theme.shadow} shadow-xl`}
                                     >
                                         {/* Logo Badge */}
