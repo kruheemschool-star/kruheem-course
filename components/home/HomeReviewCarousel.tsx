@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { getCachedData } from "@/lib/dataCache";
 import { Star, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -37,11 +38,13 @@ export default function HomeReviewCarousel() {
     useEffect(() => {
         const fetchReviews = async () => {
             try {
-                const q = query(collection(db, "reviews"), orderBy("createdAt", "desc"));
-                const snap = await getDocs(q);
-                const allReviews = snap.docs
-                    .map(d => ({ id: d.id, ...d.data() } as Review))
-                    .filter(r => !((r as any).isHidden));
+                const allReviews = await getCachedData("home_reviews", async () => {
+                    const q = query(collection(db, "reviews"), orderBy("createdAt", "desc"));
+                    const snap = await getDocs(q);
+                    return snap.docs
+                        .map(d => ({ id: d.id, ...d.data() } as Review))
+                        .filter(r => !((r as any).isHidden));
+                });
                 setReviews(shuffleArray(allReviews));
             } catch (err) {
                 console.error("Error fetching reviews:", err);

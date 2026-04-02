@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { getCachedData } from "@/lib/dataCache";
 
 interface ContentItem {
     id: string;
@@ -182,34 +183,40 @@ export default function FeatureCarousel() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const examSnap = await getDocs(query(collection(db, "exams"), orderBy("createdAt", "asc")));
-                const exams = examSnap.docs.map(d => ({
-                    id: d.id,
-                    title: d.data().title || "",
-                    coverImage: d.data().coverImage || "",
-                }));
+                const exams = await getCachedData("feature_exams", async () => {
+                    const examSnap = await getDocs(query(collection(db, "exams"), orderBy("createdAt", "asc")));
+                    return examSnap.docs.map(d => ({
+                        id: d.id,
+                        title: d.data().title || "",
+                        coverImage: d.data().coverImage || "",
+                    }));
+                });
                 setExamItems(shuffleArray(exams).slice(0, 6));
 
-                const sumSnap = await getDocs(query(collection(db, "summaries")));
-                const sums = sumSnap.docs
-                    .map(d => ({
-                        id: d.id,
-                        title: d.data().title || "",
-                        coverImage: d.data().coverImage || "",
-                        status: d.data().status || "",
-                    }))
-                    .filter(s => s.status === "published" || !s.status);
+                const sums = await getCachedData("feature_summaries", async () => {
+                    const sumSnap = await getDocs(query(collection(db, "summaries")));
+                    return sumSnap.docs
+                        .map(d => ({
+                            id: d.id,
+                            title: d.data().title || "",
+                            coverImage: d.data().coverImage || "",
+                            status: d.data().status || "",
+                        }))
+                        .filter(s => s.status === "published" || !s.status);
+                });
                 setSummaryItems(shuffleArray(sums).slice(0, 6));
 
-                const postSnap = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")));
-                const posts = postSnap.docs
-                    .map(d => ({
-                        id: d.id,
-                        title: d.data().title || "",
-                        coverImage: d.data().coverImage || "",
-                        status: d.data().status || "published",
-                    }))
-                    .filter(p => p.status === "published");
+                const posts = await getCachedData("feature_posts", async () => {
+                    const postSnap = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")));
+                    return postSnap.docs
+                        .map(d => ({
+                            id: d.id,
+                            title: d.data().title || "",
+                            coverImage: d.data().coverImage || "",
+                            status: d.data().status || "published",
+                        }))
+                        .filter(p => p.status === "published");
+                });
                 setPostItems(shuffleArray(posts).slice(0, 6));
             } catch (error) {
                 console.error("Error fetching feature content:", error);
