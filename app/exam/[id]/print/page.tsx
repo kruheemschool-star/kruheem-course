@@ -3,7 +3,8 @@ import { doc, getDoc } from "firebase/firestore";
 import { notFound } from "next/navigation";
 import PrintPageClient from "./PrintPageClient";
 
-export const dynamic = 'force-dynamic';
+// ISR: Cache for 1 minute
+export const revalidate = 60;
 
 async function getExamData(id: string) {
     try {

@@ -9,8 +9,8 @@ import ExamPrintButton from "@/components/exam/ExamPrintButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-// Force fresh data from Firestore on every request (no stale cache)
-export const dynamic = 'force-dynamic';
+// ISR: Cache for 1 minute, fresh exam data within 60 seconds
+export const revalidate = 60;
 
 // Mock Data Fallback (For Demo/Dev)
 const MOCK_EXAMS: Record<string, any> = {

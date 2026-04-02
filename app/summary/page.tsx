@@ -11,9 +11,8 @@ export const metadata: Metadata = {
     keywords: ['สรุปสูตรคณิต', 'ชีทสรุป', 'Short Note คณิต', 'ทบทวนก่อนสอบ', 'Kruheem'],
 };
 
-// ISR: Revalidate every 5 minutes (300 seconds) instead of force-dynamic
-// ISR: Revalidate immediately to show new content instantly
-export const revalidate = 0;
+// ISR: Cache for 5 minutes, new summaries appear within 5 min
+export const revalidate = 300;
 
 interface Summary {
     id: string;

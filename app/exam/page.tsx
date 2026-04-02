@@ -16,8 +16,8 @@ export const metadata: Metadata = {
     keywords: ["ฝึกทำโจทย์คณิต", "คลังข้อสอบ", "จับเวลาทำข้อสอบ", "จำลองสอบ", "ตะลุยโจทย์", "ข้อสอบ A-Level"],
 };
 
-// Force dynamic rendering so that admin changes are reflected immediately
-export const dynamic = 'force-dynamic';
+// ISR: Cache for 5 minutes, admin changes reflect within 5 min
+export const revalidate = 300;
 
 // 1. Fetch Data on Server (Metadata only - fast load)
 async function getEnrollmentCount() {
