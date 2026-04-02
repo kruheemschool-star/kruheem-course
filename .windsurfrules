@@ -1,0 +1,46 @@
+# ============================================================
+# CRITICAL RULES - DO NOT MODIFY THESE SETTINGS
+# These rules prevent recurring billing issues on Vercel & Firebase
+# ============================================================
+
+## 1. NEVER add `force-dynamic` or `revalidate = 0` to any page/route
+# - `export const dynamic = 'force-dynamic'` causes every request to hit Firestore (costs money)
+# - `export const revalidate = 0` has the same effect
+# - ALWAYS use `export const revalidate = 300` (5 min) or higher for server pages
+# - If you need fresh data, use client-side fetching with getCachedData instead
+
+## 2. NEVER add `unoptimized: true` to next.config.ts images
+# - `images: { unoptimized: true }` bypasses Vercel CDN and downloads directly from Firebase Storage
+# - This causes massive Firebase Storage bandwidth costs
+# - The current config correctly routes images through Vercel's Image Optimization CDN
+
+## 3. ALWAYS use getCachedData for client-side Firestore fetches
+# - Import from `@/lib/dataCache`
+# - Wrap getDocs/getDoc calls in getCachedData("cache_key", fetcher)
+# - This prevents re-fetching the same data when users navigate between pages
+# - Cache TTL is 5 minutes by default
+
+## 4. ALWAYS add `prefetch={false}` to Link components for dynamic routes
+# - Links to `/course/[id]`, `/exam/[id]`, `/learn/[id]` MUST have prefetch={false}
+# - Without it, Next.js prefetches every linked page automatically, causing excessive Function Invocations
+
+## 5. ALWAYS add `loading="lazy"` to <img> tags showing Firebase Storage images
+# - This prevents loading offscreen images until the user scrolls to them
+# - For next/image <Image> component, lazy loading is already the default
+
+## 6. DO NOT modify authentication files without explicit permission
+# - Do not change: lib/firebase.ts, context/AuthContext.tsx, middleware.ts
+# - Changes to these files can break login for all students
+
+## 7. Existing ISR/cache settings (DO NOT CHANGE without permission):
+# - app/api/exam-averages/route.ts: revalidate = 300
+# - app/exam/page.tsx: revalidate = 300
+# - app/exam/[id]/page.tsx: revalidate = 60
+# - app/exam/[id]/print/page.tsx: revalidate = 60
+# - app/summary/page.tsx: revalidate = 300
+# - next.config.ts: images WITHOUT unoptimized: true
+
+## 8. VisitorTracker writes budget
+# - components/VisitorTracker.tsx writes to Firestore on every page navigation
+# - Do NOT add additional Firestore writes to frequently-visited pages
+# - If adding analytics, batch writes or use increment() to minimize operations
