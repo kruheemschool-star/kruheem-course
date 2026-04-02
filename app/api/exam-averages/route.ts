@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 
-export const dynamic = 'force-dynamic';
 export const revalidate = 300; // Cache for 5 minutes
 
 /**
