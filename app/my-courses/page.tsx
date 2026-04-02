@@ -637,6 +637,13 @@ function CourseList({ courses, progressMap, reviewedCourseIds, onReview }: { cou
             {renderSection("ระดับมัธยมต้น (Junior High)", "🌿", grouped.junior, "border-cyan-500")}
             {renderSection("ระดับมัธยมปลาย (Senior High)", "🌳", grouped.senior, "border-indigo-500")}
             {renderSection("คอร์สอื่นๆ (General)", "📚", grouped.other, "border-slate-400")}
+
+            {/* Refund Policy Notice */}
+            <div className="mt-10 pt-5 border-t border-slate-100 dark:border-slate-800/50">
+                <p className="text-[11px] text-slate-400 dark:text-slate-600 text-center leading-relaxed max-w-2xl mx-auto">
+                    นโยบายการคืนเงิน — หากไม่พึงพอใจในคอร์สเรียน สามารถแจ้งขอคืนเงินได้ภายใน 3 วันนับตั้งแต่วันที่ได้รับการอนุมัติ โดยติดต่อผ่านระบบแชทในเว็บไซต์ หรือช่องทางที่ระบุไว้ในหน้าติดต่อเรา ทั้งนี้ขอสงวนสิทธิ์ในการพิจารณาเป็นรายกรณี
+                </p>
+            </div>
         </div>
     );
 }
