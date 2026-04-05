@@ -50,57 +50,70 @@ async function getExamConfig() {
 }
 
 async function getExamData(id: string) {
-    try {
-        if (!id) return null;
-        const docRef = doc(db, "exams", id);
-        const docSnap = await getDoc(docRef);
+    if (!id) return null;
 
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            let questions = [];
+    // Retry logic: try up to 2 times to handle intermittent Firestore failures
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            const docRef = doc(db, "exams", id);
+            const docSnap = await getDoc(docRef);
 
-            if (data.questions) {
-                if (typeof data.questions === 'string') {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                let questions = [];
+
+                if (data.questions) {
+                    if (typeof data.questions === 'string') {
+                        try {
+                            questions = JSON.parse(data.questions);
+                        } catch (e) {
+                            questions = [];
+                        }
+                    } else {
+                        questions = data.questions;
+                    }
+                } else if (data.questionsUrl) {
                     try {
-                        questions = JSON.parse(data.questions);
-                    } catch (e) {
+                        const res = await fetch(data.questionsUrl, { signal: AbortSignal.timeout(8000) });
+                        if (res.ok) {
+                            questions = await res.json();
+                        }
+                    } catch (fetchErr) {
+                        console.error("Error fetching questionsUrl:", fetchErr);
                         questions = [];
                     }
-                } else {
-                    questions = data.questions;
                 }
-            } else if (data.questionsUrl) {
-                const res = await fetch(data.questionsUrl);
-                questions = await res.json();
+
+                // Normalize question fields for consistency
+                const normalizedQuestions = Array.isArray(questions) ? questions.map((q: any) => ({
+                    ...q,
+                    explanation: q.explanation || q.solution || '',
+                    correctIndex: q.correctIndex ?? q.answerIndex ?? 0,
+                })) : [];
+
+                return {
+                    id: docSnap.id,
+                    ...data,
+                    questions: normalizedQuestions
+                };
             }
 
-            // Normalize question fields for consistency
-            const normalizedQuestions = Array.isArray(questions) ? questions.map((q: any) => ({
-                ...q,
-                explanation: q.explanation || q.solution || '',
-                correctIndex: q.correctIndex ?? q.answerIndex ?? 0,
-            })) : [];
-
-            return {
-                id: docSnap.id,
-                ...data,
-                questions: normalizedQuestions
-            };
+            // Document doesn't exist — no need to retry
+            break;
+        } catch (error) {
+            console.error(`Error fetching exam (attempt ${attempt + 1}):`, error);
+            if (attempt === 0) {
+                await new Promise(r => setTimeout(r, 500));
+            }
         }
-
-        // Fallback
-        if (MOCK_EXAMS[id]) {
-            return {
-                id,
-                ...MOCK_EXAMS[id]
-            };
-        }
-
-        return null;
-    } catch (error) {
-        console.error("Error fetching exam:", error);
-        return null;
     }
+
+    // Fallback
+    if (MOCK_EXAMS[id]) {
+        return { id, ...MOCK_EXAMS[id] };
+    }
+
+    return null;
 }
 
 // 1. Dynamic Metadata for SEO
