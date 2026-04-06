@@ -74,7 +74,13 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
 
-      // Course sub-collections (lessons, etc.)
+      // Lessons subcollection - public read (for free preview / lesson list)
+      match /lessons/{lessonId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      // Other course sub-collections require auth
       match /{subcollection}/{docId} {
         allow read: if isAuth();
         allow write: if isAdmin();
