@@ -185,7 +185,18 @@ function CoursePlayer() {
         return lessons.filter(l => !l.isHidden || isAdmin);
     }, [lessons, isAdmin]);
 
-    // ✅ Set initial active lesson based on VISIBLE lessons
+    // ✅ Auto-open ทุก section เมื่อ lessons โหลดเสร็จ
+    useEffect(() => {
+        if (visibleLessons.length === 0) return;
+        const headerIds = visibleLessons.filter(l => l.type === 'header').map(l => l.id);
+        if (headerIds.length > 0) {
+            setOpenSections(prev => {
+                const merged = new Set([...prev, ...headerIds]);
+                return merged.size !== prev.length ? Array.from(merged) : prev;
+            });
+        }
+    }, [visibleLessons]);
+
     // ✅ Set initial active lesson based on VISIBLE lessons OR Query Param
     useEffect(() => {
         if (visibleLessons.length === 0) return;
@@ -200,7 +211,12 @@ function CoursePlayer() {
             }
         } else if (!activeLesson) {
             const firstLearnable = visibleLessons.find(l => l.type !== 'header');
-            if (firstLearnable) setActiveLesson(firstLearnable);
+            if (firstLearnable) {
+                setActiveLesson(firstLearnable);
+                if (firstLearnable.headerId) {
+                    setOpenSections(prev => prev.includes(firstLearnable.headerId!) ? prev : [...prev, firstLearnable.headerId!]);
+                }
+            }
         }
     }, [visibleLessons, lessonIdParam]);
 
@@ -319,6 +335,8 @@ function CoursePlayer() {
     }, [visibleLessons, searchQuery]);
 
     // ✅ ฟังก์ชันเช็คสิทธิ์ (อัปเดตใหม่)
+    const freePreviewCount = course?.freePreviewCount ?? 3;
+
     const isLessonUnlocked = (lesson: Lesson) => {
         if (!lesson || lesson.type === 'header') return true;
 
@@ -330,6 +348,13 @@ function CoursePlayer() {
 
         // 3. ถ้าเป็นบทเรียนฟรี เข้าได้
         if (lesson.isFree) return true;
+
+        // 4. Auto Free Preview: N บทเรียนแรกดูได้ฟรี (ค่าเริ่มต้น 3 ตอน)
+        if (freePreviewCount > 0) {
+            const learnableLessons = visibleLessons.filter(l => l.type !== 'header');
+            const lessonIndex = learnableLessons.findIndex(l => l.id === lesson.id);
+            if (lessonIndex >= 0 && lessonIndex < freePreviewCount) return true;
+        }
 
         return false; // นอกนั้นล็อก
     };
