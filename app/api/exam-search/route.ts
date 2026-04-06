@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query } from "firebase/firestore";
 
+// ISR: Cache for 5 minutes to reduce Function Invocations
+export const revalidate = 300;
+
 // API Route for lazy loading exam questions for search
 export async function GET(request: NextRequest) {
     try {
@@ -62,12 +65,7 @@ export async function GET(request: NextRequest) {
             return rest;
         });
 
-        return NextResponse.json({ exams }, {
-            headers: {
-                // Prevent caching so order changes show up immediately in search
-                'Cache-Control': 'no-store, max-age=0',
-            }
-        });
+        return NextResponse.json({ exams });
     } catch (error) {
         console.error("Error fetching exam search data:", error);
         return NextResponse.json({ error: "Failed to fetch data" }, { status: 500 });

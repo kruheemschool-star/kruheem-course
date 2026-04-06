@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query } from 'firebase/firestore';
 
+// ISR: Cache for 5 minutes to reduce Function Invocations
+export const revalidate = 300;
+
 export async function GET() {
     try {
         const q = query(collection(db, 'summaries'));

@@ -23,13 +23,20 @@ export async function GET() {
         const catMap: Record<string, { totalPercent: number; count: number }> = {};
         const tagMap: Record<string, { totalPercent: number; count: number }> = {};
 
-        // Iterate through each user's examResults
+        // Iterate through each user's examResults (parallel batches for speed)
         const userIds = usersSnap.docs.map(d => d.id);
         
-        // Process in batches to avoid overwhelming
-        for (const uid of userIds) {
-            try {
-                const resultsSnap = await getDocs(collection(db, "users", uid, "examResults"));
+        // Process in parallel batches of 20 to stay within 10s function limit
+        const BATCH_SIZE = 20;
+        for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+            const batch = userIds.slice(i, i + BATCH_SIZE);
+            const snapshots = await Promise.all(
+                batch.map(uid =>
+                    getDocs(collection(db, "users", uid, "examResults")).catch(() => null)
+                )
+            );
+            for (const resultsSnap of snapshots) {
+                if (!resultsSnap) continue;
                 resultsSnap.docs.forEach(doc => {
                     const data = doc.data();
                     if (typeof data.percent === 'number') {
@@ -66,8 +73,6 @@ export async function GET() {
                         });
                     }
                 });
-            } catch {
-                // Skip users with no results or permission issues
             }
         }
 
