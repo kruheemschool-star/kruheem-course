@@ -110,19 +110,17 @@ export default function Navbar() {
                         <div className="flex items-center gap-2">
                             {/* User Profile Badge */}
                             <div className="hidden xl:flex items-center gap-2 pl-1 pr-3 py-1 bg-white/50 border border-white/60 rounded-full backdrop-blur-sm hover:-translate-y-0.5 transition-transform duration-300">
-                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs shadow-sm overflow-hidden">
-                                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-xs shadow-sm overflow-hidden">
-                                        {userProfile?.avatar || user.photoURL ? (
-                                            /* eslint-disable-next-line @next/next/no-img-element */
-                                            <img
-                                                src={userProfile?.avatar || user.photoURL || ''}
-                                                alt={userProfile?.displayName || user.displayName || "User Profile"}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <span>{user.displayName ? user.displayName[0].toUpperCase() : user.email?.[0].toUpperCase()}</span>
-                                        )}
-                                    </div>
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm overflow-hidden ${(userProfile?.avatar || user.photoURL) ? 'bg-slate-200 dark:bg-slate-700' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
+                                    {userProfile?.avatar || user.photoURL ? (
+                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                        <img
+                                            src={userProfile?.avatar || user.photoURL || ''}
+                                            alt={userProfile?.displayName || user.displayName || "User Profile"}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <span>{user.displayName ? user.displayName[0].toUpperCase() : user.email?.[0].toUpperCase()}</span>
+                                    )}
                                 </div>
                                 <div className="flex flex-col leading-none">
                                     <span className="text-xs font-bold text-slate-800 max-w-[80px] truncate mb-0.5">
@@ -265,7 +263,7 @@ export default function Navbar() {
                     {user && (
                         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                             <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm shadow-sm overflow-hidden">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm overflow-hidden ${(userProfile?.avatar || user.photoURL) ? 'bg-slate-200 dark:bg-slate-700' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
                                     {userProfile?.avatar || user.photoURL ? (
                                         /* eslint-disable-next-line @next/next/no-img-element */
                                         <img

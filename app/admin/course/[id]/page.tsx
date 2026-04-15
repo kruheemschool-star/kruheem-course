@@ -862,6 +862,39 @@ export default function ManageLessonsPage() {
 
     const [jsonError, setJsonError] = useState<string | null>(null);
 
+    const syncFlashcardEditor = (cards: any[]) => {
+        setFlashcardData(cards);
+        setFlashcardJson(JSON.stringify(cards, null, 2));
+        setJsonError(null);
+    };
+
+    const getNextFlashcardId = (cards: any[]) => {
+        const numericIds = cards
+            .map((card) => Number(card?.id))
+            .filter((id) => Number.isFinite(id));
+
+        return numericIds.length > 0 ? Math.max(...numericIds) + 1 : cards.length + 1 || 1;
+    };
+
+    const handleAppendFlashcard = () => {
+        if (jsonError && flashcardJson.trim()) {
+            return showToast("กรุณาแก้ JSON ให้ถูกต้องก่อนเพิ่ม Flashcard ใหม่", "error");
+        }
+
+        const nextCards = [
+            ...flashcardData,
+            {
+                id: getNextFlashcardId(flashcardData),
+                topic: "",
+                question: "",
+                answer: "",
+            }
+        ];
+
+        syncFlashcardEditor(nextCards);
+        showToast("✅ เพิ่ม Flashcard ต่อท้ายแล้ว");
+    };
+
     const tryAutoFixFlashcardJson = (raw: string) => {
         let fixed = raw.trim();
         // 1. Fix common quotes (smart quotes -> normal quotes)
@@ -970,8 +1003,7 @@ export default function ManageLessonsPage() {
             setIsFree(lesson.isFree || false);
         } else if (lesson.type === 'flashcard') {
             const data = lesson.flashcardData || [];
-            setFlashcardData(data);
-            setFlashcardJson(JSON.stringify(data, null, 2));
+            syncFlashcardEditor(data);
             setLessonContent(lesson.content || "");
         } else {
             setCurrentImageUrl(lesson.image || "");
@@ -1595,26 +1627,37 @@ export default function ManageLessonsPage() {
                                                 <div className="flex justify-between items-start mt-2">
                                                     <div className="flex flex-col gap-1">
                                                         <p className="text-xs text-yellow-500">* รองรับมาตรฐาน JSON และ LaTeX ($$ ... $$)</p>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const fixed = tryAutoFixFlashcardJson(flashcardJson);
-                                                                setFlashcardJson(fixed);
-                                                                try {
-                                                                    const parsed = JSON5.parse(fixed);
-                                                                    if (Array.isArray(parsed)) {
-                                                                        setFlashcardData(parsed);
-                                                                        setJsonError(null);
-                                                                        showToast("✨ AI Clean เรียบร้อย!");
+                                                        <div className="flex flex-wrap gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleAppendFlashcard}
+                                                                className="text-[10px] bg-white text-yellow-700 px-3 py-1.5 rounded-lg border border-yellow-200 hover:bg-yellow-100 transition font-bold flex items-center gap-1 w-fit"
+                                                            >
+                                                                <Plus className="w-3.5 h-3.5" />
+                                                                เพิ่ม Flashcard ต่อท้าย
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const fixed = tryAutoFixFlashcardJson(flashcardJson);
+                                                                    setFlashcardJson(fixed);
+                                                                    try {
+                                                                        const parsed = JSON5.parse(fixed);
+                                                                        if (Array.isArray(parsed)) {
+                                                                            setFlashcardData(parsed);
+                                                                            setJsonError(null);
+                                                                            showToast("✨ AI Clean เรียบร้อย!");
+                                                                        }
+                                                                    } catch (e) {
+                                                                        // If auto-fix fails to produce valid JSON, just leave it (user sees error)
                                                                     }
-                                                                } catch (e) {
-                                                                    // If auto-fix fails to produce valid JSON, just leave it (user sees error)
-                                                                }
-                                                            }}
-                                                            className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded-lg hover:bg-yellow-200 transition font-bold flex items-center gap-1 w-fit"
-                                                        >
-                                                            🪄 AI Clean (Auto Fix)
-                                                        </button>
+                                                                }}
+                                                                className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded-lg hover:bg-yellow-200 transition font-bold flex items-center gap-1 w-fit"
+                                                            >
+                                                                🪄 AI Clean (Auto Fix)
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-500">กดปุ่มเพิ่มเพื่อสร้างการ์ดใบใหม่ต่อท้ายข้อมูลเดิมได้ทันที</p>
                                                     </div>
                                                     {flashcardJson && (
                                                         <p className={`text-xs font-bold ${jsonError ? 'text-red-500' : 'text-emerald-500'}`}>
