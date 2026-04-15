@@ -397,6 +397,8 @@ export default function ManageLessonsPage() {
     const [pasteMode, setPasteMode] = useState(false);
     const [selectedCards, setSelectedCards] = useState<number[]>([]);
     const [editingCardIdx, setEditingCardIdx] = useState<number | null>(null);
+    const [showAppendBox, setShowAppendBox] = useState(false);
+    const [appendJson, setAppendJson] = useState("");
 
     // ⚡️ Exam System State
     const [examQuestions, setExamQuestions] = useState<any[]>([]);
@@ -879,22 +881,51 @@ export default function ManageLessonsPage() {
     };
 
     const handleAppendFlashcard = () => {
-        if (jsonError && flashcardJson.trim()) {
-            return showToast("กรุณาแก้ JSON ให้ถูกต้องก่อนเพิ่ม Flashcard ใหม่", "error");
+        setShowAppendBox(!showAppendBox);
+        setAppendJson("");
+    };
+
+    const handleConfirmAppend = () => {
+        if (!appendJson.trim()) {
+            return showToast("กรุณาวาง JSON ข้อมูล Flashcard ที่ต้องการเพิ่ม", "error");
         }
-
-        const nextCards = [
-            ...flashcardData,
-            {
-                id: getNextFlashcardId(flashcardData),
-                topic: "",
-                question: "",
-                answer: "",
+        try {
+            let cleanStr = appendJson
+                .replace(/\[cite(_start|_end)?(:.*?)?\]/gi, '')
+                .replace(/```json/gi, '')
+                .replace(/```/g, '')
+                .trim();
+            let parsed = JSON5.parse(cleanStr);
+            if (!Array.isArray(parsed)) parsed = [parsed];
+            const baseId = getNextFlashcardId(flashcardData);
+            const withIds = parsed.map((card: any, i: number) => ({
+                ...card,
+                id: card.id ?? baseId + i,
+            }));
+            const nextCards = [...flashcardData, ...withIds];
+            syncFlashcardEditor(nextCards);
+            setAppendJson("");
+            setShowAppendBox(false);
+            showToast(`✅ เพิ่ม ${withIds.length} การ์ดต่อท้ายแล้ว`);
+        } catch (e) {
+            const fixed = tryAutoFixFlashcardJson(appendJson);
+            try {
+                let parsed = JSON5.parse(fixed);
+                if (!Array.isArray(parsed)) parsed = [parsed];
+                const baseId = getNextFlashcardId(flashcardData);
+                const withIds = parsed.map((card: any, i: number) => ({
+                    ...card,
+                    id: card.id ?? baseId + i,
+                }));
+                const nextCards = [...flashcardData, ...withIds];
+                syncFlashcardEditor(nextCards);
+                setAppendJson("");
+                setShowAppendBox(false);
+                showToast(`✅ เพิ่ม ${withIds.length} การ์ดต่อท้ายแล้ว (Auto Fixed)`);
+            } catch (e2) {
+                showToast("❌ JSON ไม่ถูกต้อง กรุณาตรวจสอบ format", "error");
             }
-        ];
-
-        syncFlashcardEditor(nextCards);
-        showToast("✅ เพิ่ม Flashcard ต่อท้ายแล้ว");
+        }
     };
 
     const tryAutoFixFlashcardJson = (raw: string) => {
@@ -1659,7 +1690,7 @@ export default function ManageLessonsPage() {
                                                                 🪄 AI Clean (Auto Fix)
                                                             </button>
                                                         </div>
-                                                        <p className="text-[10px] text-slate-500">กดปุ่มเพิ่มเพื่อสร้างการ์ดใบใหม่ต่อท้ายข้อมูลเดิมได้ทันที</p>
+                                                        <p className="text-[10px] text-slate-500">กดปุ่มเพิ่มเพื่อวาง JSON ข้อมูลการ์ดใหม่ต่อท้ายข้อมูลเดิม</p>
                                                     </div>
                                                     {flashcardJson && (
                                                         <p className={`text-xs font-bold ${jsonError ? 'text-red-500' : 'text-emerald-500'}`}>
@@ -1668,6 +1699,35 @@ export default function ManageLessonsPage() {
                                                     )}
                                                 </div>
                                             </div>
+
+                                            {showAppendBox && (
+                                                <div className="bg-green-50 p-4 rounded-2xl border-2 border-green-200 animate-in fade-in slide-in-from-top-2">
+                                                    <label className="block text-xs font-bold text-green-700 uppercase tracking-wider mb-2">➕ วาง JSON เพิ่มเติม (จะต่อท้ายข้อมูลเดิม)</label>
+                                                    <textarea
+                                                        placeholder={`[\n  {\n    "topic": "ชื่อหัวข้อ",\n    "question": "คำถาม",\n    "answer": "คำตอบ"\n  }\n]`}
+                                                        value={appendJson}
+                                                        onChange={(e) => setAppendJson(e.target.value)}
+                                                        className="w-full p-3 bg-white border-2 border-green-200 rounded-xl outline-none transition focus:border-green-500 text-slate-700 min-h-[150px] font-mono text-sm"
+                                                    />
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleConfirmAppend}
+                                                            className="text-xs bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-bold flex items-center gap-1"
+                                                        >
+                                                            <Plus className="w-3.5 h-3.5" />
+                                                            เพิ่มต่อท้าย
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setShowAppendBox(false); setAppendJson(""); }}
+                                                            className="text-xs bg-slate-100 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-200 transition font-bold"
+                                                        >
+                                                            ยกเลิก
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {flashcardData.length > 0 && (
                                                 <div className="bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm max-h-[500px] overflow-y-auto">
