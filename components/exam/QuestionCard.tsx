@@ -20,8 +20,11 @@ interface QuestionCardProps {
 
 // Convert Thai letter references (ก ข ค ง) to numbers (1 2 3 4) in explanation text
 // Note: \b doesn't work with Thai Unicode, so we use explicit character patterns
-const convertThaiLettersToNumbers = (text: string): string => {
-    if (!text) return text;
+const convertThaiLettersToNumbers = (text: any): any => {
+    // 🛡️ Type guard: explanation can be a string, object, or null.
+    // When it's an object (structured {principle, steps, pitfall}), pass it
+    // through untouched so MathRenderer can handle it via its object branch.
+    if (!text || typeof text !== 'string') return text;
     return text
         // "ข้อ ก" → "ข้อ 1" (followed by punctuation, space, or end)
         .replace(/ข้อ\s*ก(?=[.\s,;:\)]|$)/g, 'ข้อ 1')
@@ -42,7 +45,7 @@ const convertThaiLettersToNumbers = (text: string): string => {
 // replaced with placeholders BEFORE any formatting is applied. This prevents patterns
 // like "- " (list items) from matching subtraction operators inside math expressions,
 // which would insert \n inside $...$ and break the MathRenderer regex.
-const formatExplanation = (text: string): string => {
+const formatExplanation = (text: any): any => {
     if (!text || typeof text !== 'string') return text;
 
     // ═══ STEP 1: PROTECT LaTeX blocks from modification ═══
@@ -173,6 +176,58 @@ const formatExplanation = (text: string): string => {
 
     return result;
 };
+
+// 🛡️ Error Boundary around explanation rendering.
+// If anything in convertThaiLettersToNumbers / formatExplanation / MathRenderer
+// throws for any unexpected explanation shape, show a plain-text fallback
+// instead of crashing the whole page (which would bubble to app/error.tsx).
+class ExplanationErrorBoundary extends React.Component<
+    { children: React.ReactNode; rawExplanation: any },
+    { hasError: boolean }
+> {
+    constructor(props: any) {
+        super(props);
+        this.state = { hasError: false };
+    }
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+    componentDidCatch(error: Error) {
+        // eslint-disable-next-line no-console
+        console.error("[ExplanationErrorBoundary] failed to render explanation:", error);
+    }
+    // Reset error state when the question (and thus explanation) changes
+    componentDidUpdate(prevProps: { rawExplanation: any }) {
+        if (prevProps.rawExplanation !== this.props.rawExplanation && this.state.hasError) {
+            this.setState({ hasError: false });
+        }
+    }
+    render() {
+        if (this.state.hasError) {
+            const raw = this.props.rawExplanation;
+            let fallbackText = "";
+            if (typeof raw === "string") fallbackText = raw;
+            else if (raw && typeof raw === "object") {
+                try {
+                    fallbackText = JSON.stringify(raw, null, 2);
+                } catch {
+                    fallbackText = "(ไม่สามารถแสดงเฉลยในรูปแบบมาตรฐานได้)";
+                }
+            }
+            return (
+                <div className="space-y-3">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm font-bold border border-amber-200 dark:border-amber-800">
+                        ⚠️ แสดงเฉลยในรูปแบบสำรอง
+                    </div>
+                    <pre className="whitespace-pre-wrap font-sans text-stone-700 dark:text-slate-300 leading-relaxed text-base">
+                        {fallbackText || "(ไม่พบข้อมูลเฉลย)"}
+                    </pre>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
     question,
@@ -391,7 +446,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                 เฉลยละเอียด / แนวคิด
                             </h4>
                             <div className="text-stone-700 dark:text-slate-300 leading-relaxed text-base space-y-2">
-                                <MathRenderer text={formatExplanation(convertThaiLettersToNumbers(question.explanation))} />
+                                <ExplanationErrorBoundary rawExplanation={question.explanation}>
+                                    <MathRenderer text={formatExplanation(convertThaiLettersToNumbers(question.explanation))} />
+                                </ExplanationErrorBoundary>
                             </div>
                         </div>
                     </div>

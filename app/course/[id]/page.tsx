@@ -9,6 +9,8 @@ import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
 import GrandSlamPage from "./GrandSlamPage";
 import { getGrandSlamContent } from "./grandSlamContent";
+import TemplatePage from "./template/TemplatePage";
+import type { SalesPageConfig } from "./template/types";
 
 // SVG Icons for Content
 
@@ -126,6 +128,24 @@ export default function CourseSalesPage() {
 
     if (loading) return <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center text-stone-500">กำลังโหลด...</div>;
     if (!course) return <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center text-stone-500">ไม่พบคอร์สเรียนนี้</div>;
+
+    // ✅ NEW: Check if this course has a section-based sales page template enabled
+    const salesPage: SalesPageConfig | undefined = course.salesPage;
+    if (salesPage?.enabled && Array.isArray(salesPage.sections) && salesPage.sections.length > 0) {
+        return (
+            <TemplatePage
+                config={salesPage}
+                courseId={courseId}
+                courseTitle={course.title}
+                coursePrice={course.price}
+                courseFullPrice={course.fullPrice}
+                courseImage={course.image}
+                user={user}
+                enrollmentStatus={enrollmentStatus}
+                onLogin={handleLogin}
+            />
+        );
+    }
 
     // Check if this course should use the new Grand Slam Offer page
     const grandSlamContent = getGrandSlamContent(course.title);

@@ -1361,6 +1361,13 @@ export default function ManageLessonsPage() {
                                 >
                                     ↻ Recalculate Count
                                 </button>
+                                <Link
+                                    href={`/admin/course/${courseId}/sales-page`}
+                                    className="px-3 py-1 bg-pink-50 hover:bg-pink-100 text-pink-600 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-pink-200"
+                                    title="แก้ไขหน้า Sales Page ของคอร์สนี้"
+                                >
+                                    🎨 Sales Page
+                                </Link>
                             </div>
                         </div>
                     </div>
