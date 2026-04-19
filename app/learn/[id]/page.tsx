@@ -561,6 +561,7 @@ function CoursePlayer() {
                     handleNextLesson={handleNextLesson}
                     onVideoProgress={saveProgress}
                     initialTime={initialTimestamp}
+                    docUrl={course?.docUrl}
                 />
             </main>
             {/* Toast Notification */}

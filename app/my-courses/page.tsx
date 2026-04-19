@@ -499,6 +499,38 @@ function ProfileHeader({ profile }: { profile: any }) {
             {/* Side Action Cards */}
             {user && (
                 <div className="flex flex-row lg:flex-col gap-3 lg:w-56 shrink-0">
+                    {/* User Guide — ✨ Highlighted with soft pulse to catch attention (วางบนสุดเพื่อดึงความสนใจ) */}
+                    <Link
+                        href="/guide"
+                        className="group flex-1 relative overflow-visible rounded-2xl p-[1px] bg-gradient-to-br from-teal-400 via-emerald-400 to-cyan-500 shadow-sm hover:shadow-lg hover:shadow-teal-200/50 dark:hover:shadow-teal-900/40 transition-all duration-300 hover:-translate-y-0.5 animate-[soft-pulse_2.5s_ease-in-out_infinite]"
+                    >
+                        {/* 🔔 Attention Badge */}
+                        <span className="absolute -top-2 -right-2 z-10 bg-gradient-to-r from-rose-500 to-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md whitespace-nowrap animate-bounce">
+                            เริ่มที่นี่ก่อน!
+                        </span>
+
+                        <div className="h-full bg-white dark:bg-slate-900 rounded-[calc(1rem-1px)] px-5 py-4 flex items-center gap-3.5 relative overflow-hidden">
+                            {/* Soft shine overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-teal-50/40 dark:via-teal-900/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none"></div>
+
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300 relative">
+                                <BookOpen size={18} className="text-white" />
+                                {/* Ping indicator */}
+                                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-900">
+                                    <span className="absolute inset-0 bg-rose-500 rounded-full animate-ping opacity-75"></span>
+                                </span>
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-tight">
+                                    คู่มือใช้งาน
+                                </p>
+                                <p className="text-[11px] text-teal-600 dark:text-teal-400 font-semibold mt-0.5 leading-tight">
+                                    📖 อ่านก่อนใช้งาน · ครบทุกขั้นตอน
+                                </p>
+                            </div>
+                        </div>
+                    </Link>
+
                     {/* Parent Dashboard */}
                     <Link
                         href={`/parent-dashboard/${user.uid}`}
@@ -514,26 +546,6 @@ function ProfileHeader({ profile }: { profile: any }) {
                                 </p>
                                 <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 leading-tight">
                                     สำหรับผู้ปกครอง
-                                </p>
-                            </div>
-                        </div>
-                    </Link>
-
-                    {/* User Guide */}
-                    <Link
-                        href="/guide"
-                        className="group flex-1 relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-br from-teal-400 via-emerald-400 to-cyan-500 shadow-sm hover:shadow-lg hover:shadow-teal-200/40 dark:hover:shadow-teal-900/30 transition-all duration-300 hover:-translate-y-0.5"
-                    >
-                        <div className="h-full bg-white dark:bg-slate-900 rounded-[calc(1rem-1px)] px-5 py-4 flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300">
-                                <BookOpen size={18} className="text-white" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-tight">
-                                    คู่มือใช้งาน
-                                </p>
-                                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 leading-tight">
-                                    วิธีใช้เว็บไซต์
                                 </p>
                             </div>
                         </div>

@@ -94,7 +94,8 @@ export const m1Term1Content: GrandSlamContent = {
         ],
         secondaryHeadline: 'โดยที่คุณไม่ต้องเคี่ยวเข็ญจนบ้านแตก และไม่ต้องจ้างติวเตอร์ชั่วโมงละ 500 บาท',
         subHeadline: 'ระบบการเรียนรู้แบบใหม่ ที่ออกแบบมาแก้ปัญหา "รอยต่อ ม.1" โดยเฉพาะ... ออกแบบมาเพื่อให้เข้าใจง่ายกว่าการเรียนในห้องเรียน',
-        blueprintImage: '/images/blueprint-m1.png',
+        // blueprintImage field ถูกลบออก — field เป็น optional และไม่มี component ไหน consume
+        // ไฟล์ /images/blueprint-m1.png ไม่มีอยู่ใน /public จึงเป็น broken reference
         sampleVideoId: 'hJYJf2FHxIQ', // Real sample video from SolutionSection 
     },
     problem: {

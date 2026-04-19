@@ -210,30 +210,51 @@ export default function UserGuidePage() {
             id: "learning",
             icon: <Play size={20} />,
             emoji: "🎬",
-            title: "ระบบเข้าเรียน (วิดีโอ)",
-            subtitle: "เรียนผ่านวิดีโอ ติดตามความก้าวหน้า",
+            title: "ระบบเข้าเรียน (ในห้องเรียน)",
+            subtitle: "เรียนวิดีโอ, ดาวน์โหลดเอกสาร, สรุปเนื้อหา",
             color: "text-violet-600 dark:text-violet-400",
             bgColor: "bg-violet-50 dark:bg-violet-900/20",
             borderColor: "border-violet-200 dark:border-violet-800",
             content: (
-                <div className="space-y-4">
-                    <StepCard number={1} title="กดเข้าเรียน" color="bg-violet-500">
-                        จากหน้า &quot;คอร์สของฉัน&quot; กดปุ่ม <strong>&quot;เริ่มเรียน&quot;</strong> หรือ <strong>&quot;เรียนต่อ&quot;</strong>
+                <div className="space-y-5">
+                    <StepCard number={1} title="กดเข้าห้องเรียน" color="bg-violet-500">
+                        จากหน้า <strong>&quot;คอร์สของฉัน&quot;</strong> กดปุ่ม <strong>&quot;เริ่มเรียน&quot;</strong> หรือ <strong>&quot;เรียนต่อ&quot;</strong> (ระบบจะจำจุดที่เรียนค้างและกลับไปต่อให้อัตโนมัติ)
                     </StepCard>
-                    <StepCard number={2} title="เลือกบทเรียนจากแถบด้านข้าง" color="bg-violet-500">
-                        แถบซ้ายแสดงรายชื่อบทเรียนทั้งหมด แบ่งเป็นหมวดหมู่ กดเลือกบทที่ต้องการได้เลย ค้นหาบทเรียนด้วยช่องค้นหาด้านบน
+                    <StepCard number={2} title="เลือกบทเรียนจากแถบซ้าย" color="bg-violet-500">
+                        แถบด้านซ้ายแสดงบทเรียนทั้งหมด แบ่งตามหัวข้อ — กดขยายดูได้
+                        <br />• ค้นหาบทเรียนได้จากช่องด้านบน
+                        <br />• หมวด <strong>⚡️ ตะลุยโจทย์ (Exams)</strong> สำหรับฝึกทำโจทย์ในคอร์ส
                     </StepCard>
-                    <StepCard number={3} title="ดูวิดีโอและทำแบบฝึกหัด" color="bg-violet-500">
-                        ระบบจะเล่นวิดีโอบทเรียน บางบทจะมีแบบฝึกหัดและควิซให้ทำ เมื่อเรียนจบจะบันทึกอัตโนมัติ
+                    <StepCard number={3} title="ปุ่มลอย 2 ปุ่มบนวิดีโอ" color="bg-violet-500">
+                        <div className="space-y-2 mt-2">
+                            <div className="flex items-start gap-2 bg-white dark:bg-slate-800 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+                                <span className="text-lg shrink-0">📝</span>
+                                <div>
+                                    <p className="font-bold text-slate-700 dark:text-slate-200 text-xs">สรุปเนื้อหา</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">กดดูสรุปสั้น ๆ ของบทนั้น ช่วยทบทวนก่อน/หลังดูวิดีโอ</p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-2 bg-white dark:bg-slate-800 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700">
+                                <span className="text-lg shrink-0">📄</span>
+                                <div>
+                                    <p className="font-bold text-blue-600 dark:text-blue-400 text-xs">ดาวน์โหลดเอกสาร</p>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">ไฟล์ PDF ประกอบการเรียน (ใบงาน, สไลด์, โจทย์)</p>
+                                </div>
+                            </div>
+                        </div>
                     </StepCard>
-                    <StepCard number={4} title="ดาวน์โหลดเอกสารประกอบ" color="bg-violet-500">
-                        บทเรียนที่มีเอกสาร PDF จะแสดงปุ่มดาวน์โหลดใต้วิดีโอ กดเพื่อเปิดหรือบันทึกไฟล์
+                    <StepCard number={4} title="ดูวิดีโอและทำควิซ" color="bg-violet-500">
+                        ระบบจะเล่นวิดีโอจาก YouTube (เสียงเปิดอัตโนมัติ 100%) — บทที่มีควิซให้ทำ ต้องทำผ่านก่อนจึงจะไปบทถัดไปได้
                     </StepCard>
+                    <StepCard number={5} title="กด 'บันทึกและไปต่อ'" color="bg-violet-500">
+                        ปุ่มสีเขียวมุมขวาบน — กดเมื่อเรียนจบบทนั้น ระบบจะนับ % ความก้าวหน้าและไปบทถัดไปให้อัตโนมัติ
+                    </StepCard>
+
                     <div className="grid md:grid-cols-3 gap-3 mt-4">
                         {[
-                            { icon: <CheckCircle size={16} />, title: "บันทึกอัตโนมัติ", desc: "ระบบจำจุดที่เรียนค้าง" },
-                            { icon: <BarChart3 size={16} />, title: "วัด % ความก้าวหน้า", desc: "แสดงผลแบบ real-time" },
-                            { icon: <Smartphone size={16} />, title: "เรียนได้ทุกอุปกรณ์", desc: "คอม แท็บเล็ต มือถือ" },
+                            { icon: <CheckCircle size={16} />, title: "Smart Resume", desc: "จำจุดที่ดูค้างให้" },
+                            { icon: <BarChart3 size={16} />, title: "นับ % Real-time", desc: "แสดงความก้าวหน้าทุกคอร์ส" },
+                            { icon: <Smartphone size={16} />, title: "ทุกอุปกรณ์", desc: "คอม / แท็บเล็ต / มือถือ" },
                         ].map((f, i) => (
                             <div key={i} className="flex items-center gap-2 bg-violet-50 dark:bg-violet-900/20 rounded-xl p-3 text-violet-700 dark:text-violet-300">
                                 {f.icon}
@@ -244,8 +265,57 @@ export default function UserGuidePage() {
                             </div>
                         ))}
                     </div>
+                    <TipBox variant="info">
+                        <strong>💡 Tip:</strong> หาปุ่ม &quot;ดาวน์โหลดเอกสาร&quot; ไม่เจอ? มันคือปุ่มลอยเล็ก ๆ มุมบนซ้ายของวิดีโอ ใต้ชื่อคลิป 📄
+                    </TipBox>
                     <TipBox variant="success">
-                        เรียนจบทุกบทเรียนในคอร์ส จะได้รับ <strong>ใบประกาศนียบัตร (Certificate)</strong> อัตโนมัติ! สามารถดาวน์โหลดเป็นรูปภาพได้
+                        เรียนครบ 100% ของคอร์สไหน จะปลดล็อก <strong>🏆 ใบประกาศนียบัตร</strong> ให้อัตโนมัติ ดาวน์โหลดเป็นรูปเก็บไว้ได้
+                    </TipBox>
+                </div>
+            ),
+        },
+        {
+            id: "in-course-exams",
+            icon: <Zap size={20} />,
+            emoji: "⚡️",
+            title: "ตะลุยโจทย์ในคอร์ส & ดูเฉลย",
+            subtitle: "ฝึกทำข้อสอบพร้อมเฉลยละเอียดในห้องเรียน",
+            color: "text-fuchsia-600 dark:text-fuchsia-400",
+            bgColor: "bg-fuchsia-50 dark:bg-fuchsia-900/20",
+            borderColor: "border-fuchsia-200 dark:border-fuchsia-800",
+            content: (
+                <div className="space-y-4">
+                    <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
+                        ในห้องเรียน (หน้า <strong>/learn</strong>) มีหมวด <strong>⚡️ ตะลุยโจทย์ (Exams)</strong> แยกในแถบด้านซ้าย — กดขยายเพื่อเลือกชุดโจทย์
+                    </p>
+                    <StepCard number={1} title="เลือกชุดข้อสอบ" color="bg-fuchsia-500">
+                        กดที่หมวด <strong>⚡️ ตะลุยโจทย์</strong> แล้วเลือกชุดโจทย์ที่ต้องการฝึก
+                    </StepCard>
+                    <StepCard number={2} title="อ่านโจทย์ & เลือกคำตอบ" color="bg-fuchsia-500">
+                        กดเลือกช้อยส์ที่คิดว่าถูก (ก, ข, ค, ง หรือ 1-4) ระบบไม่จับเวลา ฝึกเต็มที่ได้
+                    </StepCard>
+                    <StepCard number={3} title="กด 'ดูเฉลยข้อนี้'" color="bg-fuchsia-500">
+                        เฉลยจะแสดงแบบโครงสร้าง 3 ส่วน:
+                        <div className="grid md:grid-cols-3 gap-2 mt-2">
+                            <div className="bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-indigo-500 p-2 rounded">
+                                <p className="font-bold text-indigo-700 dark:text-indigo-400 text-[11px]">💡 หลักการ</p>
+                                <p className="text-[10px] text-slate-500">สูตร/concept ที่ใช้</p>
+                            </div>
+                            <div className="bg-slate-50 dark:bg-slate-800 border-l-2 border-slate-500 p-2 rounded">
+                                <p className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">👣 ขั้นตอน</p>
+                                <p className="text-[10px] text-slate-500">step-by-step ทีละข้อ</p>
+                            </div>
+                            <div className="bg-rose-50 dark:bg-rose-900/20 border-l-2 border-rose-500 p-2 rounded">
+                                <p className="font-bold text-rose-700 dark:text-rose-400 text-[11px]">⚠️ ข้อควรระวัง</p>
+                                <p className="text-[10px] text-slate-500">จุดที่คนมักพลาด</p>
+                            </div>
+                        </div>
+                    </StepCard>
+                    <StepCard number={4} title="ทำข้อถัดไป" color="bg-fuchsia-500">
+                        กด <strong>&quot;ข้อถัดไป&quot;</strong> หรือเลือกจากเลขข้อด้านบน ฝึกทำได้เรื่อย ๆ ไม่จำกัดจำนวนครั้ง
+                    </StepCard>
+                    <TipBox variant="info">
+                        สูตรคณิตศาสตร์ทั้งหมดในเฉลยแสดงด้วย <strong>LaTeX</strong> สวยงามอ่านง่าย พร้อมแสดงผลเป็นสมการคณิตศาสตร์จริง ๆ
                     </TipBox>
                 </div>
             ),
@@ -491,15 +561,31 @@ export default function UserGuidePage() {
                     <div className="text-center mb-12">
                         <div className="inline-flex items-center gap-2 bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 px-4 py-1.5 rounded-full text-xs font-bold mb-4 border border-teal-200 dark:border-teal-800">
                             <BookOpen size={14} />
-                            คู่มือฉบับสมบูรณ์
+                            คู่มือฉบับสมบูรณ์ · อัปเดตล่าสุด 2026
                         </div>
                         <h1 className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-600 via-blue-600 to-indigo-600 dark:from-teal-400 dark:via-blue-400 dark:to-indigo-400 mb-4 leading-tight">
                             คู่มือการใช้งานเว็บไซต์
                         </h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-lg font-medium max-w-2xl mx-auto">
-                            ทุกสิ่งที่คุณต้องรู้เกี่ยวกับการใช้งาน KruHeem School<br className="hidden md:block" />
+                        <p className="text-slate-500 dark:text-slate-400 text-lg font-medium max-w-2xl mx-auto mb-6">
+                            ทุกสิ่งที่คุณต้องรู้เกี่ยวกับ <strong className="text-slate-700 dark:text-slate-200">KruHeem School</strong><br className="hidden md:block" />
                             ตั้งแต่สมัครสมาชิก จนถึงรับใบประกาศ
                         </p>
+
+                        {/* ✨ Read-First Banner */}
+                        <div className="max-w-2xl mx-auto bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 dark:from-amber-900/10 dark:via-orange-900/10 dark:to-rose-900/10 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-5 text-left flex gap-4 items-start shadow-sm">
+                            <div className="w-11 h-11 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shrink-0 shadow-md">
+                                <span className="text-2xl">👋</span>
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-bold text-slate-800 dark:text-slate-100 mb-1 text-sm md:text-base">
+                                    สวัสดีครับ ผู้ปกครอง & นักเรียนทุกคน!
+                                </p>
+                                <p className="text-xs md:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                                    แนะนำให้ <strong className="text-orange-600 dark:text-orange-400">อ่านคู่มือนี้ก่อนเริ่มใช้งาน</strong> สัก 5 นาที จะช่วยให้ใช้งานได้อย่างลื่นไหล ไม่พลาดฟีเจอร์สำคัญ
+                                    และได้ประโยชน์จากทุกเครื่องมือที่เราตั้งใจทำให้ 💚
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Quick Nav */}

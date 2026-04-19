@@ -25,6 +25,8 @@ interface LessonContentProps {
     // ✅ New Props for Smart Resume
     onVideoProgress?: (seconds: number) => void;
     initialTime?: number;
+    // ✅ Course-level document URL (ย้ายมาเป็นปุ่มลอย)
+    docUrl?: string;
 }
 
 export const LessonContent: React.FC<LessonContentProps> = ({
@@ -42,7 +44,8 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     markAsComplete,
     handleNextLesson,
     onVideoProgress,
-    initialTime
+    initialTime,
+    docUrl
 }) => {
     const [showSummary, setShowSummary] = React.useState(false);
     const [showCorrection, setShowCorrection] = React.useState(false);
@@ -366,13 +369,15 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                                 rel: 0,
                                                 modestbranding: 1,
                                                 start: startTime,
+                                                mute: 0,
                                             },
                                         }}
                                         onReady={(event) => {
                                             try {
                                                 event.target.setPlaybackQuality('default');
-                                                event.target.setVolume(100);
+                                                // ✅ Force unmute + max volume ก่อน เพื่อไม่ให้ YouTube แสดง "tap to unmute" overlay
                                                 event.target.unMute();
+                                                event.target.setVolume(100);
                                             } catch (_) { /* ignore */ }
                                         }}
                                         onError={(event) => {
@@ -416,16 +421,31 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                     />
                                 </div>
 
-                                {/* ✅ Floating Action Buttons */}
-                                <div className="absolute top-4 right-4 z-20 pointer-events-none flex flex-col gap-3 items-end">
+                                {/* ✅ Floating Action Buttons — Minimal & Elegant
+                                    ย้ายไปมุมบนซ้าย เลื่อนลงใต้ title bar ของ YouTube
+                                    เพื่อไม่บัง volume slider (ขวาบน) และ title (ซ้ายบนสุด) */}
+                                <div className="absolute top-14 left-3 z-20 pointer-events-none flex flex-col gap-2.5 items-start">
                                     {/* Summary Button */}
                                     <button
                                         onClick={() => setShowSummary(true)}
-                                        className="pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-white text-base font-bold px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all backdrop-blur-md border border-white/20"
+                                        className="pointer-events-auto group flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-100 text-sm font-medium px-4 py-2 rounded-full shadow-sm hover:shadow-md transition-all backdrop-blur-md ring-1 ring-black/5 dark:ring-white/10"
                                     >
-                                        <span className="text-xl">📝</span>
+                                        <span className="text-base leading-none">📝</span>
                                         <span>สรุปเนื้อหา</span>
                                     </button>
+
+                                    {/* ✅ Document Download Button (ย้ายจาก Sidebar มาเป็นปุ่มลอย) */}
+                                    {docUrl && (isEnrolled || isAdmin) && (
+                                        <a
+                                            href={docUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="pointer-events-auto group flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 text-sm font-medium px-4 py-2 rounded-full shadow-sm hover:shadow-md transition-all backdrop-blur-md ring-1 ring-black/5 dark:ring-white/10"
+                                        >
+                                            <span className="text-base leading-none">📄</span>
+                                            <span>ดาวน์โหลดเอกสาร</span>
+                                        </a>
+                                    )}
 
                                     {/* Correction Button */}
                                     {activeLesson?.correction && (
