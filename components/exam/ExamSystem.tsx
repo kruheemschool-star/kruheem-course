@@ -1,14 +1,62 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ExamQuestion } from '@/types/exam';
 import { sanitizeExamData } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
-import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2 } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+
+// === localStorage Auto-Save Helpers ===
+interface SavedExamProgress {
+    answers: Record<number, number>;
+    checkedQuestions: Record<number, boolean>;
+    currentQuestionIndex: number;
+    questionTimes: Record<number, number>;
+    savedAt: number; // timestamp
+}
+
+const PROGRESS_KEY_PREFIX = 'exam_progress_';
+const PROGRESS_EXPIRY_HOURS = 72; // Auto-expire after 72 hours
+
+const getProgressKey = (examId: string): string => `${PROGRESS_KEY_PREFIX}${examId}`;
+
+const saveProgressToLocal = (examId: string, data: SavedExamProgress): void => {
+    try {
+        localStorage.setItem(getProgressKey(examId), JSON.stringify(data));
+    } catch (e) {
+        console.warn('[ExamAutoSave] Failed to save progress:', e);
+    }
+};
+
+const loadProgressFromLocal = (examId: string): SavedExamProgress | null => {
+    try {
+        const raw = localStorage.getItem(getProgressKey(examId));
+        if (!raw) return null;
+        const data: SavedExamProgress = JSON.parse(raw);
+        // Check expiry
+        const ageHours = (Date.now() - data.savedAt) / (1000 * 60 * 60);
+        if (ageHours > PROGRESS_EXPIRY_HOURS) {
+            localStorage.removeItem(getProgressKey(examId));
+            return null;
+        }
+        return data;
+    } catch (e) {
+        console.warn('[ExamAutoSave] Failed to load progress:', e);
+        return null;
+    }
+};
+
+const clearProgressFromLocal = (examId: string): void => {
+    try {
+        localStorage.removeItem(getProgressKey(examId));
+    } catch (e) {
+        console.warn('[ExamAutoSave] Failed to clear progress:', e);
+    }
+};
 
 interface ExamSystemProps {
     examData: ExamQuestion[];
@@ -52,6 +100,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const [isFinished, setIsFinished] = useState(false); // Restore finish state
     const [showGrid, setShowGrid] = useState(false);
     const [finalScore, setFinalScore] = useState<FinalScore | null>(null);
+    const [wasRestored, setWasRestored] = useState(false); // Show "resumed" banner
 
     // Time tracking
     const examStartTime = React.useRef<number>(Date.now());
@@ -64,6 +113,46 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const currentQuestion = sanitizedExamData[currentQuestionIndex];
     const totalQuestions = sanitizedExamData.length;
 
+    // === Auto-Save: Restore saved progress on mount ===
+    const hasRestoredRef = useRef(false);
+    useEffect(() => {
+        if (!examId || isTrial || hasRestoredRef.current) return;
+        hasRestoredRef.current = true;
+        const saved = loadProgressFromLocal(examId);
+        if (saved && Object.keys(saved.answers).length > 0) {
+            setAnswers(saved.answers);
+            setCheckedQuestions(saved.checkedQuestions || {});
+            setCurrentQuestionIndex(saved.currentQuestionIndex || 0);
+            questionTimes.current = saved.questionTimes || {};
+            setWasRestored(true);
+            console.log('[ExamAutoSave] Restored progress:', Object.keys(saved.answers).length, 'answers');
+        }
+    }, [examId, isTrial]);
+
+    // === Auto-Save: Debounced save to localStorage ===
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const debouncedSave = useCallback(() => {
+        if (!examId || isTrial || isFinished) return;
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+            const data: SavedExamProgress = {
+                answers,
+                checkedQuestions,
+                currentQuestionIndex,
+                questionTimes: questionTimes.current,
+                savedAt: Date.now(),
+            };
+            saveProgressToLocal(examId, data);
+        }, 500); // Debounce 500ms
+    }, [examId, isTrial, isFinished, answers, checkedQuestions, currentQuestionIndex]);
+
+    useEffect(() => {
+        debouncedSave();
+        return () => {
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        };
+    }, [debouncedSave]);
+
     // ... (Keep handleSelectOption, handleCheckAnswer, handlePrev, handleNext)
 
     const handleSelectOption = (optionIndex: number) => {
@@ -74,6 +163,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             questionTimes.current[currentQuestionIndex] = (questionTimes.current[currentQuestionIndex] || 0) + elapsed;
         }
         setAnswers({ ...answers, [currentQuestionIndex]: optionIndex });
+        setWasRestored(false); // Dismiss restored banner on interaction
     };
 
     const handleCheckAnswer = () => {
@@ -125,6 +215,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         setCheckedQuestions(allChecked);
 
         setIsFinished(true);
+
+        // Clear localStorage progress after finishing
+        if (examId) clearProgressFromLocal(examId);
 
         // Save exam result to Firestore (only if logged in and not trial)
         if (user && examId && !isTrial) {
@@ -182,6 +275,20 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         setCheckedQuestions({});
         setIsFinished(false);
         setFinalScore(null);
+        setWasRestored(false);
+        questionTimes.current = {};
+        examStartTime.current = Date.now();
+        questionStartTime.current = Date.now();
+        // Clear localStorage
+        if (examId) clearProgressFromLocal(examId);
+    };
+
+    // Reset handler for sidebar button (same as restart but with confirmation)
+    const handleClearProgress = () => {
+        const answeredCount = Object.keys(answers).length;
+        if (answeredCount === 0) return;
+        if (!confirm(`คุณตอบไปแล้ว ${answeredCount} ข้อ\nต้องการล้างคำตอบทั้งหมดแล้วเริ่มทำใหม่หรือไม่?`)) return;
+        handleRestart();
     };
 
     if (isFinished && finalScore) {
@@ -374,10 +481,36 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         );
                     })}
                 </div>
+
+                {/* Clear Progress Button (Desktop Sidebar) */}
+                {Object.keys(answers).length > 0 && !isTrial && (
+                    <button
+                        onClick={handleClearProgress}
+                        className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-all"
+                    >
+                        <Trash2 size={14} />
+                        ล้างคำตอบ ทำใหม่
+                    </button>
+                )}
             </div>
 
             {/* Main Content */}
             <div className="flex-1 w-full max-w-4xl">
+                {/* Restored Progress Banner */}
+                {wasRestored && (
+                    <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl animate-in slide-in-from-top-2">
+                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
+                            ✅ กลับมาทำต่อได้เลย — คำตอบที่ทำไว้ {Object.keys(answers).length} ข้อถูกกู้คืนแล้ว
+                        </p>
+                        <button
+                            onClick={() => setWasRestored(false)}
+                            className="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 text-lg font-bold px-1"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
+
                 {/* Top Bar: Progress & Title (Mobile Only Grid Toggle) */}
                 <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
@@ -407,9 +540,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 style={{ width: `${(Object.keys(answers).length / totalQuestions) * 100}%` }}
                             ></div>
                         </div>
-                        <button onClick={() => setShowGrid(!showGrid)} className="text-xs text-indigo-500 font-bold w-full text-right">
-                            {showGrid ? "ซ่อนแผนที่ข้อสอบ" : "ดูแผนที่ข้อสอบ"}
-                        </button>
+                        <div className="flex items-center justify-between">
+                            {Object.keys(answers).length > 0 && !isTrial && (
+                                <button
+                                    onClick={handleClearProgress}
+                                    className="text-xs text-rose-500 font-bold flex items-center gap-1"
+                                >
+                                    <Trash2 size={12} /> ล้างคำตอบ
+                                </button>
+                            )}
+                            <button onClick={() => setShowGrid(!showGrid)} className="text-xs text-indigo-500 font-bold ml-auto">
+                                {showGrid ? "ซ่อนแผนที่ข้อสอบ" : "ดูแผนที่ข้อสอบ"}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
