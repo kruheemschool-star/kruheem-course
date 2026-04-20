@@ -677,6 +677,7 @@ export default function ExamDashboardPage() {
                                         <Link
                                             key={`${r.examId}-${i}`}
                                             href={`/exam/${r.examId}`}
+                                            prefetch={false}
                                             className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
                                         >
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg flex-shrink-0 ${gc.bg} ${gc.text} ${gc.border} border`}>
@@ -715,6 +716,7 @@ export default function ExamDashboardPage() {
                                             <div>
                                                 <Link
                                                     href={`/exam/${r.examId}?q=${r.wrongQuestionIndices[0]}`}
+                                                    prefetch={false}
                                                     className="font-bold text-sm text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                                                 >
                                                     {r.examTitle}

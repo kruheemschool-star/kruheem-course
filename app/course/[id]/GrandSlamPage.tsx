@@ -95,6 +95,7 @@ export default function GrandSlamPage({
 
                         <Link
                             href={`/learn/${courseId}`}
+                            prefetch={false}
                             className="group relative inline-block px-12 py-5 rounded-2xl font-bold text-xl text-white overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-xl shadow-emerald-200/50"
                         >
                             <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500" />

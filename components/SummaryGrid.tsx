@@ -199,6 +199,7 @@ export default function SummaryGrid({ summaries }: { summaries: Summary[] }) {
                                             <Link
                                                 key={summary.id}
                                                 href={`/summary/${summary.slug}`}
+                                                prefetch={false}
                                                 className="group bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden hover:shadow-lg hover:border-slate-200 dark:hover:border-slate-600 hover:-translate-y-1 transition-all duration-300"
                                             >
                                                 {/* Cover Image */}

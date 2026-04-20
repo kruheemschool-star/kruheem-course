@@ -348,7 +348,7 @@ export default function MyCoursesPage() {
                             // But usually it should be there.
 
                             return (
-                                <Link href={resumeCourse?.isExamBank ? `/exam` : `/learn/${lastSession.courseId}?lessonId=${lastSession.lessonId}&t=${lastSession.timestamp}`}>
+                                <Link href={resumeCourse?.isExamBank ? `/exam` : `/learn/${lastSession.courseId}?lessonId=${lastSession.lessonId}&t=${lastSession.timestamp}`} prefetch={false}>
                                     <div className="group relative w-full bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 md:p-8 border border-slate-100 dark:border-slate-800 shadow-lg hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-500 overflow-hidden cursor-pointer">
 
                                         {/* Background Decoration */}
@@ -534,6 +534,7 @@ function ProfileHeader({ profile }: { profile: any }) {
                     {/* Parent Dashboard */}
                     <Link
                         href={`/parent-dashboard/${user.uid}`}
+                        prefetch={false}
                         className="group flex-1 relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-br from-violet-400 via-indigo-400 to-blue-500 shadow-sm hover:shadow-lg hover:shadow-indigo-200/40 dark:hover:shadow-indigo-900/30 transition-all duration-300 hover:-translate-y-0.5"
                     >
                         <div className="h-full bg-white dark:bg-slate-900 rounded-[calc(1rem-1px)] px-5 py-4 flex items-center gap-3.5">
@@ -750,6 +751,7 @@ function CourseCard({ course, progress, isReviewed, onReview }: { course: Course
                 {isApproved ? (
                     <Link
                         href={isExpired ? '#' : (course.isExamBank ? '/exam' : `/learn/${course.id}`)}
+                        prefetch={false}
                         onClick={(e) => isExpired && e.preventDefault()}
                         className={`block w-full py-3 font-bold rounded-xl text-center transition shadow-md ${isExpired
                             ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none'

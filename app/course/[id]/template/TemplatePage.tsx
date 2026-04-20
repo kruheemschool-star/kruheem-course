@@ -57,6 +57,7 @@ export default function TemplatePage({
                     </p>
                     <Link
                         href={`/learn/${courseId}`}
+                        prefetch={false}
                         className="inline-block px-12 py-5 rounded-2xl font-bold text-xl text-white bg-gradient-to-r from-emerald-500 to-teal-500 shadow-xl hover:scale-105 active:scale-95 transition-all"
                     >
                         เข้าสู่ห้องเรียน →

@@ -249,6 +249,7 @@ export default function CourseFinder() {
                                                         <Link
                                                             key={course.id}
                                                             href={`/course/${course.id}`}
+                                                            prefetch={false}
                                                             className="group flex flex-col h-full bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden border border-slate-100 dark:border-slate-800 hover:-translate-y-2"
                                                         >
                                                             {/* Image Header */}

@@ -91,7 +91,7 @@ export default function PrintPageClient({ exam, mode }: { exam: ExamData; mode: 
                         : 'ฟีเจอร์การพิมพ์ข้อสอบสงวนไว้สำหรับสมาชิกที่ลงทะเบียนแล้วเท่านั้น'}
                 </p>
                 <div className="flex gap-3">
-                    <Link href={`/exam/${exam.id}`} className="px-6 py-3 border-2 border-slate-200 text-slate-600 rounded-full font-bold hover:bg-slate-50 transition-all">
+                    <Link href={`/exam/${exam.id}`} prefetch={false} className="px-6 py-3 border-2 border-slate-200 text-slate-600 rounded-full font-bold hover:bg-slate-50 transition-all">
                         กลับไปหน้าข้อสอบ
                     </Link>
                     {!user && (
@@ -111,13 +111,14 @@ export default function PrintPageClient({ exam, mode }: { exam: ExamData; mode: 
             {/* Print Controls - hidden when printing */}
             <div className="print:hidden sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
                 <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <Link href={`/exam/${exam.id}`} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold transition-colors">
+                    <Link href={`/exam/${exam.id}`} prefetch={false} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold transition-colors">
                         <ArrowLeft size={20} />
                         <span>กลับไปหน้าข้อสอบ</span>
                     </Link>
                     <div className="flex items-center gap-3">
                         <Link
                             href={`/exam/${exam.id}/print?mode=${mode === 'exam' ? 'answer' : 'exam'}`}
+                            prefetch={false}
                             className="px-4 py-2 rounded-xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all"
                         >
                             {mode === 'exam' ? 'ดูเฉลย' : 'ดูข้อสอบเปล่า'}

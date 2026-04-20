@@ -2292,7 +2292,7 @@ export default function CourseSalesPage() {
                                         return null;
                                     })()}
 
-                                    <Link href={`/learn/${courseId}`}>
+                                    <Link href={`/learn/${courseId}`} prefetch={false}>
                                         <button className="w-full md:w-auto group relative px-10 py-5 rounded-2xl font-bold text-xl text-white overflow-hidden transition-all hover:-translate-y-1 shadow-xl shadow-green-200">
                                             <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 opacity-90 group-hover:opacity-100 transition-opacity"></div>
                                             <div className="absolute inset-0 bg-white/20 backdrop-blur-sm opacity-0 group-hover:opacity-20 transition-opacity"></div>
@@ -2337,7 +2337,7 @@ export default function CourseSalesPage() {
                                         </button>
 
                                         {/* Free Trial Button (Glassmorphism Low Emphasis) */}
-                                        <Link href={`/learn/${courseId}`}>
+                                        <Link href={`/learn/${courseId}`} prefetch={false}>
                                             <button className="px-10 py-5 rounded-2xl font-bold text-xl text-slate-600 bg-white/30 border border-white/60 backdrop-blur-md hover:bg-white/50 hover:border-white transition-all duration-300 shadow-lg shadow-slate-200/30 flex items-center gap-2 group">
                                                 <span className="w-8 h-8 rounded-full bg-white/50 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform shadow-sm">▶</span>
                                                 ทดลองเรียน
