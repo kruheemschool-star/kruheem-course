@@ -5,17 +5,18 @@ import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
+import { STATIC_AVATARS } from "@/lib/staticAssets";
 import AdminGuard from "@/components/AdminGuard";
 import ReviewList from "@/app/reviews/ReviewList";
 import Link from "next/link";
 import { ArrowLeft, Star, Plus, ChevronDown, ChevronUp, Loader2, ImagePlus, X } from "lucide-react";
 
-// Profile avatar images from user profile system
+// Profile avatar images served from Firebase Storage (see lib/staticAssets.ts)
 const PROFILE_AVATARS = {
-    kids: Array.from({ length: 8 }, (_, i) => `/avatars/kids/kid_${i + 1}.png`),
-    female: Array.from({ length: 8 }, (_, i) => `/avatars/female/girl_${i + 1}.png`),
-    animals: Array.from({ length: 8 }, (_, i) => `/avatars/animals/animal_${i + 1}.png`),
-    monsters: Array.from({ length: 8 }, (_, i) => `/avatars/monsters/monster_${i + 1}.png`),
+    kids: STATIC_AVATARS.kids,
+    female: STATIC_AVATARS.female,
+    animals: STATIC_AVATARS.animals,
+    monsters: STATIC_AVATARS.monsters,
 };
 
 // Letter avatars A-Z (for fallback when user doesn't set avatar)

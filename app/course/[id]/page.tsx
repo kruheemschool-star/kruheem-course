@@ -11,6 +11,7 @@ import GrandSlamPage from "./GrandSlamPage";
 import { getGrandSlamContent } from "./grandSlamContent";
 import TemplatePage from "./template/TemplatePage";
 import type { SalesPageConfig } from "./template/types";
+import { STATIC_REVIEWS } from "@/lib/staticAssets";
 
 // SVG Icons for Content
 
@@ -41,8 +42,8 @@ export default function CourseSalesPage() {
     const [openChapterIndex, setOpenChapterIndex] = useState<number | null>(null);
     const [openGiftedPartIndex, setOpenGiftedPartIndex] = useState<number | null>(null);
 
-    // Review Images (1-19 .jpg)
-    const reviewImages = Array.from({ length: 19 }, (_, i) => `/images/reviews/review${i + 1}.jpg`);
+    // Review Images — served from Firebase Storage (see lib/staticAssets.ts)
+    const reviewImages = STATIC_REVIEWS;
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     useEffect(() => {

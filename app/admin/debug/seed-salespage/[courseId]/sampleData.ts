@@ -1,4 +1,5 @@
 import type { SalesPageConfig } from "@/app/course/[id]/template/types";
+import { STATIC_REVIEWS } from "@/lib/staticAssets";
 
 interface Input {
     title: string;
@@ -209,7 +210,7 @@ export function buildSampleSalesPage({ title, price, fullPrice }: Input): SalesP
                 data: {
                     title: "อย่าเชื่อแค่คำพูด...",
                     subtitle: "ดูรีวิวจริงจากผู้เรียนนับพัน",
-                    images: Array.from({ length: 19 }, (_, i) => `/images/reviews/review${i + 1}.jpg`),
+                    images: [...STATIC_REVIEWS],
                 },
             },
             {

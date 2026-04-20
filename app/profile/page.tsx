@@ -7,19 +7,19 @@ import { doc, setDoc } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
+import { STATIC_AVATARS } from "@/lib/staticAssets";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { User, Camera, Save, Loader2, Check, ArrowLeft, Lightbulb } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
-// Reliable Twemoji CDN for Animals
-// Local Avatar Assets
+// Avatar assets served from Firebase Storage (see lib/staticAssets.ts)
 const avatarAssets = {
-    kids: Array.from({ length: 8 }, (_, i) => `/avatars/kids/kid_${i + 1}.png`),
-    female: Array.from({ length: 8 }, (_, i) => `/avatars/female/girl_${i + 1}.png`),
-    animal: Array.from({ length: 8 }, (_, i) => `/avatars/animals/animal_${i + 1}.png`),
-    monsters: Array.from({ length: 8 }, (_, i) => `/avatars/monsters/monster_${i + 1}.png`),
+    kids: STATIC_AVATARS.kids,
+    female: STATIC_AVATARS.female,
+    animal: STATIC_AVATARS.animals,
+    monsters: STATIC_AVATARS.monsters,
 };
 
 const TABS = [
