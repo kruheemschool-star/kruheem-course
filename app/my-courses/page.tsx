@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { collection, query, where, getDocs, onSnapshot, QuerySnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getCachedData } from "@/lib/dataCache";
 import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -103,9 +104,11 @@ export default function MyCoursesPage() {
             setLoading(true);
             try {
                 // 1. Fetch Static Courses Data (Catalog)
-                // We fetch this once because course metadata rarely changes in real-time context
-                const coursesSnap = await getDocs(collection(db, "courses"));
-                const allCoursesData = coursesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
+                // Cached for 5 min — shared with parent-dashboard, learn/[id]
+                const allCoursesData = await getCachedData("all-courses", async () => {
+                    const coursesSnap = await getDocs(collection(db, "courses"));
+                    return coursesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
+                });
 
                 // 2. Setup Real-time Listeners
                 const uid = user.uid;
@@ -247,17 +250,20 @@ export default function MyCoursesPage() {
                 if (course.isAdminView) return;
                 
                 if (course.isExamBank) {
-                    // For Exam Bank, fetch the number of exams
-                    const examsSnap = await getDocs(collection(db, "exams"));
-                    const examsData = examsSnap.docs.map(d => ({ id: d.id }));
+                    // For Exam Bank, fetch the number of exams (cached)
+                    const examsData = await getCachedData("all-exams-ids", async () => {
+                        const examsSnap = await getDocs(collection(db, "exams"));
+                        return examsSnap.docs.map(d => ({ id: d.id }));
+                    });
                     videoCountMap[course.id] = { videoIds: examsData.map(e => e.id), total: examsData.length };
                 } else {
-                    // For normal courses, fetch video lessons
-                    const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
-                    const videoLessons = lessonsSnap.docs
-                        .map(d => ({ id: d.id, ...d.data() }))
-                        .filter((l: any) => l.type === 'video' && !l.isHidden);
-                    videoCountMap[course.id] = { videoIds: videoLessons.map(l => l.id), total: videoLessons.length };
+                    // For normal courses, fetch video lessons (cached per-course)
+                    const lessonDocs = await getCachedData(`lessons-${course.id}`, async () => {
+                        const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
+                        return lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    });
+                    const videoLessons = lessonDocs.filter((l: any) => l.type === 'video' && !l.isHidden);
+                    videoCountMap[course.id] = { videoIds: videoLessons.map((l: any) => l.id), total: videoLessons.length };
                 }
             }));
             videoCountCacheRef.current = videoCountMap;

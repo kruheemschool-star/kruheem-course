@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { getCachedData } from "@/lib/dataCache";
 import Link from "next/link";
 import { ArrowLeft, ChevronDown, BookOpen, Clock, CheckCircle2, PlayCircle, Lock } from "lucide-react";
 
@@ -87,17 +88,17 @@ export default function ParentDashboard() {
                     };
                 });
 
-                // 3. Fetch ALL courses and filter to those with progress
-                const coursesSnap = await getDocs(collection(db, "courses"));
+                // 3. Fetch ALL courses and filter to those with progress (cached — shared with my-courses)
+                const allCourses = await getCachedData<any[]>("all-courses", async () => {
+                    const coursesSnap = await getDocs(collection(db, "courses"));
+                    return coursesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                });
                 let filteredCourses: Course[];
                 if (progressCourseIds.length > 0) {
-                    filteredCourses = coursesSnap.docs
-                        .filter(d => progressCourseIds.includes(d.id))
-                        .map(d => ({ id: d.id, ...d.data() } as Course));
+                    filteredCourses = allCourses
+                        .filter((c: any) => progressCourseIds.includes(c.id)) as Course[];
                 } else {
-                    filteredCourses = coursesSnap.docs
-                        .slice(0, 5)
-                        .map(d => ({ id: d.id, ...d.data() } as Course));
+                    filteredCourses = allCourses.slice(0, 5) as Course[];
                 }
 
                 setCourses(filteredCourses);
@@ -106,9 +107,13 @@ export default function ParentDashboard() {
                 const progressMap: Record<string, CourseProgress> = {};
 
                 for (const course of filteredCourses) {
-                    const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
-                    const lessonList = lessonsSnap.docs
-                        .map(d => ({ id: d.id, ...d.data() } as Lesson))
+                    // Cached per-course — shared with my-courses and learn/[id]
+                    const lessonDocs = await getCachedData<any[]>(`lessons-${course.id}`, async () => {
+                        const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
+                        return lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    });
+                    const lessonList = (lessonDocs as Lesson[])
+                        .slice()
                         .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
                     const videoLessons = lessonList.filter(l => l.type === 'video' && !l.isHidden);

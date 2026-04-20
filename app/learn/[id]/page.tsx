@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { db } from "@/lib/firebase";
 import { logLearningActivity } from "@/lib/activityTracking";
 import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, onSnapshot, where, serverTimestamp } from "firebase/firestore";
+import { getCachedData } from "@/lib/dataCache";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
@@ -149,14 +150,20 @@ function CoursePlayer() {
         if (!courseId) return;
         const fetchData = async () => {
             try {
-                const courseDoc = await getDoc(doc(db, "courses", courseId));
-                if (courseDoc.exists()) setCourse(courseDoc.data());
+                // Cached course data (5 min TTL) — shared across all course-related pages
+                const courseData = await getCachedData(`course-${courseId}`, async () => {
+                    const courseDoc = await getDoc(doc(db, "courses", courseId));
+                    return courseDoc.exists() ? courseDoc.data() : null;
+                });
+                if (courseData) setCourse(courseData);
 
-                // ✅ Fetch all lessons and sort in memory to support custom ordering
-                const q = query(collection(db, "courses", courseId, "lessons"));
-                const querySnapshot = await getDocs(q);
-
-                const lessonList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Lesson[];
+                // ✅ Cached lessons — shared with my-courses and parent-dashboard
+                const lessonDocs = await getCachedData<any[]>(`lessons-${courseId}`, async () => {
+                    const q = query(collection(db, "courses", courseId, "lessons"));
+                    const querySnapshot = await getDocs(q);
+                    return querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                });
+                const lessonList = (lessonDocs as Lesson[]).slice(); // copy to avoid mutating cache
 
                 // ✅ Sort by order first, then createdAt
                 lessonList.sort((a: any, b: any) => {
