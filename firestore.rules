@@ -163,6 +163,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // === Course Categories (public read, admin write) ===
+    // Used by /admin/courses page for grouping courses into categories.
+    // Public read because the course list / catalog shows category names.
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // === Settings (admin only) ===
     match /settings/{settingId} {
       allow read: if isAdmin();

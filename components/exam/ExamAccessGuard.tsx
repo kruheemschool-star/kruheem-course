@@ -9,9 +9,11 @@ import { Lock, Loader2, ArrowRight } from "lucide-react";
 
 export default function ExamAccessGuard({ 
     isFree, 
+    examLevel,
     children 
 }: { 
     isFree: boolean; 
+    examLevel?: "primary" | "lower" | "upper";
     children: React.ReactElement | ((props: { isTrial: boolean }) => React.ReactNode);
 }) {
     const { user, loading: authLoading } = useUserAuth();
@@ -54,16 +56,26 @@ export default function ExamAccessGuard({
 
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    if (data.courseTitle && data.courseTitle.includes("คลังข้อสอบ")) {
-                        if (data.status === "approved") {
-                            // ✅ Check expiry date — only grant access if not expired
-                            const expiry = data.expiryDate?.toDate?.() ?? (data.expiryDate ? new Date(data.expiryDate) : null);
-                            if (!expiry || expiry > new Date()) {
-                                isApproved = true;
-                            }
-                        }
-                        if (data.status === "pending") isPending = true;
+                    if (!data.courseTitle || !data.courseTitle.includes("คลังข้อสอบ")) return;
+
+                    // Level matching:
+                    // - If examLevel is specified AND enrollment has allowedExamLevel → must match
+                    // - If examLevel is specified AND enrollment has NO allowedExamLevel → fallback to "primary"
+                    //   (legacy enrollments are for the original exam bank = primary level)
+                    // - If examLevel is undefined (exam has no level tag) → skip level check (legacy behavior)
+                    if (examLevel) {
+                        const enrollmentLevel = data.allowedExamLevel || "primary";
+                        if (enrollmentLevel !== examLevel) return;
                     }
+
+                    if (data.status === "approved") {
+                        // ✅ Check expiry date — only grant access if not expired
+                        const expiry = data.expiryDate?.toDate?.() ?? (data.expiryDate ? new Date(data.expiryDate) : null);
+                        if (!expiry || expiry > new Date()) {
+                            isApproved = true;
+                        }
+                    }
+                    if (data.status === "pending") isPending = true;
                 });
 
                 if (isApproved) {
@@ -84,7 +96,7 @@ export default function ExamAccessGuard({
         };
 
         checkAccess();
-    }, [user, authLoading, isFree]);
+    }, [user, authLoading, isFree, examLevel]);
 
     if (accessStatus === 'checking' || authLoading) {
         return (

@@ -4,8 +4,10 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus, AlertCircle } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
+import { useUserAuth } from "@/context/AuthContext";
+import toast, { Toaster } from "react-hot-toast";
 
 // Drag and Drop imports
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -14,7 +16,7 @@ import { CSS } from '@dnd-kit/utilities';
 import React from "react";
 
 // Sortable Table Row Component
-function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking, onCategoryChange }: { exam: any; categories: any[]; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void; onCategoryChange: (id: string, newCategory: string) => void }) {
+function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking, onCategoryChange }: { exam: any; categoryOptions: string[]; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void; onCategoryChange: (id: string, newCategory: string) => void }) {
     const {
         attributes,
         listeners,
@@ -60,16 +62,12 @@ function SortableExamRow({ exam, categories, onDelete, onToggleFree, onToggleHid
                     onChange={(e) => onCategoryChange(exam.id, e.target.value)}
                     className="px-3 py-2 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold border border-amber-200 hover:bg-amber-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all cursor-pointer"
                 >
-                    <option value="" disabled>เลือกหมวดหมู่</option>
-                    {categories && categories.length > 0 ? (
-                        categories.map((cat) => (
-                            <option key={cat.id} value={cat.name}>
-                                {cat.name}
-                            </option>
-                        ))
-                    ) : (
-                        <option value="" disabled>ไม่มีหมวดหมู่</option>
-                    )}
+                    <option value="">— เลือกหมวดหมู่ —</option>
+                    {categoryOptions.map((name) => (
+                        <option key={name} value={name}>
+                            {name}
+                        </option>
+                    ))}
                 </select>
                 <div className="text-xs text-slate-400 mt-1">{exam.level}</div>
             </td>
@@ -188,6 +186,7 @@ function SortableCategoryRow({ category, onDelete }: { category: any; onDelete: 
 
 export default function ExamManagerPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
+    const { isAdmin, loading: authLoading } = useUserAuth();
     const [exams, setExams] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSavingOrder, setIsSavingOrder] = useState(false);
@@ -195,9 +194,19 @@ export default function ExamManagerPage() {
     const [newExamTitle, setNewExamTitle] = useState("");
     const [examConfig, setExamConfig] = useState<{ showExamDashboard: boolean; enableResultTracking: boolean }>({ showExamDashboard: false, enableResultTracking: false });
     const [categories, setCategories] = useState<any[]>([]);
+    const [categoriesLoadError, setCategoriesLoadError] = useState<string | null>(null);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState("");
     const [isSavingCategoryOrder, setIsSavingCategoryOrder] = useState(false);
+
+    // Merged category options for dropdowns: Firestore categories + any category
+    // currently referenced by existing exams (prevents orphaned values showing blank).
+    const categoryOptions = React.useMemo(() => {
+        const fromFirestore = categories.map(c => c.name).filter(Boolean);
+        const fromExams = Array.from(new Set(exams.map(e => e.category).filter(Boolean))) as string[];
+        const merged = Array.from(new Set([...fromFirestore, ...fromExams]));
+        return merged;
+    }, [categories, exams]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -249,10 +258,15 @@ export default function ExamManagerPage() {
     const fetchCategories = async () => {
         try {
             const snap = await getDocs(collection(db, "examCategories"));
-            const cats = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const cats = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
             cats.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
             setCategories(cats);
-        } catch (e) { console.error('Error fetching categories:', e); }
+            setCategoriesLoadError(null);
+        } catch (e: any) {
+            console.error('Error fetching categories:', e);
+            setCategoriesLoadError(e?.message || 'ไม่สามารถโหลดหมวดหมู่ได้');
+            toast.error('โหลดหมวดหมู่ไม่สำเร็จ — dropdown จะใช้ค่าจากข้อสอบที่มีอยู่แทน');
+        }
     };
 
     const addCategory = async () => {
@@ -278,10 +292,18 @@ export default function ExamManagerPage() {
     };
 
     useEffect(() => {
+        // Public data — safe to fetch immediately.
         fetchExams();
-        fetchExamConfig();
         fetchCategories();
     }, []);
+
+    // Admin-only data — wait until auth resolved and admin confirmed,
+    // otherwise Firestore rules reject with "Missing or insufficient permissions".
+    useEffect(() => {
+        if (authLoading) return;
+        if (!isAdmin) return;
+        fetchExamConfig();
+    }, [authLoading, isAdmin]);
 
     const handleDelete = (id: string) => {
         confirmModal("ยืนยันการลบชุดข้อสอบ", "คุณแน่ใจหรือไม่ว่าจะลบชุดข้อสอบนี้? การกระทำนี้ไม่สามารถย้อนกลับได้", async () => {
@@ -439,7 +461,27 @@ export default function ExamManagerPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 p-8">
+            <Toaster position="top-right" />
             <div className="max-w-6xl mx-auto">
+                {categoriesLoadError && (
+                    <div className="mb-4 bg-amber-50 border-2 border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                        <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 text-sm">
+                            <p className="font-bold text-amber-800">โหลดหมวดหมู่ไม่สำเร็จ</p>
+                            <p className="text-amber-700 mt-1">
+                                ไม่สามารถอ่านจาก <code className="bg-amber-100 px-1 rounded">examCategories</code> ได้
+                                — dropdown จะใช้ค่าจากข้อสอบที่มีอยู่ชั่วคราว กด "จัดการหมวดหมู่" เพื่อเพิ่มใหม่
+                            </p>
+                            <p className="text-xs text-amber-600 mt-1 font-mono">{categoriesLoadError}</p>
+                            <button
+                                onClick={fetchCategories}
+                                className="mt-2 px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700"
+                            >
+                                ลองใหม่
+                            </button>
+                        </div>
+                    </div>
+                )}
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h1 className="text-3xl font-black text-slate-800">จัดการคลังข้อสอบ 📚</h1>
@@ -504,31 +546,31 @@ export default function ExamManagerPage() {
                         <p className="text-slate-400 mt-2">เริ่มสร้างชุดแรกกันเลย!</p>
                     </div>
                 ) : (
-                    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold text-sm">
-                                <tr>
-                                    <th className="p-4 w-10"></th>
-                                    <th className="p-6">ชื่อชุดข้อสอบ</th>
-                                    <th className="p-6">หมวดหมู่</th>
-                                    <th className="p-6 text-center">ระดับความยาก</th>
-                                    <th className="p-6 text-center">จำนวนข้อ</th>
-                                    <th className="p-6 text-center">สิทธิ์การเข้าถึง</th>
-                                    <th className="p-6 text-center">ตรวจคำตอบ</th>
-                                    <th className="p-6 text-right">จัดการ</th>
-                                </tr>
-                            </thead>
-                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                                <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                                <table className="w-full text-left">
+                                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold text-sm">
+                                        <tr>
+                                            <th className="p-4 w-10"></th>
+                                            <th className="p-6">ชื่อชุดข้อสอบ</th>
+                                            <th className="p-6">หมวดหมู่</th>
+                                            <th className="p-6 text-center">ระดับความยาก</th>
+                                            <th className="p-6 text-center">จำนวนข้อ</th>
+                                            <th className="p-6 text-center">สิทธิ์การเข้าถึง</th>
+                                            <th className="p-6 text-center">ตรวจคำตอบ</th>
+                                            <th className="p-6 text-right">จัดการ</th>
+                                        </tr>
+                                    </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {exams.map((exam) => (
-                                            <SortableExamRow key={exam.id} exam={exam} categories={categories} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} />
+                                            <SortableExamRow key={exam.id} exam={exam} categoryOptions={categoryOptions} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} />
                                         ))}
                                     </tbody>
-                                </SortableContext>
-                            </DndContext>
-                        </table>
-                    </div>
+                                </table>
+                            </div>
+                        </SortableContext>
+                    </DndContext>
                 )}
             </div>
             <ConfirmDialog />

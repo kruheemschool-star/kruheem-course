@@ -33,6 +33,9 @@ export default function CourseManagerPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
 
+  // Allowed exam level (for exam-bank courses only): 'none' | 'primary' | 'lower' | 'upper'
+  const [allowedExamLevel, setAllowedExamLevel] = useState<"none" | "primary" | "lower" | "upper">("none");
+
   const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -82,27 +85,50 @@ export default function CourseManagerPage() {
 
   const fetchCategories = async () => {
     try {
-      const q = query(collection(db, "categories"), orderBy("createdAt", "asc"));
-      const querySnapshot = await getDocs(q);
-      let categoryList = querySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
-
-      if (categoryList.length === 0) {
-        // Seed default categories if empty
-        const defaultCategories = ["ประถม (ป.4-6)", "สอบเข้า ม.1", "ม.ต้น (ม.1-3)", "ม.ปลาย (ม.4-6)", "คอร์สเรียนทั่วไป"];
-        for (const cat of defaultCategories) {
-          await addDoc(collection(db, "categories"), { name: cat, createdAt: new Date() });
-        }
-        // Re-fetch
-        const newSnapshot = await getDocs(query(collection(db, "categories"), orderBy("createdAt", "asc")));
-        categoryList = newSnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
-      }
+      // Fetch WITHOUT orderBy so documents missing a `createdAt` field are still returned.
+      // (Firestore silently drops docs when orderBy field is absent — this was the bug
+      //  that made "old" categories appear to disappear.)
+      const querySnapshot = await getDocs(collection(db, "categories"));
+      const categoryList = querySnapshot.docs
+        .map(doc => {
+          const data = doc.data() as { name?: string; createdAt?: any };
+          return {
+            id: doc.id,
+            name: data.name || "",
+            createdAt: data.createdAt,
+          };
+        })
+        .filter(c => c.name)
+        // Sort client-side: docs with createdAt by time; docs without go to the end, alphabetically.
+        .sort((a, b) => {
+          const toMs = (v: any): number => {
+            if (!v) return NaN;
+            if (typeof v.toMillis === "function") return v.toMillis();
+            if (typeof v.seconds === "number") return v.seconds * 1000;
+            if (v instanceof Date) return v.getTime();
+            return NaN;
+          };
+          const ta = toMs(a.createdAt);
+          const tb = toMs(b.createdAt);
+          if (!isNaN(ta) && !isNaN(tb)) return ta - tb;
+          if (!isNaN(ta)) return -1;
+          if (!isNaN(tb)) return 1;
+          return a.name.localeCompare(b.name, "th");
+        })
+        .map(({ id, name }) => ({ id, name }));
 
       setCategories(categoryList);
       if (!category && categoryList.length > 0) {
         setCategory(categoryList[0].name);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching categories:", error);
+      showToast(
+        "โหลดหมวดหมู่ไม่สำเร็จ: " + (error?.code === "permission-denied"
+          ? "ไม่มีสิทธิ์อ่าน (ตรวจ firestore rules)"
+          : error?.message || "unknown"),
+        "error"
+      );
     }
   };
 
@@ -122,6 +148,7 @@ export default function CourseManagerPage() {
     setNewKeyword("");
     setTags(course.tags || []);
     setNewTag("");
+    setAllowedExamLevel(course.allowedExamLevel || "none");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -141,6 +168,7 @@ export default function CourseManagerPage() {
     setNewKeyword("");
     setTags([]);
     setNewTag("");
+    setAllowedExamLevel("none");
   };
 
   const deleteCourseWithAllData = async (courseId: string, imageUrl: string) => {
@@ -201,6 +229,7 @@ export default function CourseManagerPage() {
         docUrl,
         keywords,
         tags, // Add tags to saving data
+        allowedExamLevel: allowedExamLevel === "none" ? null : allowedExamLevel,
         updatedAt: new Date()
       };
 
@@ -453,6 +482,22 @@ export default function CourseManagerPage() {
               >
                 <option value="" disabled>-- เลือกหมวดหมู่ --</option>
                 {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+              </select>
+            </div>
+
+            {/* 🔐 Exam Bank Level — Controls exam access permission for this course */}
+            <div className="space-y-2 bg-amber-50 p-4 rounded-xl border-2 border-amber-200">
+              <label className="block text-sm font-bold text-amber-700 uppercase tracking-wider">🔐 ระดับข้อสอบที่เข้าถึงได้ (คลังข้อสอบ)</label>
+              <p className="text-xs text-amber-600 mb-2">ใช้เฉพาะคอร์ส "คลังข้อสอบ" เท่านั้น คอร์สเรียนวิดีโอปกติ ให้เลือก "ไม่ใช่คอร์สคลังข้อสอบ"</p>
+              <select
+                className="w-full p-3 bg-white border-2 border-amber-200 rounded-xl focus:border-amber-500 outline-none transition font-bold text-amber-900 shadow-sm"
+                value={allowedExamLevel}
+                onChange={(e) => setAllowedExamLevel(e.target.value as any)}
+              >
+                <option value="none">ไม่ใช่คอร์สคลังข้อสอบ (คอร์สวิดีโอปกติ)</option>
+                <option value="primary">คลังข้อสอบประถม / สอบเข้า ม.1</option>
+                <option value="lower">คลังข้อสอบมัธยมต้น (ม.1-ม.3)</option>
+                <option value="upper">คลังข้อสอบมัธยมปลาย (ม.4-ม.6)</option>
               </select>
             </div>
 
