@@ -474,20 +474,20 @@ function ProfileHeader({ profile }: { profile: any }) {
         <div className="flex flex-col lg:flex-row gap-4 animate-in slide-in-from-top-4 duration-500">
             {/* Student Profile Card */}
             <div className="flex-1 bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-6">
-                {/* Avatar — larger with gradient ring + solid background (no more transparent) */}
+                {/* Avatar — rounded-square (App Icon style) with gradient frame */}
                 <div className="relative shrink-0">
-                    {/* Outer gradient ring */}
-                    <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-1 shadow-lg shadow-indigo-200/60 dark:shadow-indigo-900/30">
-                        {/* White padding ring */}
-                        <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 p-1">
-                            {/* Solid gradient background behind avatar (no transparency) */}
-                            <div className="w-full h-full rounded-full bg-gradient-to-br from-sky-100 via-indigo-50 to-purple-100 dark:from-slate-800 dark:via-indigo-950 dark:to-purple-950 flex items-center justify-center overflow-hidden">
+                    {/* Outer gradient frame */}
+                    <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-3xl bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-[3px] shadow-xl shadow-indigo-200/60 dark:shadow-indigo-900/30">
+                        {/* White padding ring (inner radius = outer - padding) */}
+                        <div className="w-full h-full rounded-[21px] bg-white dark:bg-slate-900 p-1">
+                            {/* Soft gradient background to fill PNG transparency */}
+                            <div className="w-full h-full rounded-2xl bg-gradient-to-br from-sky-100 via-indigo-50 to-purple-100 dark:from-slate-800 dark:via-indigo-950 dark:to-purple-950 flex items-center justify-center overflow-hidden">
                                 {profile.avatar || profile.photoURL ? (
                                     /* eslint-disable-next-line @next/next/no-img-element */
                                     <img
                                         src={profile.avatar || profile.photoURL}
                                         alt={profile.displayName || "User Avatar"}
-                                        className="w-full h-full object-contain p-1"
+                                        className="w-full h-full object-contain"
                                         loading="lazy"
                                     />
                                 ) : (
@@ -498,8 +498,8 @@ function ProfileHeader({ profile }: { profile: any }) {
                             </div>
                         </div>
                     </div>
-                    {/* Online indicator dot */}
-                    <div className="absolute bottom-2 right-2 w-5 h-5 bg-emerald-500 rounded-full border-[3px] border-white dark:border-slate-900 shadow" aria-label="online" />
+                    {/* Online indicator dot — circular for contrast against square avatar */}
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-[3px] border-white dark:border-slate-900 shadow-md" aria-label="online" />
                 </div>
 
                 {/* Info */}
