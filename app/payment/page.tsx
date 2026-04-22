@@ -371,6 +371,9 @@ export default function PaymentPage() {
           userEmail: user.email,
           courseId: courseId,
           courseTitle: courseInfo?.title || "Unknown Course",
+          // Copy exam-level scope from course so ExamAccessGuard can match it
+          // (null for non exam-bank courses). Fixes exam-bank gating bug.
+          allowedExamLevel: courseInfo?.allowedExamLevel ?? null,
           price: price,
           couponCode: discount?.code || null,
           discountAmount: itemDiscount,
