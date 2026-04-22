@@ -246,8 +246,15 @@ export default function AdminAvatarsPage() {
                         </div>
                     </div>
 
-                    {/* Upload button */}
-                    <div>
+                    {/* Upload + Cleanup buttons */}
+                    <div className="flex gap-2 flex-wrap">
+                        <Link
+                            href="/admin/avatars/cleanup"
+                            className="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 font-bold flex items-center gap-2 text-sm"
+                            title="ล้างรูปเก่าที่ไม่ใช้แล้ว"
+                        >
+                            🧹 ล้างรูปเก่า
+                        </Link>
                         <input
                             ref={fileInputRef}
                             type="file"
