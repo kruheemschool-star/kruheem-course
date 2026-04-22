@@ -38,6 +38,16 @@ test.describe('deriveExamLevel() — exam level derivation logic', () => {
         expect(deriveExamLevel('สอบเข้า ม.1', '')).toBe('primary');
         expect(deriveExamLevel('คลังข้อสอบประถม', 'ม.1')).toBe('primary');
     });
+
+    test('Title fallback: recovers correct level when category is mis-tagged', () => {
+        // Admin quick-add defaulted category to "ม.ต้น" but title clearly says
+        // "สอบเข้า ม.1" → should resolve to primary via title signal.
+        expect(deriveExamLevel('ม.ต้น', 'ม.1', 'แบบฝึกหัด สอบเข้า ม.1 ชุดที่ 7')).toBe('primary');
+        // Title-only fallback (category empty)
+        expect(deriveExamLevel(null, null, 'ข้อสอบ ม.ปลาย ชุดที่ 2')).toBe('upper');
+        // Title doesn't override correctly-tagged categories
+        expect(deriveExamLevel('ม.ต้น', 'ม.3', 'ข้อสอบ ม.3')).toBe('lower');
+    });
 });
 
 // ==========================================================================

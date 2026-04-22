@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus, AlertCircle } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
+import { deriveExamLevel } from "@/lib/exam-level";
 import toast, { Toaster } from "react-hot-toast";
 
 // Drag and Drop imports
@@ -374,12 +375,26 @@ export default function ExamManagerPage() {
     const submitQuickAdd = async () => {
         if (!newExamTitle.trim()) return;
 
+        // Auto-derive category/level from the title so that a new exam titled
+        // "สอบเข้า ม.1 ชุดที่ 7" is NOT left tagged as ม.ต้น (which would lock
+        // it from primary-bank subscribers). Admin can still override in the row.
+        const title = newExamTitle.trim();
+        const derived = deriveExamLevel(null, null, title);
+        const DEFAULTS: Record<string, { category: string; level: string }> = {
+            primary: { category: "ประถม", level: "ป.6" },
+            lower:   { category: "ม.ต้น", level: "ม.3" },
+            upper:   { category: "ม.ปลาย", level: "ม.6" },
+        };
+        const { category, level } = derived
+            ? DEFAULTS[derived]
+            : { category: "", level: "" }; // admin must set manually when title is ambiguous
+
         try {
             await addDoc(collection(db, "exams"), {
-                title: newExamTitle.trim(),
+                title,
                 description: "รายละเอียดเบื้องต้น...",
-                category: "ม.ต้น",
-                level: "ม.1",
+                category,
+                level,
                 questionCount: 0,
                 timeLimit: 30,
                 difficulty: "Medium",
@@ -493,6 +508,9 @@ export default function ExamManagerPage() {
                         )}
                         <Link href="/admin" className="px-4 py-2 bg-white text-slate-600 rounded-lg hover:bg-slate-100 font-bold border border-slate-200">
                             ย้อนกลับ
+                        </Link>
+                        <Link href="/admin/exams/audit" className="px-4 py-2 bg-white text-slate-600 rounded-lg hover:bg-slate-100 font-bold flex items-center gap-2 border border-slate-200" title="ตรวจสอบข้อสอบที่ category ไม่ตรงกับ title">
+                            🔍 ตรวจสอบหมวด
                         </Link>
                         <button onClick={() => setIsCategoryModalOpen(true)} className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-bold flex items-center gap-2 shadow-lg shadow-amber-200">
                             <FolderPlus size={20} />
