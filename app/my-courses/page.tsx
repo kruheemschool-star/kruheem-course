@@ -473,31 +473,55 @@ function ProfileHeader({ profile }: { profile: any }) {
     return (
         <div className="flex flex-col lg:flex-row gap-4 animate-in slide-in-from-top-4 duration-500">
             {/* Student Profile Card */}
-            <div className="flex-1 bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-6">
-                <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-4xl shadow-inner overflow-hidden">
-                    <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center text-4xl shadow-inner overflow-hidden">
-                        {profile.avatar || profile.photoURL ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={profile.avatar || profile.photoURL} alt={profile.name || "User Avatar"} className="w-full h-full object-cover" />
-                        ) : (
-                            <span className="select-none">{profile.displayName?.[0] || 'U'}</span>
-                        )}
+            <div className="flex-1 bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-6">
+                {/* Avatar — larger with gradient ring + solid background (no more transparent) */}
+                <div className="relative shrink-0">
+                    {/* Outer gradient ring */}
+                    <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-1 shadow-lg shadow-indigo-200/60 dark:shadow-indigo-900/30">
+                        {/* White padding ring */}
+                        <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 p-1">
+                            {/* Solid gradient background behind avatar (no transparency) */}
+                            <div className="w-full h-full rounded-full bg-gradient-to-br from-sky-100 via-indigo-50 to-purple-100 dark:from-slate-800 dark:via-indigo-950 dark:to-purple-950 flex items-center justify-center overflow-hidden">
+                                {profile.avatar || profile.photoURL ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img
+                                        src={profile.avatar || profile.photoURL}
+                                        alt={profile.displayName || "User Avatar"}
+                                        className="w-full h-full object-contain p-1"
+                                        loading="lazy"
+                                    />
+                                ) : (
+                                    <span className="text-5xl font-bold text-indigo-400 select-none">
+                                        {profile.displayName?.[0] || 'U'}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                     </div>
+                    {/* Online indicator dot */}
+                    <div className="absolute bottom-2 right-2 w-5 h-5 bg-emerald-500 rounded-full border-[3px] border-white dark:border-slate-900 shadow" aria-label="online" />
                 </div>
-                <div className="text-center md:text-left">
+
+                {/* Info */}
+                <div className="text-center md:text-left flex-1">
                     <div className="inline-block px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-bold mb-2">
                         🎓 นักเรียนของ KruHeem
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-1">{profile.displayName || 'นักเรียน'}</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-1">{profile.displayName || 'นักเรียน'}</h2>
                     {profile.caption ? (
-                        <p className="text-slate-500 dark:text-slate-400 italic text-sm font-medium">"{profile.caption}"</p>
+                        <p className="text-slate-500 dark:text-slate-400 italic text-sm font-medium mb-4">"{profile.caption}"</p>
                     ) : (
-                        <p className="text-slate-500 dark:text-slate-400">พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?</p>
+                        <p className="text-slate-500 dark:text-slate-400 mb-4">พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?</p>
                     )}
 
-                    {/* Edit Profile Link (Optional restoration) */}
-                    <Link href="/profile" className="mt-3 text-xs font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 justify-center md:justify-start transition">
-                        <Settings size={14} /> แก้ไขข้อมูลส่วนตัว
+                    {/* Edit Profile — prominent pill button */}
+                    <Link
+                        href="/profile"
+                        prefetch={false}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-full text-sm font-bold shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 transition-all active:scale-95"
+                    >
+                        <Settings size={16} />
+                        <span>แก้ไขข้อมูลส่วนตัว</span>
                     </Link>
                 </div>
             </div>
