@@ -38,6 +38,16 @@ service firebase.storage {
                    && request.resource.size < 5 * 1024 * 1024;
     }
 
+    // Admin-curated avatar library (public read, admin-only write).
+    // Uploaded via /admin/avatars. Must be listed BEFORE the catch-all rule.
+    match /static/avatars/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
     // Default: allow read for all other paths
     match /{allPaths=**} {
       allow read: if true;

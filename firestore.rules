@@ -171,6 +171,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // === Avatars (public read, admin write) ===
+    // Admin-managed avatar library. Students read this collection to
+    // populate the avatar picker on /profile. Only admins can upload,
+    // delete, or reorder.
+    match /avatars/{avatarId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // === Settings (admin only) ===
     match /settings/{settingId} {
       allow read: if isAdmin();

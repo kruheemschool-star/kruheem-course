@@ -77,6 +77,14 @@ const menuItems = [
         coverColor: 'from-pink-100 to-rose-100',
     },
     {
+        key: 'avatars',
+        href: '/admin/avatars',
+        icon: '🎭',
+        title: 'รูปประจำตัว',
+        description: 'อัปโหลดรูปให้นักเรียนเลือก',
+        coverColor: 'from-purple-100 to-fuchsia-100',
+    },
+    {
         key: 'chat',
         href: '/admin/chat',
         icon: '💬',

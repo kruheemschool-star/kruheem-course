@@ -3,24 +3,38 @@
 import { useState, useEffect, useRef } from "react";
 import { useUserAuth } from "@/context/AuthContext";
 import { db, storage } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import { STATIC_AVATARS } from "@/lib/staticAssets";
+import { getCachedData } from "@/lib/dataCache";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { User, Camera, Save, Loader2, Check, ArrowLeft, Lightbulb } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
-// Avatar assets served from Firebase Storage (see lib/staticAssets.ts)
-const avatarAssets = {
-    kids: STATIC_AVATARS.kids,
-    female: STATIC_AVATARS.female,
-    animal: STATIC_AVATARS.animals,
-    monsters: STATIC_AVATARS.monsters,
+type AvatarTab = 'kids' | 'female' | 'animal' | 'monsters';
+
+// Fallback avatar assets (used when Firestore collection is empty or fetch fails)
+const fallbackAvatars: Record<AvatarTab, string[]> = {
+    kids: [...STATIC_AVATARS.kids, ...STATIC_AVATARS.male],
+    female: [...STATIC_AVATARS.female],
+    animal: [...STATIC_AVATARS.animals],
+    monsters: [...STATIC_AVATARS.monsters],
 };
+
+// Map Firestore category names to UI tabs
+// (Firestore uses 'male'|'female'|'kids'|'animals'|'monsters';
+//  UI historically uses 'kids'|'female'|'animal'|'monsters'.)
+function categoryToTab(cat: string): AvatarTab | null {
+    if (cat === "kids" || cat === "male") return "kids";
+    if (cat === "female") return "female";
+    if (cat === "animals") return "animal";
+    if (cat === "monsters") return "monsters";
+    return null;
+}
 
 const TABS = [
     { id: 'kids', label: '👦 ผู้ชาย' },
@@ -74,11 +88,60 @@ export default function ProfilePage() {
     const [avatar, setAvatar] = useState("");
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'kids' | 'female' | 'animal' | 'monsters'>('kids');
+    const [activeTab, setActiveTab] = useState<AvatarTab>('kids');
     const [caption, setCaption] = useState("");
     const [showQuoteDrawer, setShowQuoteDrawer] = useState(false);
     const [quoteCategory, setQuoteCategory] = useState<'healing' | 'passion' | 'growth'>('healing');
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Dynamic avatar library loaded from Firestore (falls back to STATIC_AVATARS on empty/error).
+    const [avatarLib, setAvatarLib] = useState<Record<AvatarTab, string[]>>(fallbackAvatars);
+
+    // Fetch admin-managed avatars once on mount, cached for 5 minutes (rule #3).
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const snap = await getCachedData("avatar_library", async () => {
+                    const s = await getDocs(collection(db, "avatars"));
+                    return s.docs.map((d) => {
+                        const data = d.data() as any;
+                        return {
+                            url: data.url as string,
+                            category: data.category as string,
+                            order: typeof data.order === "number" ? data.order : 9999,
+                            createdAt: data.createdAt?.toMillis?.() ?? 0,
+                        };
+                    });
+                });
+
+                if (cancelled || !Array.isArray(snap) || snap.length === 0) return;
+
+                // Group by UI tab (map Firestore category -> tab) and sort by order, createdAt
+                const grouped: Record<AvatarTab, { url: string; order: number; createdAt: number }[]> = {
+                    kids: [], female: [], animal: [], monsters: [],
+                };
+                snap.forEach((a) => {
+                    const tab = categoryToTab(a.category);
+                    if (tab && a.url) grouped[tab].push({ url: a.url, order: a.order, createdAt: a.createdAt });
+                });
+                (Object.keys(grouped) as AvatarTab[]).forEach((k) => {
+                    grouped[k].sort((x, y) => (x.order - y.order) || (x.createdAt - y.createdAt));
+                });
+
+                // Only override a tab if Firestore actually provided avatars for it;
+                // otherwise keep the fallback so the UI never looks empty.
+                const merged: Record<AvatarTab, string[]> = { ...fallbackAvatars };
+                (Object.keys(grouped) as AvatarTab[]).forEach((k) => {
+                    if (grouped[k].length > 0) merged[k] = grouped[k].map((a) => a.url);
+                });
+                if (!cancelled) setAvatarLib(merged);
+            } catch (e) {
+                console.warn("avatar library fetch failed — using fallback:", e);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // Load initial data
     useEffect(() => {
@@ -88,9 +151,10 @@ export default function ProfilePage() {
             if (userProfile?.caption) setCaption(userProfile.caption);
 
             // Set default avatar if none exists
-            setAvatar(userProfile?.avatar || user?.photoURL || avatarAssets.kids[0]);
+            const defaultAvatar = avatarLib.kids[0] || fallbackAvatars.kids[0];
+            setAvatar(userProfile?.avatar || user?.photoURL || defaultAvatar);
         }
-    }, [user, userProfile]);
+    }, [user, userProfile, avatarLib]);
 
     const handleSave = async () => {
         if (!user) return;
@@ -341,7 +405,7 @@ export default function ProfilePage() {
 
                             {/* Grid - Sticker Shop Style */}
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                                {avatarAssets[activeTab].map((src, index) => (
+                                {avatarLib[activeTab].map((src: string, index: number) => (
                                     <button
                                         key={index}
                                         onClick={() => setAvatar(src)}
