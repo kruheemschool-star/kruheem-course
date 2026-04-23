@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase";
 import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { uploadImageToStorage } from "@/lib/upload";
-import { STATIC_AVATARS } from "@/lib/staticAssets";
+import { LOCAL_AVATAR_FALLBACKS } from "@/lib/avatarFallbacks";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
@@ -37,11 +37,11 @@ const DEFAULT_AVATAR_CATEGORIES: AvatarCategoryMeta[] = [
 
 // Fallback avatar assets (used when Firestore collection is empty or fetch fails)
 const fallbackAvatarsByCategory: Record<string, string[]> = {
-    kids: [...STATIC_AVATARS.kids],
-    male: [...STATIC_AVATARS.male],
-    female: [...STATIC_AVATARS.female],
-    animals: [...STATIC_AVATARS.animals],
-    monsters: [...STATIC_AVATARS.monsters],
+    kids: [...LOCAL_AVATAR_FALLBACKS.kids],
+    male: [...LOCAL_AVATAR_FALLBACKS.male],
+    female: [...LOCAL_AVATAR_FALLBACKS.female],
+    animals: [...LOCAL_AVATAR_FALLBACKS.animals],
+    monsters: [...LOCAL_AVATAR_FALLBACKS.monsters],
 };
 
 const QUOTES = {
@@ -174,7 +174,10 @@ export default function ProfilePage() {
                 sortedCategories.forEach((c) => {
                     const dynamic = (grouped[c.id] || []).sort((x, y) => (x.order - y.order) || (x.createdAt - y.createdAt));
                     if (dynamic.length > 0) {
-                        nextLib[c.id] = dynamic.map((x) => x.url);
+                        nextLib[c.id] = [
+                            ...dynamic.map((x) => x.url),
+                            ...(fallbackAvatarsByCategory[c.id] || []),
+                        ];
                     } else if (fallbackAvatarsByCategory[c.id]?.length > 0) {
                         nextLib[c.id] = fallbackAvatarsByCategory[c.id];
                     } else {
@@ -389,7 +392,10 @@ export default function ProfilePage() {
                                             alt="Profile Preview"
                                             className="w-full h-full object-contain p-2"
                                             onError={() => {
-                                                const firstAvailableAvatar = Object.values(avatarLib).find((list) => list.length > 0)?.[0];
+                                                const firstAvailableAvatar =
+                                                    fallbackAvatarsByCategory[activeTab]?.[0]
+                                                    || Object.values(fallbackAvatarsByCategory).find((list) => list.length > 0)?.[0]
+                                                    || Object.values(avatarLib).find((list) => list.length > 0)?.[0];
                                                 if (firstAvailableAvatar && firstAvailableAvatar !== avatar) {
                                                     setAvatar(firstAvailableAvatar);
                                                 }
@@ -475,7 +481,13 @@ export default function ProfilePage() {
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                                    {(avatarLib[activeTab] || []).map((src: string, index: number) => (
+                                    {(avatarLib[activeTab] || []).map((src: string, index: number) => {
+                                        const categoryFallbacks = fallbackAvatarsByCategory[activeTab] || fallbackAvatarsByCategory.kids || [];
+                                        const repairSrc = categoryFallbacks.length > 0
+                                            ? categoryFallbacks[index % categoryFallbacks.length]
+                                            : "";
+
+                                        return (
                                         <button
                                             key={index}
                                             onClick={() => setAvatar(src)}
@@ -491,6 +503,10 @@ export default function ProfilePage() {
                                                     alt={`Avatar ${index + 1}`}
                                                     className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform duration-300"
                                                     onError={(e) => {
+                                                        if (repairSrc && e.currentTarget.src !== repairSrc) {
+                                                            e.currentTarget.src = repairSrc;
+                                                            return;
+                                                        }
                                                         const card = e.currentTarget.closest("button");
                                                         if (card) card.style.display = "none";
                                                     }}
@@ -505,7 +521,8 @@ export default function ProfilePage() {
                                                 </div>
                                             )}
                                         </button>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
