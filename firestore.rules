@@ -180,6 +180,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // === Avatar Categories (public read, admin write) ===
+    // Admin-managed category metadata for avatar tabs.
+    match /avatarCategories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // === Settings (admin only) ===
     match /settings/{settingId} {
       allow read: if isAdmin();

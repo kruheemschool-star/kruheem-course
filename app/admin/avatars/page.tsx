@@ -5,52 +5,69 @@ import Link from "next/link";
 import { db, storage } from "@/lib/firebase";
 import {
     collection,
-    query,
-    where,
     getDocs,
     addDoc,
     deleteDoc,
     doc,
+    setDoc,
     serverTimestamp,
-    orderBy,
+    Timestamp,
 } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import { useUserAuth } from "@/context/AuthContext";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import toast, { Toaster } from "react-hot-toast";
-import { ArrowLeft, Upload, Trash2, Loader2, ImageOff, AlertCircle } from "lucide-react";
+import { ArrowLeft, Upload, Trash2, Loader2, ImageOff, AlertCircle, Plus } from "lucide-react";
 
-type AvatarCategory = "kids" | "female" | "male" | "animals" | "monsters";
-
-const TABS: { id: AvatarCategory; label: string; emoji: string }[] = [
-    { id: "kids", label: "เด็ก", emoji: "🧒" },
-    { id: "male", label: "ผู้ชาย", emoji: "👦" },
-    { id: "female", label: "ผู้หญิง", emoji: "👧" },
-    { id: "animals", label: "สัตว์น่ารัก", emoji: "🦁" },
-    { id: "monsters", label: "สัตว์ประหลาด", emoji: "👾" },
-];
+const DEFAULT_CATEGORIES = [
+    { id: "kids", label: "เด็ก", emoji: "🧒", order: 0 },
+    { id: "male", label: "ผู้ชาย", emoji: "👦", order: 1 },
+    { id: "female", label: "ผู้หญิง", emoji: "👧", order: 2 },
+    { id: "animals", label: "สัตว์น่ารัก", emoji: "🦁", order: 3 },
+    { id: "monsters", label: "สัตว์ประหลาด", emoji: "👾", order: 4 },
+] as const;
 
 interface AvatarDoc {
     id: string;
     url: string;
-    category: AvatarCategory;
+    category: string;
     storagePath: string;
     label?: string;
     order?: number;
-    createdAt?: any;
+    createdAt?: Timestamp | null;
 }
+
+interface AvatarCategoryDoc {
+    id: string;
+    label: string;
+    emoji: string;
+    order: number;
+    persisted: boolean;
+}
+
+const normalizeCategoryId = (value: string) =>
+    value
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^\p{L}\p{N}_-]/gu, "")
+        .slice(0, 60);
+
+const getErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : "unknown";
 
 export default function AdminAvatarsPage() {
     const { user, isAdmin, loading: authLoading } = useUserAuth();
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
 
-    const [activeTab, setActiveTab] = useState<AvatarCategory>("kids");
-    const [avatars, setAvatars] = useState<Record<AvatarCategory, AvatarDoc[]>>({
-        kids: [], male: [], female: [], animals: [], monsters: [],
-    });
+    const [categories, setCategories] = useState<AvatarCategoryDoc[]>([]);
+    const [activeTab, setActiveTab] = useState("kids");
+    const [avatars, setAvatars] = useState<Record<string, AvatarDoc[]>>({});
+    const [newCategoryName, setNewCategoryName] = useState("");
+    const [newCategoryEmoji, setNewCategoryEmoji] = useState("✨");
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [addingCategory, setAddingCategory] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
     const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -61,25 +78,79 @@ export default function AdminAvatarsPage() {
         setLoading(true);
         setFetchError(null);
         try {
-            const snap = await getDocs(collection(db, "avatars"));
-            const byCat: Record<AvatarCategory, AvatarDoc[]> = {
-                kids: [], male: [], female: [], animals: [], monsters: [],
-            };
-            snap.docs.forEach((d) => {
-                const data = d.data() as any;
-                if (!data.category || !byCat[data.category as AvatarCategory]) return;
-                byCat[data.category as AvatarCategory].push({
+            const [avatarSnap, categorySnap] = await Promise.all([
+                getDocs(collection(db, "avatars")),
+                getDocs(collection(db, "avatarCategories")),
+            ]);
+
+            const categoryMap = new Map<string, AvatarCategoryDoc>();
+            if (categorySnap.empty) {
+                DEFAULT_CATEGORIES.forEach((c) => {
+                    categoryMap.set(c.id, {
+                        id: c.id,
+                        label: c.label,
+                        emoji: c.emoji,
+                        order: c.order,
+                        persisted: false,
+                    });
+                });
+            } else {
+                categorySnap.docs.forEach((d) => {
+                    const data = d.data() as { label?: unknown; emoji?: unknown; order?: unknown };
+                    categoryMap.set(d.id, {
+                        id: d.id,
+                        label: typeof data.label === "string" && data.label.trim() ? data.label : d.id,
+                        emoji: typeof data.emoji === "string" && data.emoji.trim() ? data.emoji : "📁",
+                        order: typeof data.order === "number" ? data.order : 9999,
+                        persisted: true,
+                    });
+                });
+            }
+
+            const byCat: Record<string, AvatarDoc[]> = {};
+            avatarSnap.docs.forEach((d) => {
+                const data = d.data() as {
+                    url?: unknown;
+                    category?: unknown;
+                    storagePath?: unknown;
+                    label?: unknown;
+                    order?: unknown;
+                    createdAt?: unknown;
+                };
+                if (!data.category || typeof data.category !== "string") return;
+                const categoryId = data.category;
+                if (!categoryMap.has(categoryId)) {
+                    categoryMap.set(categoryId, {
+                        id: categoryId,
+                        label: categoryId,
+                        emoji: "📁",
+                        order: 9999,
+                        persisted: false,
+                    });
+                }
+                if (!byCat[categoryId]) byCat[categoryId] = [];
+                byCat[categoryId].push({
                     id: d.id,
-                    url: data.url,
+                    url: typeof data.url === "string" ? data.url : "",
                     category: data.category,
-                    storagePath: data.storagePath || "",
-                    label: data.label || "",
+                    storagePath: typeof data.storagePath === "string" ? data.storagePath : "",
+                    label: typeof data.label === "string" ? data.label : "",
                     order: typeof data.order === "number" ? data.order : 9999,
-                    createdAt: data.createdAt,
+                    createdAt: data.createdAt instanceof Timestamp ? data.createdAt : null,
                 });
             });
+
+            const sortedCategories = Array.from(categoryMap.values()).sort((a, b) => {
+                if (a.order !== b.order) return a.order - b.order;
+                return a.label.localeCompare(b.label, "th");
+            });
+
+            sortedCategories.forEach((cat) => {
+                if (!byCat[cat.id]) byCat[cat.id] = [];
+            });
+
             // Client-side sort by order ASC, then createdAt ASC (nulls last)
-            (Object.keys(byCat) as AvatarCategory[]).forEach((k) => {
+            Object.keys(byCat).forEach((k) => {
                 byCat[k].sort((a, b) => {
                     const oa = a.order ?? 9999;
                     const ob = b.order ?? 9999;
@@ -89,14 +160,94 @@ export default function AdminAvatarsPage() {
                     return ta - tb;
                 });
             });
+
+            setCategories(sortedCategories);
             setAvatars(byCat);
-        } catch (e: any) {
+            setActiveTab((prev) => (sortedCategories.some((c) => c.id === prev) ? prev : (sortedCategories[0]?.id || "kids")));
+        } catch (e: unknown) {
             console.error("fetch avatars failed:", e);
-            setFetchError(e?.message || "unknown");
+            setFetchError(getErrorMessage(e));
             toast.error("โหลดรูปไม่สำเร็จ");
         } finally {
             setLoading(false);
         }
+    };
+
+    const addCategory = async () => {
+        const label = newCategoryName.trim();
+        if (!label) {
+            toast.error("กรุณากรอกชื่อหมวดหมู่");
+            return;
+        }
+
+        const categoryId = normalizeCategoryId(label);
+        if (!categoryId) {
+            toast.error("ชื่อหมวดหมู่ไม่ถูกต้อง");
+            return;
+        }
+        if (categories.some((c) => c.id === categoryId)) {
+            toast.error("มีหมวดหมู่นี้แล้ว");
+            return;
+        }
+
+        setAddingCategory(true);
+        try {
+            const nextOrder = categories.length > 0 ? Math.max(...categories.map((c) => c.order || 0)) + 1 : 0;
+            await setDoc(doc(db, "avatarCategories", categoryId), {
+                label,
+                emoji: newCategoryEmoji.trim() || "📁",
+                order: nextOrder,
+                createdAt: serverTimestamp(),
+            });
+            setNewCategoryName("");
+            setNewCategoryEmoji("✨");
+            toast.success("เพิ่มหมวดหมู่แล้ว");
+            await fetchAll();
+            setActiveTab(categoryId);
+        } catch (e: unknown) {
+            console.error("add category failed:", e);
+            toast.error("เพิ่มหมวดหมู่ไม่สำเร็จ: " + getErrorMessage(e));
+        } finally {
+            setAddingCategory(false);
+        }
+    };
+
+    const handleDeleteCategory = (category: AvatarCategoryDoc) => {
+        const count = avatars[category.id]?.length || 0;
+        if (count > 0) {
+            toast.error(`ลบหมวดนี้ไม่ได้ เพราะยังมีรูปอยู่ ${count} รูป`);
+            return;
+        }
+        if (!category.persisted) {
+            toast.error("หมวดหมู่นี้เป็นหมวด fallback (ยังไม่ได้บันทึก) จึงลบไม่ได้");
+            return;
+        }
+
+        confirmModal(
+            "ยืนยันการลบหมวดหมู่",
+            `ต้องการลบหมวด "${category.label}" ใช่ไหม?`,
+            async () => {
+                try {
+                    await deleteDoc(doc(db, "avatarCategories", category.id));
+                    toast.success("ลบหมวดหมู่แล้ว");
+                    setCategories((prev) => prev.filter((c) => c.id !== category.id));
+                    setAvatars((prev) => {
+                        const next = { ...prev };
+                        delete next[category.id];
+                        return next;
+                    });
+                    setActiveTab((prev) => {
+                        if (prev !== category.id) return prev;
+                        const remaining = categories.filter((c) => c.id !== category.id);
+                        return remaining[0]?.id || "kids";
+                    });
+                } catch (e: unknown) {
+                    console.error("delete category failed:", e);
+                    toast.error("ลบหมวดหมู่ไม่สำเร็จ: " + getErrorMessage(e));
+                }
+            },
+            true
+        );
     };
 
     useEffect(() => {
@@ -116,7 +267,7 @@ export default function AdminAvatarsPage() {
         setUploading(true);
         setUploadProgress({ done: 0, total: files.length });
 
-        const existingCount = avatars[activeTab].length;
+        const existingCount = avatars[activeTab]?.length || 0;
         let uploaded = 0;
         let failed = 0;
 
@@ -150,7 +301,7 @@ export default function AdminAvatarsPage() {
                 });
 
                 uploaded++;
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("upload failed for", file.name, err);
                 failed++;
             } finally {
@@ -188,11 +339,11 @@ export default function AdminAvatarsPage() {
                     // Optimistic: remove from local state
                     setAvatars((prev) => ({
                         ...prev,
-                        [avatar.category]: prev[avatar.category].filter((a) => a.id !== avatar.id),
+                        [avatar.category]: (prev[avatar.category] || []).filter((a) => a.id !== avatar.id),
                     }));
-                } catch (e: any) {
+                } catch (e: unknown) {
                     console.error("delete failed:", e);
-                    toast.error("ลบไม่สำเร็จ: " + (e?.message || ""));
+                    toast.error("ลบไม่สำเร็จ: " + getErrorMessage(e));
                 }
             },
             true
@@ -221,7 +372,7 @@ export default function AdminAvatarsPage() {
         );
     }
 
-    const current = avatars[activeTab];
+    const current = avatars[activeTab] || [];
 
     return (
         <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
@@ -288,10 +439,44 @@ export default function AdminAvatarsPage() {
                     <p className="font-bold mb-1">💡 เคล็ดลับ</p>
                     <ul className="list-disc pl-5 space-y-0.5 text-blue-700">
                         <li>เลือกแท็บหมวดที่ต้องการก่อน แล้วค่อยอัปโหลด (อัปโหลดหลายรูปพร้อมกันได้)</li>
+                        <li>เพิ่ม/ลบหมวดหมู่ได้ด้านล่าง (ลบได้เฉพาะหมวดที่ไม่มีรูป)</li>
                         <li>ระบบจะ compress รูปอัตโนมัติให้ขนาดเล็ก (≤512×512, ≤0.5MB) เพื่อประหยัด bandwidth</li>
                         <li>รูปแนะนำ: สี่เหลี่ยมจัตุรัส, PNG มีพื้นหลังโปร่งใส</li>
                         <li>ลบรูปจะไม่กระทบนักเรียนที่เลือกรูปนี้ไปแล้ว (URL เดิมยังใช้ได้)</li>
                     </ul>
+                </div>
+
+                <div className="mb-6 bg-white border border-slate-200 rounded-xl p-4">
+                    <p className="font-bold text-slate-800 mb-3">จัดการหมวดหมู่</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <input
+                            type="text"
+                            value={newCategoryEmoji}
+                            onChange={(e) => setNewCategoryEmoji(e.target.value)}
+                            className="w-20 px-3 py-2 rounded-lg border border-slate-300 text-center"
+                            placeholder="✨"
+                            maxLength={4}
+                        />
+                        <input
+                            type="text"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && addCategory()}
+                            className="min-w-[220px] flex-1 px-3 py-2 rounded-lg border border-slate-300"
+                            placeholder="ชื่อหมวดหมู่ใหม่ (เช่น นักวิทย์)"
+                        />
+                        <button
+                            onClick={addCategory}
+                            disabled={addingCategory || !newCategoryName.trim()}
+                            className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-bold disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {addingCategory ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                            เพิ่มหมวดหมู่
+                        </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                        หมายเหตุ: ระบบจะสร้างรหัสหมวดหมู่อัตโนมัติจากชื่อหมวดที่กรอก
+                    </p>
                 </div>
 
                 {/* Error banner */}
@@ -313,27 +498,36 @@ export default function AdminAvatarsPage() {
 
                 {/* Tabs */}
                 <div className="flex flex-wrap gap-2 mb-6">
-                    {TABS.map((t) => {
-                        const count = avatars[t.id].length;
+                    {categories.map((t) => {
+                        const count = avatars[t.id]?.length || 0;
                         const active = activeTab === t.id;
                         return (
-                            <button
-                                key={t.id}
-                                onClick={() => setActiveTab(t.id)}
-                                className={`px-4 py-2 rounded-lg font-bold text-sm transition flex items-center gap-2 ${active
-                                    ? "bg-slate-800 text-white shadow-sm"
-                                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
-                                    }`}
-                            >
-                                <span>{t.emoji}</span>
-                                <span>{t.label}</span>
-                                <span
-                                    className={`text-xs px-2 py-0.5 rounded-full ${active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                            <div key={t.id} className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setActiveTab(t.id)}
+                                    className={`px-4 py-2 rounded-lg font-bold text-sm transition flex items-center gap-2 ${active
+                                        ? "bg-slate-800 text-white shadow-sm"
+                                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
                                         }`}
                                 >
-                                    {count}
-                                </span>
-                            </button>
+                                    <span>{t.emoji}</span>
+                                    <span>{t.label}</span>
+                                    <span
+                                        className={`text-xs px-2 py-0.5 rounded-full ${active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                                            }`}
+                                    >
+                                        {count}
+                                    </span>
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteCategory(t)}
+                                    disabled={count > 0 || !t.persisted}
+                                    className="p-2 rounded-lg border border-slate-200 bg-white text-rose-500 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title={!t.persisted ? "หมวด fallback ลบไม่ได้" : count > 0 ? "ลบได้เมื่อหมวดว่าง" : "ลบหมวดหมู่"}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
                         );
                     })}
                 </div>
@@ -349,7 +543,7 @@ export default function AdminAvatarsPage() {
                         <ImageOff className="mx-auto text-slate-300 mb-3" size={48} />
                         <p className="text-slate-500 font-bold">ยังไม่มีรูปในหมวดนี้</p>
                         <p className="text-slate-400 text-sm mt-1">
-                            กด "อัปโหลดรูปใหม่" ด้านบนเพื่อเพิ่มรูปแรก
+                            กด &quot;อัปโหลดรูปใหม่&quot; ด้านบนเพื่อเพิ่มรูปแรก
                         </p>
                     </div>
                 ) : (

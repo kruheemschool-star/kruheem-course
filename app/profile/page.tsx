@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useUserAuth } from "@/context/AuthContext";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import { STATIC_AVATARS } from "@/lib/staticAssets";
 import { getCachedData } from "@/lib/dataCache";
@@ -15,33 +14,36 @@ import Link from "next/link";
 import { User, Camera, Save, Loader2, Check, ArrowLeft, Lightbulb } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
-type AvatarTab = 'kids' | 'female' | 'animal' | 'monsters';
-
-// Fallback avatar assets (used when Firestore collection is empty or fetch fails)
-const fallbackAvatars: Record<AvatarTab, string[]> = {
-    kids: [...STATIC_AVATARS.kids, ...STATIC_AVATARS.male],
-    female: [...STATIC_AVATARS.female],
-    animal: [...STATIC_AVATARS.animals],
-    monsters: [...STATIC_AVATARS.monsters],
-};
-
-// Map Firestore category names to UI tabs
-// (Firestore uses 'male'|'female'|'kids'|'animals'|'monsters';
-//  UI historically uses 'kids'|'female'|'animal'|'monsters'.)
-function categoryToTab(cat: string): AvatarTab | null {
-    if (cat === "kids" || cat === "male") return "kids";
-    if (cat === "female") return "female";
-    if (cat === "animals") return "animal";
-    if (cat === "monsters") return "monsters";
-    return null;
+interface AvatarCategoryMeta {
+    id: string;
+    label: string;
+    emoji: string;
+    order: number;
 }
 
-const TABS = [
-    { id: 'kids', label: '👦 ผู้ชาย' },
-    { id: 'female', label: '👧 ผู้หญิง' },
-    { id: 'animal', label: '🦁 สัตว์น่ารัก' },
-    { id: 'monsters', label: '👾 สัตว์ประหลาด' },
+interface AvatarRow {
+    url: string;
+    category: string;
+    order: number;
+    createdAt: number;
+}
+
+const DEFAULT_AVATAR_CATEGORIES: AvatarCategoryMeta[] = [
+    { id: "kids", label: "เด็ก", emoji: "🧒", order: 0 },
+    { id: "male", label: "ผู้ชาย", emoji: "👦", order: 1 },
+    { id: "female", label: "ผู้หญิง", emoji: "👧", order: 2 },
+    { id: "animals", label: "สัตว์น่ารัก", emoji: "🦁", order: 3 },
+    { id: "monsters", label: "สัตว์ประหลาด", emoji: "👾", order: 4 },
 ];
+
+// Fallback avatar assets (used when Firestore collection is empty or fetch fails)
+const fallbackAvatarsByCategory: Record<string, string[]> = {
+    kids: [...STATIC_AVATARS.kids],
+    male: [...STATIC_AVATARS.male],
+    female: [...STATIC_AVATARS.female],
+    animals: [...STATIC_AVATARS.animals],
+    monsters: [...STATIC_AVATARS.monsters],
+};
 
 const QUOTES = {
     healing: [
@@ -88,54 +90,106 @@ export default function ProfilePage() {
     const [avatar, setAvatar] = useState("");
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [activeTab, setActiveTab] = useState<AvatarTab>('kids');
+    const [activeTab, setActiveTab] = useState<string>(DEFAULT_AVATAR_CATEGORIES[0].id);
+    const [avatarCategories, setAvatarCategories] = useState<AvatarCategoryMeta[]>(DEFAULT_AVATAR_CATEGORIES);
     const [caption, setCaption] = useState("");
     const [showQuoteDrawer, setShowQuoteDrawer] = useState(false);
     const [quoteCategory, setQuoteCategory] = useState<'healing' | 'passion' | 'growth'>('healing');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Dynamic avatar library loaded from Firestore (falls back to STATIC_AVATARS on empty/error).
-    const [avatarLib, setAvatarLib] = useState<Record<AvatarTab, string[]>>(fallbackAvatars);
+    const [avatarLib, setAvatarLib] = useState<Record<string, string[]>>(fallbackAvatarsByCategory);
 
     // Fetch admin-managed avatars once on mount, cached for 5 minutes (rule #3).
     useEffect(() => {
         let cancelled = false;
         (async () => {
             try {
-                const snap = await getCachedData("avatar_library", async () => {
-                    const s = await getDocs(collection(db, "avatars"));
-                    return s.docs.map((d) => {
-                        const data = d.data() as any;
-                        return {
-                            url: data.url as string,
-                            category: data.category as string,
-                            order: typeof data.order === "number" ? data.order : 9999,
-                            createdAt: data.createdAt?.toMillis?.() ?? 0,
-                        };
+                const [avatarsFromDb, categoriesFromDb] = await Promise.all([
+                    getCachedData("avatar_library_v2", async () => {
+                        const s = await getDocs(collection(db, "avatars"));
+                        return s.docs.map((d) => {
+                            const data = d.data() as {
+                                url?: unknown;
+                                category?: unknown;
+                                order?: unknown;
+                                createdAt?: { toMillis?: () => number } | null;
+                            };
+                            return {
+                                url: typeof data.url === "string" ? data.url : "",
+                                category: typeof data.category === "string" ? data.category : "",
+                                order: typeof data.order === "number" ? data.order : 9999,
+                                createdAt: data.createdAt?.toMillis?.() ?? 0,
+                            } satisfies AvatarRow;
+                        });
+                    }),
+                    getCachedData("avatar_categories_v1", async () => {
+                        const s = await getDocs(collection(db, "avatarCategories"));
+                        return s.docs.map((d) => {
+                            const data = d.data() as { label?: unknown; emoji?: unknown; order?: unknown };
+                            return {
+                                id: d.id,
+                                label: typeof data.label === "string" && data.label.trim() ? data.label : d.id,
+                                emoji: typeof data.emoji === "string" && data.emoji.trim() ? data.emoji : "📁",
+                                order: typeof data.order === "number" ? data.order : 9999,
+                            } satisfies AvatarCategoryMeta;
+                        });
+                    }),
+                ]);
+
+                if (cancelled || !Array.isArray(avatarsFromDb)) return;
+
+                const grouped: Record<string, { url: string; order: number; createdAt: number }[]> = {};
+                avatarsFromDb.forEach((a) => {
+                    if (!a?.category || !a?.url) return;
+                    if (!grouped[a.category]) grouped[a.category] = [];
+                    grouped[a.category].push({ url: a.url, order: a.order, createdAt: a.createdAt });
+                });
+
+                const categoryMap = new Map<string, AvatarCategoryMeta>();
+                if (Array.isArray(categoriesFromDb) && categoriesFromDb.length > 0) {
+                    categoriesFromDb.forEach((c) => {
+                        categoryMap.set(c.id, c);
                     });
+                } else {
+                    DEFAULT_AVATAR_CATEGORIES.forEach((c) => {
+                        categoryMap.set(c.id, c);
+                    });
+                }
+
+                Object.keys(grouped).forEach((categoryId) => {
+                    if (!categoryMap.has(categoryId)) {
+                        categoryMap.set(categoryId, {
+                            id: categoryId,
+                            label: categoryId,
+                            emoji: "📁",
+                            order: 9999,
+                        });
+                    }
                 });
 
-                if (cancelled || !Array.isArray(snap) || snap.length === 0) return;
-
-                // Group by UI tab (map Firestore category -> tab) and sort by order, createdAt
-                const grouped: Record<AvatarTab, { url: string; order: number; createdAt: number }[]> = {
-                    kids: [], female: [], animal: [], monsters: [],
-                };
-                snap.forEach((a) => {
-                    const tab = categoryToTab(a.category);
-                    if (tab && a.url) grouped[tab].push({ url: a.url, order: a.order, createdAt: a.createdAt });
-                });
-                (Object.keys(grouped) as AvatarTab[]).forEach((k) => {
-                    grouped[k].sort((x, y) => (x.order - y.order) || (x.createdAt - y.createdAt));
+                const sortedCategories = Array.from(categoryMap.values()).sort((a, b) => {
+                    if (a.order !== b.order) return a.order - b.order;
+                    return a.label.localeCompare(b.label, "th");
                 });
 
-                // Only override a tab if Firestore actually provided avatars for it;
-                // otherwise keep the fallback so the UI never looks empty.
-                const merged: Record<AvatarTab, string[]> = { ...fallbackAvatars };
-                (Object.keys(grouped) as AvatarTab[]).forEach((k) => {
-                    if (grouped[k].length > 0) merged[k] = grouped[k].map((a) => a.url);
+                const nextLib: Record<string, string[]> = {};
+                sortedCategories.forEach((c) => {
+                    const dynamic = (grouped[c.id] || []).sort((x, y) => (x.order - y.order) || (x.createdAt - y.createdAt));
+                    if (dynamic.length > 0) {
+                        nextLib[c.id] = dynamic.map((x) => x.url);
+                    } else if (fallbackAvatarsByCategory[c.id]?.length > 0) {
+                        nextLib[c.id] = fallbackAvatarsByCategory[c.id];
+                    } else {
+                        nextLib[c.id] = [];
+                    }
                 });
-                if (!cancelled) setAvatarLib(merged);
+
+                if (!cancelled) {
+                    setAvatarCategories(sortedCategories);
+                    setAvatarLib(nextLib);
+                    setActiveTab((prev) => (nextLib[prev] ? prev : (sortedCategories[0]?.id || "kids")));
+                }
             } catch (e) {
                 console.warn("avatar library fetch failed — using fallback:", e);
             }
@@ -151,7 +205,8 @@ export default function ProfilePage() {
             if (userProfile?.caption) setCaption(userProfile.caption);
 
             // Set default avatar if none exists
-            const defaultAvatar = avatarLib.kids[0] || fallbackAvatars.kids[0];
+            const firstAvailableAvatar = Object.values(avatarLib).find((list) => list.length > 0)?.[0];
+            const defaultAvatar = firstAvailableAvatar || fallbackAvatarsByCategory.kids[0] || "";
             setAvatar(userProfile?.avatar || user?.photoURL || defaultAvatar);
         }
     }, [user, userProfile, avatarLib]);
@@ -387,17 +442,16 @@ export default function ProfilePage() {
 
                                 {/* Tabs - Pill Style (Notion-like) */}
                                 <div className="flex flex-wrap justify-center gap-2">
-                                    {TABS.map((tab) => (
+                                    {avatarCategories.map((tab) => (
                                         <button
                                             key={tab.id}
-                                            /* @ts-ignore */
-                                            onClick={() => setActiveTab(tab.id as any)}
+                                            onClick={() => setActiveTab(tab.id)}
                                             className={`px-5 py-2 rounded-lg font-medium text-sm transition-all ${activeTab === tab.id
                                                 ? 'bg-slate-800 text-white shadow-sm'
                                                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                                                 }`}
                                         >
-                                            {tab.label}
+                                            {tab.emoji} {tab.label}
                                         </button>
                                     ))}
                                 </div>
@@ -405,7 +459,7 @@ export default function ProfilePage() {
 
                             {/* Grid - Sticker Shop Style */}
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                                {avatarLib[activeTab].map((src: string, index: number) => (
+                                {(avatarLib[activeTab] || []).map((src: string, index: number) => (
                                     <button
                                         key={index}
                                         onClick={() => setAvatar(src)}
