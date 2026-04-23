@@ -7,7 +7,6 @@ import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { uploadImageToStorage } from "@/lib/upload";
 import { STATIC_AVATARS } from "@/lib/staticAssets";
-import { getCachedData } from "@/lib/dataCache";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
@@ -100,42 +99,40 @@ export default function ProfilePage() {
     // Dynamic avatar library loaded from Firestore (falls back to STATIC_AVATARS on empty/error).
     const [avatarLib, setAvatarLib] = useState<Record<string, string[]>>(fallbackAvatarsByCategory);
 
-    // Fetch admin-managed avatars once on mount, cached for 5 minutes (rule #3).
+    // Fetch avatar categories + library fresh on mount so profile reflects new admin uploads immediately.
     useEffect(() => {
         let cancelled = false;
         (async () => {
             try {
-                const [avatarsFromDb, categoriesFromDb] = await Promise.all([
-                    getCachedData("avatar_library_v2", async () => {
-                        const s = await getDocs(collection(db, "avatars"));
-                        return s.docs.map((d) => {
-                            const data = d.data() as {
-                                url?: unknown;
-                                category?: unknown;
-                                order?: unknown;
-                                createdAt?: { toMillis?: () => number } | null;
-                            };
-                            return {
-                                url: typeof data.url === "string" ? data.url : "",
-                                category: typeof data.category === "string" ? data.category : "",
-                                order: typeof data.order === "number" ? data.order : 9999,
-                                createdAt: data.createdAt?.toMillis?.() ?? 0,
-                            } satisfies AvatarRow;
-                        });
-                    }),
-                    getCachedData("avatar_categories_v1", async () => {
-                        const s = await getDocs(collection(db, "avatarCategories"));
-                        return s.docs.map((d) => {
-                            const data = d.data() as { label?: unknown; emoji?: unknown; order?: unknown };
-                            return {
-                                id: d.id,
-                                label: typeof data.label === "string" && data.label.trim() ? data.label : d.id,
-                                emoji: typeof data.emoji === "string" && data.emoji.trim() ? data.emoji : "📁",
-                                order: typeof data.order === "number" ? data.order : 9999,
-                            } satisfies AvatarCategoryMeta;
-                        });
-                    }),
+                const [avatarSnapshot, categorySnapshot] = await Promise.all([
+                    getDocs(collection(db, "avatars")),
+                    getDocs(collection(db, "avatarCategories")),
                 ]);
+
+                const avatarsFromDb = avatarSnapshot.docs.map((d) => {
+                    const data = d.data() as {
+                        url?: unknown;
+                        category?: unknown;
+                        order?: unknown;
+                        createdAt?: { toMillis?: () => number } | null;
+                    };
+                    return {
+                        url: typeof data.url === "string" ? data.url : "",
+                        category: typeof data.category === "string" ? data.category : "",
+                        order: typeof data.order === "number" ? data.order : 9999,
+                        createdAt: data.createdAt?.toMillis?.() ?? 0,
+                    } satisfies AvatarRow;
+                });
+
+                const categoriesFromDb = categorySnapshot.docs.map((d) => {
+                    const data = d.data() as { label?: unknown; emoji?: unknown; order?: unknown };
+                    return {
+                        id: d.id,
+                        label: typeof data.label === "string" && data.label.trim() ? data.label : d.id,
+                        emoji: typeof data.emoji === "string" && data.emoji.trim() ? data.emoji : "📁",
+                        order: typeof data.order === "number" ? data.order : 9999,
+                    } satisfies AvatarCategoryMeta;
+                });
 
                 if (cancelled || !Array.isArray(avatarsFromDb)) return;
 
@@ -188,7 +185,11 @@ export default function ProfilePage() {
                 if (!cancelled) {
                     setAvatarCategories(sortedCategories);
                     setAvatarLib(nextLib);
-                    setActiveTab((prev) => (nextLib[prev] ? prev : (sortedCategories[0]?.id || "kids")));
+                    const firstNonEmptyCategory = sortedCategories.find((category) => (nextLib[category.id] || []).length > 0)?.id;
+                    setActiveTab((prev) => {
+                        if ((nextLib[prev] || []).length > 0) return prev;
+                        return firstNonEmptyCategory || sortedCategories[0]?.id || "kids";
+                    });
                 }
             } catch (e) {
                 console.warn("avatar library fetch failed — using fallback:", e);
@@ -383,7 +384,17 @@ export default function ProfilePage() {
                                 <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border border-slate-200 shadow-sm bg-slate-50 transition-transform duration-500 hover:scale-105">
                                     {avatar ? (
                                         // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={avatar} alt="Profile Preview" className="w-full h-full object-contain p-2" />
+                                        <img
+                                            src={avatar}
+                                            alt="Profile Preview"
+                                            className="w-full h-full object-contain p-2"
+                                            onError={() => {
+                                                const firstAvailableAvatar = Object.values(avatarLib).find((list) => list.length > 0)?.[0];
+                                                if (firstAvailableAvatar && firstAvailableAvatar !== avatar) {
+                                                    setAvatar(firstAvailableAvatar);
+                                                }
+                                            }}
+                                        />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-slate-300">
                                             <User size={64} />
@@ -458,38 +469,45 @@ export default function ProfilePage() {
                             </div>
 
                             {/* Grid - Sticker Shop Style */}
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                                {(avatarLib[activeTab] || []).map((src: string, index: number) => (
-                                    <button
-                                        key={index}
-                                        onClick={() => setAvatar(src)}
-                                        className={`group relative p-2 rounded-xl transition-all duration-200 border ${avatar === src
-                                            ? "bg-slate-50 border-slate-400 ring-1 ring-slate-400"
-                                            : "bg-white border-transparent hover:border-slate-200 hover:bg-slate-50 hover:shadow-sm"
-                                            }`}
-                                    >
-                                        <div className="aspect-square w-full flex items-center justify-center min-w-[80px]">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img
-                                                src={src}
-                                                alt={`Avatar ${index + 1}`}
-                                                className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform duration-300"
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = 'none';
-                                                }}
-                                            />
-                                        </div>
-
-                                        {avatar === src && (
-                                            <div className="absolute top-2 right-2">
-                                                <div className="bg-slate-800 text-white p-1 rounded-full shadow-sm animate-in zoom-in">
-                                                    <Check className="w-2.5 h-2.5" />
-                                                </div>
+                            {(avatarLib[activeTab] || []).length === 0 ? (
+                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-16 text-center text-slate-500">
+                                    ยังไม่มีรูปในหมวดนี้
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
+                                    {(avatarLib[activeTab] || []).map((src: string, index: number) => (
+                                        <button
+                                            key={index}
+                                            onClick={() => setAvatar(src)}
+                                            className={`group relative p-2 rounded-xl transition-all duration-200 border ${avatar === src
+                                                ? "bg-slate-50 border-slate-400 ring-1 ring-slate-400"
+                                                : "bg-white border-transparent hover:border-slate-200 hover:bg-slate-50 hover:shadow-sm"
+                                                }`}
+                                        >
+                                            <div className="aspect-square w-full flex items-center justify-center min-w-[80px]">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={src}
+                                                    alt={`Avatar ${index + 1}`}
+                                                    className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform duration-300"
+                                                    onError={(e) => {
+                                                        const card = e.currentTarget.closest("button");
+                                                        if (card) card.style.display = "none";
+                                                    }}
+                                                />
                                             </div>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
+
+                                            {avatar === src && (
+                                                <div className="absolute top-2 right-2">
+                                                    <div className="bg-slate-800 text-white p-1 rounded-full shadow-sm animate-in zoom-in">
+                                                        <Check className="w-2.5 h-2.5" />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
