@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { db, storage } from "@/lib/firebase";
 import {
@@ -73,15 +73,34 @@ export default function AdminAvatarsPage() {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const seedDefaultCategories = useCallback(async () => {
+        await Promise.all(
+            DEFAULT_CATEGORIES.map((category) =>
+                setDoc(doc(db, "avatarCategories", category.id), {
+                    label: category.label,
+                    emoji: category.emoji,
+                    order: category.order,
+                    createdAt: serverTimestamp(),
+                }, { merge: true })
+            )
+        );
+    }, []);
+
     // Single fetch for ALL categories — one Firestore read per mount (cheap).
-    const fetchAll = async () => {
+    const fetchAll = useCallback(async () => {
         setLoading(true);
         setFetchError(null);
         try {
-            const [avatarSnap, categorySnap] = await Promise.all([
+            const [avatarSnap, initialCategorySnap] = await Promise.all([
                 getDocs(collection(db, "avatars")),
                 getDocs(collection(db, "avatarCategories")),
             ]);
+
+            let categorySnap = initialCategorySnap;
+            if (categorySnap.empty && isAdmin) {
+                await seedDefaultCategories();
+                categorySnap = await getDocs(collection(db, "avatarCategories"));
+            }
 
             const categoryMap = new Map<string, AvatarCategoryDoc>();
             if (categorySnap.empty) {
@@ -171,7 +190,7 @@ export default function AdminAvatarsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [isAdmin, seedDefaultCategories]);
 
     const addCategory = async () => {
         const label = newCategoryName.trim();
@@ -254,7 +273,7 @@ export default function AdminAvatarsPage() {
         if (authLoading) return;
         if (!isAdmin) return;
         fetchAll();
-    }, [authLoading, isAdmin]);
+    }, [authLoading, isAdmin, fetchAll]);
 
     const handleFilesSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
