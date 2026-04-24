@@ -18,7 +18,7 @@ import { uploadImageToStorage } from "@/lib/upload";
 import { useUserAuth } from "@/context/AuthContext";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import toast, { Toaster } from "react-hot-toast";
-import { ArrowLeft, Upload, Trash2, Loader2, ImageOff, AlertCircle, Plus } from "lucide-react";
+import { ArrowLeft, Upload, Trash2, Loader2, ImageOff, AlertCircle, Plus, CheckSquare, Square, X } from "lucide-react";
 
 const DEFAULT_CATEGORIES = [
     { id: "kids", label: "เด็ก", emoji: "🧒", order: 0 },
@@ -68,6 +68,9 @@ export default function AdminAvatarsPage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [addingCategory, setAddingCategory] = useState(false);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
     const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -232,23 +235,36 @@ export default function AdminAvatarsPage() {
     };
 
     const handleDeleteCategory = (category: AvatarCategoryDoc) => {
-        const count = avatars[category.id]?.length || 0;
-        if (count > 0) {
-            toast.error(`ลบหมวดนี้ไม่ได้ เพราะยังมีรูปอยู่ ${count} รูป`);
-            return;
-        }
         if (!category.persisted) {
             toast.error("หมวดหมู่นี้เป็นหมวด fallback (ยังไม่ได้บันทึก) จึงลบไม่ได้");
             return;
         }
 
+        const count = avatars[category.id]?.length || 0;
+        const message = count > 0
+            ? `ต้องการลบหมวด "${category.label}" พร้อมรูปทั้งหมด ${count} รูป? (ลบถาวร กู้คืนไม่ได้)`
+            : `ต้องการลบหมวด "${category.label}" ใช่ไหม?`;
+
         confirmModal(
             "ยืนยันการลบหมวดหมู่",
-            `ต้องการลบหมวด "${category.label}" ใช่ไหม?`,
+            message,
             async () => {
                 try {
+                    // Cascade delete all avatars in this category
+                    const categoryAvatars = avatars[category.id] || [];
+                    for (const avatar of categoryAvatars) {
+                        await deleteDoc(doc(db, "avatars", avatar.id));
+                        if (avatar.storagePath) {
+                            try {
+                                await deleteObject(ref(storage, avatar.storagePath));
+                            } catch (storageErr) {
+                                console.warn("storage delete failed:", storageErr);
+                            }
+                        }
+                    }
+                    // Delete category doc
                     await deleteDoc(doc(db, "avatarCategories", category.id));
-                    toast.success("ลบหมวดหมู่แล้ว");
+                    toast.success(count > 0 ? `ลบหมวดหมู่และรูป ${count} รูปแล้ว` : "ลบหมวดหมู่แล้ว");
                     setCategories((prev) => prev.filter((c) => c.id !== category.id));
                     setAvatars((prev) => {
                         const next = { ...prev };
@@ -267,6 +283,65 @@ export default function AdminAvatarsPage() {
             },
             true
         );
+    };
+
+    // === Bulk delete ===
+    const toggleSelect = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const selectAll = () => {
+        const ids = current.map((a) => a.id);
+        setSelectedIds(new Set(ids));
+    };
+
+    const deselectAll = () => setSelectedIds(new Set());
+
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
+        confirmModal(
+            "ยืนยันการลบหลายรูป",
+            `ต้องการลบรูปที่เลือก ${selectedIds.size} รูป? (ลบถาวร กู้คืนไม่ได้)`,
+            async () => {
+                setBulkDeleting(true);
+                let deleted = 0;
+                let failed = 0;
+                for (const id of selectedIds) {
+                    const avatar = current.find((a) => a.id === id);
+                    if (!avatar) continue;
+                    try {
+                        await deleteDoc(doc(db, "avatars", avatar.id));
+                        if (avatar.storagePath) {
+                            try {
+                                await deleteObject(ref(storage, avatar.storagePath));
+                            } catch (storageErr) {
+                                console.warn("storage delete failed:", storageErr);
+                            }
+                        }
+                        deleted++;
+                    } catch {
+                        failed++;
+                    }
+                }
+                setBulkDeleting(false);
+                setSelectedIds(new Set());
+                setSelectionMode(false);
+                if (deleted > 0) toast.success(`ลบ ${deleted} รูปสำเร็จ`);
+                if (failed > 0) toast.error(`ลบ ${failed} รูปไม่สำเร็จ`);
+                await fetchAll();
+            },
+            true
+        );
+    };
+
+    const exitSelectionMode = () => {
+        setSelectionMode(false);
+        setSelectedIds(new Set());
     };
 
     useEffect(() => {
@@ -523,7 +598,7 @@ export default function AdminAvatarsPage() {
                         return (
                             <div key={t.id} className="flex items-center gap-1">
                                 <button
-                                    onClick={() => setActiveTab(t.id)}
+                                    onClick={() => { setActiveTab(t.id); setSelectedIds(new Set()); }}
                                     className={`px-4 py-2 rounded-lg font-bold text-sm transition flex items-center gap-2 ${active
                                         ? "bg-slate-800 text-white shadow-sm"
                                         : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
@@ -540,9 +615,9 @@ export default function AdminAvatarsPage() {
                                 </button>
                                 <button
                                     onClick={() => handleDeleteCategory(t)}
-                                    disabled={count > 0 || !t.persisted}
+                                    disabled={!t.persisted}
                                     className="p-2 rounded-lg border border-slate-200 bg-white text-rose-500 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title={!t.persisted ? "หมวด fallback ลบไม่ได้" : count > 0 ? "ลบได้เมื่อหมวดว่าง" : "ลบหมวดหมู่"}
+                                    title={!t.persisted ? "หมวด fallback ลบไม่ได้" : count > 0 ? `ลบหมวดพร้อมรูป ${count} รูป` : "ลบหมวดหมู่"}
                                 >
                                     <Trash2 size={14} />
                                 </button>
@@ -550,6 +625,52 @@ export default function AdminAvatarsPage() {
                         );
                     })}
                 </div>
+
+                {/* Selection mode toolbar */}
+                {current.length > 0 && (
+                    <div className="flex items-center gap-2 mb-4 flex-wrap">
+                        {selectionMode ? (
+                            <>
+                                <button
+                                    onClick={exitSelectionMode}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2"
+                                >
+                                    <X size={16} />
+                                    ยกเลิก
+                                </button>
+                                <button
+                                    onClick={selectedIds.size === current.length ? deselectAll : selectAll}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2"
+                                >
+                                    {selectedIds.size === current.length ? <CheckSquare size={16} /> : <Square size={16} />}
+                                    {selectedIds.size === current.length ? "เลิกเลือกทั้งหมด" : "เลือกทั้งหมด"}
+                                </button>
+                                {selectedIds.size > 0 && (
+                                    <button
+                                        onClick={handleBulkDelete}
+                                        disabled={bulkDeleting}
+                                        className="px-4 py-2 bg-rose-500 text-white rounded-lg font-bold text-sm hover:bg-rose-600 shadow-md shadow-rose-200 flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {bulkDeleting ? (
+                                            <Loader2 size={16} className="animate-spin" />
+                                        ) : (
+                                            <Trash2 size={16} />
+                                        )}
+                                        ลบที่เลือก ({selectedIds.size})
+                                    </button>
+                                )}
+                            </>
+                        ) : (
+                            <button
+                                onClick={() => setSelectionMode(true)}
+                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2"
+                            >
+                                <CheckSquare size={16} />
+                                เลือกหลายรูป
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* Grid */}
                 {loading ? (
@@ -567,32 +688,51 @@ export default function AdminAvatarsPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {current.map((a) => (
-                            <div
-                                key={a.id}
-                                className="group relative bg-white border border-slate-200 rounded-xl p-3 hover:shadow-md transition"
-                            >
-                                <div className="aspect-square rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={a.url}
-                                        alt={a.label || "avatar"}
-                                        loading="lazy"
-                                        className="w-full h-full object-contain"
-                                        onError={(e) => {
-                                            (e.currentTarget as HTMLImageElement).style.opacity = "0.2";
-                                        }}
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => handleDelete(a)}
-                                    className="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-lg text-rose-500 hover:bg-rose-50 hover:border-rose-200 opacity-0 group-hover:opacity-100 transition"
-                                    title="ลบรูปนี้"
+                        {current.map((a) => {
+                            const isSelected = selectedIds.has(a.id);
+                            return (
+                                <div
+                                    key={a.id}
+                                    onClick={selectionMode ? () => toggleSelect(a.id) : undefined}
+                                    className={`group relative bg-white border-2 rounded-xl p-3 hover:shadow-md transition cursor-pointer ${
+                                        selectionMode && isSelected
+                                            ? "border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50/50"
+                                            : "border-slate-200"
+                                    }`}
                                 >
-                                    <Trash2 size={14} />
-                                </button>
-                            </div>
-                        ))}
+                                    {selectionMode && (
+                                        <div className="absolute top-2 left-2 z-10">
+                                            {isSelected ? (
+                                                <CheckSquare size={20} className="text-indigo-600" />
+                                            ) : (
+                                                <Square size={20} className="text-slate-400" />
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="aspect-square rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={a.url}
+                                            alt={a.label || "avatar"}
+                                            loading="lazy"
+                                            className="w-full h-full object-contain"
+                                            onError={(e) => {
+                                                (e.currentTarget as HTMLImageElement).style.opacity = "0.2";
+                                            }}
+                                        />
+                                    </div>
+                                    {!selectionMode && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(a); }}
+                                            className="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-lg text-rose-500 hover:bg-rose-50 hover:border-rose-200 opacity-0 group-hover:opacity-100 transition"
+                                            title="ลบรูปนี้"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
