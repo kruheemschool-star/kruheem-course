@@ -6,7 +6,6 @@ import { db } from "@/lib/firebase";
 import { doc, setDoc, collection, getDocs } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { uploadImageToStorage } from "@/lib/upload";
-import { LOCAL_AVATAR_FALLBACKS } from "@/lib/avatarFallbacks";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
@@ -35,14 +34,10 @@ const DEFAULT_AVATAR_CATEGORIES: AvatarCategoryMeta[] = [
     { id: "monsters", label: "สัตว์ประหลาด", emoji: "👾", order: 4 },
 ];
 
-// Fallback avatar assets (used when Firestore collection is empty or fetch fails)
-const fallbackAvatarsByCategory: Record<string, string[]> = {
-    kids: [...LOCAL_AVATAR_FALLBACKS.kids],
-    male: [...LOCAL_AVATAR_FALLBACKS.male],
-    female: [...LOCAL_AVATAR_FALLBACKS.female],
-    animals: [...LOCAL_AVATAR_FALLBACKS.animals],
-    monsters: [...LOCAL_AVATAR_FALLBACKS.monsters],
-};
+// NOTE: We intentionally do NOT merge any auto-generated SVG fallback avatars
+// into the library. The profile grid shows only admin-uploaded avatars from
+// the Firestore `avatars` collection. If a category is empty the UI renders
+// the existing empty-state message instead of synthetic emoji placeholders.
 
 const QUOTES = {
     healing: [
@@ -96,8 +91,10 @@ export default function ProfilePage() {
     const [quoteCategory, setQuoteCategory] = useState<'healing' | 'passion' | 'growth'>('healing');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Dynamic avatar library loaded from Firestore (falls back to STATIC_AVATARS on empty/error).
-    const [avatarLib, setAvatarLib] = useState<Record<string, string[]>>(fallbackAvatarsByCategory);
+    // Dynamic avatar library loaded from Firestore (admin-managed only).
+    // Starts empty and is populated once after fetch — never mixes with synthetic fallbacks.
+    const [avatarLib, setAvatarLib] = useState<Record<string, string[]>>({});
+    const [libLoading, setLibLoading] = useState(true);
 
     // Fetch avatar categories + library fresh on mount so profile reflects new admin uploads immediately.
     useEffect(() => {
@@ -173,16 +170,8 @@ export default function ProfilePage() {
                 const nextLib: Record<string, string[]> = {};
                 sortedCategories.forEach((c) => {
                     const dynamic = (grouped[c.id] || []).sort((x, y) => (x.order - y.order) || (x.createdAt - y.createdAt));
-                    if (dynamic.length > 0) {
-                        nextLib[c.id] = [
-                            ...dynamic.map((x) => x.url),
-                            ...(fallbackAvatarsByCategory[c.id] || []),
-                        ];
-                    } else if (fallbackAvatarsByCategory[c.id]?.length > 0) {
-                        nextLib[c.id] = fallbackAvatarsByCategory[c.id];
-                    } else {
-                        nextLib[c.id] = [];
-                    }
+                    // ONLY admin-uploaded avatars — no synthetic fallbacks.
+                    nextLib[c.id] = dynamic.map((x) => x.url);
                 });
 
                 if (!cancelled) {
@@ -195,7 +184,9 @@ export default function ProfilePage() {
                     });
                 }
             } catch (e) {
-                console.warn("avatar library fetch failed — using fallback:", e);
+                console.warn("avatar library fetch failed:", e);
+            } finally {
+                if (!cancelled) setLibLoading(false);
             }
         })();
         return () => { cancelled = true; };
@@ -208,10 +199,10 @@ export default function ProfilePage() {
             if (displayName) setFirstName(displayName);
             if (userProfile?.caption) setCaption(userProfile.caption);
 
-            // Set default avatar if none exists
+            // Default to existing profile photo; leave empty if user has no avatar yet
+            // (the grid will prompt them to pick one — no synthetic placeholder).
             const firstAvailableAvatar = Object.values(avatarLib).find((list) => list.length > 0)?.[0];
-            const defaultAvatar = firstAvailableAvatar || fallbackAvatarsByCategory.kids[0] || "";
-            setAvatar(userProfile?.avatar || user?.photoURL || defaultAvatar);
+            setAvatar(userProfile?.avatar || user?.photoURL || firstAvailableAvatar || "");
         }
     }, [user, userProfile, avatarLib]);
 
@@ -392,13 +383,9 @@ export default function ProfilePage() {
                                             alt="Profile Preview"
                                             className="w-full h-full object-contain p-2"
                                             onError={() => {
-                                                const firstAvailableAvatar =
-                                                    fallbackAvatarsByCategory[activeTab]?.[0]
-                                                    || Object.values(fallbackAvatarsByCategory).find((list) => list.length > 0)?.[0]
-                                                    || Object.values(avatarLib).find((list) => list.length > 0)?.[0];
-                                                if (firstAvailableAvatar && firstAvailableAvatar !== avatar) {
-                                                    setAvatar(firstAvailableAvatar);
-                                                }
+                                                // Broken image → clear avatar so the placeholder icon shows.
+                                                // Never fallback to synthetic SVG avatars.
+                                                setAvatar("");
                                             }}
                                         />
                                     ) : (
@@ -475,21 +462,21 @@ export default function ProfilePage() {
                             </div>
 
                             {/* Grid - Sticker Shop Style */}
-                            {(avatarLib[activeTab] || []).length === 0 ? (
+                            {libLoading ? (
+                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-16 text-center text-slate-500 flex flex-col items-center gap-3">
+                                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                                    <span>กำลังโหลดรูปประจำตัว...</span>
+                                </div>
+                            ) : (avatarLib[activeTab] || []).length === 0 ? (
                                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-16 text-center text-slate-500">
-                                    ยังไม่มีรูปในหมวดนี้
+                                    <p className="font-semibold mb-1">ยังไม่มีรูปในหมวดนี้</p>
+                                    <p className="text-xs text-slate-400">หรืออัปโหลดรูปของคุณเองได้ที่ปุ่ม "อัปโหลด" ด้านซ้าย</p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
-                                    {(avatarLib[activeTab] || []).map((src: string, index: number) => {
-                                        const categoryFallbacks = fallbackAvatarsByCategory[activeTab] || fallbackAvatarsByCategory.kids || [];
-                                        const repairSrc = categoryFallbacks.length > 0
-                                            ? categoryFallbacks[index % categoryFallbacks.length]
-                                            : "";
-
-                                        return (
+                                    {(avatarLib[activeTab] || []).map((src: string, index: number) => (
                                         <button
-                                            key={index}
+                                            key={src}
                                             onClick={() => setAvatar(src)}
                                             className={`group relative p-2 rounded-xl transition-all duration-200 border ${avatar === src
                                                 ? "bg-slate-50 border-slate-400 ring-1 ring-slate-400"
@@ -501,12 +488,11 @@ export default function ProfilePage() {
                                                 <img
                                                     src={src}
                                                     alt={`Avatar ${index + 1}`}
+                                                    loading="lazy"
                                                     className="w-full h-full object-contain filter drop-shadow-sm group-hover:scale-110 transition-transform duration-300"
                                                     onError={(e) => {
-                                                        if (repairSrc && e.currentTarget.src !== repairSrc) {
-                                                            e.currentTarget.src = repairSrc;
-                                                            return;
-                                                        }
+                                                        // Broken admin-uploaded image → hide the button.
+                                                        // No synthetic fallback — keeps visual consistency.
                                                         const card = e.currentTarget.closest("button");
                                                         if (card) card.style.display = "none";
                                                     }}
@@ -521,8 +507,7 @@ export default function ProfilePage() {
                                                 </div>
                                             )}
                                         </button>
-                                        );
-                                    })}
+                                    ))}
                                 </div>
                             )}
                         </div>
