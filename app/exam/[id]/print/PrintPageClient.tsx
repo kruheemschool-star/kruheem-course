@@ -4,9 +4,11 @@ import { useUserAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useState, useEffect } from "react";
-import { Printer, ArrowLeft, Loader2, Lock } from "lucide-react";
+import { Printer, ArrowLeft, Loader2, Lock, Download, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import MathRenderer from "@/components/exam/MathRenderer";
+import { generateExamPdf } from "@/lib/generateExamPdf";
 
 interface Question {
     id: number | string;
@@ -30,8 +32,14 @@ interface ExamData {
 
 export default function PrintPageClient({ exam, mode }: { exam: ExamData; mode: 'exam' | 'answer' }) {
     const { user, loading: authLoading } = useUserAuth();
+    const searchParams = useSearchParams();
+    const isDownloadMode = searchParams.get("download") === "1";
     const [hasAccess, setHasAccess] = useState<boolean | null>(null);
     const [checkingAccess, setCheckingAccess] = useState(true);
+    const [generating, setGenerating] = useState(false);
+    const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null);
+    const [genDone, setGenDone] = useState(false);
+    const [genError, setGenError] = useState<string | null>(null);
 
     // Check access for paid exams
     useEffect(() => {
@@ -45,6 +53,13 @@ export default function PrintPageClient({ exam, mode }: { exam: ExamData; mode: 
 
         if (!user) {
             setHasAccess(false);
+            setCheckingAccess(false);
+            return;
+        }
+
+        // Admin bypass
+        if (user.email === "kruheemschool@gmail.com") {
+            setHasAccess(true);
             setCheckingAccess(false);
             return;
         }
@@ -66,6 +81,40 @@ export default function PrintPageClient({ exam, mode }: { exam: ExamData; mode: 
             }
         })();
     }, [user, authLoading, exam.isFree]);
+
+    // Auto-generate PDF in download mode
+    useEffect(() => {
+        if (!isDownloadMode || !hasAccess || checkingAccess || authLoading) return;
+
+        let cancelled = false;
+
+        const run = async () => {
+            // Wait for math renderers to paint
+            await new Promise(r => setTimeout(r, 1500));
+            if (cancelled) return;
+
+            setGenerating(true);
+            try {
+                await generateExamPdf(
+                    "print-content",
+                    mode,
+                    exam.title,
+                    (current, total) => setGenProgress({ current, total })
+                );
+                if (!cancelled) setGenDone(true);
+            } catch (err) {
+                if (!cancelled) {
+                    console.error("PDF generation failed:", err);
+                    setGenError(err instanceof Error ? err.message : "สร้าง PDF ไม่สำเร็จ");
+                }
+            } finally {
+                if (!cancelled) setGenerating(false);
+            }
+        };
+
+        run();
+        return () => { cancelled = true; };
+    }, [isDownloadMode, hasAccess, checkingAccess, authLoading, mode, exam.title]);
 
     // Loading state
     if (authLoading || checkingAccess) {
@@ -108,8 +157,8 @@ export default function PrintPageClient({ exam, mode }: { exam: ExamData; mode: 
 
     return (
         <>
-            {/* Print Controls - hidden when printing */}
-            <div className="print:hidden sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+            {/* Print Controls - hidden when printing or in download mode */}
+            <div className={`print:hidden sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm ${isDownloadMode ? 'hidden' : ''}`}>
                 <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
                     <Link href={`/exam/${exam.id}`} prefetch={false} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold transition-colors">
                         <ArrowLeft size={20} />
@@ -134,8 +183,57 @@ export default function PrintPageClient({ exam, mode }: { exam: ExamData; mode: 
                 </div>
             </div>
 
+            {/* Download overlay */}
+            {isDownloadMode && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/80 backdrop-blur-sm">
+                    {genError ? (
+                        <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center">
+                            <XCircle size={48} className="mx-auto text-rose-500 mb-4" />
+                            <h3 className="text-xl font-black text-slate-800 mb-2">สร้าง PDF ไม่สำเร็จ</h3>
+                            <p className="text-slate-500 text-sm mb-6">{genError}</p>
+                            <button
+                                onClick={() => window.close()}
+                                className="px-6 py-3 bg-slate-800 text-white rounded-xl font-bold"
+                            >
+                                ปิดหน้านี้
+                            </button>
+                        </div>
+                    ) : genDone ? (
+                        <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center animate-in fade-in zoom-in-95">
+                            <CheckCircle size={48} className="mx-auto text-green-500 mb-4" />
+                            <h3 className="text-xl font-black text-slate-800 mb-2">ดาวน์โหลดเสร็จแล้ว!</h3>
+                            <p className="text-slate-500 text-sm mb-6">ไฟล์ PDF ถูกบันทึกลงเครื่องแล้ว</p>
+                            <button
+                                onClick={() => window.close()}
+                                className="px-6 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition"
+                            >
+                                ปิดหน้านี้
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center">
+                            <Loader2 size={40} className="animate-spin mx-auto text-indigo-500 mb-4" />
+                            <h3 className="text-xl font-black text-slate-800 mb-2">กำลังสร้าง PDF...</h3>
+                            <p className="text-slate-500 text-sm mb-4">
+                                {genProgress ? `หน้า ${genProgress.current} / ${genProgress.total}` : "โปรดรอสักครู่"}
+                            </p>
+                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div
+                                    className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                                    style={{
+                                        width: genProgress && genProgress.total > 0
+                                            ? `${(genProgress.current / genProgress.total) * 100}%`
+                                            : "20%"
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Printable Content */}
-            <div className="max-w-4xl mx-auto px-6 py-8 print:px-0 print:py-0 print:max-w-none bg-white">
+            <div id="print-content" className="max-w-4xl mx-auto px-6 py-8 print:px-0 print:py-0 print:max-w-none bg-white">
                 {/* Header */}
                 <div className="text-center mb-8 print:mb-6 border-b-2 border-slate-800 pb-6 print:pb-4">
                     <h1 className="text-2xl print:text-xl font-black text-slate-800 mb-1">

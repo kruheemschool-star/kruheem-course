@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Printer, FileText, BookOpen, ChevronDown } from "lucide-react";
+import { Download, FileText, BookOpen, ChevronDown } from "lucide-react";
 
 export default function ExamPrintButton({ examId }: { examId: string }) {
     const [open, setOpen] = useState(false);
@@ -21,16 +21,16 @@ export default function ExamPrintButton({ examId }: { examId: string }) {
             <button
                 onClick={() => setOpen(!open)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-sm"
-                title="Export PDF"
+                title="ดาวน์โหลด PDF"
             >
-                <Printer size={18} />
+                <Download size={18} />
                 <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {open && (
-                <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <a
-                        href={`/exam/${examId}/print?mode=exam`}
+                        href={`/exam/${examId}/print?mode=exam&download=1`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-sm"
@@ -38,13 +38,13 @@ export default function ExamPrintButton({ examId }: { examId: string }) {
                     >
                         <FileText size={18} className="text-indigo-500" />
                         <div>
-                            <div className="font-bold text-slate-700">พิมพ์ข้อสอบ</div>
+                            <div className="font-bold text-slate-700">ดาวน์โหลดโจทย์</div>
                             <div className="text-xs text-slate-400">ไม่มีเฉลย ทำบนกระดาษ</div>
                         </div>
                     </a>
                     <div className="border-t border-slate-100" />
                     <a
-                        href={`/exam/${examId}/print?mode=answer`}
+                        href={`/exam/${examId}/print?mode=answer&download=1`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-sm"
@@ -52,7 +52,7 @@ export default function ExamPrintButton({ examId }: { examId: string }) {
                     >
                         <BookOpen size={18} className="text-emerald-500" />
                         <div>
-                            <div className="font-bold text-slate-700">พิมพ์เฉลย</div>
+                            <div className="font-bold text-slate-700">ดาวน์โหลดเฉลย</div>
                             <div className="text-xs text-slate-400">พร้อมคำอธิบายละเอียด</div>
                         </div>
                     </a>
