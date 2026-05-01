@@ -250,38 +250,102 @@ export function CurriculumForm({ value, onChange }: { value: CurriculumData; onC
 }
 
 /* ============================================================
-   ReviewsForm (image marquee)
+   ReviewsForm (image marquee OR live Firestore reviews)
    ============================================================ */
 export function ReviewsForm({ value, onChange }: { value: ReviewsData; onChange: (v: ReviewsData) => void }) {
     const update = (patch: Partial<ReviewsData>) => onChange({ ...value, ...patch });
+    const source = value.source || "images";
     return (
         <div className="flex flex-col flex-1 min-h-0">
             <FormScroll>
                 <TextField label="ชื่อหัวข้อ" value={value.title} onChange={(v) => update({ title: v })} />
                 <TextField label="คำอธิบาย" value={value.subtitle} onChange={(v) => update({ subtitle: v })} />
-                <ArrayField
-                    label="URL รูปรีวิว"
-                    items={value.images || []}
-                    onChange={(items) => update({ images: items as string[] })}
-                    newItem={() => ""}
-                    addLabel="+ เพิ่มรูป"
-                    helper="วาง URL รูปจาก Firebase Storage หรือเว็บอื่น"
-                    renderItem={(item, upd) => (
-                        <div className="space-y-2">
-                            <input
-                                type="text"
-                                value={item as string}
-                                onChange={(e) => upd(e.target.value as any)}
-                                placeholder="https://..."
-                                className="w-full px-3 py-2 text-sm font-mono border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+
+                {/* Source toggle */}
+                <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-slate-700">แหล่งที่มาของรีวิว</label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => update({ source: "images" })}
+                            className={`p-3 rounded-xl border-2 text-sm font-medium transition text-left ${source === "images"
+                                ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                                }`}
+                        >
+                            <div className="font-bold">🖼️ รูปภาพ</div>
+                            <div className="text-xs mt-0.5 opacity-80">อัปโหลดรูป screenshot รีวิว</div>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => update({ source: "live" })}
+                            className={`p-3 rounded-xl border-2 text-sm font-medium transition text-left ${source === "live"
+                                ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                                : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                                }`}
+                        >
+                            <div className="font-bold">💬 รีวิวจริง (Live)</div>
+                            <div className="text-xs mt-0.5 opacity-80">ดึงจากหน้ารีวิวอัตโนมัติ</div>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Live review options */}
+                {source === "live" && (
+                    <div className="space-y-4 p-4 bg-indigo-50/60 rounded-xl border border-indigo-100">
+                        <SelectField
+                            label="ขอบเขตรีวิว"
+                            value={value.liveScope || "all"}
+                            onChange={(v) => update({ liveScope: v as "all" | "course" })}
+                            options={[
+                                { label: "ทั้งหมดในเว็บ", value: "all" },
+                                { label: "เฉพาะคอร์สนี้", value: "course" },
+                            ]}
+                        />
+                        <div className="grid grid-cols-2 gap-3">
+                            <NumberField
+                                label="จำนวนรีวิวสูงสุด"
+                                value={value.liveLimit ?? 30}
+                                onChange={(v) => update({ liveLimit: Math.max(4, Math.min(100, v)) })}
                             />
-                            {item && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={item as string} alt="preview" className="w-32 h-auto rounded-lg border border-slate-200" />
-                            )}
+                            <NumberField
+                                label="คะแนนขั้นต่ำ (1–5)"
+                                value={value.liveMinRating ?? 4}
+                                onChange={(v) => update({ liveMinRating: Math.max(1, Math.min(5, v)) })}
+                            />
                         </div>
-                    )}
-                />
+                        <p className="text-xs text-indigo-600">
+                            💡 ระบบจะเลื่อนรีวิวอัตโนมัติเป็นสไลด์โชว์แนวนอน และ cache ข้อมูล 5 นาที
+                        </p>
+                    </div>
+                )}
+
+                {/* Image list — only show in "images" mode */}
+                {source === "images" && (
+                    <ArrayField
+                        label="URL รูปรีวิว"
+                        items={value.images || []}
+                        onChange={(items) => update({ images: items as string[] })}
+                        newItem={() => ""}
+                        addLabel="+ เพิ่มรูป"
+                        helper="วาง URL รูปจาก Firebase Storage หรือเว็บอื่น"
+                        renderItem={(item, upd) => (
+                            <div className="space-y-2">
+                                <input
+                                    type="text"
+                                    value={item as string}
+                                    onChange={(e) => upd(e.target.value as any)}
+                                    placeholder="https://..."
+                                    className="w-full px-3 py-2 text-sm font-mono border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                                {item && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={item as string} alt="preview" className="w-32 h-auto rounded-lg border border-slate-200" />
+                                )}
+                            </div>
+                        )}
+                    />
+                )}
             </FormScroll>
         </div>
     );

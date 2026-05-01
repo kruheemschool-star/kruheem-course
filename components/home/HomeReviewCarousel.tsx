@@ -101,19 +101,29 @@ export default function HomeReviewCarousel() {
         if (!isTouchInteraction.current) isPaused.current = false;
     };
 
-    // Render avatar
-    const renderAvatar = (review: Review) => {
+    // Avatar component with broken-image fallback
+    const ReviewAvatar = ({ review }: { review: Review }) => {
+        const [error, setError] = useState(false);
         const photo = review.userPhoto;
-        if (photo && (photo.startsWith("http") || photo.startsWith("/"))) {
+
+        if (!photo || error) {
+            const initial = review.userName?.charAt(0)?.toUpperCase() || "?";
+            return <span className="text-sm font-bold text-white">{initial}</span>;
+        }
+        if (photo.startsWith("http") || photo.startsWith("/")) {
             return (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={photo} alt="" className="w-full h-full object-cover" />
+                <img
+                    src={photo}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={() => setError(true)}
+                />
             );
         }
-        if (photo && photo.length <= 2) {
+        if (photo.length <= 2) {
             return <span className="text-lg">{photo}</span>;
         }
-        // Fallback: first letter
         const initial = review.userName?.charAt(0)?.toUpperCase() || "?";
         return <span className="text-sm font-bold text-white">{initial}</span>;
     };
@@ -183,7 +193,7 @@ export default function HomeReviewCarousel() {
                             {/* User Info */}
                             <div className="flex items-center gap-2.5 mb-2.5">
                                 <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm ring-2 ring-white dark:ring-slate-800">
-                                    {renderAvatar(review)}
+                                    <ReviewAvatar review={review} />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{review.userName}</p>

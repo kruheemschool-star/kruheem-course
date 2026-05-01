@@ -7,6 +7,38 @@ import { Star, User, Quote, Clock, EyeOff, Eye, Trash2, BookOpen } from "lucide-
 import { useUserAuth } from "@/context/AuthContext";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
+// ===== Avatar with broken-image fallback =====
+function ReviewAvatar({ photo, name }: { photo?: string; name: string }) {
+    const [error, setError] = useState(false);
+
+    if (!photo || error) {
+        return (
+            <span className="text-white font-bold text-sm">
+                {name?.[0]?.toUpperCase() || "?"}
+            </span>
+        );
+    }
+
+    if (photo.startsWith("http") || photo.startsWith("/")) {
+        return (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+                src={photo}
+                alt={name}
+                className="w-full h-full object-cover"
+                onError={() => setError(true)}
+            />
+        );
+    }
+
+    // Emoji avatar (1-2 chars)
+    return (
+        <span className="text-xl" role="img" aria-label="avatar">
+            {photo}
+        </span>
+    );
+}
+
 interface Review {
     id: string;
     userName: string;
@@ -192,18 +224,8 @@ export default function ReviewList({ adminView, maxItems }: ReviewListProps) {
 
                     {/* Header: User Info */}
                     <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-11 h-11 rounded-full overflow-hidden border-2 border-white dark:border-slate-800 shadow-sm flex items-center justify-center shrink-0 ${!review.userPhoto || (!review.userPhoto.startsWith('http') && !review.userPhoto.startsWith('/'))
-                            ? `bg-gradient-to-br ${getAvatarColor(review.userName)}`
-                            : 'bg-slate-100 dark:bg-slate-800'
-                            }`}>
-                            {review.userPhoto && (review.userPhoto.startsWith('http') || review.userPhoto.startsWith('/')) ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={review.userPhoto} alt={review.userName} className="w-full h-full object-cover" />
-                            ) : review.userPhoto && !review.userPhoto.startsWith('http') ? (
-                                <span className="text-xl" role="img" aria-label="avatar">{review.userPhoto}</span>
-                            ) : (
-                                <span className="text-white font-bold text-sm">{review.userName?.[0]?.toUpperCase() || 'U'}</span>
-                            )}
+                        <div className={`w-11 h-11 rounded-full overflow-hidden border-2 border-white dark:border-slate-800 shadow-sm flex items-center justify-center shrink-0 bg-gradient-to-br ${getAvatarColor(review.userName)}`}>
+                            <ReviewAvatar photo={review.userPhoto} name={review.userName} />
                         </div>
                         <div className="min-w-0">
                             <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm truncate">

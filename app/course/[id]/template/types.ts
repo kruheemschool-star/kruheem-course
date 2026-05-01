@@ -97,6 +97,11 @@ export interface ReviewsData {
     title?: string;
     subtitle?: string;
     images: string[]; // URLs (Firebase Storage or any)
+    // ---------- NEW: Live reviews from Firestore ----------
+    source?: "images" | "live"; // default "images"
+    liveScope?: "all" | "course"; // "course" = filter by current courseId; default "all"
+    liveLimit?: number; // max reviews to fetch; default 30
+    liveMinRating?: number; // min rating (1-5); default 4
 }
 
 export interface TestimonialStory {
