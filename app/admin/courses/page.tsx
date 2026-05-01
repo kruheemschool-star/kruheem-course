@@ -7,7 +7,7 @@ import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
 
 import { useUserAuth } from "@/context/AuthContext";
-import { X, Plus, Edit2, Trash2, Save, Settings } from "lucide-react";
+import { X, Plus, Edit2, Trash2, Save, Settings, Palette, BookOpen } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function CourseManagerPage() {
@@ -724,15 +724,32 @@ export default function CourseManagerPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex gap-2 w-full md:w-auto justify-end flex-wrap">
-                        <Link href={`/admin/course/${c.id}/sales-page`} className="px-4 py-2 text-sm font-bold text-pink-600 bg-pink-50 rounded-xl hover:bg-pink-100 transition border border-pink-100 flex items-center gap-1 whitespace-nowrap">
-                          🎨 Sales Page
+                      <div className="flex items-center gap-1.5 w-full md:w-auto justify-end flex-wrap">
+                        <Link
+                          href={`/admin/course/${c.id}/sales-page`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white rounded-lg hover:bg-slate-50 transition border border-slate-200 whitespace-nowrap"
+                        >
+                          <Palette size={14} className="text-pink-500" /> Sales
                         </Link>
-                        <Link href={`/admin/course/${c.id}`} className="px-4 py-2 text-sm font-bold text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 transition border border-purple-100 flex items-center gap-2 whitespace-nowrap">
-                          📺 บทเรียน
+                        <Link
+                          href={`/admin/course/${c.id}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white rounded-lg hover:bg-slate-50 transition border border-slate-200 whitespace-nowrap"
+                        >
+                          <BookOpen size={14} className="text-indigo-500" /> บทเรียน
                         </Link>
-                        <button onClick={() => handleEditClick(c)} className="px-4 py-2 text-sm font-bold text-yellow-600 bg-yellow-50 rounded-xl hover:bg-yellow-100 transition border border-yellow-100 whitespace-nowrap">แก้ไข</button>
-                        <button onClick={() => handleDelete(c)} className="px-4 py-2 text-sm font-bold text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition border border-red-100 whitespace-nowrap">ลบ</button>
+                        <div className="w-px h-5 bg-slate-200 mx-0.5 hidden md:block" />
+                        <button
+                          onClick={() => handleEditClick(c)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white rounded-lg hover:bg-slate-50 transition border border-slate-200 whitespace-nowrap"
+                        >
+                          <Edit2 size={13} /> แก้ไข
+                        </button>
+                        <button
+                          onClick={() => handleDelete(c)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-500 bg-white rounded-lg hover:bg-red-50 transition border border-red-200 whitespace-nowrap"
+                        >
+                          <Trash2 size={13} /> ลบ
+                        </button>
                       </div>
                     </div>
                   ))}
