@@ -7,31 +7,63 @@ interface Props {
 }
 
 export default function HeroSection({ data, ctx }: Props) {
-    const [blob1, blob2] = data.blobColors || ["bg-indigo-200/40", "bg-rose-200/40"];
+    // Legacy tailwind blob classes (used only if hex colors not provided)
+    const [legacyBlob1, legacyBlob2] = data.blobColors || ["bg-indigo-200/40", "bg-rose-200/40"];
+
+    // Theme colors
+    const bgFrom = data.bgColorFrom || "#F8F9FD";
+    const bgTo = data.bgColorTo || "#F8F9FD";
+    const titleColor = data.titleColor || "#1E293B";
+    const subtitleColor = data.subtitleColor || "#475569";
+    const badgeBg = data.badgeBgColor;
+    const badgeText = data.badgeTextColor || "#475569";
+
+    // Cover type
+    const coverType = data.coverType || "image";
 
     return (
-        <header className="relative pt-32 pb-20 bg-gradient-to-b from-[#F8F9FD] via-white to-[#F8F9FD] overflow-hidden">
-            {/* Decorative blobs */}
-            <div className={`absolute top-10 left-10 w-72 h-72 rounded-full blur-3xl animate-blob ${blob1}`}></div>
-            <div className={`absolute bottom-10 right-10 w-72 h-72 rounded-full blur-3xl animate-blob animation-delay-2000 ${blob2}`}></div>
+        <header
+            className="relative pt-32 pb-20 overflow-hidden"
+            style={{ background: `linear-gradient(180deg, ${bgFrom} 0%, #ffffff 50%, ${bgTo} 100%)` }}
+        >
+            {/* Decorative blobs (hex takes priority over tailwind class) */}
+            {data.blob1Color ? (
+                <div
+                    className="absolute top-10 left-10 w-72 h-72 rounded-full blur-3xl animate-blob"
+                    style={{ backgroundColor: data.blob1Color, opacity: 0.4 }}
+                />
+            ) : (
+                <div className={`absolute top-10 left-10 w-72 h-72 rounded-full blur-3xl animate-blob ${legacyBlob1}`} />
+            )}
+            {data.blob2Color ? (
+                <div
+                    className="absolute bottom-10 right-10 w-72 h-72 rounded-full blur-3xl animate-blob animation-delay-2000"
+                    style={{ backgroundColor: data.blob2Color, opacity: 0.4 }}
+                />
+            ) : (
+                <div className={`absolute bottom-10 right-10 w-72 h-72 rounded-full blur-3xl animate-blob animation-delay-2000 ${legacyBlob2}`} />
+            )}
 
             <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row gap-16 items-center relative z-10">
                 <div className="flex-1 space-y-8 text-center md:text-left">
                     {data.badgeText && (
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/50 bg-white/30 backdrop-blur-md shadow-sm">
+                        <div
+                            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/50 backdrop-blur-md shadow-sm"
+                            style={{ backgroundColor: badgeBg || "rgba(255,255,255,0.3)" }}
+                        >
                             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                            <span className="text-sm font-bold text-slate-600 tracking-wide uppercase">
+                            <span className="text-sm font-bold tracking-wide uppercase" style={{ color: badgeText }}>
                                 {data.badgeText}
                             </span>
                         </div>
                     )}
 
-                    <h1 className="text-5xl md:text-7xl font-black leading-relaxed tracking-tight text-slate-800">
+                    <h1 className="text-5xl md:text-7xl font-black leading-relaxed tracking-tight" style={{ color: titleColor }}>
                         {data.title}
                     </h1>
 
                     {data.subtitle && (
-                        <p className="text-xl md:text-2xl text-slate-600 font-medium">{data.subtitle}</p>
+                        <p className="text-xl md:text-2xl font-medium" style={{ color: subtitleColor }}>{data.subtitle}</p>
                     )}
 
                     <div className="flex flex-col items-center md:items-start gap-5 pt-2">
@@ -73,7 +105,42 @@ export default function HeroSection({ data, ctx }: Props) {
                     </div>
                 </div>
 
-                {(data.imageUrl || ctx.courseImage) && (
+                {/* Cover: card (gradient + text) */}
+                {coverType === "card" && (
+                    <div className="w-full md:w-5/12">
+                        <div
+                            className="relative rounded-[2.5rem] aspect-[4/3] flex flex-col items-center justify-center p-8 shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:-rotate-1 overflow-hidden"
+                            style={{
+                                background: `linear-gradient(135deg, ${data.cardColorFrom || "#FB7185"} 0%, ${data.cardColorTo || "#F97316"} 100%)`,
+                                color: data.cardTextColor || "#FFFFFF",
+                            }}
+                        >
+                            {/* Decorative glossy overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
+
+                            <div className="relative z-10 text-center">
+                                {data.cardMainText && (
+                                    <div className="text-7xl md:text-8xl font-black leading-none tracking-tight drop-shadow-sm">
+                                        {data.cardMainText}
+                                    </div>
+                                )}
+                                {data.cardSubText && (
+                                    <div className="text-4xl md:text-5xl font-black mt-2 tracking-tight drop-shadow-sm">
+                                        {data.cardSubText}
+                                    </div>
+                                )}
+                                {data.cardBadgeText && (
+                                    <div className="mt-4 inline-block px-4 py-1.5 rounded-full bg-black/20 backdrop-blur-sm text-sm md:text-base font-bold">
+                                        {data.cardBadgeText}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Cover: image (default) */}
+                {coverType === "image" && (data.imageUrl || ctx.courseImage) && (
                     <div className="w-full md:w-5/12">
                         <div className="relative rounded-[2.5rem] p-3 bg-white/30 backdrop-blur-xl border border-white/50 shadow-2xl shadow-indigo-100/50 transition-all duration-500 hover:scale-[1.02] hover:-rotate-1">
                             <div className="relative rounded-[2rem] overflow-hidden shadow-inner">

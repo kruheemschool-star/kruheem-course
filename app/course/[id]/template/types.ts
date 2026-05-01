@@ -37,7 +37,27 @@ export interface HeroData {
     imageUrl?: string;
     videoUrl?: string;
     pricePerDayText?: string;
-    blobColors?: [string, string]; // tailwind classes
+    blobColors?: [string, string]; // tailwind classes (legacy, kept for back-compat)
+
+    // ---------- NEW: Theme colors (hex) ----------
+    bgColorFrom?: string; // page background gradient start (hex)
+    bgColorTo?: string;   // page background gradient end (hex)
+    titleColor?: string;  // title text color (hex)
+    subtitleColor?: string;
+    badgeBgColor?: string;
+    badgeTextColor?: string;
+    blob1Color?: string;  // decorative blob 1 (hex)
+    blob2Color?: string;  // decorative blob 2 (hex)
+
+    // ---------- NEW: Cover ----------
+    coverType?: "image" | "card"; // default "image"
+    // Card-specific (when coverType === "card")
+    cardMainText?: string;   // e.g. "ม.4"
+    cardSubText?: string;    // e.g. "เทอม 2"
+    cardBadgeText?: string;  // e.g. "คณิตศาสตร์เพิ่มเติม"
+    cardColorFrom?: string;  // gradient start (hex)
+    cardColorTo?: string;    // gradient end (hex)
+    cardTextColor?: string;  // hex
 }
 
 export interface PainPointData {

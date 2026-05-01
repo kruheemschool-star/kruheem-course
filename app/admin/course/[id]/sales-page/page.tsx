@@ -8,6 +8,7 @@ import { useUserAuth } from "@/context/AuthContext";
 import type { Section, SectionType, SalesPageConfig, BoostersConfig } from "@/app/course/[id]/template/types";
 import { SECTION_META, createDefaultSection } from "@/app/course/[id]/template/defaults";
 import { buildSampleSalesPage } from "@/app/admin/debug/seed-salespage/[courseId]/sampleData";
+import { getSectionForm, hasFormEditor } from "@/components/admin/forms/registry";
 
 export default function SalesPageAdmin() {
     const { id } = useParams();
@@ -22,6 +23,8 @@ export default function SalesPageAdmin() {
     const [editingSection, setEditingSection] = useState<Section | null>(null);
     const [editJson, setEditJson] = useState("");
     const [editError, setEditError] = useState<string | null>(null);
+    const [editFormData, setEditFormData] = useState<any>(null);
+    const [editMode, setEditMode] = useState<"form" | "json">("form");
     const [showAddPicker, setShowAddPicker] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     const [editingBooster, setEditingBooster] = useState<keyof BoostersConfig | null>(null);
@@ -141,7 +144,10 @@ export default function SalesPageAdmin() {
     const openEditor = (section: Section) => {
         setEditingSection(section);
         setEditJson(JSON.stringify(section.data, null, 2));
+        setEditFormData(section.data);
         setEditError(null);
+        // Default to form mode for sections that have a form editor
+        setEditMode(hasFormEditor(section.type) ? "form" : "json");
     };
 
     const openBoosterEditor = (key: keyof BoostersConfig) => {
@@ -166,14 +172,15 @@ export default function SalesPageAdmin() {
     const saveEditor = () => {
         if (!editingSection) return;
         try {
-            const parsed = JSON.parse(editJson);
+            const parsed = editMode === "form" ? editFormData : JSON.parse(editJson);
+            if (editMode === "form" && !parsed) throw new Error("ข้อมูลไม่ครบถ้วน");
             const sections = config.sections.map((s) =>
                 s.id === editingSection.id ? ({ ...s, data: parsed } as Section) : s
             );
             saveConfig({ ...config, sections }, "✅ แก้ไขแล้ว");
             setEditingSection(null);
         } catch (e: any) {
-            setEditError("JSON ไม่ถูกต้อง: " + e.message);
+            setEditError("ไม่ถูกต้อง: " + e.message);
         }
     };
 
@@ -466,30 +473,84 @@ export default function SalesPageAdmin() {
             {/* Edit section modal */}
             {editingSection && (
                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[85vh] flex flex-col p-6">
+                    <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col p-6">
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="font-bold text-xl text-slate-800">
                                 ✏️ แก้ไข: {SECTION_META[editingSection.type].label}
                             </h3>
-                            <button
-                                onClick={() => setEditingSection(null)}
-                                className="text-slate-400 hover:text-slate-700 text-2xl leading-none"
-                            >
-                                ×
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {/* Mode toggle (form available for sections in registry) */}
+                                {hasFormEditor(editingSection.type) && (
+                                    <div className="flex p-1 bg-slate-100 rounded-lg text-xs font-bold">
+                                        <button
+                                            onClick={() => {
+                                                // Sync JSON → form when switching to form
+                                                try {
+                                                    setEditFormData(JSON.parse(editJson));
+                                                } catch { /* keep old */ }
+                                                setEditMode("form");
+                                                setEditError(null);
+                                            }}
+                                            className={`px-3 py-1 rounded ${editMode === "form" ? "bg-white text-indigo-700 shadow" : "text-slate-500"}`}
+                                        >
+                                            📝 ฟอร์ม
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                // Sync form → JSON when switching to JSON
+                                                setEditJson(JSON.stringify(editFormData, null, 2));
+                                                setEditMode("json");
+                                                setEditError(null);
+                                            }}
+                                            className={`px-3 py-1 rounded ${editMode === "json" ? "bg-white text-indigo-700 shadow" : "text-slate-500"}`}
+                                        >
+                                            {} JSON
+                                        </button>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => setEditingSection(null)}
+                                    className="text-slate-400 hover:text-slate-700 text-2xl leading-none"
+                                >
+                                    ×
+                                </button>
+                            </div>
                         </div>
-                        <p className="text-xs text-slate-500 mb-2">
-                            แก้ JSON ตรงนี้ได้เลย (Phase 2 — Phase 3 จะทำฟอร์มให้สวยๆ)
-                        </p>
-                        <textarea
-                            value={editJson}
-                            onChange={(e) => {
-                                setEditJson(e.target.value);
-                                setEditError(null);
-                            }}
-                            className={`flex-1 min-h-[400px] p-4 font-mono text-sm border-2 rounded-xl outline-none resize-none ${editError ? "border-red-300 focus:border-red-500" : "border-slate-200 focus:border-indigo-400"}`}
-                            spellCheck={false}
-                        />
+
+                        {/* Form or JSON editor */}
+                        {(() => {
+                            const FormComp = hasFormEditor(editingSection.type) && editMode === "form"
+                                ? getSectionForm(editingSection.type)
+                                : null;
+                            if (FormComp) {
+                                return (
+                                    <FormComp
+                                        value={editFormData ?? editingSection.data}
+                                        onChange={(next: any) => {
+                                            setEditFormData(next);
+                                            setEditError(null);
+                                        }}
+                                    />
+                                );
+                            }
+                            return (
+                                <>
+                                    <p className="text-xs text-slate-500 mb-2">
+                                        แก้ JSON ตรงนี้ (โหมด advanced)
+                                    </p>
+                                    <textarea
+                                        value={editJson}
+                                        onChange={(e) => {
+                                            setEditJson(e.target.value);
+                                            setEditError(null);
+                                        }}
+                                        className={`flex-1 min-h-[400px] p-4 font-mono text-sm border-2 rounded-xl outline-none resize-none ${editError ? "border-red-300 focus:border-red-500" : "border-slate-200 focus:border-indigo-400"}`}
+                                        spellCheck={false}
+                                    />
+                                </>
+                            );
+                        })()}
+
                         {editError && <p className="text-red-600 text-sm mt-2">{editError}</p>}
                         <div className="flex gap-2 mt-4">
                             <button
