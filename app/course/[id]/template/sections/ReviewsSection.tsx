@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, limit, where, getDocs } from "firebase/firestore";
 import { getCachedData } from "@/lib/dataCache";
@@ -78,6 +78,49 @@ function LiveReviewCard({ review }: { review: LiveReview }) {
     );
 }
 
+/* ─── Smooth marquee hook ─── */
+function useSmoothMarquee(baseSpeed: number) {
+    const trackRef = useRef<HTMLDivElement>(null);
+    const offsetRef = useRef(0);
+    const currentSpeedRef = useRef(baseSpeed);
+    const targetSpeedRef = useRef(baseSpeed);
+    const rafRef = useRef<number>(0);
+    const lastTimeRef = useRef<number>(0);
+
+    const animate = useCallback((now: number) => {
+        if (!trackRef.current) { rafRef.current = requestAnimationFrame(animate); return; }
+        if (!lastTimeRef.current) lastTimeRef.current = now;
+        const dt = (now - lastTimeRef.current) / 1000; // seconds
+        lastTimeRef.current = now;
+
+        // Smoothly interpolate current speed toward target
+        const lerpFactor = 1 - Math.pow(0.03, dt); // ~0.97 per second easing
+        currentSpeedRef.current += (targetSpeedRef.current - currentSpeedRef.current) * lerpFactor;
+
+        // Advance offset
+        offsetRef.current -= currentSpeedRef.current * dt;
+
+        // Get total scrollable width (half because content is duplicated)
+        const totalWidth = trackRef.current.scrollWidth / 2;
+        if (totalWidth > 0 && Math.abs(offsetRef.current) >= totalWidth) {
+            offsetRef.current += totalWidth;
+        }
+
+        trackRef.current.style.transform = `translateX(${offsetRef.current}px)`;
+        rafRef.current = requestAnimationFrame(animate);
+    }, []);
+
+    useEffect(() => {
+        rafRef.current = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(rafRef.current);
+    }, [animate]);
+
+    const onMouseEnter = useCallback(() => { targetSpeedRef.current = 0; }, []);
+    const onMouseLeave = useCallback(() => { targetSpeedRef.current = baseSpeed; }, [baseSpeed]);
+
+    return { trackRef, onMouseEnter, onMouseLeave };
+}
+
 export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?: SectionContext }) {
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [liveReviews, setLiveReviews] = useState<LiveReview[]>([]);
@@ -88,6 +131,11 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
     const liveMinRating = data.liveMinRating ?? 4;
     const liveScope = data.liveScope || "all";
     const scopedCourseId = liveScope === "course" ? ctx?.courseId : null;
+
+    // Speed in px/s — tuned to roughly match the old CSS animation durations
+    const isLive = source === "live";
+    const baseSpeed = isLive ? 60 : 40; // live cards scroll faster
+    const { trackRef, onMouseEnter, onMouseLeave } = useSmoothMarquee(baseSpeed);
 
     useEffect(() => {
         if (source !== "live") return;
@@ -127,18 +175,22 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
                 <div className="w-24 h-1.5 bg-indigo-600 mx-auto rounded-full opacity-20 mt-4"></div>
             </div>
 
-            <div className="relative w-full overflow-hidden group">
+            <div
+                className="relative w-full overflow-hidden"
+                onMouseEnter={onMouseEnter}
+                onMouseLeave={onMouseLeave}
+            >
                 <div className="absolute left-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
                 <div className="absolute right-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
 
                 {source === "live" ? (
-                    <div className="flex gap-5 py-4 animate-marquee-live hover:[animation-play-state:paused]">
+                    <div ref={trackRef} className="flex gap-5 py-4 will-change-transform" style={{ width: "max-content" }}>
                         {[...liveReviews, ...liveReviews].map((r, i) => (
                             <LiveReviewCard key={`${r.id}-${i}`} review={r} />
                         ))}
                     </div>
                 ) : (
-                    <div className="flex gap-6 animate-marquee hover:[animation-play-state:paused]">
+                    <div ref={trackRef} className="flex gap-6 will-change-transform" style={{ width: "max-content" }}>
                         {[...data.images, ...data.images].map((img, i) => (
                             <div
                                 key={i}
@@ -187,26 +239,6 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
                     </div>
                 </div>
             )}
-
-            <style jsx>{`
-                @keyframes marquee {
-                    0% { transform: translateX(0); }
-                    100% { transform: translateX(-50%); }
-                }
-                .animate-marquee {
-                    animation: marquee 120s linear infinite;
-                    width: max-content;
-                }
-                .animate-marquee-live {
-                    animation: marquee 80s linear infinite;
-                    width: max-content;
-                }
-                @media (max-width: 768px) {
-                    .animate-marquee-live {
-                        animation-duration: 60s;
-                    }
-                }
-            `}</style>
         </section>
     );
 }

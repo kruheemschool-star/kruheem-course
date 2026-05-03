@@ -18,6 +18,8 @@ import type {
     FAQData,
     CTAData,
     CountdownData,
+    VideoPreviewData,
+    VideoPreviewItem,
 } from "@/app/course/[id]/template/types";
 import {
     TextField,
@@ -829,6 +831,57 @@ export function CountdownForm({ value, onChange }: { value: CountdownData; onCha
                     onChange={(v) => update({ expiredMessage: v })}
                     placeholder="โปรโมชั่นหมดแล้ว — ติดต่อสอบถามราคาปกติ"
                 />
+            </FormScroll>
+        </div>
+    );
+}
+
+/* ============================================================
+   VideoPreviewForm
+   ============================================================ */
+export function VideoPreviewForm({ value, onChange }: { value: VideoPreviewData; onChange: (v: VideoPreviewData) => void }) {
+    const update = (patch: Partial<VideoPreviewData>) => onChange({ ...value, ...patch });
+    return (
+        <div className="flex flex-col flex-1 min-h-0">
+            <FormScroll>
+                <TextField label="ชื่อหัวข้อ" value={value.title} onChange={(v) => update({ title: v })} placeholder="ตัวอย่างคอร์สเรียน" />
+                <TextField label="คำอธิบาย" value={value.subtitle} onChange={(v) => update({ subtitle: v })} placeholder="ลองชมบรรยากาศการสอนจริง" />
+                <ArrayField
+                    label="วิดีโอตัวอย่าง"
+                    items={value.videos || []}
+                    onChange={(items) => update({ videos: items })}
+                    newItem={() => ({ title: "วิดีโอใหม่", youtubeUrl: "", description: "" }) as VideoPreviewItem}
+                    addLabel="+ เพิ่มวิดีโอ"
+                    itemTitle={(item) => item.title || "ไม่มีชื่อ"}
+                    renderItem={(item, upd) => (
+                        <div className="space-y-2">
+                            <input
+                                type="text"
+                                value={item.title}
+                                onChange={(e) => upd({ title: e.target.value })}
+                                placeholder="ชื่อวิดีโอ เช่น บทเรียนตัวอย่าง"
+                                className="w-full px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                            />
+                            <input
+                                type="text"
+                                value={item.youtubeUrl || ""}
+                                onChange={(e) => upd({ youtubeUrl: e.target.value })}
+                                placeholder="YouTube URL เช่น https://youtu.be/xxxxx"
+                                className="w-full px-3 py-2 text-sm font-mono border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                            />
+                            <textarea
+                                value={item.description || ""}
+                                onChange={(e) => upd({ description: e.target.value })}
+                                placeholder="คำอธิบาย (ไม่บังคับ)"
+                                rows={2}
+                                className="w-full px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none resize-none"
+                            />
+                        </div>
+                    )}
+                />
+                <p className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                    🎬 วิดีโอจะแสดงในกรอบแท็บเล็ตสวยงาม รองรับ URL จาก YouTube ทุกรูปแบบ
+                </p>
             </FormScroll>
         </div>
     );

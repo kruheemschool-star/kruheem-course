@@ -13,6 +13,7 @@ import ComparisonSection from "./sections/ComparisonSection";
 import FAQSection from "./sections/FAQSection";
 import CTASection from "./sections/CTASection";
 import CountdownSection from "./sections/CountdownSection";
+import VideoPreviewSection from "./sections/VideoPreviewSection";
 
 export function renderSection(section: Section, ctx: SectionContext) {
     switch (section.type) {
@@ -42,6 +43,8 @@ export function renderSection(section: Section, ctx: SectionContext) {
             return <CTASection data={section.data} ctx={ctx} />;
         case "countdown":
             return <CountdownSection data={section.data} />;
+        case "videoPreview":
+            return <VideoPreviewSection data={section.data} />;
         default:
             return null;
     }

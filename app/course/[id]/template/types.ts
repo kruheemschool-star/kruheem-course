@@ -15,7 +15,8 @@ export type SectionType =
     | "comparison"
     | "faq"
     | "cta"
-    | "countdown";
+    | "countdown"
+    | "videoPreview";
 
 export interface BaseSection<T extends SectionType, D> {
     id: string;
@@ -182,6 +183,18 @@ export interface CountdownData {
     style?: "banner" | "inline"; // banner = full-width, inline = centered card
 }
 
+export interface VideoPreviewItem {
+    title: string;
+    youtubeUrl: string; // YouTube URL or video ID
+    description?: string;
+}
+
+export interface VideoPreviewData {
+    title?: string;
+    subtitle?: string;
+    videos: VideoPreviewItem[];
+}
+
 // ---------- Discriminated Union ----------
 
 export type Section =
@@ -197,7 +210,8 @@ export type Section =
     | BaseSection<"comparison", ComparisonData>
     | BaseSection<"faq", FAQData>
     | BaseSection<"cta", CTAData>
-    | BaseSection<"countdown", CountdownData>;
+    | BaseSection<"countdown", CountdownData>
+    | BaseSection<"videoPreview", VideoPreviewData>;
 
 // ---------- Conversion Boosters ----------
 

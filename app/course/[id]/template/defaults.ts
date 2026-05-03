@@ -14,6 +14,7 @@ export const SECTION_META: Record<SectionType, { label: string; icon: string; de
     faq: { label: "FAQ", icon: "❓", desc: "คำถามที่พบบ่อย" },
     cta: { label: "Final CTA", icon: "🚀", desc: "ปิดการขายครั้งสุดท้าย" },
     countdown: { label: "Countdown Timer", icon: "⏰", desc: "นับถอยหลังโปรโมชั่น" },
+    videoPreview: { label: "Video Preview", icon: "🎬", desc: "วิดีโอตัวอย่างคอร์สเรียน" },
 };
 
 export function createDefaultSection(type: SectionType, order: number): Section {
@@ -192,5 +193,17 @@ export function createDefaultSection(type: SectionType, order: number): Section 
                 },
             };
         }
+        case "videoPreview":
+            return {
+                ...base,
+                type: "videoPreview",
+                data: {
+                    title: "ตัวอย่างคอร์สเรียน",
+                    subtitle: "ลองชมบรรยากาศการสอนจริง",
+                    videos: [
+                        { title: "บทเรียนตัวอย่าง", youtubeUrl: "", description: "" },
+                    ],
+                },
+            };
     }
 }
