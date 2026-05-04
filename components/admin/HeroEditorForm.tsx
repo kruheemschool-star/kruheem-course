@@ -127,6 +127,7 @@ export default function HeroEditorForm({ value, onChange }: Props) {
                             value={value.title}
                             onChange={(v) => update({ title: v })}
                             placeholder="เช่น ม.4 เทอม 2 (เพิ่มเติม)"
+                            multiline
                         />
                         <Field
                             label="คำอธิบายใต้ชื่อ (Subtitle)"
@@ -163,7 +164,7 @@ export default function HeroEditorForm({ value, onChange }: Props) {
                             label="ข้อความราคาเฉลี่ย"
                             value={value.pricePerDayText}
                             onChange={(v) => update({ pricePerDayText: v })}
-                            placeholder="เฉลี่ยวันละ 5.21 บาทเท่านั้น"
+                            placeholder="เฉลี่ยวันละ 1.04 บาทเท่านั้น"
                         />
                     </>
                 )}

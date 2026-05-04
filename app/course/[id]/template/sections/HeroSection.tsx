@@ -58,12 +58,12 @@ export default function HeroSection({ data, ctx }: Props) {
                         </div>
                     )}
 
-                    <h1 className="text-5xl md:text-7xl font-black leading-relaxed tracking-tight" style={{ color: titleColor }}>
+                    <h1 className="whitespace-pre-line text-5xl md:text-7xl font-black leading-relaxed tracking-tight" style={{ color: titleColor }}>
                         {data.title}
                     </h1>
 
                     {data.subtitle && (
-                        <p className="text-xl md:text-2xl font-medium" style={{ color: subtitleColor }}>{data.subtitle}</p>
+                        <p className="whitespace-pre-line text-xl md:text-2xl font-medium" style={{ color: subtitleColor }}>{data.subtitle}</p>
                     )}
 
                     <div className="flex flex-col items-center md:items-start gap-5 pt-2">
@@ -99,7 +99,11 @@ export default function HeroSection({ data, ctx }: Props) {
                                 <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
                                 </svg>
-                                <p>{data.pricePerDayText}</p>
+                                <p>
+                                    {data.pricePerDayText.includes("เฉลี่ยวันละ") 
+                                        ? `เฉลี่ยวันละ ${(ctx.coursePrice / (5 * 365)).toFixed(2)} บาทเท่านั้น`
+                                        : data.pricePerDayText}
+                                </p>
                             </div>
                         )}
                     </div>

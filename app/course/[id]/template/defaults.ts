@@ -33,7 +33,7 @@ export function createDefaultSection(type: SectionType, order: number): Section 
                     ctaText: "สมัครเรียนทันที",
                     ctaPriceText: "฿2,900",
                     secondaryCtaText: "ทดลองเรียน",
-                    pricePerDayText: "เฉลี่ยวันละ 7.95 บาท",
+                    pricePerDayText: "เฉลี่ยวันละ 1.59 บาท",
                     blobColors: ["bg-indigo-200/40", "bg-rose-200/40"],
                 },
             };

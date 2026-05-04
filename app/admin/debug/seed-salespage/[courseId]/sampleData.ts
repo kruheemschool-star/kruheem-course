@@ -53,7 +53,7 @@ export function buildSampleSalesPage({ title, price, fullPrice }: Input): SalesP
                     ctaText: "สมัครเรียนทันที",
                     ctaPriceText: `฿${price.toLocaleString("th-TH")}`,
                     secondaryCtaText: "ทดลองเรียน",
-                    pricePerDayText: `เฉลี่ยวันละ ${(price / 365).toFixed(2)} บาทเท่านั้น`,
+                    pricePerDayText: `เฉลี่ยวันละ ${(price / (5 * 365)).toFixed(2)} บาทเท่านั้น`,
                     blobColors: ["bg-indigo-200/40", "bg-rose-200/40"],
                 },
             },

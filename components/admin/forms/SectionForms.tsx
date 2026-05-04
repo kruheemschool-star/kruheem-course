@@ -233,6 +233,50 @@ export function CurriculumForm({ value, onChange }: { value: CurriculumData; onC
                                 placeholder="คำอธิบายบท (ไม่บังคับ)"
                                 className="w-full px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
                             />
+                            <div className="grid grid-cols-2 gap-3 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                <div className="flex flex-col">
+                                    <label className="text-xs font-bold text-slate-500 mb-1">🎨 สีพื้นหลัง</label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="color"
+                                            value={item.color || "#ffffff"}
+                                            onChange={(e) => upd({ color: e.target.value })}
+                                            className="w-8 h-8 rounded border border-slate-200 cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={item.color || ""}
+                                            onChange={(e) => upd({ color: e.target.value })}
+                                            placeholder="อัตโนมัติ"
+                                            className="flex-1 px-2 py-1 text-xs font-mono border border-slate-200 rounded focus:border-indigo-400 outline-none"
+                                        />
+                                        {item.color && (
+                                            <button type="button" onClick={() => upd({ color: "" })} className="text-xs text-red-500 hover:text-red-700">ลบ</button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col">
+                                    <label className="text-xs font-bold text-slate-500 mb-1">🎨 สีตัวเลข</label>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="color"
+                                            value={item.iconColor || "#000000"}
+                                            onChange={(e) => upd({ iconColor: e.target.value })}
+                                            className="w-8 h-8 rounded border border-slate-200 cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={item.iconColor || ""}
+                                            onChange={(e) => upd({ iconColor: e.target.value })}
+                                            placeholder="อัตโนมัติ"
+                                            className="flex-1 px-2 py-1 text-xs font-mono border border-slate-200 rounded focus:border-indigo-400 outline-none"
+                                        />
+                                        {item.iconColor && (
+                                            <button type="button" onClick={() => upd({ iconColor: "" })} className="text-xs text-red-500 hover:text-red-700">ลบ</button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                             <div>
                                 <p className="text-xs font-bold text-slate-500 mb-1">หัวข้อย่อย (1 บรรทัด = 1 หัวข้อ)</p>
                                 <textarea

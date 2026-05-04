@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Search, X } from 'lucide-react';
 import { Lesson } from './types';
 import { QuestionIcon, TextIcon, CheckIcon, ExerciseIcon, HtmlIcon, FlashcardIcon, PlayIcon } from './Icons';
+import { tryParseQuestions } from './utils';
 
 interface LessonSidebarProps {
     isSidebarCollapsed: boolean;
@@ -47,6 +48,18 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
 }) => {
     // ✅ Local State for Exams Accordion (Default Collapsed)
     const [isExamsOpen, setIsExamsOpen] = useState(false);
+
+    // ✅ Compute question counts per exam lesson from real data
+    const examQuestionCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        examLessons.forEach((exam) => {
+            const questions = tryParseQuestions(exam.content || '');
+            if (questions) {
+                counts[exam.id] = questions.length;
+            }
+        });
+        return counts;
+    }, [examLessons]);
 
     return (
         <aside className={`
@@ -134,7 +147,12 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                                             `}
                                             >
                                                 <span className="truncate flex-1">{exam.title}</span>
-                                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>}
+                                                {examQuestionCounts[exam.id] && (
+                                                    <span className="flex-shrink-0 text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">
+                                                        {examQuestionCounts[exam.id]} ข้อ
+                                                    </span>
+                                                )}
+                                                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0"></div>}
                                                 {!isUnlocked && <span className="text-[10px]">🔒</span>}
                                             </button>
                                         );

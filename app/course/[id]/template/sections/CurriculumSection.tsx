@@ -23,16 +23,19 @@ export default function CurriculumSection({ data }: { data: CurriculumData }) {
                 <div className="space-y-4">
                     {data.chapters.map((ch, i) => {
                         const color = DEFAULT_COLORS[i % DEFAULT_COLORS.length];
-                        const bg = ch.color || color.bg;
-                        const iconColor = ch.iconColor || color.icon;
+                        const isHexBg = ch.color?.startsWith("#");
+                        const isHexIcon = ch.iconColor?.startsWith("#");
+                        const bgClass = isHexBg ? "" : (ch.color || color.bg);
+                        const iconClass = isHexIcon ? "" : (ch.iconColor || color.icon);
+
                         return (
-                            <div key={ch.id} className={`rounded-2xl overflow-hidden transition-all duration-300 ${bg}`}>
+                            <div key={ch.id} className={`rounded-2xl overflow-hidden transition-all duration-300 ${bgClass}`} style={isHexBg ? { backgroundColor: ch.color } : undefined}>
                                 <button
                                     onClick={() => setOpenIndex(openIndex === i ? null : i)}
                                     className="w-full p-5 flex items-center justify-between text-left"
                                 >
                                     <div className="flex items-center gap-5">
-                                        <div className={`w-12 h-12 bg-white shadow-sm rounded-2xl flex items-center justify-center font-bold text-xl ${iconColor}`}>
+                                        <div className={`w-12 h-12 bg-white shadow-sm rounded-2xl flex items-center justify-center font-bold text-xl ${iconClass}`} style={isHexIcon ? { color: ch.iconColor } : undefined}>
                                             {ch.id}
                                         </div>
                                         <div>
