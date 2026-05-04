@@ -61,6 +61,11 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
         return counts;
     }, [examLessons]);
 
+    // ✅ Total questions across all exam sets
+    const totalExamQuestions = useMemo(() => {
+        return Object.values(examQuestionCounts).reduce((sum, count) => sum + count, 0);
+    }, [examQuestionCounts]);
+
     return (
         <aside className={`
             ${isSidebarCollapsed ? 'w-0 border-r-0' : 'w-80 border-r'} 
@@ -106,25 +111,57 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
 
                     {/* ℹ️ ปุ่ม "ดาวน์โหลดเอกสาร" ถูกย้ายไปเป็นปุ่มลอยมุมขวาบนของวิดีโอ (ใน LessonContent) เพื่อให้สังเกตได้ง่ายขึ้น */}
 
-                    {/* ✅ SPECIAL EXAM SECTION (Notion Style) */}
+                    {/* ✅ SPECIAL EXAM SECTION — Eye-catching Card */}
+                    {examLessons.length > 0 && (
                     <div className="mt-6 w-full animate-in slide-in-from-left-4 fade-in duration-500 px-2">
                         <button
                             onClick={() => setIsExamsOpen(!isExamsOpen)}
-                            className="w-full flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors group text-slate-600 dark:text-slate-300 mb-1"
+                            className="w-full relative overflow-hidden rounded-2xl p-3.5 transition-all duration-300 group border border-amber-200/60 dark:border-amber-700/40 hover:shadow-lg hover:shadow-amber-200/30 dark:hover:shadow-amber-900/20 hover:-translate-y-0.5 active:scale-[0.98]"
+                            style={{
+                                background: 'linear-gradient(135deg, #FFF7ED 0%, #FEF3C7 40%, #FDE68A 100%)',
+                            }}
                         >
-                            <span className={`transform transition-transform duration-200 ${isExamsOpen ? 'rotate-90' : ''}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50 group-hover:opacity-100"><path d="m9 18 6-6-6-6" /></svg>
-                            </span>
-                            <span className="font-semibold text-sm flex items-center gap-2">
-                                ⚡️ ตะลุยโจทย์ (Exams)
-                            </span>
-                            <span className="ml-auto text-xs text-slate-400 font-normal opacity-0 group-hover:opacity-100 transition-opacity">
-                                {examLessons.length} ชุด
-                            </span>
+                            {/* Subtle animated glow ring */}
+                            <div className="absolute -inset-1 bg-gradient-to-r from-amber-400/20 via-orange-400/20 to-yellow-400/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                            <div className="relative flex items-center gap-3">
+                                {/* Animated lightning icon */}
+                                <div className="relative flex-shrink-0">
+                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md shadow-amber-300/50 dark:shadow-amber-900/50">
+                                        <span className="text-lg animate-pulse drop-shadow-sm">⚡</span>
+                                    </div>
+                                    {/* Ping dot */}
+                                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500 border-2 border-white dark:border-slate-900" />
+                                    </span>
+                                </div>
+
+                                {/* Title & stats */}
+                                <div className="flex-1 text-left min-w-0">
+                                    <div className="font-extrabold text-sm text-amber-900 dark:text-amber-100 tracking-tight">
+                                        ตะลุยโจทย์
+                                    </div>
+                                    <div className="text-[11px] text-amber-700/80 dark:text-amber-400/80 font-semibold mt-0.5 flex items-center gap-1.5">
+                                        <span>{examLessons.length} ชุด</span>
+                                        {totalExamQuestions > 0 && (
+                                            <>
+                                                <span className="text-amber-400">•</span>
+                                                <span className="text-orange-600 dark:text-orange-400 font-black">{totalExamQuestions} ข้อ</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Arrow */}
+                                <span className={`transform transition-transform duration-300 text-amber-600/60 ${isExamsOpen ? 'rotate-90' : ''}`}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                                </span>
+                            </div>
                         </button>
 
                         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExamsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                            <div className="pl-4 space-y-0.5 border-l border-gray-100 dark:border-slate-800 ml-3.5 my-1">
+                            <div className="pl-4 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800/50 ml-5 my-2">
                                 {examLessons.length > 0 ? (
                                     examLessons.map((exam: Lesson) => {
                                         const isActive = activeLesson?.id === exam.id;
@@ -165,6 +202,7 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
 
                 {/* Lesson Lists inside Scrollable Area */}
