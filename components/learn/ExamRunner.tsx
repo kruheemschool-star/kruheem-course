@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { QuestionCard } from "@/components/exam/QuestionCard";
 
 interface ExamRunnerProps {
@@ -12,11 +12,17 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
     const [revealed, setRevealed] = useState<Record<number, boolean>>({}); // ✅ Track revealed questions
+    const questionCardRef = useRef<HTMLDivElement>(null);
 
-    // 📜 Auto-scroll (Story Path Effect)
+    // 📜 Auto-scroll to question card when selecting from grid
     useEffect(() => {
-        const el = document.getElementById(`story-node-${currentIndex}`);
-        if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        // Small delay to ensure the new question card has rendered
+        const timer = setTimeout(() => {
+            if (questionCardRef.current) {
+                questionCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
+        return () => clearTimeout(timer);
     }, [currentIndex]);
 
     const currentQ = questions[currentIndex];
@@ -155,7 +161,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
                 )}
 
                 {/* 📝 Question Card (Powered by Exam Hub Engine) */}
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div ref={questionCardRef} className="animate-in fade-in slide-in-from-bottom-4 duration-500 scroll-mt-4">
                     <QuestionCard
                         question={{
                             id: currentIndex,

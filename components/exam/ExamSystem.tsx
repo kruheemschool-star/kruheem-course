@@ -112,6 +112,18 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     const currentQuestion = sanitizedExamData[currentQuestionIndex];
     const totalQuestions = sanitizedExamData.length;
+    const questionCardRef = useRef<HTMLDivElement>(null);
+
+    // 📜 Auto-scroll to question card when selecting from grid
+    useEffect(() => {
+        if (isFinished) return; // Don't scroll when viewing results
+        const timer = setTimeout(() => {
+            if (questionCardRef.current) {
+                questionCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
+        return () => clearTimeout(timer);
+    }, [currentQuestionIndex, isFinished]);
 
     // === Auto-Save: Restore saved progress on mount ===
     const hasRestoredRef = useRef(false);
@@ -576,7 +588,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     </div>
                 )}
 
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[400px]">
+                <div ref={questionCardRef} className="animate-in fade-in slide-in-from-bottom-4 duration-500 min-h-[400px] scroll-mt-4">
                     {isTrial && currentQuestionIndex >= 5 ? (
                         <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 md:p-12 border-2 border-amber-200 dark:border-amber-900/50 shadow-xl flex flex-col items-center justify-center text-center h-full min-h-[400px] relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400"></div>
