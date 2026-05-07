@@ -77,10 +77,10 @@ export default function SingleQuestionModal({
                     {/* SVG */}
                     {question.svg && typeof question.svg === 'string' && question.svg.trim().startsWith('<svg') && (
                         <div className="my-6 flex justify-center w-full">
-                            <div className="relative rounded-2xl overflow-hidden border-2 border-slate-100 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-700 p-3" style={{ width: '70%', maxWidth: '520px' }}>
+                            <div className="relative w-full max-w-[520px] rounded-2xl border border-slate-200 dark:border-slate-600 shadow-sm bg-white p-3 mx-auto">
                                 <div
-                                    style={{ maxWidth: '100%' }}
-                                    dangerouslySetInnerHTML={{ __html: question.svg.replace(/<svg\s/, '<svg style="width:100%;height:auto;" ') }}
+                                    className="w-full [&>svg]:block [&>svg]:mx-auto [&>svg]:w-full [&>svg]:h-auto [&>svg]:max-h-[400px]"
+                                    dangerouslySetInnerHTML={{ __html: question.svg }}
                                 />
                             </div>
                         </div>

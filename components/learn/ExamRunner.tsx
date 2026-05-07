@@ -169,7 +169,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions, onComplete })
                             options: currentQ.options,
                             correctIndex: getCorrectIndex(currentQ),
                             explanation: currentQ.explanation,
-                            image: currentQ.image
+                            image: currentQ.image,
+                            svg: currentQ.svg
                         }}
                         questionNumber={currentIndex + 1}
                         totalQuestions={questions.length}
