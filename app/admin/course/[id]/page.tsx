@@ -457,6 +457,7 @@ export default function ManageLessonsPage() {
             id: q.id,
             question: q.question || "",
             image: q.image,
+            svg: q.svg,
             options: q.options || [],
             answerIndex,
             explanation: q.solution || q.explanation || "",
