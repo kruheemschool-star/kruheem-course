@@ -3,9 +3,9 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, ChevronRight, ArrowRight, FileText, Hash, Sparkles, Lightbulb, Loader2, SlidersHorizontal, X, ArrowUpDown, ChevronDown, Tag, Zap, BookOpen, BarChart3, Heart, Users, Flame, LibraryBig, ClipboardList } from "lucide-react";
+import { Search, ArrowRight, FileText, Lightbulb, Loader2, BookOpen, BarChart3, Heart, Sparkles, ArrowUpDown, Filter } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { useBookmarks } from "@/hooks/useBookmarks";
 
 interface ExamListClientProps {
@@ -27,32 +27,35 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
 
+    // 🆕 Filters & Sort
+    const [filterFree, setFilterFree] = useState(false);
+    const [filterBookmarked, setFilterBookmarked] = useState(false);
+    const [sortBy, setSortBy] = useState<"default" | "newest" | "mostQuestions" | "alphabetical">("default");
+
     // Bookmarks
     const { bookmarkedIds, isBookmarked, toggleBookmark, isLoggedIn } = useBookmarks();
 
-    // Stats
-    const [activeUsers, setActiveUsers] = useState(0);
-    const [enrollmentCount, setEnrollmentCount] = useState(initialEnrollmentCount);
+    // Stats (no active users tracking — saves Firestore reads)
+    const [enrollmentCount] = useState(initialEnrollmentCount);
     const totalExamSets = initialExams.length;
     const totalQuestions = useMemo(() => initialExams.reduce((sum: number, e: any) => sum + (e.questionCount || 0), 0), [initialExams]);
 
-    // Fetch active users count (client-side, real-time feel)
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-                const usersSnap = await getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo)))
-                    .catch(() => ({ size: 0 }));
-                
-                setActiveUsers(usersSnap.size);
-            } catch {
-                setActiveUsers(0);
-            }
-        };
-        fetchStats();
-        const interval = setInterval(fetchStats, 180 * 1000);
-        return () => clearInterval(interval);
-    }, []);
+    // 🆕 Popular tags aggregated from exam metadata (no extra Firestore reads)
+    const popularTags = useMemo(() => {
+        const counter: Record<string, number> = {};
+        initialExams.forEach((e: any) => {
+            (e.tags || []).forEach((t: string) => {
+                if (!t || typeof t !== 'string') return;
+                const key = t.trim();
+                if (!key) return;
+                counter[key] = (counter[key] || 0) + 1;
+            });
+        });
+        return Object.entries(counter)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([tag, count]) => ({ tag, count }));
+    }, [initialExams]);
 
     // Lazy load search state
     const [searchData, setSearchData] = useState<any[] | null>(null);
@@ -185,13 +188,45 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
         setSearchResults(results);
     };
 
-    // Regular filtering for non-search mode
+    // Regular filtering for non-search mode (category + free + bookmarked + sort)
     const filteredExams = useMemo(() => {
-        if (selectedCategory === "ทั้งหมด") {
-            return initialExams;
+        let result = initialExams;
+
+        // Category filter
+        if (selectedCategory !== "ทั้งหมด") {
+            result = result.filter(e => e.category === selectedCategory);
         }
-        return initialExams.filter(e => e.category === selectedCategory);
-    }, [initialExams, selectedCategory]);
+
+        // Free-only filter
+        if (filterFree) {
+            result = result.filter(e => e.isFree);
+        }
+
+        // Bookmarked-only filter
+        if (filterBookmarked) {
+            result = result.filter(e => bookmarkedIds.has(e.id));
+        }
+
+        // Sort
+        if (sortBy !== "default") {
+            result = [...result].sort((a, b) => {
+                if (sortBy === "newest") {
+                    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                    return timeB - timeA; // newest first
+                }
+                if (sortBy === "mostQuestions") {
+                    return (b.questionCount || 0) - (a.questionCount || 0);
+                }
+                if (sortBy === "alphabetical") {
+                    return String(a.title || "").localeCompare(String(b.title || ""), 'th');
+                }
+                return 0;
+            });
+        }
+
+        return result;
+    }, [initialExams, selectedCategory, filterFree, filterBookmarked, sortBy, bookmarkedIds]);
 
     const isSearchMode = searchQuery.trim().length > 0;
     const totalQuestionMatches = searchResults.reduce((sum, r) => sum + r.questionMatches.length, 0);
@@ -269,106 +304,67 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
             {/* Search & Filter Section */}
             <div className="px-6 py-8 relative">
                 <div className="max-w-4xl mx-auto text-center mb-8">
-                    {/* Hero */}
-                    <div className="relative overflow-hidden rounded-[2.75rem] border border-slate-100/80 dark:border-slate-800/70 bg-gradient-to-br from-slate-50 via-white to-amber-50/40 dark:from-slate-900/30 dark:via-slate-950 dark:to-amber-950/15 p-7 md:p-10 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)] mb-10">
+                    {/* Hero — compact, focused */}
+                    <div className="relative overflow-hidden rounded-[2.5rem] border border-slate-100/80 dark:border-slate-800/70 bg-gradient-to-br from-slate-50 via-white to-amber-50/40 dark:from-slate-900/30 dark:via-slate-950 dark:to-amber-950/15 p-6 md:p-10 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)] mb-8">
                         {/* Atmospheric background */}
                         <div className="pointer-events-none absolute inset-0">
-                            <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-amber-200/50 blur-3xl dark:bg-amber-500/10" />
-                            <div className="absolute -bottom-28 -right-28 h-80 w-80 rounded-full bg-indigo-200/50 blur-3xl dark:bg-indigo-500/10" />
-                            <div className="absolute inset-0 opacity-[0.5] dark:opacity-[0.35] bg-[radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.06)_1px,transparent_0)] [background-size:16px_16px]" />
+                            <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-amber-200/40 blur-3xl dark:bg-amber-500/10" />
+                            <div className="absolute -bottom-28 -right-28 h-80 w-80 rounded-full bg-indigo-200/40 blur-3xl dark:bg-indigo-500/10" />
+                            <div className="absolute inset-0 opacity-[0.4] dark:opacity-[0.3] bg-[radial-gradient(circle_at_1px_1px,rgba(15,23,42,0.06)_1px,transparent_0)] [background-size:16px_16px]" />
                         </div>
 
                         <div className="relative flex flex-col items-center">
-                            <div className="inline-flex items-center gap-2 rounded-full bg-white/70 dark:bg-slate-950/60 border border-slate-200/70 dark:border-slate-700/60 px-4 py-2 text-sm font-extrabold text-slate-700 dark:text-slate-200 shadow-sm backdrop-blur">
-                                <ClipboardList className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                                <span>
-                                    ข้อสอบ{" "}
-                                    <span className="font-mono tracking-tight">{totalQuestions.toLocaleString()}</span>
-                                    <span className="text-amber-600 dark:text-amber-400">+</span>{" "}
-                                    ข้อ
-                                </span>
+                            <div className="inline-flex items-center gap-2 rounded-full bg-amber-100/80 dark:bg-amber-900/40 border border-amber-200/70 dark:border-amber-800/60 px-3 py-1 text-xs font-black text-amber-700 dark:text-amber-300 shadow-sm backdrop-blur">
+                                <Sparkles className="w-3 h-3" />
+                                <span>ครบทุกระดับชั้น — ป.1 ถึง ม.6</span>
                             </div>
 
-                            <h1 className="mt-5 text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.05] text-slate-900 dark:text-slate-50">
-                                ฝึกครบ{" "}
-                                <span className="inline-block align-middle px-2 md:px-3">
-                                    <span className="inline-flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm">
-                                        =
-                                    </span>
-                                </span>{" "}
-                                <span className="relative inline-block">
-                                    <span className="absolute -inset-x-2 bottom-2 md:bottom-3 h-3 md:h-4 rounded-full bg-amber-200/70 dark:bg-amber-500/15" />
-                                    <span className="relative text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500">
-                                        สอบติด
-                                    </span>
-                                </span>
+                            <h1 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-[1.1] text-slate-900 dark:text-slate-50">
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500">คลังข้อสอบ</span> ออนไลน์
                             </h1>
 
-                            <div className="mt-4 text-base md:text-lg font-bold text-slate-600 dark:text-slate-300 leading-relaxed">
-                                <div>ฝึกเหมือนสอบจริง พร้อมเฉลยละเอียดทุกข้อ</div>
-                                <div>
-                                    ทำซ้ำจน{" "}
-                                    <span className="text-slate-900 dark:text-white">“คิดเป็น ไม่ใช่เดา”</span>
-                                </div>
-                            </div>
+                            <p className="mt-3 text-base md:text-lg font-semibold text-slate-600 dark:text-slate-300 max-w-xl">
+                                ฝึกเหมือนสอบจริง พร้อมเฉลยละเอียดทุกข้อ ทำซ้ำจน <span className="text-slate-900 dark:text-white font-black">&ldquo;คิดเป็น ไม่ใช่เดา&rdquo;</span>
+                            </p>
 
-                            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
-                                <div className="rounded-2xl border border-emerald-200/70 dark:border-emerald-800/60 bg-emerald-50/70 dark:bg-emerald-950/20 px-4 py-3 text-center font-extrabold text-emerald-700 dark:text-emerald-300">
-                                    ซื้อครั้งเดียว ใช้ได้ตลอด
-                                </div>
-                                <div className="rounded-2xl border border-amber-200/70 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/20 px-4 py-3 text-center font-extrabold text-amber-700 dark:text-amber-300">
-                                    ข้อสอบเพิ่ม = ได้ทั้งหมด
-                                </div>
-                            </div>
-                            <div className="mt-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
-                                ดูย้อนหลังได้ตลอดเวลานานถึง 5 ปี
+                            {/* CTA row */}
+                            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                                    ✓ ซื้อครั้งเดียว ใช้ได้ 5 ปี
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 px-3 py-1 text-xs font-bold text-indigo-700 dark:text-indigo-400">
+                                    ✓ ข้อสอบเพิ่มฟรี ไม่จำกัด
+                                </span>
+                                {isLoggedIn && (
+                                    <Link
+                                        href="/exam/dashboard"
+                                        prefetch={false}
+                                        className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-full font-bold text-xs hover:shadow-lg hover:shadow-indigo-500/25 hover:-translate-y-0.5 transition-all duration-300"
+                                    >
+                                        <BarChart3 size={14} />
+                                        สถิติของฉัน
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2 flex items-center justify-center gap-2">
-                        <span className="text-amber-600 dark:text-amber-400">คลังข้อสอบ</span> ออนไลน์ 📚
-                    </h2>
-                    <p className="text-slate-500 dark:text-slate-400">ค้นหาข้อสอบที่ต้องการฝึกฝน หรือเลือกตามหมวดหมู่ด้านล่าง</p>
-                    {isLoggedIn && (
-                        <Link
-                            href="/exam/dashboard"
-                            className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-indigo-500/25 hover:-translate-y-0.5 transition-all duration-300"
-                        >
-                            <BarChart3 size={18} />
-                            ดูสถิติของฉัน
-                        </Link>
-                    )}
-
-                    {/* Stats Banner */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 max-w-4xl mx-auto">
-                        {/* Card 1: ชุดข้อสอบพร้อมฝึก - Indigo glow */}
-                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:shadow-indigo-500/10 hover:border-indigo-200 dark:hover:border-indigo-800/50 cursor-default">
-                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{totalExamSets}</span>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">ชุดข้อสอบพร้อมฝึก</p>
+                    {/* Stats Banner — 3 cards (removed activeUsers to save Firestore reads) */}
+                    <div className="grid grid-cols-3 gap-3 md:gap-4 mt-8 max-w-3xl mx-auto">
+                        {/* Card 1: ชุดข้อสอบพร้อมฝึก */}
+                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-3 py-4 md:px-5 md:py-5 text-center transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-lg hover:shadow-indigo-500/10 hover:border-indigo-200 dark:hover:border-indigo-800/50 cursor-default">
+                            <span className="text-2xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{totalExamSets}</span>
+                            <p className="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 mt-1 md:mt-1.5 font-medium">ชุดข้อสอบ</p>
                         </div>
-                        {/* Card 2: โจทย์ให้ตะลุย - Amber glow */}
-                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-200 dark:hover:border-amber-800/50 cursor-default">
-                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-amber-600 dark:group-hover:text-amber-400">{totalQuestions.toLocaleString()}<span className="text-amber-500">+</span></span>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">โจทย์ให้ตะลุย</p>
+                        {/* Card 2: โจทย์ให้ตะลุย */}
+                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-3 py-4 md:px-5 md:py-5 text-center transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-lg hover:shadow-amber-500/10 hover:border-amber-200 dark:hover:border-amber-800/50 cursor-default">
+                            <span className="text-2xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-amber-600 dark:group-hover:text-amber-400">{totalQuestions.toLocaleString()}<span className="text-amber-500">+</span></span>
+                            <p className="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 mt-1 md:mt-1.5 font-medium">โจทย์ให้ตะลุย</p>
                         </div>
-                        {/* Card 3: คนที่เรียนคอร์สนี้แล้ว - Emerald glow */}
-                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-200 dark:hover:border-emerald-800/50 cursor-default">
-                            <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400">{enrollmentCount > 0 ? enrollmentCount.toLocaleString() : '—'}<span className="text-amber-500">+</span></span>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">คนที่เรียนคอร์สนี้แล้ว</p>
-                        </div>
-                        {/* Card 4: กำลังลุยข้อสอบอยู่ตอนนี้ - Rose glow */}
-                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-5 py-5 text-center transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:shadow-rose-500/10 hover:border-rose-200 dark:hover:border-rose-800/50 cursor-default">
-                            <div className="flex items-center justify-center gap-2">
-                                <span className="text-3xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-rose-600 dark:group-hover:text-rose-400">{activeUsers}</span>
-                                {activeUsers > 0 && (
-                                    <span className="relative flex h-2.5 w-2.5">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">กำลังลุยข้อสอบอยู่ตอนนี้</p>
+                        {/* Card 3: คนที่เรียนคอร์สนี้แล้ว */}
+                        <div className="group bg-white dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl px-3 py-4 md:px-5 md:py-5 text-center transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-500/10 hover:border-emerald-200 dark:hover:border-emerald-800/50 cursor-default">
+                            <span className="text-2xl md:text-4xl font-black text-slate-800 dark:text-slate-100 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400">{enrollmentCount > 0 ? enrollmentCount.toLocaleString() : '—'}<span className="text-amber-500">+</span></span>
+                            <p className="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 mt-1 md:mt-1.5 font-medium">คนที่เรียน</p>
                         </div>
                     </div>
                 </div>
@@ -403,8 +399,33 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                     </div>
                 </div>
 
+                {/* 🆕 Popular Tag Cloud — คลิกเพื่อค้นหาด้วย tag นั้น */}
+                {popularTags.length > 0 && !isSearchMode && (
+                    <div className="max-w-3xl mx-auto mb-4">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            <span className="text-slate-400 dark:text-slate-500 text-xs flex items-center gap-1 mr-1">
+                                🔥 Tag ยอดนิยม:
+                            </span>
+                            {popularTags.map(({ tag, count }) => (
+                                <button
+                                    key={tag}
+                                    onClick={() => {
+                                        setSearchQuery(tag);
+                                        searchInputRef.current?.focus();
+                                    }}
+                                    className="group inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
+                                    title={`${count} ชุดข้อสอบ`}
+                                >
+                                    <span>#{tag}</span>
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 group-hover:text-amber-500">{count}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Category Tags - Simple Style */}
-                <div className="max-w-3xl mx-auto mb-8">
+                <div className="max-w-3xl mx-auto mb-4">
                     <div className="flex items-center justify-center gap-2 flex-wrap">
                         <span className="text-slate-400 dark:text-slate-500 text-sm flex items-center gap-1">
                             <BookOpen size={14} />
@@ -426,11 +447,79 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                     </div>
                 </div>
 
+                {/* 🆕 Quick Filters + Sort */}
+                <div className="max-w-3xl mx-auto mb-6">
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                        <span className="text-slate-400 dark:text-slate-500 text-sm flex items-center gap-1">
+                            <Filter size={14} />
+                            ตัวกรอง:
+                        </span>
+
+                        {/* Free filter */}
+                        <button
+                            onClick={() => setFilterFree(v => !v)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                filterFree
+                                    ? 'bg-teal-500 text-white border-teal-500 shadow-md shadow-teal-500/30'
+                                    : 'bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-800 hover:bg-teal-50 dark:hover:bg-teal-900/30'
+                            }`}
+                        >
+                            🔓 ดูฟรี
+                        </button>
+
+                        {/* Bookmarked filter (only when logged in) */}
+                        {isLoggedIn && (
+                            <button
+                                onClick={() => setFilterBookmarked(v => !v)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
+                                    filterBookmarked
+                                        ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/30'
+                                        : 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-900/30'
+                                }`}
+                            >
+                                <Heart size={12} className={filterBookmarked ? 'fill-current' : ''} />
+                                บันทึกไว้ {filterBookmarked && bookmarkedIds.size > 0 && `(${bookmarkedIds.size})`}
+                            </button>
+                        )}
+
+                        {/* Clear filters */}
+                        {(filterFree || filterBookmarked || selectedCategory !== "ทั้งหมด" || sortBy !== "default") && (
+                            <button
+                                onClick={() => {
+                                    setFilterFree(false);
+                                    setFilterBookmarked(false);
+                                    setSelectedCategory("ทั้งหมด");
+                                    setSortBy("default");
+                                }}
+                                className="px-3 py-1.5 rounded-full text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                            >
+                                ล้างตัวกรอง ✕
+                            </button>
+                        )}
+
+                        {/* Sort dropdown */}
+                        <div className="relative ml-auto sm:ml-2">
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as any)}
+                                className="appearance-none pl-7 pr-8 py-1.5 rounded-full text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            >
+                                <option value="default">แนะนำ</option>
+                                <option value="newest">ใหม่สุดก่อน</option>
+                                <option value="mostQuestions">ข้อเยอะก่อน</option>
+                                <option value="alphabetical">เรียง ก-ฮ</option>
+                            </select>
+                            <ArrowUpDown size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                        </div>
+                    </div>
+                </div>
+
                 {/* Results count */}
-                {!isSearchMode && selectedCategory !== "ทั้งหมด" && (
+                {!isSearchMode && (selectedCategory !== "ทั้งหมด" || filterFree || filterBookmarked) && (
                     <div className="max-w-4xl mx-auto mb-4 text-center">
                         <p className="text-sm font-medium text-slate-400 dark:text-slate-500">
-                            พบ {filteredExams.length} ชุดข้อสอบ {initialExams.length > filteredExams.length && <span className="text-slate-300 dark:text-slate-600">(from {initialExams.length})</span>}
+                            พบ <span className="text-slate-700 dark:text-slate-200 font-bold">{filteredExams.length}</span> ชุดข้อสอบ
+                            {initialExams.length > filteredExams.length && <span className="text-slate-300 dark:text-slate-600"> (จาก {initialExams.length})</span>}
                         </p>
                     </div>
                 )}
