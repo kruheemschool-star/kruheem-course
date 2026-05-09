@@ -6,14 +6,18 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import Link from "next/link";
 import { Lock, Loader2, ArrowRight } from "lucide-react";
-import { deriveExamLevel } from "@/lib/exam-level";
 
-export default function ExamAccessGuard({ 
-    isFree, 
+export default function ExamAccessGuard({
+    isFree,
     examLevel,
-    children 
-}: { 
-    isFree: boolean; 
+    children
+}: {
+    isFree: boolean;
+    /**
+     * @deprecated Level scoping removed — all "คลังข้อสอบ" subscribers now get
+     * universal access (any level). Prop kept for backward API compatibility
+     * so callers don't break. Value is intentionally ignored.
+     */
     examLevel?: "primary" | "lower" | "upper";
     children: React.ReactElement | ((props: { isTrial: boolean }) => React.ReactNode);
 }) {
@@ -51,7 +55,7 @@ export default function ExamAccessGuard({
                     where("userId", "==", user.uid)
                 );
                 const snapshot = await getDocs(q);
-                
+
                 let isApproved = false;
                 let isPending = false;
 
@@ -59,26 +63,13 @@ export default function ExamAccessGuard({
                     const data = doc.data();
                     if (!data.courseTitle || !data.courseTitle.includes("คลังข้อสอบ")) return;
 
-                    // Level matching (for level-scoped exam-bank courses):
-                    // 1) Explicit `allowedExamLevel` on enrollment → must match exam level
-                    // 2) Missing `allowedExamLevel` → try deriving from `courseTitle`
-                    //    (e.g. "คลังข้อสอบ ม.ต้น" → "lower"). This handles enrollments
-                    //    created before payment/page.tsx copied `allowedExamLevel`.
-                    // 3) Still can't derive (plain "คลังข้อสอบ" with no level suffix) →
-                    //    treat as UNIVERSAL access (legacy / pre-split behavior). This
-                    //    preserves backward compatibility for early subscribers.
-                    if (examLevel) {
-                        let enrollmentLevel: "primary" | "lower" | "upper" | undefined =
-                            data.allowedExamLevel || undefined;
-
-                        if (!enrollmentLevel) {
-                            enrollmentLevel = deriveExamLevel(data.courseTitle, undefined);
-                        }
-
-                        // If we resolved a level, it must match. If we couldn't resolve
-                        // any level, fall through and grant access (universal legacy).
-                        if (enrollmentLevel && enrollmentLevel !== examLevel) return;
-                    }
+                    // 🎁 UNIVERSAL ACCESS POLICY (as of May 2026):
+                    // Any approved "คลังข้อสอบ" enrollment grants access to ALL exam
+                    // levels (primary / lower / upper). Previously we scoped access by
+                    // `allowedExamLevel` but we've unified the product — one purchase
+                    // unlocks everything through ม.6. This also preserves full
+                    // backward compatibility for legacy subscribers who had no
+                    // `allowedExamLevel` field.
 
                     if (data.status === "approved") {
                         // ✅ Check expiry date — only grant access if not expired

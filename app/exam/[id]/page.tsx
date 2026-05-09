@@ -8,7 +8,6 @@ import BookmarkButton from "@/components/exam/BookmarkButton";
 import ExamPrintButton from "@/components/exam/ExamPrintButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deriveExamLevel } from "@/lib/exam-level";
 
 // ISR: Cache for 1 minute, fresh exam data within 60 seconds
 export const revalidate = 60;
@@ -208,7 +207,7 @@ export default async function ExamRoomPage(props: Props) {
             </div>
 
             <main className="pt-24 pb-12 container mx-auto px-4 flex-grow">
-                <ExamAccessGuard isFree={exam.isFree || false} examLevel={deriveExamLevel(exam.category, exam.level, exam.title)}>
+                <ExamAccessGuard isFree={exam.isFree || false}>
                     <ExamSystem
                         examData={exam.questions || []}
                         examTitle={exam.title}
