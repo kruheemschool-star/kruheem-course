@@ -25,10 +25,10 @@ interface Post {
     keywords?: string[];
 }
 
-export default function BlogPostClient({ params }: { params: Promise<{ slug: string }> }) {
+export default function BlogPostClient({ params, initialPost }: { params: Promise<{ slug: string }>; initialPost?: Post | null }) {
     const { slug } = use(params);
-    const [post, setPost] = useState<Post | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [post, setPost] = useState<Post | null>(initialPost ?? null);
+    const [loading, setLoading] = useState(!initialPost);
     const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
     const { isAdmin } = useUserAuth();
 
@@ -36,8 +36,11 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
     const [isMathJaxLoaded, setIsMathJaxLoaded] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
 
-    // 1. Fetch Post Data
+    // 1. Fetch Post Data — only if the server didn't already provide it
+    //    (server passes initialPost via ISR; this client fetch stays as a
+    //    self-healing fallback so a serialization gap can't blank the page).
     useEffect(() => {
+        if (initialPost) return;
         const fetchPost = async () => {
             try {
                 const q = query(
@@ -61,7 +64,7 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
         };
 
         fetchPost();
-    }, [slug]);
+    }, [slug, initialPost]);
 
     // 2. Typeset MathJax when content or script is ready (Only for HTML content)
     useEffect(() => {
@@ -184,7 +187,7 @@ export default function BlogPostClient({ params }: { params: Promise<{ slug: str
                             {/* Date & Views */}
                             <div className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 px-4 py-1.5 rounded-full border border-slate-100 dark:border-slate-700 shadow-sm text-sm text-slate-500 dark:text-slate-400">
                                 <Calendar size={14} className="text-teal-500" />
-                                {post.createdAt?.toDate ? post.createdAt.toDate().toLocaleDateString('th-TH', { dateStyle: 'long' }) : 'Unknown Date'}
+                                {post.createdAt ? new Date(post.createdAt?.toDate ? post.createdAt.toDate() : post.createdAt).toLocaleDateString('th-TH', { dateStyle: 'long' }) : 'Unknown Date'}
                                 {post.views !== undefined && (
                                     <>
                                         <div className="w-1 h-1 rounded-full bg-slate-300 mx-1"></div>

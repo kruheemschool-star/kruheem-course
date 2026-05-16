@@ -1,55 +1,51 @@
-"use client";
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, getDocs, where } from "firebase/firestore";
-import { getCachedData } from "@/lib/dataCache";
+import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import Navbar from "@/components/Navbar";
-import { Calendar, ArrowRight, BookOpen, ArrowLeft } from "lucide-react";
+import { BookOpen, ArrowLeft } from "lucide-react";
 import Image from "next/image";
+
+// ISR: server-render + cache 5 min. The blog list only needs title/slug/
+// cover — fetching here (server, cached, metadata-only) instead of the
+// browser keeps every post's full `content` blob off the user's
+// connection and removes the per-visit client Firestore download.
+export const revalidate = 300;
 
 interface Post {
     id: string;
     title: string;
     slug: string;
     coverImage: string;
-    createdAt: any;
     status: string;
-    content: string; // We might want to strip tags for excerpt
+    createdAt: string | null;
 }
 
-export default function BlogIndexPage() {
-    const [posts, setPosts] = useState<Post[]>([]);
-    const [loading, setLoading] = useState(true);
+async function getPosts(): Promise<Post[]> {
+    try {
+        const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        const posts = querySnapshot.docs.map((d) => {
+            const data = d.data();
+            return {
+                id: d.id,
+                title: data.title || "",
+                slug: data.slug || "",
+                coverImage: data.coverImage || "",
+                status: data.status || "",
+                // Serialize Firestore Timestamp for safety (not rendered, kept for parity)
+                createdAt: data.createdAt?.toDate?.().toISOString() || null,
+            } as Post;
+        });
+        // Only published (support legacy posts without a status field)
+        return posts.filter((p) => p.status === "published" || !p.status);
+    } catch (error) {
+        console.error("Error fetching posts:", error);
+        return [];
+    }
+}
 
-    useEffect(() => {
-        const fetchPosts = async () => {
-            // Only fetch published posts
-            // Note: Composite index might be needed if using 'where' + 'orderBy'. 
-            // If it fails, I'll remove 'where' and filter client side for MVP.
-            // Let's try client side filtering to avoid index creation delay for the user.
-            try {
-                const data = await getCachedData("blog_posts", async () => {
-                    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-                    const querySnapshot = await getDocs(q);
-                    return querySnapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    })) as Post[];
-                });
-
-                // Filter only published
-                setPosts(data.filter(p => p.status === 'published' || !p.status)); // Support old posts without status if any
-            } catch (error) {
-                console.error("Error fetching posts:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchPosts();
-    }, []);
+export default async function BlogIndexPage() {
+    const posts = await getPosts();
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-teal-100 selection:text-teal-900 transition-colors">
@@ -76,13 +72,7 @@ export default function BlogIndexPage() {
                         </p>
                     </div>
 
-                    {loading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {[1, 2, 3].map((i) => (
-                                <div key={i} className="bg-white dark:bg-slate-800 rounded-[2rem] h-[400px] animate-pulse shadow-sm"></div>
-                            ))}
-                        </div>
-                    ) : posts.length === 0 ? (
+                    {posts.length === 0 ? (
                         <div className="text-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
                             <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
                             <h3 className="text-xl font-bold text-slate-400">ยังไม่มีบทความในตอนนี้</h3>

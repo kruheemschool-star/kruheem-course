@@ -1,14 +1,19 @@
 import type { Metadata, ResolvingMetadata } from 'next';
+import { cache } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import BlogPostClient from "./BlogPostClient";
+
+// ISR: cache the article 5 min (was dynamic — re-read on every request).
+export const revalidate = 300;
 
 type Props = {
     params: Promise<{ slug: string }>
 }
 
-// Helper to fetch post data (shared between metadata and page)
-async function getPost(slug: string) {
+// Helper to fetch post data. Wrapped in React cache() so generateMetadata
+// and the page render share ONE Firestore read per request (was 2).
+const getPost = cache(async (slug: string) => {
     const q = query(
         collection(db, "posts"),
         where("slug", "==", slug),
@@ -17,6 +22,23 @@ async function getPost(slug: string) {
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) return null;
     return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as any;
+});
+
+// Serialize Firestore Timestamps for the client component boundary.
+function serializePost(post: any) {
+    if (!post) return null;
+    return {
+        id: post.id,
+        title: post.title || "",
+        slug: post.slug || "",
+        coverImage: post.coverImage || "",
+        content: post.content || "",
+        contentType: post.contentType,
+        views: post.views ?? 0,
+        keywords: Array.isArray(post.keywords) ? post.keywords : [],
+        createdAt: post.createdAt?.toDate?.().toISOString() || null,
+        updatedAt: post.updatedAt?.toDate?.().toISOString() || null,
+    };
 }
 
 // 🧠 Dynamic Metadata for SEO
@@ -92,7 +114,7 @@ export default async function BlogPostPage({ params }: Props) {
                     dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
                 />
             )}
-            <BlogPostClient params={params} />
+            <BlogPostClient params={params} initialPost={serializePost(post)} />
         </>
     );
 }
