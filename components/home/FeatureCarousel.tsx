@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { getCachedData } from "@/lib/dataCache";
 
 interface ContentItem {
@@ -194,28 +192,18 @@ export default function FeatureCarousel() {
                 setExamItems(shuffleArray(exams).slice(0, 6));
 
                 const sums = await getCachedData("feature_summaries", async () => {
-                    const sumSnap = await getDocs(query(collection(db, "summaries")));
-                    return sumSnap.docs
-                        .map(d => ({
-                            id: d.id,
-                            title: d.data().title || "",
-                            coverImage: d.data().coverImage || "",
-                            status: d.data().status || "",
-                        }))
-                        .filter(s => s.status === "published" || !s.status);
+                    // Metadata-only ISR endpoint (no full `content` blob).
+                    const res = await fetch("/api/feature-summaries");
+                    const data = await res.json();
+                    return (data.summaries || []) as ContentItem[];
                 });
                 setSummaryItems(shuffleArray(sums).slice(0, 6));
 
                 const posts = await getCachedData("feature_posts", async () => {
-                    const postSnap = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")));
-                    return postSnap.docs
-                        .map(d => ({
-                            id: d.id,
-                            title: d.data().title || "",
-                            coverImage: d.data().coverImage || "",
-                            status: d.data().status || "published",
-                        }))
-                        .filter(p => p.status === "published");
+                    // Metadata-only ISR endpoint (no full `content` blob).
+                    const res = await fetch("/api/feature-posts");
+                    const data = await res.json();
+                    return (data.posts || []) as ContentItem[];
                 });
                 setPostItems(shuffleArray(posts).slice(0, 6));
             } catch (error) {

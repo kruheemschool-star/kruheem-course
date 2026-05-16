@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { db } from "@/lib/firebase";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
 import { getCachedData } from "@/lib/dataCache";
 import { Star, MessageCircle } from "lucide-react";
 import Link from "next/link";
@@ -39,11 +37,11 @@ export default function HomeReviewCarousel() {
         const fetchReviews = async () => {
             try {
                 const allReviews = await getCachedData("home_reviews", async () => {
-                    const q = query(collection(db, "reviews"), orderBy("createdAt", "desc"));
-                    const snap = await getDocs(q);
-                    return snap.docs
-                        .map(d => ({ id: d.id, ...d.data() } as Review))
-                        .filter(r => !((r as any).isHidden));
+                    // Metadata-only ISR endpoint (hidden reviews already
+                    // filtered server-side with the same !isHidden rule).
+                    const res = await fetch("/api/home-reviews");
+                    const data = await res.json();
+                    return (data.reviews || []) as Review[];
                 });
                 setReviews(shuffleArray(allReviews));
             } catch (err) {

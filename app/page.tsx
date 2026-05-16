@@ -1,7 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { getCachedData } from "@/lib/dataCache";
 import Link from "next/link";
 import Image from "next/image";
@@ -45,9 +43,11 @@ export default function HomePage() {
     const fetchCourses = async () => {
       try {
         const data = await getCachedData("home_courses", async () => {
-          const q = query(collection(db, "courses"), orderBy("createdAt", "desc"));
-          const querySnapshot = await getDocs(q);
-          return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Course[];
+          // Metadata-only ISR endpoint — only the 6 fields the grid
+          // renders, instead of every course's full document.
+          const res = await fetch("/api/home-courses");
+          const json = await res.json();
+          return (json.courses || []) as Course[];
         });
         setCourses(data);
       } catch (error) {
