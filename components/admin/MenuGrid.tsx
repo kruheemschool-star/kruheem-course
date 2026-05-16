@@ -133,6 +133,14 @@ const menuItems = [
         description: 'ติดตามกิจกรรม',
         coverColor: 'from-teal-100 to-emerald-100',
     },
+    {
+        key: 'reports',
+        href: '/admin/reports',
+        icon: '📋',
+        title: 'ส่งออกรายงาน',
+        description: 'Export Markdown ให้ AI วิเคราะห์',
+        coverColor: 'from-indigo-100 to-purple-100',
+    },
 ];
 
 export default function MenuGrid({ pendingCount, ticketsCount, covers = {} }: MenuGridProps) {
