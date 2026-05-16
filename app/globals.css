@@ -23,6 +23,23 @@
     }
 }
 
+/* Subtle graph-paper / line-grid background (homepage).
+   Pure CSS — no image, no extra network request. Draws faint grid lines
+   over whatever base bg-color the element already has, so it stacks with
+   the page's existing bg-white / dark:bg-slate-950. Dark-mode aware. */
+.bg-grid-pattern {
+    background-image:
+        linear-gradient(to right, rgba(15, 23, 42, 0.09) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(15, 23, 42, 0.09) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+.dark .bg-grid-pattern {
+    background-image:
+        linear-gradient(to right, rgba(148, 163, 184, 0.13) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.13) 1px, transparent 1px);
+}
+
 /* Minimal grayscale style for summary content */
 .summary-content,
 .notion-content {
