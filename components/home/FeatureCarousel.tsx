@@ -184,12 +184,12 @@ export default function FeatureCarousel() {
         const fetchData = async () => {
             try {
                 const exams = await getCachedData("feature_exams", async () => {
-                    const examSnap = await getDocs(query(collection(db, "exams"), orderBy("createdAt", "asc")));
-                    return examSnap.docs.map(d => ({
-                        id: d.id,
-                        title: d.data().title || "",
-                        coverImage: d.data().coverImage || "",
-                    }));
+                    // Metadata-only endpoint (ISR-cached). Avoids the client
+                    // downloading every exam's full questions blob (~8 MB)
+                    // just to show 6 cover images.
+                    const res = await fetch("/api/feature-exams");
+                    const data = await res.json();
+                    return (data.exams || []) as ContentItem[];
                 });
                 setExamItems(shuffleArray(exams).slice(0, 6));
 

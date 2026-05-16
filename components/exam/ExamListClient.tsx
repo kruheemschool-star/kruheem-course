@@ -151,22 +151,14 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                 String(t).toLowerCase().includes(queryLower)
             );
 
-            // Search in each question (if available)
+            // Search in each question. The /api/exam-search payload is
+            // trimmed to { index, question } only (explanation/options/tags
+            // were matched but never rendered), so we match on question text.
             if (exam.questions && Array.isArray(exam.questions)) {
                 exam.questions.forEach((q: any) => {
                     const questionText = String(q.question || "").toLowerCase();
-                    const explanationText = String(q.explanation || "").toLowerCase();
-                    const optionsText = (q.options || []).map((o: string) => String(o).toLowerCase()).join(" ");
-                    const questionTags = (q.tags || []).map((t: string) => String(t).toLowerCase()).join(" ");
-
-                    if (
-                        questionText.includes(queryLower) ||
-                        explanationText.includes(queryLower) ||
-                        optionsText.includes(queryLower) ||
-                        questionTags.includes(queryLower)
-                    ) {
-                        let preview = cleanText(q.question || "");
-                        if (!preview) preview = cleanText((q.options || [])[0] || "");
+                    if (questionText.includes(queryLower)) {
+                        const preview = cleanText(q.question || "");
                         questionMatches.push({ index: q.index || questionMatches.length + 1, preview });
                     }
                 });
