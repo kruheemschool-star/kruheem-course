@@ -17,9 +17,19 @@ export function ModeToggle() {
         return null
     }
 
+    const handleToggle = () => {
+        // Turn on the gentle, time-boxed color transition for this switch
+        // only (see .theme-transition in globals.css), then remove it so
+        // nothing else (hover/scroll/load) gets a transition.
+        const root = document.documentElement
+        root.classList.add("theme-transition")
+        setTheme(theme === "dark" ? "light" : "dark")
+        window.setTimeout(() => root.classList.remove("theme-transition"), 320)
+    }
+
     return (
         <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            onClick={handleToggle}
             className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             aria-label="Toggle theme"
         >
