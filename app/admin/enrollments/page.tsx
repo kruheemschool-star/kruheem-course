@@ -4,9 +4,11 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp } from "firebase/firestore";
 import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
+import { useUserAuth } from "@/context/AuthContext";
 
 export default function AdminEnrollmentsPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
+    const { refreshPendingCount } = useUserAuth();
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -118,6 +120,7 @@ export default function AdminEnrollmentsPage() {
             alert("✅ อนุมัติเรียบร้อย! (กำหนดเวลาเรียน 5 ปี)");
             setConfirmApproveId(null);
             fetchData(); // รีโหลดข้อมูล
+            refreshPendingCount(); // recount badge immediately (self-guarded, fire-and-forget)
         } catch (error) {
             console.error("Error:", error);
             alert("เกิดข้อผิดพลาด");
@@ -142,6 +145,7 @@ export default function AdminEnrollmentsPage() {
                 await setDoc(doc(db, "public_stats", "enrollments"), { count: totalStudents }, { merge: true });
 
                 fetchData();
+                refreshPendingCount(); // deleting a pending row changes the badge — recount now
             } catch (error) {
                 console.error("Error:", error);
             }

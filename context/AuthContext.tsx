@@ -38,6 +38,7 @@ interface AuthContextType {
     logOut: () => Promise<void>;
     updateProfile: (data: UserProfile) => Promise<void>;
     pendingCount: number; // ✅
+    refreshPendingCount: () => Promise<void>; // recount on demand (after admin approve/delete)
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -255,29 +256,30 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         };
     }, [user?.uid]);
 
-    // 3. Admin Pending Count (polling every 5 min instead of real-time listener)
+    // 3. Admin Pending Count — polling every 5 min (NOT a realtime listener,
+    //    by design: cost). Extracted as a stable callback so admin actions
+    //    can recount immediately after changing the pending set. One
+    //    aggregation read per call; the interval is unchanged (safety net).
+    const refreshPendingCount = useCallback(async () => {
+        if (!isAdmin) return;
+        try {
+            const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
+            const snapshot = await getCountFromServer(q);
+            setPendingCount(snapshot.data().count);
+        } catch (error) {
+            console.error("Error fetching pending count:", error);
+        }
+    }, [isAdmin]);
+
     useEffect(() => {
         if (!isAdmin) {
             setPendingCount(0);
             return;
         }
-
-        let interval: NodeJS.Timeout;
-        const fetchPendingCount = async () => {
-            try {
-                const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
-                const snapshot = await getCountFromServer(q);
-                setPendingCount(snapshot.data().count);
-            } catch (error) {
-                console.error("Error fetching pending count:", error);
-            }
-        };
-
-        fetchPendingCount();
-        interval = setInterval(fetchPendingCount, 5 * 60 * 1000); // Poll every 5 min
-
+        refreshPendingCount();
+        const interval = setInterval(refreshPendingCount, 5 * 60 * 1000); // Poll every 5 min
         return () => clearInterval(interval);
-    }, [isAdmin]);
+    }, [isAdmin, refreshPendingCount]);
 
     const contextValue = useMemo(() => ({
         user,
@@ -287,13 +289,14 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         loading,
         daysSinceLastActive,
         pendingCount, // ✅ Exposed
+        refreshPendingCount,
         googleSignIn,
         emailSignIn,
         emailSignUp,
         resetPassword,
         logOut,
         updateProfile
-    }), [user, userProfile, isAdmin, loading, daysSinceLastActive, pendingCount]);
+    }), [user, userProfile, isAdmin, loading, daysSinceLastActive, pendingCount, refreshPendingCount]);
 
     return (
         <AuthContext.Provider value={contextValue}>
