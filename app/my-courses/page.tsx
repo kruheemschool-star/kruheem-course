@@ -334,7 +334,15 @@ export default function MyCoursesPage() {
                     )}
                 </div>
 
-                <ProfileHeader profile={userProfile || user} />
+                <ProfileHeader
+                    profile={userProfile || user}
+                    coursesCount={courses.length}
+                    avgProgress={(() => {
+                        const list = Object.values(progressMap);
+                        if (list.length === 0) return 0;
+                        return Math.round(list.reduce((s, p) => s + (p?.percent || 0), 0) / list.length);
+                    })()}
+                />
 
                 <div className="h-8"></div>
 
@@ -467,124 +475,199 @@ export default function MyCoursesPage() {
 
 // --- Sub-components (Pure UI) ---
 
-function ProfileHeader({ profile }: { profile: any }) {
+function ProfileHeader({
+    profile,
+    coursesCount = 0,
+    avgProgress = 0,
+}: {
+    profile: any;
+    coursesCount?: number;
+    avgProgress?: number;
+}) {
     const { user } = useUserAuth();
     if (!profile) return null;
+
+    // Time-based greeting (Thai)
+    const hour = new Date().getHours();
+    const greeting =
+        hour < 12 ? "อรุณสวัสดิ์" : hour < 17 ? "สวัสดียามบ่าย" : "สวัสดียามค่ำ";
+
+    const displayName = profile.displayName || "นักเรียน";
+
+    const statusLabel =
+        coursesCount === 0 ? "—" :
+        avgProgress >= 80 ? "เซียน" :
+        avgProgress >= 30 ? "กำลังลุย" : "เริ่มต้น";
+
     return (
-        <div className="flex flex-col lg:flex-row gap-4 animate-in slide-in-from-top-4 duration-500">
-            {/* Student Profile Card */}
-            <div className="flex-1 bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-6">
-                {/* Avatar — rounded-square (App Icon style) with gradient frame */}
-                <div className="relative shrink-0">
-                    {/* Outer gradient frame */}
-                    <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-3xl bg-gradient-to-br from-indigo-400 via-purple-400 to-pink-400 p-[3px] shadow-xl shadow-indigo-200/60 dark:shadow-indigo-900/30">
-                        {/* White padding ring (inner radius = outer - padding) */}
-                        <div className="w-full h-full rounded-[21px] bg-white dark:bg-slate-900 p-1">
-                            {/* Soft gradient background to fill PNG transparency */}
-                            <div className="w-full h-full rounded-2xl bg-gradient-to-br from-sky-100 via-indigo-50 to-purple-100 dark:from-slate-800 dark:via-indigo-950 dark:to-purple-950 flex items-center justify-center overflow-hidden">
-                                {profile.avatar || profile.photoURL ? (
-                                    /* eslint-disable-next-line @next/next/no-img-element */
-                                    <img
-                                        src={profile.avatar || profile.photoURL}
-                                        alt={profile.displayName || "User Avatar"}
-                                        className="w-full h-full object-contain"
-                                        loading="lazy"
-                                    />
-                                ) : (
-                                    <span className="text-5xl font-bold text-indigo-400 select-none">
-                                        {profile.displayName?.[0] || 'U'}
-                                    </span>
-                                )}
-                            </div>
+        <section className="animate-in fade-in slide-in-from-top-2 duration-500">
+            {/* ============ MINIMAL CARD ============ */}
+            <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
+
+                {/* ---- Header: Avatar + Identity + Edit ---- */}
+                <div className="flex items-center gap-5 px-6 sm:px-8 pt-7 pb-6">
+                    {/* Avatar — clean, no gradient frame */}
+                    <div className="relative shrink-0">
+                        <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-2xl bg-slate-50 dark:bg-slate-800/60 ring-1 ring-slate-200/80 dark:ring-slate-700/60 overflow-hidden flex items-center justify-center">
+                            {profile.avatar || profile.photoURL ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                    src={profile.avatar || profile.photoURL}
+                                    alt={displayName}
+                                    className="w-full h-full object-contain"
+                                    loading="lazy"
+                                />
+                            ) : (
+                                <span className="text-2xl font-semibold text-slate-400">
+                                    {displayName[0]}
+                                </span>
+                            )}
                         </div>
+                        {/* hairline live dot */}
+                        <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" aria-label="online" />
                     </div>
-                    {/* Online indicator dot — circular for contrast against square avatar */}
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-[3px] border-white dark:border-slate-900 shadow-md" aria-label="online" />
-                </div>
 
-                {/* Info */}
-                <div className="text-center md:text-left flex-1">
-                    <div className="inline-block px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-bold mb-2">
-                        🎓 นักเรียนของ KruHeem
+                    {/* Name + caption */}
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[10.5px] uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 font-medium mb-1">
+                            {greeting} · นักเรียนของ KruHeem
+                        </p>
+                        <h2 className="text-[22px] sm:text-2xl font-bold text-slate-900 dark:text-slate-50 leading-tight tracking-tight truncate">
+                            {displayName}
+                        </h2>
+                        {profile.caption && (
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 truncate">
+                                {profile.caption}
+                            </p>
+                        )}
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-1">{profile.displayName || 'นักเรียน'}</h2>
-                    {profile.caption ? (
-                        <p className="text-slate-500 dark:text-slate-400 italic text-sm font-medium mb-4">"{profile.caption}"</p>
-                    ) : (
-                        <p className="text-slate-500 dark:text-slate-400 mb-4">พร้อมที่จะเรียนรู้คณิตศาสตร์ให้สนุกหรือยัง?</p>
-                    )}
 
-                    {/* Edit Profile — prominent pill button */}
+                    {/* Edit — icon-only ghost button */}
                     <Link
                         href="/profile"
                         prefetch={false}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-full text-sm font-bold shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 transition-all active:scale-95"
+                        aria-label="แก้ไขโปรไฟล์"
+                        className="hidden sm:inline-flex shrink-0 items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
                     >
-                        <Settings size={16} />
-                        <span>แก้ไขข้อมูลส่วนตัว</span>
+                        <Settings size={14} strokeWidth={2} />
+                        <span>แก้ไข</span>
+                    </Link>
+                </div>
+
+                {/* ---- Stats Row — Swiss-style numbers ---- */}
+                <div className="grid grid-cols-3 border-t border-slate-100 dark:border-slate-800/80 divide-x divide-slate-100 dark:divide-slate-800/80">
+                    <Stat
+                        value={coursesCount > 0 ? `${coursesCount}` : "—"}
+                        label="คอร์ส"
+                    />
+                    <Stat
+                        value={coursesCount > 0 ? `${avgProgress}` : "—"}
+                        suffix={coursesCount > 0 ? "%" : ""}
+                        label="ความคืบหน้า"
+                    />
+                    <Stat
+                        value={statusLabel}
+                        label="สถานะ"
+                        muted
+                    />
+                </div>
+
+                {/* ---- Action Strip ---- */}
+                {user && (
+                    <div className="grid grid-cols-2 border-t border-slate-100 dark:border-slate-800/80 divide-x divide-slate-100 dark:divide-slate-800/80">
+                        <ActionLink
+                            href="/guide"
+                            icon={<BookOpen size={15} strokeWidth={1.75} />}
+                            label="คู่มือใช้งาน"
+                            badge="ใหม่"
+                        />
+                        <ActionLink
+                            href={`/parent-dashboard/${user.uid}`}
+                            icon={<BarChart3 size={15} strokeWidth={1.75} />}
+                            label="ติดตามผลการเรียน"
+                        />
+                    </div>
+                )}
+
+                {/* ---- Mobile Edit ---- */}
+                <div className="sm:hidden border-t border-slate-100 dark:border-slate-800/80">
+                    <Link
+                        href="/profile"
+                        prefetch={false}
+                        className="flex items-center justify-center gap-2 px-5 py-3.5 text-xs font-medium text-slate-600 dark:text-slate-300 active:bg-slate-50 dark:active:bg-slate-800/60 transition-colors"
+                    >
+                        <Settings size={13} strokeWidth={2} />
+                        <span>แก้ไขโปรไฟล์</span>
                     </Link>
                 </div>
             </div>
+        </section>
+    );
+}
 
-            {/* Side Action Cards */}
-            {user && (
-                <div className="flex flex-row lg:flex-col gap-3 lg:w-56 shrink-0">
-                    {/* User Guide — ✨ Highlighted with soft pulse to catch attention (วางบนสุดเพื่อดึงความสนใจ) */}
-                    <Link
-                        href="/guide"
-                        className="group flex-1 relative overflow-visible rounded-2xl p-[1px] bg-gradient-to-br from-teal-400 via-emerald-400 to-cyan-500 shadow-sm hover:shadow-lg hover:shadow-teal-200/50 dark:hover:shadow-teal-900/40 transition-all duration-300 hover:-translate-y-0.5 animate-[soft-pulse_2.5s_ease-in-out_infinite]"
-                    >
-                        {/* 🔔 Attention Badge */}
-                        <span className="absolute -top-2 -right-2 z-10 bg-gradient-to-r from-rose-500 to-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md whitespace-nowrap animate-bounce">
-                            เริ่มที่นี่ก่อน!
-                        </span>
-
-                        <div className="h-full bg-white dark:bg-slate-900 rounded-[calc(1rem-1px)] px-5 py-4 flex items-center gap-3.5 relative overflow-hidden">
-                            {/* Soft shine overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-teal-50/40 dark:via-teal-900/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none"></div>
-
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300 relative">
-                                <BookOpen size={18} className="text-white" />
-                                {/* Ping indicator */}
-                                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-900">
-                                    <span className="absolute inset-0 bg-rose-500 rounded-full animate-ping opacity-75"></span>
-                                </span>
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors leading-tight">
-                                    คู่มือใช้งาน
-                                </p>
-                                <p className="text-[11px] text-teal-600 dark:text-teal-400 font-semibold mt-0.5 leading-tight">
-                                    📖 อ่านก่อนใช้งาน · ครบทุกขั้นตอน
-                                </p>
-                            </div>
-                        </div>
-                    </Link>
-
-                    {/* Parent Dashboard */}
-                    <Link
-                        href={`/parent-dashboard/${user.uid}`}
-                        prefetch={false}
-                        className="group flex-1 relative overflow-hidden rounded-2xl p-[1px] bg-gradient-to-br from-violet-400 via-indigo-400 to-blue-500 shadow-sm hover:shadow-lg hover:shadow-indigo-200/40 dark:hover:shadow-indigo-900/30 transition-all duration-300 hover:-translate-y-0.5"
-                    >
-                        <div className="h-full bg-white dark:bg-slate-900 rounded-[calc(1rem-1px)] px-5 py-4 flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform duration-300">
-                                <BarChart3 size={18} className="text-white" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-tight">
-                                    ติดตามผลการเรียน
-                                </p>
-                                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 leading-tight">
-                                    สำหรับผู้ปกครอง
-                                </p>
-                            </div>
-                        </div>
-                    </Link>
-                </div>
-            )}
+function Stat({
+    value,
+    suffix,
+    label,
+    muted,
+}: {
+    value: string;
+    suffix?: string;
+    label: string;
+    muted?: boolean;
+}) {
+    return (
+        <div className="px-5 sm:px-6 py-4 sm:py-5">
+            <div className={`text-2xl sm:text-[26px] font-semibold tracking-tight tabular-nums leading-none ${muted ? "text-slate-700 dark:text-slate-200" : "text-slate-900 dark:text-slate-50"}`}>
+                {value}
+                {suffix && (
+                    <span className="text-base font-normal text-slate-400 dark:text-slate-500 ml-0.5">
+                        {suffix}
+                    </span>
+                )}
+            </div>
+            <div className="mt-1.5 text-[11px] uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 font-medium">
+                {label}
+            </div>
         </div>
-    )
+    );
+}
+
+function ActionLink({
+    href,
+    icon,
+    label,
+    badge,
+}: {
+    href: string;
+    icon: React.ReactNode;
+    label: string;
+    badge?: string;
+}) {
+    return (
+        <Link
+            href={href}
+            prefetch={false}
+            className="group flex items-center justify-between gap-3 px-5 sm:px-6 py-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+        >
+            <div className="flex items-center gap-3 min-w-0">
+                <span className="text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
+                    {icon}
+                </span>
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+                    {label}
+                </span>
+                {badge && (
+                    <span className="text-[9.5px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-full px-1.5 py-0.5 leading-none">
+                        {badge}
+                    </span>
+                )}
+            </div>
+            <span className="text-slate-300 dark:text-slate-600 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition-all text-sm">
+                →
+            </span>
+        </Link>
+    );
 }
 
 // --- Sorting & Categorization Helpers ---
