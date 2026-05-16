@@ -109,7 +109,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-teal-200 selection:text-teal-900 flex flex-col overflow-x-hidden transition-colors duration-500">
+    <div className="min-h-screen bg-white dark:bg-slate-950 bg-grid-pattern font-sans selection:bg-teal-200 selection:text-teal-900 flex flex-col overflow-x-hidden transition-colors duration-500">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
