@@ -100,7 +100,7 @@ const UserAvatar = ({ userId, name, email }: { userId?: string, name?: string, e
 const ITEMS_PER_PAGE = 30;
 
 export default function AdminStudentsPage() {
-    const { user } = useUserAuth();
+    const { user, refreshPendingCount } = useUserAuth();
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [filteredEnrollments, setFilteredEnrollments] = useState<any[]>([]);
     const [allCourses, setAllCourses] = useState<any[]>([]);
@@ -190,6 +190,7 @@ export default function AdminStudentsPage() {
             await deleteDoc(doc(db, "enrollments", id));
             await recalculatePublicStats();
             fetchData();
+            refreshPendingCount(); // may have removed a pending row — recount badge
         }, true);
     };
 
@@ -262,6 +263,7 @@ export default function AdminStudentsPage() {
             await recalculatePublicStats();
             setIsEditOpen(false);
             fetchData();
+            refreshPendingCount(); // status edit may add/remove a pending row — recount badge
         } catch (error) {
             console.error("Error:", error);
         }
