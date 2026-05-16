@@ -34,7 +34,12 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            // Return only searchable fields (minimize payload)
+            // Return only searchable fields (minimize payload).
+            // Per-question payload is trimmed to { index, question } only —
+            // explanation/options/tags were matched-against but never rendered
+            // in search results, and were the bulk of an 8 MB response.
+            // category/isFree added so the in-search category filter + free
+            // badge in ExamListClient work (they were silently broken).
             return {
                 id: doc.id,
                 title: data.title || "",
@@ -43,14 +48,13 @@ export async function GET(request: NextRequest) {
                 themeColor: data.themeColor || "",
                 coverImage: data.coverImage || "",
                 tags: data.tags || [],
+                category: data.category || "General",
+                isFree: data.isFree || false,
                 order: data.order ?? Number.MAX_SAFE_INTEGER,
                 createdAt: data.createdAt?.toDate?.().getTime() || 0,
                 questions: questions.map((q: any, idx: number) => ({
                     index: idx + 1,
                     question: q.question || "",
-                    options: q.options || [],
-                    explanation: q.explanation || "",
-                    tags: q.tags || [],
                 })),
             };
         });

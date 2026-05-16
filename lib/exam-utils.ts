@@ -64,35 +64,79 @@ export const extractAnswerFromExplanation = (explanation: string): number | null
     return null;
 };
 
+// SINGLE source of truth for "is this question renderable/scoreable?".
+// Used by: runtime sanitize + scoring (sanitizeExamData below), the admin
+// editor save guard (app/admin/exams/[id]/page.tsx), the audit cleanup
+// tool (app/admin/exams/audit/page.tsx), and SEO/JSON-LD counts
+// (app/exam/[id]/page.tsx). Changing it affects ALL of them at once.
+//
+// Deliberately permissive: a question is valid if it has ANY of a text
+// prompt, options, or media (image/svg). This must NOT be tightened to
+// match bulkImportQuestions' stricter `options.length >= 2` import-time
+// check, or legitimate image-only / in-progress questions would be
+// destroyed by the save guard and the cleanup tool.
+export const isValidExamQuestion = (q: any): boolean => {
+    if (!q || typeof q !== 'object') return false;
+    const hasQuestion = typeof q.question === 'string' && q.question.trim() !== '';
+    const hasOptions = Array.isArray(q.options) && q.options.length > 0;
+    const hasMedia = (typeof q.image === 'string' && q.image.trim() !== '')
+        || (typeof q.svg === 'string' && q.svg.trim() !== '');
+    return hasQuestion || hasOptions || hasMedia;
+};
+
+// Count only the questions a learner can actually see/answer.
+export const getValidQuestionCount = (questions: any): number =>
+    Array.isArray(questions) ? questions.filter(isValidExamQuestion).length : 0;
+
 // Sanitize exam data: per-question bounds checking + explanation cross-check
 // CRITICAL: explanation answer ALWAYS wins over any stored field
+//
+// Also guards against corrupt records: completely empty questions
+// (no prompt, no options, no media — e.g. `{ correctIndex: 0, options: [] }`)
+// are dropped, because they (a) crash the renderer when `.question` is
+// undefined and (b) distort scoring by inflating the total count.
+// Surviving questions get their `question`/`options` coerced to safe
+// types so a partially-malformed record renders instead of throwing.
 export const sanitizeExamData = (examData: ExamQuestion[]): ExamQuestion[] => {
-    return examData.map((q: any) => {
-        const optLen = Array.isArray(q.options) ? q.options.length : 4;
+    if (!Array.isArray(examData)) return [];
 
-        // Step 1: Try explanation FIRST — most reliable source of truth
-        const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
-        if (explAnswer !== null && explAnswer >= 0 && explAnswer < optLen) {
-            return { ...q, correctIndex: explAnswer, answerIndex: explAnswer };
-        }
+    return examData
+        .filter(isValidExamQuestion)
+        .map((q: any) => {
+            // Normalize field types so a partially-malformed question still
+            // renders instead of throwing (e.g. question/options not strings).
+            const safeQuestion = typeof q.question === 'string'
+                ? q.question
+                : (q.question == null ? '' : String(q.question));
+            const safeOptions = Array.isArray(q.options)
+                ? q.options.map((o: any) => (typeof o === 'string' ? o : (o == null ? '' : String(o))))
+                : [];
 
-        // Step 2: Fallback to stored fields if no explanation match
-        const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
-        let idx: number;
-        const thIdx = thaiToIdx(raw);
-        if (thIdx !== null) {
-            idx = thIdx;
-        } else {
-            idx = Number(raw);
-            if (isNaN(idx)) idx = 0;
-        }
+            const optLen = safeOptions.length || 4;
 
-        // Step 3: Bounds check — 1-based → 0-based
-        if (idx >= optLen && idx > 0) idx = idx - 1;
-        if (idx < 0 || idx >= optLen) idx = 0;
+            // Step 1: Try explanation FIRST — most reliable source of truth
+            const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
+            if (explAnswer !== null && explAnswer >= 0 && explAnswer < optLen) {
+                return { ...q, question: safeQuestion, options: safeOptions, correctIndex: explAnswer, answerIndex: explAnswer };
+            }
 
-        return { ...q, correctIndex: idx, answerIndex: idx };
-    });
+            // Step 2: Fallback to stored fields if no explanation match
+            const raw = q.answerIndex ?? q.correctIndex ?? q.correctAnswer ?? 0;
+            let idx: number;
+            const thIdx = thaiToIdx(raw);
+            if (thIdx !== null) {
+                idx = thIdx;
+            } else {
+                idx = Number(raw);
+                if (isNaN(idx)) idx = 0;
+            }
+
+            // Step 3: Bounds check — 1-based → 0-based
+            if (idx >= optLen && idx > 0) idx = idx - 1;
+            if (idx < 0 || idx >= optLen) idx = 0;
+
+            return { ...q, question: safeQuestion, options: safeOptions, correctIndex: idx, answerIndex: idx };
+        });
 };
 
 // Transform external exam format to internal format (used in admin import)

@@ -240,6 +240,24 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     isQuestionSaved = false,
     onToggleSaveQuestion,
 }) => {
+    // 🛡️ Defensive guard: a corrupt/empty record (e.g. `{ correctIndex: 0,
+    // options: [] }`) must not crash the whole route. ExamSystem already
+    // filters these via sanitizeExamData, but the course-exam runner
+    // (ExamRunner) passes questions through unsanitized — so guard here too.
+    if (!question || typeof question !== 'object') {
+        return (
+            <div className="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl border border-stone-100 dark:border-slate-700 p-10 text-center">
+                <div className="text-4xl mb-3">⚠️</div>
+                <h3 className="text-lg font-bold text-stone-700 dark:text-slate-300 mb-1">ข้อนี้มีปัญหาในการแสดงผล</h3>
+                <p className="text-stone-500 dark:text-slate-400 text-sm">กรุณากด "ข้อถัดไป" เพื่อทำข้อสอบต่อ</p>
+            </div>
+        );
+    }
+
+    const questionText = typeof question.question === 'string'
+        ? question.question.replace(/\n{3,}/g, '\n\n')
+        : (question.question ?? '');
+    const safeOptions = Array.isArray(question.options) ? question.options : [];
     const hasAnswered = selectedOption !== null;
     const isCorrect = hasAnswered && selectedOption === question.correctIndex;
     const correctIndex = question.correctIndex;
@@ -299,7 +317,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             {/* Question Body */}
             <div className="p-8 md:p-10">
                 <div className="mb-6 text-xl md:text-2xl font-medium text-stone-800 dark:text-slate-200 leading-relaxed">
-                    <MathRenderer text={question.question.replace(/\n{3,}/g, '\n\n')} />
+                    <MathRenderer text={questionText} />
                 </div>
 
                 {/* Question SVG Diagram - แสดงอัตโนมัติถ้ามี svg field */}
@@ -329,10 +347,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 )}
 
                 {/* Content Area: Options or Subjective */}
-                {question.options && question.options.length > 0 ? (
+                {safeOptions.length > 0 ? (
                     /* Multiple Choice Grid */
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {question.options.map((option, index) => {
+                        {safeOptions.map((option, index) => {
                             // Determine styling based on state
                             let containerClass = "relative p-4 md:p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 group flex items-start gap-4 hover:shadow-md";
                             let indicatorClass = "w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all";
@@ -384,7 +402,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                                         {isSubmitted && showAnswerChecking && isCorrectOption ? <CheckCircle2 size={16} /> : isSubmitted && showAnswerChecking && isSelectedOption ? <XCircle size={16} /> : index + 1}
                                     </div>
                                     <div className="text-stone-700 dark:text-slate-300 font-medium pt-1 text-lg w-full break-words min-w-0">
-                                        <MathRenderer text={option.replace(/^\s*(?:[1-4][\.\)]\s*|[กขคง][\.\)\s]\s*)/, '')} />
+                                        <MathRenderer text={typeof option === 'string' ? option.replace(/^\s*(?:[1-4][\.\)]\s*|[กขคง][\.\)\s]\s*)/, '') : String(option ?? '')} />
                                     </div>
 
                                 </div>
