@@ -8,6 +8,7 @@ import BookmarkButton from "@/components/exam/BookmarkButton";
 import ExamPrintButton from "@/components/exam/ExamPrintButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { isValidExamQuestion, getValidQuestionCount } from "@/lib/exam-utils";
 
 // ISR: Cache for 1 minute, fresh exam data within 60 seconds
 export const revalidate = 60;
@@ -175,7 +176,7 @@ export default async function ExamRoomPage(props: Props) {
             "@type": "Thing",
             "name": exam.category || "Mathematics"
         },
-        "hasPart": exam.questions?.map((q: any) => ({
+        "hasPart": (exam.questions || []).filter(isValidExamQuestion).map((q: any) => ({
             "@type": "Question",
             "name": q.question ? q.question.substring(0, 150) : "Question",
             "suggestedAnswer": {
@@ -236,7 +237,7 @@ export default async function ExamRoomPage(props: Props) {
                         {exam.level && (
                             <span className="bg-slate-100 px-2 py-1 rounded text-xs">{exam.level}</span>
                         )}
-                        <span className="bg-slate-100 px-2 py-1 rounded text-xs">จำนวน {exam.questions?.length || 0} ข้อ</span>
+                        <span className="bg-slate-100 px-2 py-1 rounded text-xs">จำนวน {getValidQuestionCount(exam.questions)} ข้อ</span>
                     </div>
                 </div>
             </div>

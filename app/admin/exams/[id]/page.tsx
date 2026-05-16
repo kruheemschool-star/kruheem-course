@@ -10,7 +10,7 @@ import Link from "next/link";
 import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks, Tag, Search, X, GripVertical } from "lucide-react";
 import ImageUploadHelper from "@/components/admin/ImageUploadHelper";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
-import { thaiLetterToIndex, extractAnswerFromExplanation, transformExamQuestion } from "@/lib/exam-utils";
+import { thaiLetterToIndex, extractAnswerFromExplanation, transformExamQuestion, isValidExamQuestion } from "@/lib/exam-utils";
 import { detectTagsFromQuestion, getAllAvailableTags, type DetectionResult } from "@/lib/tag-detector";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -763,6 +763,26 @@ export default function ExamEditorPage() {
                     options: Array.isArray(q.options) ? q.options : [],
                     // Optional: remove legacy 'answer' field if you want to normalize fully, but keeping it is safer for now.
                 }));
+
+                // Strip blank/corrupt questions before persisting. Uses the
+                // shared isValidExamQuestion predicate (same one used at render
+                // + audit cleanup) so the {correctIndex:0, options:[]} records
+                // that crash the exam renderer can never reach Firestore again.
+                // Transparent (blocking confirm) — never silently discards work.
+                const beforeCount = parsedQuestions.length;
+                const cleanedQuestions = parsedQuestions.filter(isValidExamQuestion);
+                const removedBlank = beforeCount - cleanedQuestions.length;
+                if (removedBlank > 0) {
+                    const proceed = confirm(`⚠️ พบข้อสอบว่าง ${removedBlank} ข้อ (ไม่มีโจทย์ ตัวเลือก หรือรูป) — ระบบจะลบออกก่อนบันทึก\n\nกด OK เพื่อบันทึก ${cleanedQuestions.length} ข้อ\nกด Cancel เพื่อกลับไปแก้ไข`);
+                    if (!proceed) {
+                        setSaving(false);
+                        return;
+                    }
+                    parsedQuestions = cleanedQuestions;
+                    // Re-sync editor so the UI reflects exactly what was saved
+                    setJsonContent(JSON.stringify(parsedQuestions, null, 2));
+                    setSmartBlocks(parsedQuestions.map((q: any) => JSON.stringify(q, null, 2)));
+                }
 
                 // Logical Validation: Check if correctIndex is within bounds
                 const invalidIndices: number[] = [];

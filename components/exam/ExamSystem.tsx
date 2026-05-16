@@ -91,6 +91,53 @@ const getGradeFromPercent = (percent: number): { grade: string; label: string; g
 
 // Helper removed: getCorrectIndex (Logic cleanup)
 
+// 🛡️ Last line of defense: if a single question throws for any unforeseen
+// reason (bad data shape, renderer bug), show a recoverable card instead of
+// letting it bubble to app/error.tsx and kill the whole exam session.
+class QuestionErrorBoundary extends React.Component<
+    { children: React.ReactNode; resetKey: number; onSkip: () => void; canSkip: boolean },
+    { hasError: boolean }
+> {
+    constructor(props: any) {
+        super(props);
+        this.state = { hasError: false };
+    }
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+    componentDidCatch(error: Error) {
+        // eslint-disable-next-line no-console
+        console.error('[QuestionErrorBoundary] failed to render question:', error);
+    }
+    // Reset when navigating to a different question
+    componentDidUpdate(prevProps: { resetKey: number }) {
+        if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+            this.setState({ hasError: false });
+        }
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl border border-stone-100 dark:border-slate-700 p-10 text-center">
+                    <div className="text-4xl mb-3">⚠️</div>
+                    <h3 className="text-lg font-bold text-stone-700 dark:text-slate-300 mb-1">ข้อนี้มีปัญหาในการแสดงผล</h3>
+                    <p className="text-stone-500 dark:text-slate-400 text-sm mb-5">ข้ามข้อนี้แล้วทำข้อสอบต่อได้เลยครับ</p>
+                    {this.props.canSkip && (
+                        <button
+                            onClick={this.props.onSkip}
+                            className="px-6 py-3 rounded-full font-bold text-white bg-slate-800 hover:bg-slate-900 transition-all inline-flex items-center gap-2"
+                        >
+                            ข้อถัดไป
+                            <ChevronRight size={20} />
+                        </button>
+                    )}
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, examId, category, level, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false, enableResultTracking = false }) => {
     const { user } = useUserAuth();
     const savedQ = useSavedQuestions();
@@ -110,9 +157,21 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     // Sanitize Data using shared utility
     const sanitizedExamData = React.useMemo(() => sanitizeExamData(examData), [examData]);
 
-    const currentQuestion = sanitizedExamData[currentQuestionIndex];
     const totalQuestions = sanitizedExamData.length;
+    // Clamp index into range — guards a stale localStorage / ?q= index that
+    // points past the end (e.g. after corrupt questions were filtered out).
+    const safeIndex = totalQuestions > 0
+        ? Math.min(Math.max(0, currentQuestionIndex), totalQuestions - 1)
+        : 0;
+    const currentQuestion = sanitizedExamData[safeIndex];
     const questionCardRef = useRef<HTMLDivElement>(null);
+
+    // Snap state back into range if it drifted out of bounds
+    useEffect(() => {
+        if (totalQuestions > 0 && currentQuestionIndex !== safeIndex) {
+            setCurrentQuestionIndex(safeIndex);
+        }
+    }, [currentQuestionIndex, safeIndex, totalQuestions]);
 
     // 📜 Auto-scroll to question card when selecting from grid
     useEffect(() => {
@@ -439,6 +498,17 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         );
     }
 
+    // Empty exam (no questions, or all filtered out as corrupt)
+    if (totalQuestions === 0 || !currentQuestion) {
+        return (
+            <div className="max-w-2xl mx-auto py-20 px-6 text-center">
+                <div className="text-5xl mb-4">📄</div>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">ยังไม่มีข้อสอบในชุดนี้</h2>
+                <p className="text-slate-500 dark:text-slate-400">ขออภัยครับ ข้อสอบชุดนี้ยังไม่พร้อมใช้งาน กรุณาเลือกชุดอื่นก่อน</p>
+            </div>
+        );
+    }
+
     // ... (rest) ...
 
     return (
@@ -648,25 +718,31 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 font-medium">ข้อสอบอัปเดตใหม่ฟรีตลอดกาล • ไม่มีค่าใช้จ่ายเพิ่ม</p>
                         </div>
                     ) : (
-                        <QuestionCard
-                            key={currentQuestion.id}
-                            question={currentQuestion}
-                            questionNumber={currentQuestionIndex + 1}
-                            totalQuestions={totalQuestions}
-                            selectedOption={answers[currentQuestionIndex] ?? null}
-                            onSelectOption={handleSelectOption}
-                            isSubmitted={!!checkedQuestions[currentQuestionIndex]}
-                            showAnswerChecking={showAnswerChecking}
-                            isQuestionSaved={examId ? savedQ.isSaved(examId, currentQuestionIndex) : false}
-                            onToggleSaveQuestion={examId ? () => savedQ.toggleSaveQuestion(
-                                examId,
-                                examTitle,
-                                currentQuestionIndex,
-                                currentQuestion,
-                                category,
-                                level,
-                            ) : undefined}
-                        />
+                        <QuestionErrorBoundary
+                            resetKey={currentQuestionIndex}
+                            onSkip={handleNext}
+                            canSkip={currentQuestionIndex < totalQuestions - 1}
+                        >
+                            <QuestionCard
+                                key={currentQuestion.id ?? safeIndex}
+                                question={currentQuestion}
+                                questionNumber={currentQuestionIndex + 1}
+                                totalQuestions={totalQuestions}
+                                selectedOption={answers[currentQuestionIndex] ?? null}
+                                onSelectOption={handleSelectOption}
+                                isSubmitted={!!checkedQuestions[currentQuestionIndex]}
+                                showAnswerChecking={showAnswerChecking}
+                                isQuestionSaved={examId ? savedQ.isSaved(examId, currentQuestionIndex) : false}
+                                onToggleSaveQuestion={examId ? () => savedQ.toggleSaveQuestion(
+                                    examId,
+                                    examTitle,
+                                    currentQuestionIndex,
+                                    currentQuestion,
+                                    category,
+                                    level,
+                                ) : undefined}
+                            />
+                        </QuestionErrorBoundary>
                     )}
                 </div>
 
