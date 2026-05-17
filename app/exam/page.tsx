@@ -103,7 +103,7 @@ export default async function ExamHubPage() {
     const [exams, enrollmentCount] = await Promise.all([getExams(), getEnrollmentCount()]);
 
     return (
-        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
+        <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans flex flex-col transition-colors">
             <Navbar />
 
             {/* 3. Pass Data to Client Component for Interactivity */}
