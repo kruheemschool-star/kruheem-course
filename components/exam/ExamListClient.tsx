@@ -33,39 +33,42 @@ type ExamSection = {
     badge: string;
 };
 
-// Display sections for the exam hub. `id` MUST equal the exam `category`
-// value written by scripts/retag-exams.mjs (สอบเข้า ม.1 / ป.6 / ม.1).
-// Order here = on-page order (flagship first); any exam whose category is
-// none of these falls into FALLBACK_SECTION so nothing ever disappears.
-const EXAM_SECTIONS: ExamSection[] = [
-    {
-        id: "สอบเข้า ม.1",
-        label: "สอบเข้า ม.1",
+// Visual presets per known category name. Sections themselves are DERIVED
+// from the examCategories collection (name + order) — see displaySections —
+// so a category the admin adds shows up as a real section automatically,
+// in the admin-defined order. Unknown categories use NEUTRAL_PRESET.
+const SECTION_PRESETS: Record<string, Omit<ExamSection, "id" | "label">> = {
+    "สอบเข้า ม.1": {
         blurb: "ตะลุยโจทย์เตรียมสอบเข้า ม.1 และห้อง Gifted",
         icon: Rocket,
         iconWrap: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400",
         accentText: "text-amber-600 dark:text-amber-400",
         badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
     },
-    {
-        id: "ป.6",
-        label: "ป.6",
+    "ป.6": {
         blurb: "เนื้อหาและแบบฝึกหัดตามบท ระดับประถม 6",
         icon: BookOpen,
         iconWrap: "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400",
         accentText: "text-sky-600 dark:text-sky-400",
         badge: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
     },
-    {
-        id: "ม.1",
-        label: "ม.1",
+    "ม.1": {
         blurb: "เนื้อหาและแบบฝึกหัดตามบท ระดับมัธยม 1",
         icon: GraduationCap,
         iconWrap: "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400",
         accentText: "text-violet-600 dark:text-violet-400",
         badge: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
     },
-];
+};
+
+// Used for any admin-added category that has no preset above.
+const NEUTRAL_PRESET: Omit<ExamSection, "id" | "label"> = {
+    blurb: "ชุดข้อสอบในหมวดนี้",
+    icon: Folder,
+    iconWrap: "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400",
+    accentText: "text-teal-600 dark:text-teal-400",
+    badge: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
+};
 
 const FALLBACK_SECTION: ExamSection = {
     id: "อื่นๆ",
@@ -116,19 +119,25 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
     const [isLoadingSearch, setIsLoadingSearch] = useState(false);
     const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
 
-    const [categories, setCategories] = useState<string[]>(["ทั้งหมด"]);
+    // Seeded with the canonical sections so first paint groups correctly;
+    // refined from examCategories (in admin `order`) right after mount.
+    const [categories, setCategories] = useState<string[]>(["ทั้งหมด", "สอบเข้า ม.1", "ป.6", "ม.1"]);
 
-    // Fetch categories from Firestore
+    // Fetch categories from Firestore — order = examCategories.order (same as
+    // admin), NOT alphabetical, so admin reordering reflects here too.
     useEffect(() => {
         const fetchCategories = async () => {
             try {
                 const snap = await getDocs(collection(db, "examCategories"));
-                const cats = snap.docs.map(d => d.data().name as string);
-                cats.sort();
-                setCategories(["ทั้งหมด", ...cats]);
+                const ordered = snap.docs
+                    .map(d => ({ name: d.data().name as string, order: (d.data().order ?? 0) as number }))
+                    .filter(c => !!c.name)
+                    .sort((a, b) => a.order - b.order)
+                    .map(c => c.name);
+                if (ordered.length) setCategories(["ทั้งหมด", ...ordered]);
             } catch (e) {
                 console.error('Error fetching categories:', e);
-                setCategories(["ทั้งหมด", "ประถม", "ม.ต้น", "ม.ปลาย", "สอบเข้า"]);
+                setCategories(["ทั้งหมด", "สอบเข้า ม.1", "ป.6", "ม.1"]);
             }
         };
         fetchCategories();
@@ -274,10 +283,18 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
         return result;
     }, [initialExams, selectedCategory, filterFree, filterBookmarked, sortBy, bookmarkedIds]);
 
+    // Sections derived from examCategories (name + admin order), styled via
+    // SECTION_PRESETS for known names or NEUTRAL_PRESET for admin-added ones.
+    const displaySections = useMemo<ExamSection[]>(() => {
+        return categories
+            .filter((name) => name !== "ทั้งหมด")
+            .map((name) => ({ id: name, label: name, ...(SECTION_PRESETS[name] ?? NEUTRAL_PRESET) }));
+    }, [categories]);
+
     // Group the already-filtered/sorted exams by category into display sections.
     // Pure in-memory derive from filteredExams — no new fetch / no Firestore read.
     const groupedSections = useMemo(() => {
-        const known = new Set(EXAM_SECTIONS.map(s => s.id));
+        const known = new Set(displaySections.map(s => s.id));
         const map = new Map<string, any[]>();
         for (const e of filteredExams) {
             const key = known.has(e.category) ? e.category : FALLBACK_SECTION.id;
@@ -286,7 +303,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
             else map.set(key, [e]);
         }
         return map;
-    }, [filteredExams]);
+    }, [filteredExams, displaySections]);
 
     // Stable index per exam (for getTheme fallback color) so grouping doesn't
     // change card colors vs. the old flat list.
@@ -764,7 +781,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                     /* Normal Grid Mode (No Search Query) */
                     filteredExams.length > 0 ? (
                         <div className="space-y-14">
-                            {[...EXAM_SECTIONS, FALLBACK_SECTION].map((sec) => {
+                            {[...displaySections, FALLBACK_SECTION].map((sec) => {
                                 const items = groupedSections.get(sec.id);
                                 if (!items || items.length === 0) return null;
                                 const SecIcon = sec.icon;

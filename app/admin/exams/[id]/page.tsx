@@ -684,8 +684,8 @@ export default function ExamEditorPage() {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [coverImage, setCoverImage] = useState("");
-    const [category, setCategory] = useState("ม.ต้น");
-    const [level, setLevel] = useState("ม.1");
+    const [category, setCategory] = useState("");
+    const [level, setLevel] = useState("");
     const [timeLimit, setTimeLimit] = useState(30);
     const [difficulty, setDifficulty] = useState("Medium");
     const [themeColor, setThemeColor] = useState("Amber");
@@ -701,7 +701,7 @@ export default function ExamEditorPage() {
                     setTitle(data.title || "");
                     setDescription(data.description || "");
                     setCoverImage(data.coverImage || "");
-                    setCategory(data.category || "ม.ต้น");
+                    setCategory(data.category || "");
                     setLevel(data.level || "");
                     setTimeLimit(data.timeLimit || 30);
                     setDifficulty(data.difficulty || "Medium");
@@ -831,12 +831,13 @@ export default function ExamEditorPage() {
             }
 
             const docRef = doc(db, "exams", id as string);
+            // NOTE: category/level are intentionally NOT written here. They
+            // are managed centrally on /admin/exams; writing them from this
+            // editor previously reverted the clean taxonomy on every save.
             await updateDoc(docRef, {
                 title,
                 description,
                 coverImage,
-                category,
-                level,
                 timeLimit: Number(timeLimit),
                 difficulty,
                 themeColor,
@@ -960,31 +961,24 @@ export default function ExamEditorPage() {
                                 />
                             </div>
 
-                            {/* ... Categories, Level, Time, Difficulty ... */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-500 mb-2">หมวดหมู่</label>
-                                    <select
-                                        value={category}
-                                        onChange={(e) => setCategory(e.target.value)}
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                                    >
-                                        <option value="ประถม">ประถม</option>
-                                        <option value="ม.ต้น">ม.ต้น</option>
-                                        <option value="ม.ปลาย">ม.ปลาย</option>
-                                        <option value="สอบเข้า">สอบเข้า</option>
-                                    </select>
+                            {/* Category & level are managed centrally on the
+                                exam library page (/admin/exams) — read-only here
+                                so editing questions can't silently revert them. */}
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                    <span className="text-slate-500">
+                                        หมวดหมู่: <span className="font-bold text-slate-700">{category || "ยังไม่ได้จัดหมวด"}</span>
+                                    </span>
+                                    <span className="text-slate-500">
+                                        ระดับชั้น: <span className="font-bold text-slate-700">{level || "—"}</span>
+                                    </span>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-500 mb-2">ระดับชั้น</label>
-                                    <input
-                                        type="text"
-                                        value={level}
-                                        onChange={(e) => setLevel(e.target.value)}
-                                        placeholder="เช่น ม.1"
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                                    />
-                                </div>
+                                <Link
+                                    href="/admin/exams"
+                                    className="mt-1 inline-block text-xs font-bold text-amber-600 hover:text-amber-700"
+                                >
+                                    จัดหมวดหมู่ที่หน้า &ldquo;คลังข้อสอบ&rdquo; →
+                                </Link>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
