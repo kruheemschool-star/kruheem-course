@@ -8,6 +8,20 @@ import { Search, BookOpen, Loader2, ArrowRight, Tag } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
+// Curated, student-friendly Thai topics. Each string is a REAL high-count
+// value found in question `tags` in the data, so it works as both the pill
+// label AND the exact match key (q.tags.includes) and the /exam/practice?q=
+// substring search — no mapping needed. Edit/reorder freely (curriculum).
+const PRACTICE_TOPICS: string[] = [
+    "จำนวนนับ", "จำนวนเต็ม", "เศษส่วน", "ทศนิยม",
+    "ตัวประกอบ", "ห.ร.ม.", "ค.ร.น.", "เลขยกกำลัง",
+    "อัตราส่วน", "ร้อยละ", "ส่วนลด กำไร ขาดทุน",
+    "สมการ", "อสมการ", "พีชคณิต", "ลำดับและอนุกรม",
+    "เรขาคณิต", "มุม", "เส้นขนาน", "รูปสามเหลี่ยม",
+    "รูปสี่เหลี่ยม", "วงกลม", "พื้นที่", "ปริมาตร",
+    "ความน่าจะเป็น",
+];
+
 export default function PracticeModePage() {
     const [allQuestions, setAllQuestions] = useState<any[]>([]); // Store ALL questions from ALL exams
     const [loading, setLoading] = useState(true);
@@ -97,33 +111,41 @@ export default function PracticeModePage() {
         setFilteredQuestions(results);
     }, [searchQuery, selectedTopic, allQuestions]);
 
+    // Curated Thai topics, kept only if they actually exist in the loaded
+    // data (so no pill is a dead end). Value === a real q.tags string →
+    // exact-match click + the /exam/practice?q= substring both still work.
+    const topicSet = new Set(availableTopics);
+    const visibleTopics = PRACTICE_TOPICS.filter(t => topicSet.has(t));
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
             <Navbar />
 
-            {/* Header */}
-            <div className="bg-slate-900 pt-32 pb-16 px-6 text-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
-                <div className="max-w-4xl mx-auto relative z-10">
-                    <h1 className="text-4xl md:text-5xl font-black text-white mb-6">
+            {/* Header — minimal clean, matches the /exam bottom banner */}
+            <div className="pt-32 pb-16 px-6 bg-gradient-to-b from-slate-50 dark:from-slate-950 to-white dark:to-slate-950 transition-colors">
+                <div className="max-w-4xl mx-auto rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 py-12 md:px-16 md:py-16 text-center shadow-[0_10px_50px_-20px_rgba(15,23,42,0.15)]">
+                    <div className="inline-flex items-center gap-2 mb-5 text-[11px] font-bold uppercase tracking-[0.22em] text-amber-600 dark:text-amber-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        ฝึกตามหัวข้อ
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-[1.15] text-slate-900 dark:text-white mb-5">
                         ฝึกฝน <span className="text-amber-500">เฉพาะจุด</span> 🎯
                     </h1>
-                    <p className="text-slate-400 text-lg mb-10 max-w-2xl mx-auto">
+                    <p className="text-slate-500 dark:text-slate-400 text-lg mb-8 max-w-2xl mx-auto">
                         เจาะลึกเฉพาะเรื่องที่คุณต้องการ ระบบจะดึงโจทย์จากคลังข้อสอบทั้งหมดมารวมเป็นชุดพิเศษให้คุณทันที
                     </p>
 
                     {/* Search Bar */}
                     <div className="relative max-w-xl mx-auto group">
                         <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                            <Search className="h-6 w-6 text-slate-500 group-focus-within:text-amber-500 transition-colors" />
+                            <Search className="h-6 w-6 text-slate-400 dark:text-slate-500 group-focus-within:text-amber-500 transition-colors" />
                         </div>
                         <input
                             type="text"
-                            placeholder="พิมพ์หัวข้อที่อยากฝึก เช่น แคลคูลัส, จำนวนจริง..."
+                            placeholder="พิมพ์หัวข้อที่อยากฝึก เช่น เศษส่วน, เลขยกกำลัง..."
                             value={searchQuery}
                             onChange={(e) => { setSearchQuery(e.target.value); setSelectedTopic(null); }}
-                            className="w-full pl-14 pr-6 py-4 bg-white rounded-full shadow-2xl text-lg font-bold text-slate-800 placeholder:text-slate-400 focus:ring-4 focus:ring-amber-500/30 outline-none transition-all"
+                            className="w-full pl-14 pr-6 py-4 rounded-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm text-lg font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-4 focus:ring-amber-500/30 focus:border-amber-500 outline-none transition-all"
                         />
                     </div>
                 </div>
@@ -132,15 +154,15 @@ export default function PracticeModePage() {
             <main className="container mx-auto px-6 py-12 max-w-6xl">
 
                 {/* Popular Topics Pill Cloud */}
-                {availableTopics.length > 0 && !searchQuery && !selectedTopic && (
+                {visibleTopics.length > 0 && !searchQuery && !selectedTopic && (
                     <div className="mb-12 text-center">
-                        <h3 className="text-slate-400 text-sm font-bold uppercase mb-4 tracking-wider">หัวข้อแนะนำ</h3>
+                        <h3 className="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase mb-4 tracking-wider">หัวข้อแนะนำ</h3>
                         <div className="flex flex-wrap gap-3 justify-center">
-                            {availableTopics.slice(0, 30).map(topic => (
+                            {visibleTopics.map(topic => (
                                 <button
                                     key={topic}
                                     onClick={() => setSelectedTopic(topic)}
-                                    className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition-colors flex items-center gap-2"
+                                    className="px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400 text-slate-600 dark:text-slate-300 font-bold transition-colors flex items-center gap-2"
                                 >
                                     <Tag size={14} /> {topic}
                                 </button>

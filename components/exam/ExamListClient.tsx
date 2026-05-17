@@ -97,6 +97,24 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
     const totalExamSets = initialExams.length;
     const totalQuestions = useMemo(() => initialExams.reduce((sum: number, e: any) => sum + (e.questionCount || 0), 0), [initialExams]);
 
+    // Latest-updated exam set (truthful, auto, no extra Firestore read —
+    // derived from the data the page already fetched). Powers the "อัปเดต
+    // ล่าสุด" freshness banner above the search bar.
+    const latestUpdate = useMemo(() => {
+        let best: any = null;
+        let bestTime = 0;
+        for (const e of initialExams) {
+            const iso = e.updatedAt || e.createdAt;
+            const t = iso ? new Date(iso).getTime() : 0;
+            if (t > bestTime) { bestTime = t; best = e; }
+        }
+        if (!best || !bestTime) return null;
+        const title = String(best.title || "").replace(/<br\s*\/?>/gi, " ").replace(/\s+/g, " ").trim();
+        if (!title) return null;
+        const dateLabel = new Date(bestTime).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
+        return { title, dateLabel };
+    }, [initialExams]);
+
     // 🆕 Popular tags aggregated from exam metadata (no extra Firestore reads)
     const popularTags = useMemo(() => {
         const counter: Record<string, number> = {};
@@ -453,6 +471,26 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                         </div>
                     </div>
                 </div>
+
+                {/* Latest-update freshness banner (truthful, auto) */}
+                {latestUpdate && (
+                    <div className="max-w-2xl mx-auto mb-4">
+                        <div className="flex items-center justify-center gap-x-3 gap-y-1 flex-wrap rounded-2xl border border-amber-200/80 dark:border-amber-800/50 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 px-4 py-2.5 text-sm">
+                            <span className="inline-flex items-center gap-1.5 font-black text-amber-700 dark:text-amber-400 shrink-0">
+                                <span className="relative flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                                </span>
+                                อัปเดตล่าสุด
+                            </span>
+                            <span className="text-slate-700 dark:text-slate-200 font-bold truncate max-w-[60vw] sm:max-w-xs">
+                                เพิ่มโจทย์ชุด &ldquo;{latestUpdate.title}&rdquo;
+                            </span>
+                            <span className="text-slate-400 dark:text-slate-500 shrink-0">· {latestUpdate.dateLabel}</span>
+                            <span className="hidden sm:inline text-emerald-600 dark:text-emerald-400 font-bold shrink-0">· คลังโตต่อเนื่อง {totalQuestions.toLocaleString()}+ ข้อ</span>
+                        </div>
+                    </div>
+                )}
 
                 {/* Grand Search Bar */}
                 <div className="max-w-2xl mx-auto relative group z-20 text-left mb-6">
