@@ -35,6 +35,9 @@ export default function CourseManagerPage() {
 
   // Allowed exam level (for exam-bank courses only): 'none' | 'primary' | 'lower' | 'upper'
   const [allowedExamLevel, setAllowedExamLevel] = useState<"none" | "primary" | "lower" | "upper">("none");
+  // Explicit per-course exam-bank access (canonical; replaces the fragile
+  // "courseTitle includes คลังข้อสอบ" string-match in ExamAccessGuard).
+  const [grantsExamAccess, setGrantsExamAccess] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -150,6 +153,7 @@ export default function CourseManagerPage() {
     setTags(course.tags || []);
     setNewTag("");
     setAllowedExamLevel(course.allowedExamLevel || "none");
+    setGrantsExamAccess(course.grantsExamAccess === true);
     setFormOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -171,6 +175,7 @@ export default function CourseManagerPage() {
     setTags([]);
     setNewTag("");
     setAllowedExamLevel("none");
+    setGrantsExamAccess(false);
   };
 
   const deleteCourseWithAllData = async (courseId: string, imageUrl: string) => {
@@ -232,6 +237,7 @@ export default function CourseManagerPage() {
         keywords,
         tags, // Add tags to saving data
         allowedExamLevel: allowedExamLevel === "none" ? null : allowedExamLevel,
+        grantsExamAccess: grantsExamAccess,
         updatedAt: new Date()
       };
 
@@ -518,6 +524,24 @@ export default function CourseManagerPage() {
                 <option value="lower">คลังข้อสอบมัธยมต้น (ม.1-ม.3)</option>
                 <option value="upper">คลังข้อสอบมัธยมปลาย (ม.4-ม.6)</option>
               </select>
+            </div>
+
+            {/* ✅ Explicit exam-bank access — canonical switch (does NOT
+                depend on the course name). Tick for คลังข้อสอบ / Gifted /
+                สอบเข้า courses; leave off for normal video courses. */}
+            <div className="bg-emerald-50 p-4 rounded-xl border-2 border-emerald-200">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={grantsExamAccess}
+                  onChange={(e) => setGrantsExamAccess(e.target.checked)}
+                  className="mt-1 w-5 h-5 accent-emerald-600 cursor-pointer"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-emerald-800">✅ คอร์สนี้ให้สิทธิ์เข้าคลังข้อสอบ (กดส่งคำตอบได้)</span>
+                  <span className="block text-xs text-emerald-600 mt-0.5">ติ๊กให้คอร์สคลังข้อสอบ / ติวเข้ม Gifted / สอบเข้า — คอร์สเรียนวิดีโอปกติไม่ต้องติ๊ก</span>
+                </span>
+              </label>
             </div>
 
             <div className="space-y-2">

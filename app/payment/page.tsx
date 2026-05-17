@@ -374,6 +374,9 @@ export default function PaymentPage() {
           // Copy exam-level scope from course so ExamAccessGuard can match it
           // (null for non exam-bank courses). Fixes exam-bank gating bug.
           allowedExamLevel: courseInfo?.allowedExamLevel ?? null,
+          // Canonical exam-bank access flag (independent of course name).
+          // ExamAccessGuard reads this; legacy "คลังข้อสอบ" title still works.
+          grantsExamAccess: courseInfo?.grantsExamAccess === true,
           price: price,
           couponCode: discount?.code || null,
           discountAmount: itemDiscount,
