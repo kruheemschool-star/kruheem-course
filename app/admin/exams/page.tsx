@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus, AlertCircle } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus, AlertCircle, Pencil, Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
 import { deriveExamLevel } from "@/lib/exam-level";
@@ -142,7 +142,7 @@ function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onTogg
 }
 
 // Sortable Category Row Component
-function SortableCategoryRow({ category, onDelete }: { category: any; onDelete: (id: string) => void }) {
+function SortableCategoryRow({ category, count, onDelete, onRename }: { category: any; count: number; onDelete: (id: string, name: string) => void; onRename: (id: string, oldName: string, newName: string) => void }) {
     const {
         attributes,
         listeners,
@@ -151,6 +151,9 @@ function SortableCategoryRow({ category, onDelete }: { category: any; onDelete: 
         transition,
         isDragging,
     } = useSortable({ id: category.id });
+
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState(category.name);
 
     const style: React.CSSProperties = {
         transform: CSS.Transform.toString(transform),
@@ -161,26 +164,63 @@ function SortableCategoryRow({ category, onDelete }: { category: any; onDelete: 
         backgroundColor: isDragging ? '#f1f5f9' : undefined,
     };
 
+    const submitRename = () => {
+        const next = draft.trim();
+        if (next && next !== category.name) onRename(category.id, category.name, next);
+        setEditing(false);
+    };
+
     return (
         <div ref={setNodeRef} style={style} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors group border border-transparent hover:border-slate-200">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
                 <button
                     {...attributes}
                     {...listeners}
-                    className="flex items-center justify-center w-8 h-8 cursor-grab active:cursor-grabbing text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition"
+                    className="flex items-center justify-center w-8 h-8 cursor-grab active:cursor-grabbing text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition flex-shrink-0"
                     aria-label="ลากเพื่อเรียงลำดับ"
                 >
                     <GripVertical size={16} />
                 </button>
-                <span className="font-bold text-slate-700">{category.name}</span>
+                {editing ? (
+                    <input
+                        autoFocus
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') { setDraft(category.name); setEditing(false); } }}
+                        className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none font-bold text-slate-700"
+                    />
+                ) : (
+                    <span className="font-bold text-slate-700 truncate">
+                        {category.name}
+                        <span className="ml-2 text-xs font-medium text-slate-400">({count} ชุด)</span>
+                    </span>
+                )}
             </div>
-            <button
-                onClick={() => onDelete(category.id)}
-                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                title="ลบหมวดหมู่"
-            >
-                <Trash2 size={16} />
-            </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+                {editing ? (
+                    <>
+                        <button onClick={submitRename} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="บันทึกชื่อ">
+                            <Check size={16} />
+                        </button>
+                        <button onClick={() => { setDraft(category.name); setEditing(false); }} className="p-2 text-slate-400 hover:bg-slate-200 rounded-lg transition-colors" title="ยกเลิก">
+                            <X size={16} />
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <button onClick={() => { setDraft(category.name); setEditing(true); }} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="เปลี่ยนชื่อหมวดหมู่">
+                            <Pencil size={15} />
+                        </button>
+                        <button
+                            onClick={() => onDelete(category.id, category.name)}
+                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="ลบหมวดหมู่"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    </>
+                )}
+            </div>
         </div>
     );
 }
@@ -208,6 +248,30 @@ export default function ExamManagerPage() {
         const merged = Array.from(new Set([...fromFirestore, ...fromExams]));
         return merged;
     }, [categories, exams]);
+
+    // Group exams under their category, ordered by examCategories.order
+    // (categories is already order-sorted by fetchCategories). Exams keep
+    // their existing within-group order (exams is order-sorted). Anything
+    // with an empty/unknown category falls into one "ไม่ได้จัดหมวด" group
+    // appended last. Pure in-memory derive — no extra Firestore reads.
+    const groupedExams = React.useMemo(() => {
+        const known = new Set(categories.map((c: any) => c.name));
+        const UNCAT = "__uncat__";
+        const buckets = new Map<string, any[]>();
+        for (const e of exams) {
+            const key = (e.category && known.has(e.category)) ? e.category : UNCAT;
+            const arr = buckets.get(key);
+            if (arr) arr.push(e); else buckets.set(key, [e]);
+        }
+        const ordered: { key: string; name: string; items: any[] }[] = [];
+        for (const c of categories) {
+            const items = buckets.get(c.name);
+            if (items && items.length) ordered.push({ key: c.name, name: c.name, items });
+        }
+        const uncat = buckets.get(UNCAT);
+        if (uncat && uncat.length) ordered.push({ key: UNCAT, name: "ไม่ได้จัดหมวด", items: uncat });
+        return ordered;
+    }, [exams, categories]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -283,13 +347,43 @@ export default function ExamManagerPage() {
         } catch (e) { console.error('Error adding category:', e); alert('เกิดข้อผิดพลาด'); }
     };
 
-    const deleteCategory = async (id: string) => {
-        confirmModal("ยืนยันการลบหมวดหมู่", "คุณแน่ใจหรือไม่? ข้อสอบที่ใช้หมวดหมู่นี้จะยังคงอยู่", async () => {
+    const deleteCategory = async (id: string, name: string) => {
+        const count = exams.filter(e => e.category === name).length;
+        const msg = count > 0
+            ? `มีข้อสอบ ${count} ชุดในหมวด "${name}" — ลบหมวดแล้วชุดเหล่านั้นจะกลายเป็น "ไม่ได้จัดหมวด" (ตัวข้อสอบไม่ถูกลบ) ดำเนินการต่อ?`
+            : `ลบหมวด "${name}"?`;
+        confirmModal("ยืนยันการลบหมวดหมู่", msg, async () => {
             try {
                 await deleteDoc(doc(db, "examCategories", id));
                 fetchCategories();
             } catch (e) { console.error('Error deleting category:', e); alert('เกิดข้อผิดพลาด'); }
         }, true);
+    };
+
+    // Rename a category and cascade the new name onto every exam tagged with
+    // the old name (category is a denormalized string on each exam, no FK).
+    // One batch, only on explicit admin click; bounded by exam count.
+    const renameCategory = async (id: string, oldName: string, newName: string) => {
+        const name = newName.trim();
+        if (!name || name === oldName) return;
+        if (categories.some((c: any) => c.name === name)) {
+            toast.error(`มีหมวด "${name}" อยู่แล้ว`);
+            return;
+        }
+        try {
+            const batch = writeBatch(db);
+            batch.update(doc(db, "examCategories", id), { name });
+            exams.forEach(e => {
+                if (e.category === oldName) batch.update(doc(db, "exams", e.id), { category: name });
+            });
+            await batch.commit();
+            setCategories(prev => prev.map((c: any) => c.id === id ? { ...c, name } : c));
+            setExams(prev => prev.map(e => e.category === oldName ? { ...e, category: name } : e));
+            toast.success(`เปลี่ยนชื่อหมวดเป็น "${name}" แล้ว`);
+        } catch (e) {
+            console.error('Error renaming category:', e);
+            toast.error("เปลี่ยนชื่อหมวดไม่สำเร็จ");
+        }
     };
 
     useEffect(() => {
@@ -420,6 +514,15 @@ export default function ExamManagerPage() {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
 
+        // Reorder only WITHIN the same category group. Moving an exam to
+        // another category is done via the per-row dropdown (clearer, and
+        // drag wouldn't change `category` so it would just snap back).
+        const known = new Set(categories.map((c: any) => c.name));
+        const groupKey = (e: any) => (e?.category && known.has(e.category)) ? e.category : "__uncat__";
+        const a = exams.find(e => e.id === active.id);
+        const b = exams.find(e => e.id === over.id);
+        if (!a || !b || groupKey(a) !== groupKey(b)) return;
+
         const oldIndex = exams.findIndex(e => e.id === active.id);
         const newIndex = exams.findIndex(e => e.id === over.id);
 
@@ -516,9 +619,10 @@ export default function ExamManagerPage() {
                         <Link href="/admin/exams/audit" className="px-4 py-2 bg-white text-slate-600 rounded-lg hover:bg-slate-100 font-bold flex items-center gap-2 border border-slate-200" title="ตรวจสอบข้อสอบที่ category ไม่ตรงกับ title">
                             🔍 ตรวจสอบหมวด
                         </Link>
-                        <button onClick={() => setIsCategoryModalOpen(true)} className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-bold flex items-center gap-2 shadow-lg shadow-amber-200">
+                        <button onClick={() => setIsCategoryModalOpen(v => !v)} className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-bold flex items-center gap-2 shadow-lg shadow-amber-200">
                             <FolderPlus size={20} />
                             จัดการหมวดหมู่
+                            {isCategoryModalOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         </button>
                         <button onClick={handleQuickAdd} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold flex items-center gap-2 shadow-lg shadow-indigo-200">
                             <Plus size={20} />
@@ -559,6 +663,59 @@ export default function ExamManagerPage() {
                     </div>
                 </div>
 
+                {/* Inline Category Management Panel (toggled by the toolbar
+                    button). One place for all category CRUD — no hidden modal. */}
+                {isCategoryModalOpen && (
+                    <div className="mb-6 bg-white rounded-2xl border border-amber-100 shadow-sm p-5">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm">
+                                <FolderPlus size={16} />
+                                จัดการหมวดหมู่ — เพิ่ม / เปลี่ยนชื่อ / ลบ / ลากเรียงลำดับ
+                            </h3>
+                            {isSavingCategoryOrder && <span className="text-xs font-bold text-amber-500 animate-pulse">กำลังบันทึก...</span>}
+                        </div>
+                        <div className="mb-3 flex gap-2">
+                            <input
+                                type="text"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+                                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"
+                                placeholder="ชื่อหมวดหมู่ใหม่ เช่น สอบเข้า ม.4"
+                            />
+                            <button
+                                onClick={addCategory}
+                                disabled={!newCategoryName.trim()}
+                                className="px-6 py-2.5 rounded-xl font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 transition-colors shadow-lg shadow-amber-200"
+                            >
+                                เพิ่ม
+                            </button>
+                        </div>
+                        <p className="text-xs text-slate-400 mb-2">ลำดับด้านล่างคือลำดับหมวดที่แสดงในหน้า /exam ของนักเรียน — ลากเพื่อสลับ</p>
+                        <div className="max-h-72 overflow-y-auto space-y-2 p-1">
+                            {categories.length === 0 ? (
+                                <p className="text-center text-slate-400 py-8">ยังไม่มีหมวดหมู่ — เพิ่มด้านบน</p>
+                            ) : (
+                                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+                                    <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                                        <div className="space-y-2">
+                                            {categories.map((cat) => (
+                                                <SortableCategoryRow
+                                                    key={cat.id}
+                                                    category={cat}
+                                                    count={exams.filter(e => e.category === cat.name).length}
+                                                    onDelete={deleteCategory}
+                                                    onRename={renameCategory}
+                                                />
+                                            ))}
+                                        </div>
+                                    </SortableContext>
+                                </DndContext>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {loading ? (
                     <div className="text-center py-20 text-slate-400">กำลังโหลดข้อมูล...</div>
                 ) : exams.length === 0 ? (
@@ -569,29 +726,40 @@ export default function ExamManagerPage() {
                     </div>
                 ) : (
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={exams.map(e => e.id)} strategy={verticalListSortingStrategy}>
-                            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold text-sm">
-                                        <tr>
-                                            <th className="p-4 w-10"></th>
-                                            <th className="p-6">ชื่อชุดข้อสอบ</th>
-                                            <th className="p-6">หมวดหมู่</th>
-                                            <th className="p-6 text-center">ระดับความยาก</th>
-                                            <th className="p-6 text-center">จำนวนข้อ</th>
-                                            <th className="p-6 text-center">สิทธิ์การเข้าถึง</th>
-                                            <th className="p-6 text-center">ตรวจคำตอบ</th>
-                                            <th className="p-6 text-right">จัดการ</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {exams.map((exam) => (
-                                            <SortableExamRow key={exam.id} exam={exam} categoryOptions={categoryOptions} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} />
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </SortableContext>
+                        <div className="space-y-6">
+                            {groupedExams.map((group) => (
+                                <div key={group.key} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                                    <div className="flex items-center gap-3 flex-wrap px-6 py-4 bg-gradient-to-r from-amber-50 to-white border-b border-slate-100">
+                                        <h3 className="font-black text-slate-800 text-lg">{group.name}</h3>
+                                        <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">{group.items.length} ชุด</span>
+                                        {group.key === "__uncat__" && (
+                                            <span className="text-xs text-slate-400">— เลือกหมวดในช่อง &ldquo;หมวดหมู่&rdquo; ของแต่ละชุด เพื่อจัดเข้าหมวด</span>
+                                        )}
+                                    </div>
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold text-sm">
+                                            <tr>
+                                                <th className="p-4 w-10"></th>
+                                                <th className="p-6">ชื่อชุดข้อสอบ</th>
+                                                <th className="p-6">หมวดหมู่</th>
+                                                <th className="p-6 text-center">ระดับความยาก</th>
+                                                <th className="p-6 text-center">จำนวนข้อ</th>
+                                                <th className="p-6 text-center">สิทธิ์การเข้าถึง</th>
+                                                <th className="p-6 text-center">ตรวจคำตอบ</th>
+                                                <th className="p-6 text-right">จัดการ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            <SortableContext items={group.items.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                                                {group.items.map((exam) => (
+                                                    <SortableExamRow key={exam.id} exam={exam} categoryOptions={categoryOptions} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} />
+                                                ))}
+                                            </SortableContext>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ))}
+                        </div>
                     </DndContext>
                 )}
             </div>
@@ -632,65 +800,6 @@ export default function ExamManagerPage() {
                 </div>
             )}
 
-            {/* Category Management Modal */}
-            {isCategoryModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <h2 className="text-2xl font-black text-slate-800 mb-6">จัดการหมวดหมู่ข้อสอบ</h2>
-                        
-                        {/* Add New Category */}
-                        <div className="mb-6 flex gap-2">
-                            <input
-                                type="text"
-                                value={newCategoryName}
-                                onChange={(e) => setNewCategoryName(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && addCategory()}
-                                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"
-                                placeholder="ชื่อหมวดหมู่ใหม่ เช่น ม.6"
-                            />
-                            <button
-                                onClick={addCategory}
-                                disabled={!newCategoryName.trim()}
-                                className="px-6 py-3 rounded-xl font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 transition-colors shadow-lg shadow-amber-200"
-                            >
-                                เพิ่ม
-                            </button>
-                        </div>
-
-                        {/* Category List */}
-                        <div className="mb-6">
-                            <div className="flex justify-between items-center mb-3 px-1">
-                                <span className="text-sm font-bold text-slate-500">ลำดับหมวดหมู่ (ลากเพื่อสลับตำแหน่ง)</span>
-                                {isSavingCategoryOrder && <span className="text-xs font-bold text-amber-500 animate-pulse">กำลังบันทึก...</span>}
-                            </div>
-                            <div className="max-h-64 overflow-y-auto space-y-2 p-1">
-                                {categories.length === 0 ? (
-                                    <p className="text-center text-slate-400 py-8">ยังไม่มีหมวดหมู่</p>
-                                ) : (
-                                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
-                                        <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                                            <div className="space-y-2">
-                                                {categories.map((cat) => (
-                                                    <SortableCategoryRow key={cat.id} category={cat} onDelete={deleteCategory} />
-                                                ))}
-                                            </div>
-                                        </SortableContext>
-                                    </DndContext>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end">
-                            <button
-                                onClick={() => setIsCategoryModalOpen(false)}
-                                className="px-6 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
-                            >
-                                ปิด
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
