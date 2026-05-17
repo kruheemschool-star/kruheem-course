@@ -1,11 +1,10 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Target, Award } from "lucide-react";
+import { Target, Award, ArrowRight } from "lucide-react";
 import ExamListClient from "@/components/exam/ExamListClient";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -73,6 +72,7 @@ async function getExams() {
                     questionCount, // Only send count, not full questions
                     order: data.order ?? Number.MAX_SAFE_INTEGER,
                     createdAt: data.createdAt?.toDate?.().toISOString() || null,
+                    updatedAt: data.updatedAt?.toDate?.().toISOString() || null,
                 };
             });
 
@@ -113,58 +113,36 @@ export default async function ExamHubPage() {
 
             {/* Netflix-style Hero Banner (Moved to Bottom) */}
             <div className="py-12 px-4 md:px-8 bg-gradient-to-t from-white dark:from-slate-950 to-slate-50 dark:to-slate-900">
-                <div className="relative w-full max-w-7xl mx-auto rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-900 text-white min-h-[400px] flex items-center group transition-all duration-500 hover:shadow-indigo-500/20">
-                    {/* Background Art */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-violet-900 via-indigo-900 to-slate-900"></div>
-                    <div className="absolute inset-0 opacity-30 mix-blend-overlay transition-transform duration-1000 group-hover:scale-105">
-                        <Image
-                            src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=3270&auto=format&fit=crop"
-                            alt="Math Practice Background"
-                            fill
-                            className="object-cover object-center"
-                            priority
-                            sizes="(max-width: 768px) 100vw, 80vw"
-                        />
-                    </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-900/60 to-transparent"></div>
-
-                    {/* Content */}
-                    <div className="relative z-10 p-8 md:p-16 max-w-3xl">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-sm">
-                            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                            New Feature
-                        </div>
-                        <h1 className="text-4xl md:text-6xl font-black mb-6 leading-tight tracking-tight drop-shadow-2xl">
-                            โหมดฝึกฝนรายบท <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">
-                                (Practice Mode)
-                            </span>
-                        </h1>
-                        <p className="text-lg md:text-xl text-slate-300 mb-8 max-w-xl leading-relaxed drop-shadow-md">
-                            เจาะลึกทุกบทเรียน อัพสกิลคณิตศาสตร์ให้เก่งเวอร์! ฝึกฝนจุดอ่อน เสริมจุดแข็ง ด้วยระบบวิเคราะห์อัจฉริยะ 🧠✨
-                        </p>
-
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <Link
-                                href="/practice"
-                                className="px-8 py-4 bg-white text-slate-900 rounded-xl font-black text-lg flex items-center justify-center gap-3 hover:bg-amber-400 transition-colors shadow-lg hover:shadow-amber-400/50 hover:-translate-y-1 transform duration-200"
-                            >
-                                <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
-                                    <Target size={18} fill="currentColor" />
-                                </div>
-                                เริ่มฝึกฝนทันที
-                            </Link>
-                            <button className="px-8 py-4 bg-white/10 backdrop-blur-md text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 hover:bg-white/20 transition-colors border border-white/10 hover:border-white/30">
-                                <Award size={20} />
-                                ดูสถิติของฉัน
-                            </button>
-                        </div>
+                {/* Minimal, clean Practice Mode banner — light, airy, no
+                    image/heavy overlays; matches the page's light + dot bg */}
+                <div className="relative w-full max-w-5xl mx-auto rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 py-14 md:px-16 md:py-20 text-center shadow-[0_10px_50px_-20px_rgba(15,23,42,0.15)]">
+                    <div className="inline-flex items-center gap-2 mb-6 text-[11px] font-bold uppercase tracking-[0.22em] text-amber-600 dark:text-amber-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        New Feature
                     </div>
 
-                    {/* Decorative Elements */}
-                    <div className="absolute right-0 bottom-0 p-12 opacity-10 hidden md:block">
-                        <div className="text-[12rem] font-black text-white leading-none select-none tracking-tighter">MATH</div>
+                    <h2 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.15]">
+                        โหมดฝึกฝนรายบท
+                        <span className="block mt-1.5 text-amber-500">Practice Mode</span>
+                    </h2>
+
+                    <p className="mt-5 mx-auto max-w-xl text-base md:text-lg text-slate-500 dark:text-slate-400 leading-relaxed">
+                        เจาะลึกทุกบทเรียน ฝึกจุดอ่อน เสริมจุดแข็ง ด้วยระบบวิเคราะห์อัจฉริยะ — เก่งขึ้นแบบรู้ว่าต้องซ้อมตรงไหน
+                    </p>
+
+                    <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
+                        <Link
+                            href="/practice"
+                            className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-base shadow-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+                        >
+                            <Target size={18} />
+                            เริ่มฝึกฝนทันที
+                            <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+                        </Link>
+                        <button className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full text-slate-600 dark:text-slate-300 font-bold text-base hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <Award size={18} />
+                            ดูสถิติของฉัน
+                        </button>
                     </div>
                 </div>
             </div>
