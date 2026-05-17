@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc, setDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import Link from "next/link";
 import { Search, Edit3, Trash2, Eye, Phone, MessageCircle, ChevronLeft, ChevronRight, GraduationCap, X, UserX, Loader2 } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
@@ -114,6 +114,7 @@ export default function AdminStudentsPage() {
     const [slipModalUrl, setSlipModalUrl] = useState<string | null>(null);
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
+    const [unifying, setUnifying] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -145,6 +146,80 @@ export default function AdminStudentsPage() {
     };
 
     useEffect(() => { fetchData(); }, []);
+
+    // One-time admin tool: unify every exam-bank enrollment's courseTitle to
+    // the single canonical "คลังข้อสอบ" so the admin filter shows one group
+    // and the count is in one place. Reads nothing extra (uses the already
+    // in-memory `enrollments`); writes ONLY the `courseTitle` field, and ONLY
+    // on docs whose title already contains "คลังข้อสอบ" (so ExamAccessGuard's
+    // substring access stays valid) and is not already exactly "คลังข้อสอบ"
+    // (idempotent). courseId / status / expiryDate / accessType / userId are
+    // never touched → video access, expiry and login are all unaffected.
+    const CANON_TITLE = "คลังข้อสอบ";
+    const EXCLUDE_TITLES: string[] = []; // add a title here ONLY if it contains "คลังข้อสอบ" but is a different product
+
+    const handleUnifyExamBankTitles = () => {
+        const scoped = enrollments.filter((e: any) =>
+            typeof e.courseTitle === "string" &&
+            e.courseTitle.includes(CANON_TITLE) &&
+            e.courseTitle !== CANON_TITLE &&
+            !EXCLUDE_TITLES.includes(e.courseTitle)
+        );
+        const counts: Record<string, number> = {};
+        scoped.forEach((e: any) => { counts[e.courseTitle] = (counts[e.courseTitle] || 0) + 1; });
+        const variants = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        const total = scoped.length;
+
+        if (total === 0) {
+            confirmModal(
+                "ไม่มีรายการที่ต้องรวม",
+                <p className="text-sm">ทุกใบที่เป็นคลังข้อสอบมีชื่อ &ldquo;{CANON_TITLE}&rdquo; เรียบร้อยแล้ว — ไม่มีอะไรต้องแก้</p>,
+                () => { },
+                false
+            );
+            return;
+        }
+
+        confirmModal(
+            "รวมชื่อคอร์สคลังข้อสอบให้เป็นชื่อเดียว",
+            <div className="text-left text-sm space-y-2">
+                <p>จะเปลี่ยน <b>เฉพาะ &ldquo;ชื่อคอร์ส&rdquo;</b> ของรายการเหล่านี้ให้เป็น <b>&ldquo;{CANON_TITLE}&rdquo;</b>:</p>
+                <ul className="list-disc pl-5 space-y-1 max-h-48 overflow-y-auto">
+                    {variants.map(([t, c]) => (
+                        <li key={t}><span className="font-mono">{t}</span> — <b>{c}</b> ใบ</li>
+                    ))}
+                </ul>
+                <p className="font-bold">รวมทั้งหมด {total} ใบ</p>
+                <p className="text-xs text-slate-500">
+                    ไม่แตะ courseId / สถานะ / วันหมดอายุ → คนเก่าทุกคนยังเข้าคลังข้อสอบและเรียนได้เหมือนเดิม
+                    (ชื่อใหม่ยังมีคำว่า &ldquo;คลังข้อสอบ&rdquo;) · คอร์สอื่นไม่ถูกแตะ · กดซ้ำได้ปลอดภัย
+                </p>
+            </div>,
+            async () => {
+                setUnifying(true);
+                try {
+                    const CHUNK = 400;
+                    let done = 0;
+                    for (let i = 0; i < scoped.length; i += CHUNK) {
+                        const batch = writeBatch(db);
+                        for (const e of scoped.slice(i, i + CHUNK)) {
+                            batch.update(doc(db, "enrollments", e.id), { courseTitle: CANON_TITLE });
+                        }
+                        await batch.commit();
+                        done += Math.min(CHUNK, scoped.length - i);
+                    }
+                    await fetchData();
+                    alert(`รวมชื่อสำเร็จ — แก้ ${done} ใบให้เป็น "${CANON_TITLE}"`);
+                } catch (err) {
+                    console.error("Unify exam-bank titles failed:", err);
+                    alert("เกิดข้อผิดพลาดระหว่างรวมชื่อ — บางใบอาจยังไม่ถูกแก้ กดอีกครั้งได้ (ปลอดภัย/ทำซ้ำได้)");
+                } finally {
+                    setUnifying(false);
+                }
+            },
+            false
+        );
+    };
 
     useEffect(() => {
         let result = enrollments;
@@ -409,6 +484,14 @@ export default function AdminStudentsPage() {
                             <option value="All">ทุกคอร์ส</option>
                             {courseList.map((c, i) => <option key={i} value={c}>{c}</option>)}
                         </select>
+                        <button
+                            onClick={handleUnifyExamBankTitles}
+                            disabled={unifying || loading}
+                            className="px-4 py-2 text-sm font-bold bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 transition whitespace-nowrap"
+                            title='รวมทุกชื่อคอร์สที่มีคำว่า "คลังข้อสอบ" ให้เป็นชื่อเดียว (มี preview ให้ดูก่อนยืนยัน)'
+                        >
+                            {unifying ? "กำลังรวม..." : "รวมชื่อคลังข้อสอบ"}
+                        </button>
                     </div>
                 </div>
             </div>
