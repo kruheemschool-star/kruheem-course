@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useUserAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import Link from "next/link";
 import { Lock, Loader2, ArrowRight } from "lucide-react";
 
@@ -58,50 +58,28 @@ export default function ExamAccessGuard({
 
                 let isApproved = false;
                 let isPending = false;
-                const needCourseCheck = new Set<string>();
 
-                snapshot.forEach(d => {
-                    const data = d.data();
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (!data.courseTitle || !data.courseTitle.includes("คลังข้อสอบ")) return;
 
-                    // Expiry (unchanged): only a non-expired enrollment grants.
-                    const expiry = data.expiryDate?.toDate?.() ?? (data.expiryDate ? new Date(data.expiryDate) : null);
-                    const notExpired = !expiry || expiry > new Date();
+                    // 🎁 UNIVERSAL ACCESS POLICY (as of May 2026):
+                    // Any approved "คลังข้อสอบ" enrollment grants access to ALL exam
+                    // levels (primary / lower / upper). Previously we scoped access by
+                    // `allowedExamLevel` but we've unified the product — one purchase
+                    // unlocks everything through ม.6. This also preserves full
+                    // backward compatibility for legacy subscribers who had no
+                    // `allowedExamLevel` field.
 
-                    // UNIVERSAL ACCESS: any qualifying enrollment unlocks ALL
-                    // exam levels. "Qualifying" = (a) explicit per-course flag
-                    // denormalized onto the enrollment, OR (b) the LEGACY
-                    // courseTitle-includes-"คลังข้อสอบ" match — kept forever so
-                    // NO existing subscriber (any course name) loses access,
-                    // OR (c) a lazy course-doc lookup below, for older paid
-                    // enrollments created before the flag (e.g. Gifted buyers).
-                    const explicit = data.grantsExamAccess === true;
-                    const legacyTitle = typeof data.courseTitle === "string" && data.courseTitle.includes("คลังข้อสอบ");
-                    const examRelevant = explicit || legacyTitle;
-
-                    if (data.status === "approved" && notExpired) {
-                        if (examRelevant) {
+                    if (data.status === "approved") {
+                        // ✅ Check expiry date — only grant access if not expired
+                        const expiry = data.expiryDate?.toDate?.() ?? (data.expiryDate ? new Date(data.expiryDate) : null);
+                        if (!expiry || expiry > new Date()) {
                             isApproved = true;
-                        } else if (data.courseId) {
-                            needCourseCheck.add(data.courseId);
                         }
                     }
-                    if (data.status === "pending" && examRelevant) isPending = true;
+                    if (data.status === "pending") isPending = true;
                 });
-
-                // (c) Fallback ONLY if nothing above granted: read just the
-                // candidate course docs (courses are public-read) to honour the
-                // per-course flag for paid enrollments that predate Step 2.
-                // Skipped on the common path → zero extra reads for everyone
-                // who already works (and for non-members / expired / pending).
-                if (!isApproved && needCourseCheck.size > 0) {
-                    const ids = Array.from(needCourseCheck);
-                    const courseSnaps = await Promise.all(
-                        ids.map(id => getDoc(doc(db, "courses", id)))
-                    );
-                    if (courseSnaps.some(cs => cs.exists() && cs.data()?.grantsExamAccess === true)) {
-                        isApproved = true;
-                    }
-                }
 
                 if (isApproved) {
                     setHasAccess(true);
