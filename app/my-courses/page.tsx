@@ -301,7 +301,7 @@ export default function MyCoursesPage() {
 
     if (authLoading || loading) {
         return (
-            <div className="min-h-screen bg-white dark:bg-slate-950 font-sans pb-20">
+            <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans pb-20">
                 <Navbar />
                 <div className="flex flex-col items-center justify-center min-h-[60vh]">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
@@ -312,7 +312,7 @@ export default function MyCoursesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans pb-20 transition-colors">
+        <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans pb-20 transition-colors">
             <Navbar />
             <main className="container mx-auto px-4 py-8 pt-24 max-w-5xl">
 

@@ -385,7 +385,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
     };
 
     return (
-        <div className="bg-white dark:bg-slate-950 relative z-10 pb-12 transition-colors">
+        <div className="bg-white dark:bg-slate-950 bg-dot-pattern relative z-10 pb-12 transition-colors">
             {/* Search & Filter Section */}
             <div className="px-6 py-8 relative">
                 <div className="max-w-4xl mx-auto text-center mb-8">
