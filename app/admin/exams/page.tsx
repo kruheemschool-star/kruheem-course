@@ -380,10 +380,14 @@ export default function ExamManagerPage() {
         // it from primary-bank subscribers). Admin can still override in the row.
         const title = newExamTitle.trim();
         const derived = deriveExamLevel(null, null, title);
+        // Canonical sections (see scripts/retag-exams.mjs): สอบเข้า ม.1 / ป.6 / ม.1.
+        // Quick-add defaults a primary-ish title to ป.6 and a lower title to ม.1
+        // (both real sections); admin picks "สอบเข้า ม.1" from the per-row <select>
+        // when the title is an entrance set.
         const DEFAULTS: Record<string, { category: string; level: string }> = {
-            primary: { category: "ประถม", level: "ป.6" },
-            lower:   { category: "ม.ต้น", level: "ม.3" },
-            upper:   { category: "ม.ปลาย", level: "ม.6" },
+            primary: { category: "ป.6", level: "ป.6" },
+            lower:   { category: "ม.1", level: "ม.1" },
+            upper:   { category: "ม.1", level: "ม.1" },
         };
         const { category, level } = derived
             ? DEFAULTS[derived]

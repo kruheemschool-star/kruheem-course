@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, ArrowRight, FileText, Lightbulb, Loader2, BookOpen, BarChart3, Heart, Sparkles, ArrowUpDown, Filter } from "lucide-react";
+import { Search, ArrowRight, FileText, Lightbulb, Loader2, BookOpen, BarChart3, Heart, Sparkles, ArrowUpDown, Filter, Rocket, GraduationCap, Folder, type LucideIcon } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { useBookmarks } from "@/hooks/useBookmarks";
@@ -22,6 +22,60 @@ interface SearchMatch {
     isFree: boolean;
     questionMatches: { index: number; preview: string }[];
 }
+
+type ExamSection = {
+    id: string;
+    label: string;
+    blurb: string;
+    icon: LucideIcon;
+    iconWrap: string;
+    accentText: string;
+    badge: string;
+};
+
+// Display sections for the exam hub. `id` MUST equal the exam `category`
+// value written by scripts/retag-exams.mjs (สอบเข้า ม.1 / ป.6 / ม.1).
+// Order here = on-page order (flagship first); any exam whose category is
+// none of these falls into FALLBACK_SECTION so nothing ever disappears.
+const EXAM_SECTIONS: ExamSection[] = [
+    {
+        id: "สอบเข้า ม.1",
+        label: "สอบเข้า ม.1",
+        blurb: "ตะลุยโจทย์เตรียมสอบเข้า ม.1 และห้อง Gifted",
+        icon: Rocket,
+        iconWrap: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400",
+        accentText: "text-amber-600 dark:text-amber-400",
+        badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+    },
+    {
+        id: "ป.6",
+        label: "ป.6",
+        blurb: "เนื้อหาและแบบฝึกหัดตามบท ระดับประถม 6",
+        icon: BookOpen,
+        iconWrap: "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400",
+        accentText: "text-sky-600 dark:text-sky-400",
+        badge: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
+    },
+    {
+        id: "ม.1",
+        label: "ม.1",
+        blurb: "เนื้อหาและแบบฝึกหัดตามบท ระดับมัธยม 1",
+        icon: GraduationCap,
+        iconWrap: "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400",
+        accentText: "text-violet-600 dark:text-violet-400",
+        badge: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+    },
+];
+
+const FALLBACK_SECTION: ExamSection = {
+    id: "อื่นๆ",
+    label: "อื่นๆ",
+    blurb: "ข้อสอบอื่น ๆ",
+    icon: Folder,
+    iconWrap: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+    accentText: "text-slate-700 dark:text-slate-300",
+    badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+};
 
 export default function ExamListClient({ initialExams, enrollmentCount: initialEnrollmentCount = 0 }: ExamListClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
@@ -219,6 +273,28 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
 
         return result;
     }, [initialExams, selectedCategory, filterFree, filterBookmarked, sortBy, bookmarkedIds]);
+
+    // Group the already-filtered/sorted exams by category into display sections.
+    // Pure in-memory derive from filteredExams — no new fetch / no Firestore read.
+    const groupedSections = useMemo(() => {
+        const known = new Set(EXAM_SECTIONS.map(s => s.id));
+        const map = new Map<string, any[]>();
+        for (const e of filteredExams) {
+            const key = known.has(e.category) ? e.category : FALLBACK_SECTION.id;
+            const arr = map.get(key);
+            if (arr) arr.push(e);
+            else map.set(key, [e]);
+        }
+        return map;
+    }, [filteredExams]);
+
+    // Stable index per exam (for getTheme fallback color) so grouping doesn't
+    // change card colors vs. the old flat list.
+    const examOrder = useMemo(() => {
+        const m = new Map<string, number>();
+        filteredExams.forEach((e: any, i: number) => m.set(e.id, i));
+        return m;
+    }, [filteredExams]);
 
     const isSearchMode = searchQuery.trim().length > 0;
     const totalQuestionMatches = searchResults.reduce((sum, r) => sum + r.questionMatches.length, 0);
@@ -687,8 +763,34 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                 ) : (
                     /* Normal Grid Mode (No Search Query) */
                     filteredExams.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                            {filteredExams.map((exam, index) => {
+                        <div className="space-y-14">
+                            {[...EXAM_SECTIONS, FALLBACK_SECTION].map((sec) => {
+                                const items = groupedSections.get(sec.id);
+                                if (!items || items.length === 0) return null;
+                                const SecIcon = sec.icon;
+                                return (
+                                    <section key={sec.id} className="scroll-mt-24">
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl shadow-sm md:h-14 md:w-14 ${sec.iconWrap}`}>
+                                                <SecIcon className="h-6 w-6 md:h-7 md:w-7" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <h2 className={`text-2xl font-black tracking-tight md:text-3xl ${sec.accentText}`}>
+                                                        {sec.label}
+                                                    </h2>
+                                                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${sec.badge}`}>
+                                                        {items.length} ชุด
+                                                    </span>
+                                                </div>
+                                                <p className="mt-0.5 text-sm font-medium text-slate-500 dark:text-slate-400 md:text-base">
+                                                    {sec.blurb}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                                            {items.map((exam) => {
+                                                const index = examOrder.get(exam.id) ?? 0;
                                 const theme = getTheme(exam.themeColor, index);
                                 const dispTitle = (exam.title || "").replace(/<br\s*\/?>/gi, '\n');
 
@@ -798,6 +900,10 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                                             </div>
                                         </div>
                                     </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
                                 );
                             })}
                         </div>
