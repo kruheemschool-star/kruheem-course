@@ -112,10 +112,18 @@ export default function ExamAuditPage() {
                 const title = data.title || "";
                 const catDerived = deriveExamLevel(category, level, null);
                 const titleDerived = deriveExamLevel(null, null, title);
-                const mismatch = Boolean(
+                // Post-migration the 3 canonical sections are authoritative.
+                // The legacy deriveExamLevel(title) heuristic can't parse some
+                // titles (e.g. "แนวข้อสอบ เข้า ม.1" — "สอบเข้า" not contiguous),
+                // so suppress the category-mismatch flag (and its risky
+                // auto-fix button) once an exam is already in a canonical
+                // section. Question-corruption detection below is unaffected.
+                const isCanonicalSection =
+                    category === "สอบเข้า ม.1" || category === "ป.6" || category === "ม.1";
+                const mismatch = !isCanonicalSection && Boolean(
                     titleDerived && catDerived && titleDerived !== catDerived
                 );
-                const unresolved = !catDerived; // category couldn't be classified
+                const unresolved = !isCanonicalSection && !catDerived; // category couldn't be classified
 
                 // --- Question-corruption detection ---
                 // Mirror the questions-shape logic in app/exam/[id]/page.tsx
