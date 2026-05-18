@@ -14,6 +14,7 @@ import FAQSection from "./sections/FAQSection";
 import CTASection from "./sections/CTASection";
 import CountdownSection from "./sections/CountdownSection";
 import VideoPreviewSection from "./sections/VideoPreviewSection";
+import StatsTableSection from "./sections/StatsTableSection";
 
 export function renderSection(section: Section, ctx: SectionContext) {
     switch (section.type) {
@@ -45,6 +46,8 @@ export function renderSection(section: Section, ctx: SectionContext) {
             return <CountdownSection data={section.data} />;
         case "videoPreview":
             return <VideoPreviewSection data={section.data} />;
+        case "statsTable":
+            return <StatsTableSection data={section.data} />;
         default:
             return null;
     }

@@ -15,6 +15,7 @@ import {
     CTAForm,
     CountdownForm,
     VideoPreviewForm,
+    StatsTableForm,
 } from "./SectionForms";
 import type { Section, SectionType } from "@/app/course/[id]/template/types";
 
@@ -43,6 +44,7 @@ export function getSectionForm(type: SectionType): React.ComponentType<FormProps
         case "cta": return CTAForm as any;
         case "countdown": return CountdownForm as any;
         case "videoPreview": return VideoPreviewForm as any;
+        case "statsTable": return StatsTableForm as any;
         default: return null;
     }
 }
