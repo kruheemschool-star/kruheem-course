@@ -475,6 +475,15 @@ export function TestimonialForm({ value, onChange }: { value: TestimonialData; o
 /* ============================================================
    TrustBadgesForm
    ============================================================ */
+// Curated icon palette for stat badges (click to pick; manual typing in
+// the box still works for anything not listed here).
+const BADGE_ICONS = [
+    "🎓", "👨‍🎓", "👩‍🎓", "📚", "📝", "✏️", "📖", "🏆",
+    "🥇", "⭐", "🌟", "✨", "✅", "💯", "🔥", "🎯",
+    "📈", "📊", "🧠", "💡", "🚀", "⏳", "🗓️", "❤️",
+    "👍", "🎉", "🔒", "🛡️",
+];
+
 export function TrustBadgesForm({ value, onChange }: { value: TrustBadgesData; onChange: (v: TrustBadgesData) => void }) {
     const update = (patch: Partial<TrustBadgesData>) => onChange({ ...value, ...patch });
     return (
@@ -505,6 +514,19 @@ export function TrustBadgesForm({ value, onChange }: { value: TrustBadgesData; o
                                     placeholder="ตัวเลข เช่น 1,500+"
                                     className="flex-1 px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
                                 />
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                                {BADGE_ICONS.map((emo) => (
+                                    <button
+                                        key={emo}
+                                        type="button"
+                                        onClick={() => upd({ icon: emo })}
+                                        title={emo}
+                                        className={`w-9 h-9 flex items-center justify-center text-xl rounded-lg border transition-colors ${item.icon === emo ? "border-indigo-500 bg-indigo-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+                                    >
+                                        {emo}
+                                    </button>
+                                ))}
                             </div>
                             <input
                                 type="text"
