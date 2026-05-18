@@ -11,6 +11,8 @@ import type {
     TestimonialStory,
     TrustBadgesData,
     TrustBadgeStat,
+    StatsTableData,
+    StatsTableRow,
     PriceStackData,
     GuaranteeData,
     ComparisonData,
@@ -510,6 +512,50 @@ export function TrustBadgesForm({ value, onChange }: { value: TrustBadgesData; o
                                 onChange={(e) => upd({ label: e.target.value })}
                                 placeholder="ป้ายกำกับ เช่น นักเรียน"
                                 className="w-full px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                            />
+                        </div>
+                    )}
+                />
+            </FormScroll>
+        </div>
+    );
+}
+
+/* ============================================================
+   StatsTableForm — ตาราง 2 คอลัมน์ (ตัวเลข | ความหมาย)
+   ============================================================ */
+export function StatsTableForm({ value, onChange }: { value: StatsTableData; onChange: (v: StatsTableData) => void }) {
+    const update = (patch: Partial<StatsTableData>) => onChange({ ...value, ...patch });
+    return (
+        <div className="flex flex-col flex-1 min-h-0">
+            <FormScroll>
+                <TextField label="ชื่อหัวข้อ (ไม่ใส่ก็ได้)" value={value.title} onChange={(v) => update({ title: v })} />
+                <div className="grid grid-cols-2 gap-3">
+                    <TextField label="หัวคอลัมน์ซ้าย" value={value.leftHeader} onChange={(v) => update({ leftHeader: v })} placeholder="เช่น ตัวเลข" />
+                    <TextField label="หัวคอลัมน์ขวา" value={value.rightHeader} onChange={(v) => update({ rightHeader: v })} placeholder="เช่น ความหมาย" />
+                </div>
+                <ArrayField
+                    label="แถวข้อมูล"
+                    items={value.rows || []}
+                    onChange={(items) => update({ rows: items })}
+                    newItem={() => ({ left: "", right: "" }) as StatsTableRow}
+                    addLabel="+ เพิ่มแถว"
+                    itemTitle={(item) => `${item.left || "—"}  |  ${item.right || "—"}`}
+                    renderItem={(item, upd) => (
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={item.left}
+                                onChange={(e) => upd({ left: e.target.value })}
+                                placeholder="ตัวเลข เช่น 3,087+"
+                                className="w-2/5 px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                            />
+                            <input
+                                type="text"
+                                value={item.right}
+                                onChange={(e) => upd({ right: e.target.value })}
+                                placeholder="ความหมาย เช่น โจทย์ในระบบ"
+                                className="flex-1 px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
                             />
                         </div>
                     )}

@@ -16,7 +16,8 @@ export type SectionType =
     | "faq"
     | "cta"
     | "countdown"
-    | "videoPreview";
+    | "videoPreview"
+    | "statsTable";
 
 export interface BaseSection<T extends SectionType, D> {
     id: string;
@@ -131,6 +132,18 @@ export interface TrustBadgesData {
     stats: TrustBadgeStat[];
 }
 
+export interface StatsTableRow {
+    left: string;   // ตัวเลข เช่น "3,087+"
+    right: string;  // ความหมาย เช่น "โจทย์ในระบบ · เพิ่มใหม่ทุกเดือน"
+}
+
+export interface StatsTableData {
+    title?: string;
+    leftHeader: string;   // หัวคอลัมน์ซ้าย เช่น "ตัวเลข"
+    rightHeader: string;  // หัวคอลัมน์ขวา เช่น "ความหมาย"
+    rows: StatsTableRow[];
+}
+
 export interface PriceStackData {
     title?: string;
     subtitle?: string;
@@ -211,7 +224,8 @@ export type Section =
     | BaseSection<"faq", FAQData>
     | BaseSection<"cta", CTAData>
     | BaseSection<"countdown", CountdownData>
-    | BaseSection<"videoPreview", VideoPreviewData>;
+    | BaseSection<"videoPreview", VideoPreviewData>
+    | BaseSection<"statsTable", StatsTableData>;
 
 // ---------- Conversion Boosters ----------
 

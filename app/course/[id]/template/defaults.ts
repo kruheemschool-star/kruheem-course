@@ -15,6 +15,7 @@ export const SECTION_META: Record<SectionType, { label: string; icon: string; de
     cta: { label: "Final CTA", icon: "🚀", desc: "ปิดการขายครั้งสุดท้าย" },
     countdown: { label: "Countdown Timer", icon: "⏰", desc: "นับถอยหลังโปรโมชั่น" },
     videoPreview: { label: "Video Preview", icon: "🎬", desc: "วิดีโอตัวอย่างคอร์สเรียน" },
+    statsTable: { label: "ตารางสถิติ", icon: "📋", desc: "ตาราง 2 คอลัมน์ (ตัวเลข | ความหมาย)" },
 };
 
 export function createDefaultSection(type: SectionType, order: number): Section {
@@ -114,6 +115,20 @@ export function createDefaultSection(type: SectionType, order: number): Section 
                     stats: [
                         { icon: "👨‍🎓", number: "1,500+", label: "นักเรียน" },
                         { icon: "⭐", number: "4.9", label: "รีวิว" },
+                    ],
+                },
+            };
+        case "statsTable":
+            return {
+                ...base,
+                type: "statsTable",
+                data: {
+                    title: "",
+                    leftHeader: "ตัวเลข",
+                    rightHeader: "ความหมาย",
+                    rows: [
+                        { left: "100+", right: "รายละเอียด" },
+                        { left: "5 ปี", right: "รายละเอียด" },
                     ],
                 },
             };
