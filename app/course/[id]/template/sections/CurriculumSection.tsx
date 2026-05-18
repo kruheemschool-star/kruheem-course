@@ -36,7 +36,7 @@ export default function CurriculumSection({ data }: { data: CurriculumData }) {
                                 >
                                     <div className="flex items-center gap-5">
                                         <div className={`w-12 h-12 bg-white shadow-sm rounded-2xl flex items-center justify-center font-bold text-xl ${iconClass}`} style={isHexIcon ? { color: ch.iconColor } : undefined}>
-                                            {ch.id}
+                                            {i + 1}
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-xl text-slate-800">{ch.title}</h3>
