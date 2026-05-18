@@ -36,7 +36,7 @@ export default function ComparisonSection({ data }: { data: ComparisonData }) {
                                             ✓
                                         </span>
                                     ) : (
-                                        <span className={`text-xl flex-shrink-0 ${col.highlight ? "text-white/40" : "text-slate-300"}`}>
+                                        <span className={`text-xl font-bold flex-shrink-0 ${col.highlight ? "text-red-300" : "text-red-500"}`}>
                                             ✗
                                         </span>
                                     )}
@@ -47,8 +47,8 @@ export default function ComparisonSection({ data }: { data: ComparisonData }) {
                                                     ? "text-white"
                                                     : "text-slate-700"
                                                 : col.highlight
-                                                ? "text-white/50 line-through"
-                                                : "text-slate-400 line-through"
+                                                ? "text-white/80"
+                                                : "text-slate-600"
                                         }`}
                                     >
                                         {feat.text}
