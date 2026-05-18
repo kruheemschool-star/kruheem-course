@@ -150,6 +150,32 @@ export function ColorField({
     );
 }
 
+// Shared curated emoji set for every icon field (pain / education /
+// positive / general). Manual typing in the box still allows anything.
+export const ICON_CHOICES: string[] = [
+    "😰", "😣", "😵", "😓", "😱", "🤯", "😢", "💸", "⏰", "❌", "📉", "🚫", "⚠️", "❓",
+    "📚", "📝", "✏️", "📖", "🎓", "👨‍🎓", "👩‍🎓", "🧠", "💡", "🎯",
+    "✅", "✨", "⭐", "🌟", "🏆", "🥇", "💯", "🔥", "🚀", "📈", "📊", "👍", "❤️", "🎉", "🔒", "🛡️", "⏳", "🗓️", "💪", "⚡", "🙌",
+];
+
+export function IconPalette({ value, onChange }: { value?: string; onChange: (v: string) => void }) {
+    return (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+            {ICON_CHOICES.map((emo) => (
+                <button
+                    key={emo}
+                    type="button"
+                    onClick={() => onChange(emo)}
+                    title={emo}
+                    className={`w-8 h-8 flex items-center justify-center text-lg rounded-lg border transition-colors ${value === emo ? "border-indigo-500 bg-indigo-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+                >
+                    {emo}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 export function IconField({
     label,
     value,
@@ -172,6 +198,7 @@ export function IconField({
                 maxLength={4}
                 className="w-20 px-3 py-2 text-2xl text-center border-2 border-slate-200 rounded-xl focus:border-indigo-400 outline-none"
             />
+            <IconPalette value={value} onChange={onChange} />
             {helper && <p className="text-xs text-slate-400 mt-1">{helper}</p>}
         </div>
     );

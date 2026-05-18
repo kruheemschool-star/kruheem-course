@@ -111,7 +111,7 @@ export default function TemplatePage({
     const boosters = config.boosters;
 
     return (
-        <div className="min-h-screen bg-[#F8F9FD] font-sans text-slate-800">
+        <div className="min-h-screen bg-[#F8F9FD] bg-dot-pattern font-sans text-slate-800">
             <Navbar />
             <main className="pb-24">
                 {visibleSections.map((section) => (

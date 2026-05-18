@@ -28,6 +28,7 @@ import {
     TextareaField,
     NumberField,
     IconField,
+    IconPalette,
     SelectField,
     ArrayField,
     FormTabs,
@@ -81,21 +82,24 @@ export function PainPointForm({ value, onChange }: { value: PainPointData; onCha
                             addLabel="+ เพิ่มปัญหา"
                             itemTitle={(item) => item.text || ""}
                             renderItem={(item, upd) => (
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={item.icon}
-                                        onChange={(e) => upd({ icon: e.target.value })}
-                                        maxLength={4}
-                                        className="w-16 px-2 py-2 text-2xl text-center border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={item.text}
-                                        onChange={(e) => upd({ text: e.target.value })}
-                                        placeholder="ข้อความปัญหา"
-                                        className="flex-1 px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
-                                    />
+                                <div className="space-y-2">
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={item.icon}
+                                            onChange={(e) => upd({ icon: e.target.value })}
+                                            maxLength={4}
+                                            className="w-16 px-2 py-2 text-2xl text-center border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={item.text}
+                                            onChange={(e) => upd({ text: e.target.value })}
+                                            placeholder="ข้อความปัญหา"
+                                            className="flex-1 px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                        />
+                                    </div>
+                                    <IconPalette value={item.icon} onChange={(v) => upd({ icon: v })} />
                                 </div>
                             )}
                         />
@@ -127,21 +131,24 @@ export function PainPointForm({ value, onChange }: { value: PainPointData; onCha
                             addLabel="+ เพิ่มประโยชน์"
                             itemTitle={(item) => item.text || ""}
                             renderItem={(item, upd) => (
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={item.icon}
-                                        onChange={(e) => upd({ icon: e.target.value })}
-                                        maxLength={4}
-                                        className="w-16 px-2 py-2 text-2xl text-center border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={item.text}
-                                        onChange={(e) => upd({ text: e.target.value })}
-                                        placeholder="ข้อความประโยชน์"
-                                        className="flex-1 px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
-                                    />
+                                <div className="space-y-2">
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={item.icon}
+                                            onChange={(e) => upd({ icon: e.target.value })}
+                                            maxLength={4}
+                                            className="w-16 px-2 py-2 text-2xl text-center border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={item.text}
+                                            onChange={(e) => upd({ text: e.target.value })}
+                                            placeholder="ข้อความประโยชน์"
+                                            className="flex-1 px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                        />
+                                    </div>
+                                    <IconPalette value={item.icon} onChange={(v) => upd({ icon: v })} />
                                 </div>
                             )}
                         />
@@ -187,6 +194,7 @@ export function SolutionForm({ value, onChange }: { value: SolutionData; onChang
                                     className="flex-1 px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
                                 />
                             </div>
+                            <IconPalette value={item.icon} onChange={(v) => upd({ icon: v })} />
                             <textarea
                                 value={item.desc}
                                 onChange={(e) => upd({ desc: e.target.value })}
@@ -475,15 +483,6 @@ export function TestimonialForm({ value, onChange }: { value: TestimonialData; o
 /* ============================================================
    TrustBadgesForm
    ============================================================ */
-// Curated icon palette for stat badges (click to pick; manual typing in
-// the box still works for anything not listed here).
-const BADGE_ICONS = [
-    "🎓", "👨‍🎓", "👩‍🎓", "📚", "📝", "✏️", "📖", "🏆",
-    "🥇", "⭐", "🌟", "✨", "✅", "💯", "🔥", "🎯",
-    "📈", "📊", "🧠", "💡", "🚀", "⏳", "🗓️", "❤️",
-    "👍", "🎉", "🔒", "🛡️",
-];
-
 export function TrustBadgesForm({ value, onChange }: { value: TrustBadgesData; onChange: (v: TrustBadgesData) => void }) {
     const update = (patch: Partial<TrustBadgesData>) => onChange({ ...value, ...patch });
     return (
@@ -515,19 +514,7 @@ export function TrustBadgesForm({ value, onChange }: { value: TrustBadgesData; o
                                     className="flex-1 px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
                                 />
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                                {BADGE_ICONS.map((emo) => (
-                                    <button
-                                        key={emo}
-                                        type="button"
-                                        onClick={() => upd({ icon: emo })}
-                                        title={emo}
-                                        className={`w-9 h-9 flex items-center justify-center text-xl rounded-lg border transition-colors ${item.icon === emo ? "border-indigo-500 bg-indigo-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
-                                    >
-                                        {emo}
-                                    </button>
-                                ))}
-                            </div>
+                            <IconPalette value={item.icon} onChange={(v) => upd({ icon: v })} />
                             <input
                                 type="text"
                                 value={item.label}
