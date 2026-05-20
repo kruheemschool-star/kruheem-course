@@ -198,17 +198,17 @@ export default function VideoPreviewSection({ data }: { data: VideoPreviewData }
     };
 
     return (
-        <section className="w-full py-16 md:py-24 bg-gradient-to-b from-slate-50 via-white to-slate-50 overflow-hidden">
+        <section className="w-full py-16 md:py-24 bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 overflow-hidden">
             {/* Header */}
             <div className="text-center mb-12 md:mb-16 px-4">
-                <h2 className="text-3xl md:text-5xl font-extrabold text-slate-800 mb-4 tracking-tight">
+                <h2 className="text-3xl md:text-5xl font-extrabold text-slate-800 dark:text-white mb-4 tracking-tight">
                     {data.title || "ตัวอย่างคอร์สเรียน"}{" "}
-                    <span className="text-indigo-600">🎬</span>
+                    <span className="text-indigo-600 dark:text-indigo-400">🎬</span>
                 </h2>
                 {data.subtitle && (
-                    <p className="text-slate-500 text-lg md:text-xl max-w-2xl mx-auto">{data.subtitle}</p>
+                    <p className="text-slate-500 dark:text-slate-400 text-lg md:text-xl max-w-2xl mx-auto">{data.subtitle}</p>
                 )}
-                <div className="w-24 h-1.5 bg-indigo-600 mx-auto rounded-full opacity-20 mt-5" />
+                <div className="w-24 h-1.5 bg-indigo-600 dark:bg-indigo-400 mx-auto rounded-full opacity-20 mt-5" />
             </div>
 
             {/* MacBook + Carousel */}
@@ -243,8 +243,8 @@ export default function VideoPreviewSection({ data }: { data: VideoPreviewData }
                                 disabled={!hasPrev}
                                 className={`absolute left-0 md:-left-6 top-[45%] -translate-y-1/2 z-20 w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
                                     hasPrev
-                                        ? "bg-white shadow-lg shadow-slate-200/60 hover:shadow-xl hover:scale-110 text-slate-700 hover:text-indigo-600 border border-slate-200"
-                                        : "bg-slate-100 text-slate-300 cursor-not-allowed border border-slate-100"
+                                        ? "bg-white dark:bg-slate-900 shadow-lg shadow-slate-200/60 dark:shadow-slate-950/60 hover:shadow-xl hover:scale-110 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-800"
+                                        : "bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed border border-slate-100 dark:border-slate-800"
                                 }`}
                                 aria-label="Previous video"
                             >
@@ -256,8 +256,8 @@ export default function VideoPreviewSection({ data }: { data: VideoPreviewData }
                                 disabled={!hasNext}
                                 className={`absolute right-0 md:-right-6 top-[45%] -translate-y-1/2 z-20 w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
                                     hasNext
-                                        ? "bg-white shadow-lg shadow-slate-200/60 hover:shadow-xl hover:scale-110 text-slate-700 hover:text-indigo-600 border border-slate-200"
-                                        : "bg-slate-100 text-slate-300 cursor-not-allowed border border-slate-100"
+                                        ? "bg-white dark:bg-slate-900 shadow-lg shadow-slate-200/60 dark:shadow-slate-950/60 hover:shadow-xl hover:scale-110 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-800"
+                                        : "bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed border border-slate-100 dark:border-slate-800"
                                 }`}
                                 aria-label="Next video"
                             >
@@ -270,11 +270,11 @@ export default function VideoPreviewSection({ data }: { data: VideoPreviewData }
                 {/* Title + dots below MacBook */}
                 <div className="text-center mt-8 md:mt-10">
                     <div className="min-h-[3.5rem]">
-                        <h3 className="font-bold text-slate-800 text-lg md:text-xl transition-all duration-300">
+                        <h3 className="font-bold text-slate-800 dark:text-white text-lg md:text-xl transition-all duration-300">
                             {validVideos[current]?.title}
                         </h3>
                         {validVideos[current]?.description && (
-                            <p className="text-sm md:text-base text-slate-500 mt-1.5 max-w-lg mx-auto leading-relaxed">
+                            <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mt-1.5 max-w-lg mx-auto leading-relaxed">
                                 {validVideos[current].description}
                             </p>
                         )}
@@ -289,8 +289,8 @@ export default function VideoPreviewSection({ data }: { data: VideoPreviewData }
                                     onClick={() => goTo(i)}
                                     className={`rounded-full transition-all duration-300 ${
                                         i === current
-                                            ? "w-8 h-2.5 bg-indigo-600"
-                                            : "w-2.5 h-2.5 bg-slate-300 hover:bg-slate-400"
+                                            ? "w-8 h-2.5 bg-indigo-600 dark:bg-indigo-400"
+                                            : "w-2.5 h-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
                                     }`}
                                     aria-label={`Go to video ${i + 1}: ${v.title}`}
                                 />
@@ -299,7 +299,7 @@ export default function VideoPreviewSection({ data }: { data: VideoPreviewData }
                     )}
 
                     {count > 1 && (
-                        <p className="text-xs text-slate-400 font-medium mt-3">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-3">
                             {current + 1} / {count}
                         </p>
                     )}
