@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
 import { sanitizeExamData } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
-import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -365,6 +366,35 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     if (isFinished && finalScore) {
         const wrongCount = finalScore.total - finalScore.score;
 
+        // Identify the topics (tags) the student answered worst on.
+        // Per-tag: count attempts on that tag + wrong attempts. A tag is
+        // "weak" if there were >=2 attempts on it AND >=40% of those were
+        // wrong. Top 3 by wrong-rate are surfaced as practice suggestions.
+        // No Firestore reads — uses in-memory exam + answers only.
+        const weakTopics: { tag: string; wrong: number; total: number; pct: number }[] = (() => {
+            if (!showAnswerChecking) return [];
+            const stats: Record<string, { wrong: number; total: number }> = {};
+            sanitizedExamData.slice(0, finalScore.total).forEach((q, idx) => {
+                if (!q.tags || q.tags.length === 0) return;
+                const isCorrect = answers[idx] === q.correctIndex;
+                q.tags.forEach((tag: string) => {
+                    if (!stats[tag]) stats[tag] = { wrong: 0, total: 0 };
+                    stats[tag].total++;
+                    if (!isCorrect) stats[tag].wrong++;
+                });
+            });
+            return Object.entries(stats)
+                .filter(([, s]) => s.total >= 2 && s.wrong / s.total >= 0.4)
+                .map(([tag, s]) => ({
+                    tag,
+                    wrong: s.wrong,
+                    total: s.total,
+                    pct: Math.round((s.wrong / s.total) * 100),
+                }))
+                .sort((a, b) => b.pct - a.pct || b.wrong - a.wrong)
+                .slice(0, 3);
+        })();
+
         return (
             <div className="max-w-4xl mx-auto py-12 px-6">
                 <div className="bg-white dark:bg-slate-800 rounded-[3rem] shadow-xl p-8 md:p-12 border border-stone-100 dark:border-slate-700 relative overflow-hidden">
@@ -457,6 +487,42 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             ทำข้อสอบใหม่
                         </button>
                     </div>
+
+                    {/* Weakness Recommendation */}
+                    {weakTopics.length > 0 && (
+                        <div className="mb-2 rounded-3xl border-2 border-amber-200 dark:border-amber-700/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/20 p-6 md:p-8">
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-300/50">
+                                    <Target size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-xl md:text-2xl font-black text-amber-800 dark:text-amber-300 mb-1">
+                                        หัวข้อที่ควรฝึกเพิ่ม
+                                    </h3>
+                                    <p className="text-sm text-amber-700/80 dark:text-amber-400/80 leading-relaxed">
+                                        จากข้อที่ตอบผิด — หัวข้อพวกนี้อ่อนสุด ลองคลิกฝึกเพิ่มได้เลยครับ
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-3">
+                                {weakTopics.map((t) => (
+                                    <Link
+                                        key={t.tag}
+                                        href={`/exam/practice?q=${encodeURIComponent(t.tag)}`}
+                                        className="group inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-700/60 shadow-sm hover:shadow-md hover:border-amber-400 dark:hover:border-amber-500 hover:-translate-y-0.5 transition-all"
+                                    >
+                                        <span className="font-bold text-amber-700 dark:text-amber-300">{t.tag}</span>
+                                        <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 px-2 py-0.5 rounded-full">
+                                            ผิด {t.wrong}/{t.total}
+                                        </span>
+                                        <span className="text-xs text-amber-600 dark:text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            ฝึกต่อ →
+                                        </span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Question Map with Results */}
