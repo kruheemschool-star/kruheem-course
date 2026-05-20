@@ -887,6 +887,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                                                         : 'bg-black/30 text-white/70 hover:bg-black/50 hover:text-white opacity-0 group-hover:opacity-100'
                                                 }`}
                                                 title={isBookmarked(exam.id) ? 'ยกเลิกบันทึก' : 'บันทึกข้อสอบนี้'}
+                                                aria-label={isBookmarked(exam.id) ? 'ยกเลิกบันทึก' : 'บันทึกข้อสอบนี้'}
                                             >
                                                 <Heart size={18} className={isBookmarked(exam.id) ? 'fill-current' : ''} />
                                             </button>

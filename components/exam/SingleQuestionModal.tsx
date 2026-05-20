@@ -70,6 +70,7 @@ export default function SingleQuestionModal({
                         )}
                         <button
                             onClick={onClose}
+                            aria-label="ปิดหน้าต่าง"
                             className="p-2 text-stone-400 hover:text-stone-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-700 rounded-lg transition-all"
                         >
                             <X size={20} />

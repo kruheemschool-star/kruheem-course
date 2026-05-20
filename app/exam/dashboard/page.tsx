@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useUserAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, query, orderBy, limit } from "firebase/firestore";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import {
@@ -72,15 +72,15 @@ export default function ExamDashboardPage() {
         
         (async () => {
             try {
-                const snap = await getDocs(collection(db, "users", user.uid, "examResults"));
+                // Cap at 500 latest results to keep page fast for heavy users
+                const resultsQuery = query(
+                    collection(db, "users", user.uid, "examResults"),
+                    orderBy("completedAt", "desc"),
+                    limit(500)
+                );
+                const snap = await getDocs(resultsQuery);
                 console.log('[Dashboard] Fetched results count:', snap.docs.length);
                 const fetched: ExamResult[] = snap.docs.map(d => ({ ...d.data() } as ExamResult));
-                // Sort by completedAt desc
-                fetched.sort((a, b) => {
-                    const tA = a.completedAt?.seconds || 0;
-                    const tB = b.completedAt?.seconds || 0;
-                    return tB - tA;
-                });
                 setResults(fetched);
                 console.log('[Dashboard] Results set:', fetched.length);
                 
