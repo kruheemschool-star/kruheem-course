@@ -165,22 +165,29 @@ export default function PaymentPage() {
     }
   }, [user, authLoading, router]);
 
+  const [coursesLoadError, setCoursesLoadError] = useState<string | null>(null);
   useEffect(() => {
     const fetchCourses = async () => {
-      const q = query(collection(db, "courses"), orderBy("createdAt", "desc"));
-      const snapshot = await getDocs(q);
-      const courseData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCourses(courseData);
+      try {
+        const q = query(collection(db, "courses"), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        const courseData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setCourses(courseData);
 
-      const allCategories = Array.from(new Set(courseData.map((c: any) => c.category || "อื่นๆ")));
-      const sortedCategories = allCategories.sort((a, b) => {
-        const orderA = categoryOrder[a] || 99;
-        const orderB = categoryOrder[b] || 99;
-        return orderA - orderB;
-      });
+        const allCategories = Array.from(new Set(courseData.map((c: any) => c.category || "อื่นๆ")));
+        const sortedCategories = allCategories.sort((a, b) => {
+          const orderA = categoryOrder[a] || 99;
+          const orderB = categoryOrder[b] || 99;
+          return orderA - orderB;
+        });
 
-      setCategories(sortedCategories);
-      if (sortedCategories.length > 0) setSelectedCategory(sortedCategories[0]);
+        setCategories(sortedCategories);
+        if (sortedCategories.length > 0) setSelectedCategory(sortedCategories[0]);
+        setCoursesLoadError(null);
+      } catch (err) {
+        console.error("Failed to load courses:", err);
+        setCoursesLoadError("โหลดรายชื่อคอร์สไม่สำเร็จ กรุณารีเฟรชหน้าใหม่ หรือเช็คอินเทอร์เน็ต");
+      }
     };
     fetchCourses();
   }, []);
@@ -485,6 +492,13 @@ export default function PaymentPage() {
             </h1>
             <p className="text-slate-500 dark:text-slate-400 font-medium">กรอกข้อมูลและแนบสลิปเพื่อเริ่มเรียนทันที</p>
           </div>
+
+          {coursesLoadError && (
+            <div className="mb-6 rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-5 py-4 text-rose-700 dark:text-rose-300 text-sm flex items-start gap-3">
+              <span className="text-xl leading-none">⚠️</span>
+              <span>{coursesLoadError}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-8">
 
