@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExamQuestion } from '@/types/exam';
 import MathRenderer from './MathRenderer';
 import { X, CheckCircle2, XCircle, HelpCircle, Bookmark } from 'lucide-react';
@@ -27,6 +27,15 @@ export default function SingleQuestionModal({
 }: SingleQuestionModalProps) {
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
     const [showAnswer, setShowAnswer] = useState(false);
+
+    // Close on Escape key
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [onClose]);
 
     const correctIndex = question.correctIndex;
     const hasAnswered = selectedOption !== null;

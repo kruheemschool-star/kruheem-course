@@ -20,6 +20,8 @@ import { useUserAuth } from "@/context/AuthContext";
 import { Star, MessageCircle, Send, User, Reply, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 
+const MAX_COMMENT_LENGTH = 2000;
+
 // ─── Types ───────────────────────────────────────────────────────────
 interface BlogComment {
     id: string;
@@ -183,6 +185,10 @@ function CommentItem({
     const handleReply = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !replyContent.trim()) return;
+        if (replyContent.trim().length > MAX_COMMENT_LENGTH) {
+            alert(`ตอบกลับยาวเกินไป (สูงสุด ${MAX_COMMENT_LENGTH.toLocaleString()} ตัวอักษร)`);
+            return;
+        }
         setSubmitting(true);
         try {
             await addDoc(collection(db, "postComments"), {
@@ -198,6 +204,7 @@ function CommentItem({
             setShowReplyForm(false);
         } catch (err) {
             console.error("Error adding reply:", err);
+            alert("ไม่สามารถส่งตอบกลับได้ กรุณาลองใหม่");
         } finally {
             setSubmitting(false);
         }
@@ -340,6 +347,10 @@ function BlogComments({ postId }: { postId: string }) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !newComment.trim()) return;
+        if (newComment.trim().length > MAX_COMMENT_LENGTH) {
+            alert(`ความคิดเห็นยาวเกินไป (สูงสุด ${MAX_COMMENT_LENGTH.toLocaleString()} ตัวอักษร)`);
+            return;
+        }
         setSubmitting(true);
         try {
             await addDoc(collection(db, "postComments"), {
