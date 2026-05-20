@@ -7,6 +7,8 @@ import { doc, getDoc, collection, getDocs, query, orderBy, limit } from "firebas
 import { getCachedData } from "@/lib/dataCache";
 import Link from "next/link";
 import { ArrowLeft, ChevronDown, BookOpen, Clock, CheckCircle2, PlayCircle, Lock, Award, Target, TrendingUp } from "lucide-react";
+import LoadingState from "@/components/ui/LoadingState";
+import EmptyState from "@/components/ui/EmptyState";
 
 // Types
 interface Course {
@@ -221,14 +223,7 @@ export default function ParentDashboard() {
     }, [uid]);
 
     if (loading) {
-        return (
-            <div className="min-h-screen bg-[#FAFAFA] dark:bg-slate-950 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-slate-200 dark:border-slate-700 border-t-slate-800 dark:border-t-slate-200 rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-slate-500 dark:text-slate-400 font-medium">กำลังโหลดข้อมูล...</p>
-                </div>
-            </div>
-        );
+        return <LoadingState message="กำลังโหลดข้อมูล..." size="lg" fullScreen />;
     }
 
     if (!userProfile) {
@@ -362,10 +357,11 @@ export default function ParentDashboard() {
                     <p className="text-sm font-medium text-slate-500 dark:text-slate-400 px-1">📚 คอร์สที่ลงเรียน ({courses.length} คอร์ส)</p>
 
                     {courses.length === 0 ? (
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 text-center border border-slate-100 dark:border-slate-800">
-                            <p className="text-4xl mb-2">📭</p>
-                            <p className="text-slate-500 dark:text-slate-400">ยังไม่มีคอร์สที่ลงเรียน</p>
-                        </div>
+                        <EmptyState
+                            icon="📭"
+                            title="ยังไม่มีคอร์สที่ลงเรียน"
+                            description="เมื่อนักเรียนลงทะเบียนเรียนคอร์สใดๆ จะแสดงผลการเรียนที่นี่"
+                        />
                     ) : (
                         courses.map(course => {
                             const progress = courseProgressMap[course.id];
