@@ -6,9 +6,9 @@ import { ExamQuestion } from '@/types/exam';
 import { sanitizeExamData } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
-import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // === localStorage Auto-Save Helpers ===
@@ -56,6 +56,56 @@ const clearProgressFromLocal = (examId: string): void => {
         localStorage.removeItem(getProgressKey(examId));
     } catch (e) {
         console.warn('[ExamAutoSave] Failed to clear progress:', e);
+    }
+};
+
+// === Cloud Save Helpers (cross-device resume) ===
+// Stored at users/{uid}/inProgressExams/{examId}. Writes happen ONLY on
+// explicit user action ("save to cloud" button) and on successful submit
+// (which deletes the doc), so Firestore writes are bounded to ~2 per exam.
+const saveProgressToCloud = async (uid: string, examId: string, data: SavedExamProgress) => {
+    try {
+        await setDoc(doc(db, "users", uid, "inProgressExams", examId), {
+            ...data,
+            savedAt: serverTimestamp(),
+            clientSavedAt: data.savedAt,
+        });
+        return true;
+    } catch (e) {
+        console.warn('[ExamCloudSave] Failed to save to cloud:', e);
+        return false;
+    }
+};
+
+const loadProgressFromCloud = async (uid: string, examId: string): Promise<SavedExamProgress | null> => {
+    try {
+        const snap = await getDoc(doc(db, "users", uid, "inProgressExams", examId));
+        if (!snap.exists()) return null;
+        const data = snap.data() as Partial<SavedExamProgress> & { clientSavedAt?: number };
+        if (!data.answers || Object.keys(data.answers).length === 0) return null;
+        const savedAt = data.clientSavedAt || data.savedAt || Date.now();
+        // Respect the same 72h expiry rule as localStorage
+        const ageHours = (Date.now() - savedAt) / (1000 * 60 * 60);
+        if (ageHours > PROGRESS_EXPIRY_HOURS) return null;
+        return {
+            answers: data.answers,
+            checkedQuestions: data.checkedQuestions || {},
+            currentQuestionIndex: data.currentQuestionIndex || 0,
+            questionTimes: data.questionTimes || {},
+            savedAt,
+        };
+    } catch (e) {
+        console.warn('[ExamCloudSave] Failed to load from cloud:', e);
+        return null;
+    }
+};
+
+const clearProgressFromCloud = async (uid: string, examId: string) => {
+    try {
+        await deleteDoc(doc(db, "users", uid, "inProgressExams", examId));
+    } catch (e) {
+        // Non-blocking — if delete fails, doc will auto-expire client-side
+        console.warn('[ExamCloudSave] Failed to clear cloud progress:', e);
     }
 };
 
@@ -149,6 +199,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const [showGrid, setShowGrid] = useState(false);
     const [finalScore, setFinalScore] = useState<FinalScore | null>(null);
     const [wasRestored, setWasRestored] = useState(false); // Show "resumed" banner
+    const [cloudSaveState, setCloudSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [restoredFromCloud, setRestoredFromCloud] = useState(false);
 
     // Time tracking
     const examStartTime = React.useRef<number>(Date.now());
@@ -186,20 +238,35 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     }, [currentQuestionIndex, isFinished]);
 
     // === Auto-Save: Restore saved progress on mount ===
+    // Try localStorage first (fast, device-local). If empty AND user is
+    // logged in, try cloud (cross-device). Cloud read is a single getDoc.
     const hasRestoredRef = useRef(false);
     useEffect(() => {
         if (!examId || isTrial || hasRestoredRef.current) return;
         hasRestoredRef.current = true;
-        const saved = loadProgressFromLocal(examId);
-        if (saved && Object.keys(saved.answers).length > 0) {
-            setAnswers(saved.answers);
-            setCheckedQuestions(saved.checkedQuestions || {});
-            setCurrentQuestionIndex(saved.currentQuestionIndex || 0);
-            questionTimes.current = saved.questionTimes || {};
+        const local = loadProgressFromLocal(examId);
+        if (local && Object.keys(local.answers).length > 0) {
+            setAnswers(local.answers);
+            setCheckedQuestions(local.checkedQuestions || {});
+            setCurrentQuestionIndex(local.currentQuestionIndex || 0);
+            questionTimes.current = local.questionTimes || {};
             setWasRestored(true);
-            console.log('[ExamAutoSave] Restored progress:', Object.keys(saved.answers).length, 'answers');
+            return;
         }
-    }, [examId, isTrial]);
+        // No local data — try cloud if user is logged in
+        if (!user?.uid) return;
+        (async () => {
+            const cloud = await loadProgressFromCloud(user.uid, examId);
+            if (cloud && Object.keys(cloud.answers).length > 0) {
+                setAnswers(cloud.answers);
+                setCheckedQuestions(cloud.checkedQuestions || {});
+                setCurrentQuestionIndex(cloud.currentQuestionIndex || 0);
+                questionTimes.current = cloud.questionTimes || {};
+                setWasRestored(true);
+                setRestoredFromCloud(true);
+            }
+        })();
+    }, [examId, isTrial, user?.uid]);
 
     // === Auto-Save: Debounced save to localStorage ===
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -290,6 +357,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
         // Clear localStorage progress after finishing
         if (examId) clearProgressFromLocal(examId);
+        // Also clear cloud progress (non-blocking) if it was used
+        if (examId && user?.uid) clearProgressFromCloud(user.uid, examId);
 
         // Save exam result to Firestore (only if logged in and not trial)
         if (user && examId && !isTrial) {
@@ -361,6 +430,26 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         if (answeredCount === 0) return;
         if (!confirm(`คุณตอบไปแล้ว ${answeredCount} ข้อ\nต้องการล้างคำตอบทั้งหมดแล้วเริ่มทำใหม่หรือไม่?`)) return;
         handleRestart();
+    };
+
+    // Explicit "save to cloud" action — user-triggered only, exactly 1 write
+    const handleSaveToCloud = async () => {
+        if (!user?.uid || !examId || isTrial || isFinished) return;
+        if (Object.keys(answers).length === 0) {
+            alert("ยังไม่มีคำตอบให้บันทึก");
+            return;
+        }
+        setCloudSaveState('saving');
+        const ok = await saveProgressToCloud(user.uid, examId, {
+            answers,
+            checkedQuestions,
+            currentQuestionIndex,
+            questionTimes: questionTimes.current,
+            savedAt: Date.now(),
+        });
+        setCloudSaveState(ok ? 'saved' : 'error');
+        // Reset back to idle after 2.5s so the button can be pressed again
+        setTimeout(() => setCloudSaveState('idle'), 2500);
     };
 
     if (isFinished && finalScore) {
@@ -640,6 +729,39 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         ล้างคำตอบ ทำใหม่
                     </button>
                 )}
+
+                {/* Save-to-cloud (cross-device resume). Logged-in only, not in trial */}
+                {user?.uid && Object.keys(answers).length > 0 && !isTrial && !isFinished && (
+                    <button
+                        onClick={handleSaveToCloud}
+                        disabled={cloudSaveState === 'saving'}
+                        title="บันทึกไปทำต่อบนอุปกรณ์อื่น (เก็บไว้ 72 ชั่วโมง)"
+                        className={`mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                            cloudSaveState === 'saved'
+                                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'
+                                : cloudSaveState === 'error'
+                                ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800'
+                                : 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 disabled:opacity-60'
+                        }`}
+                    >
+                        {cloudSaveState === 'saved' ? (
+                            <>
+                                <CloudCheck size={14} />
+                                บันทึกแล้ว
+                            </>
+                        ) : cloudSaveState === 'error' ? (
+                            <>
+                                <Cloud size={14} />
+                                บันทึกไม่สำเร็จ
+                            </>
+                        ) : (
+                            <>
+                                <Cloud size={14} />
+                                {cloudSaveState === 'saving' ? 'กำลังบันทึก...' : 'บันทึกไปทำต่ออุปกรณ์อื่น'}
+                            </>
+                        )}
+                    </button>
+                )}
             </div>
 
             {/* Main Content */}
@@ -648,7 +770,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 {wasRestored && (
                     <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl animate-in slide-in-from-top-2">
                         <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
-                            ✅ กลับมาทำต่อได้เลย — คำตอบที่ทำไว้ {Object.keys(answers).length} ข้อถูกกู้คืนแล้ว
+                            {restoredFromCloud ? <CloudCheck size={16} /> : "✅"}
+                            {restoredFromCloud
+                                ? `ดึงคำตอบจากอุปกรณ์อื่น ${Object.keys(answers).length} ข้อ — ทำต่อได้เลย`
+                                : `กลับมาทำต่อได้เลย — คำตอบที่ทำไว้ ${Object.keys(answers).length} ข้อถูกกู้คืนแล้ว`}
                         </p>
                         <button
                             onClick={() => setWasRestored(false)}
