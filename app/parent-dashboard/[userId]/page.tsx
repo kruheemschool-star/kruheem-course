@@ -222,10 +222,10 @@ export default function ParentDashboard() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+            <div className="min-h-screen bg-[#FAFAFA] dark:bg-slate-950 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="w-16 h-16 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-slate-500 font-medium">กำลังโหลดข้อมูล...</p>
+                    <div className="w-16 h-16 border-4 border-slate-200 dark:border-slate-700 border-t-slate-800 dark:border-t-slate-200 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium">กำลังโหลดข้อมูล...</p>
                 </div>
             </div>
         );
@@ -233,26 +233,26 @@ export default function ParentDashboard() {
 
     if (!userProfile) {
         return (
-            <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+            <div className="min-h-screen bg-[#FAFAFA] dark:bg-slate-950 flex items-center justify-center">
                 <div className="text-center">
                     <p className="text-6xl mb-4">🔍</p>
-                    <p className="text-xl font-bold text-slate-800 mb-2">ไม่พบข้อมูลนักเรียน</p>
-                    <p className="text-slate-500">ลิงก์อาจไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง</p>
+                    <p className="text-xl font-bold text-slate-800 dark:text-white mb-2">ไม่พบข้อมูลนักเรียน</p>
+                    <p className="text-slate-500 dark:text-slate-400">ลิงก์อาจไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#FAFAFA] font-sans">
+        <div className="min-h-screen bg-[#FAFAFA] dark:bg-slate-950 font-sans">
             {/* Header */}
-            <header className="bg-white border-b border-slate-100 sticky top-0 z-50">
+            <header className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 sticky top-0 z-50">
                 <div className="container mx-auto px-4 py-4 max-w-4xl">
                     <div className="flex items-center justify-between">
-                        <Link href="/" className="text-slate-400 hover:text-slate-600 transition">
+                        <Link href="/" className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition">
                             <ArrowLeft size={24} />
                         </Link>
-                        <h1 className="text-lg font-bold text-slate-800">📊 รายงานผลการเรียน</h1>
+                        <h1 className="text-lg font-bold text-slate-800 dark:text-white">📊 รายงานผลการเรียน</h1>
                         <div className="w-6"></div>
                     </div>
                 </div>
@@ -260,9 +260,9 @@ export default function ParentDashboard() {
 
             <main className="container mx-auto px-4 py-8 max-w-4xl">
                 {/* Student Profile Card */}
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-6">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
                     <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 overflow-hidden border-2 border-white shadow-md">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 overflow-hidden border-2 border-white dark:border-slate-800 shadow-md">
                             {userProfile.avatar ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={userProfile.avatar} alt="Avatar" className="w-full h-full object-cover" />
@@ -271,10 +271,10 @@ export default function ParentDashboard() {
                             )}
                         </div>
                         <div>
-                            <p className="text-xs text-slate-400 font-medium">นักเรียน</p>
-                            <h2 className="text-xl font-bold text-slate-800">{userProfile.displayName || "ไม่ระบุชื่อ"}</h2>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">นักเรียน</p>
+                            <h2 className="text-xl font-bold text-slate-800 dark:text-white">{userProfile.displayName || "ไม่ระบุชื่อ"}</h2>
                             {userProfile.caption && (
-                                <p className="text-slate-400 italic text-xs mt-0.5">"{userProfile.caption}"</p>
+                                <p className="text-slate-400 dark:text-slate-500 italic text-xs mt-0.5">"{userProfile.caption}"</p>
                             )}
                         </div>
                     </div>
@@ -282,43 +282,43 @@ export default function ParentDashboard() {
 
                 {/* Exam Summary */}
                 {examSummary && examSummary.totalAttempts > 0 && (
-                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-6">
-                        <p className="text-sm font-medium text-slate-500 mb-3 flex items-center gap-2">
-                            <Award size={16} className="text-amber-500" />
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
+                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                            <Award size={16} className="text-amber-500 dark:text-amber-400" />
                             ผลการทำข้อสอบ ({examSummary.totalAttempts} ครั้งล่าสุด)
                         </p>
 
                         {/* Stat row */}
                         <div className="grid grid-cols-3 gap-3 mb-5">
-                            <div className="rounded-xl bg-slate-50 p-3 text-center">
-                                <div className="text-2xl font-black text-slate-700">{examSummary.totalAttempts}</div>
-                                <div className="text-xs text-slate-500 font-medium mt-0.5">ทำไปแล้ว</div>
+                            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 text-center">
+                                <div className="text-2xl font-black text-slate-700 dark:text-slate-100">{examSummary.totalAttempts}</div>
+                                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">ทำไปแล้ว</div>
                             </div>
-                            <div className="rounded-xl bg-indigo-50 p-3 text-center">
-                                <div className="text-2xl font-black text-indigo-600">{examSummary.avgPercent}%</div>
-                                <div className="text-xs text-indigo-500 font-medium mt-0.5">คะแนนเฉลี่ย</div>
+                            <div className="rounded-xl bg-indigo-50 dark:bg-indigo-950/40 p-3 text-center">
+                                <div className="text-2xl font-black text-indigo-600 dark:text-indigo-300">{examSummary.avgPercent}%</div>
+                                <div className="text-xs text-indigo-500 dark:text-indigo-400 font-medium mt-0.5">คะแนนเฉลี่ย</div>
                             </div>
-                            <div className="rounded-xl bg-emerald-50 p-3 text-center">
-                                <div className="text-2xl font-black text-emerald-600">{examSummary.bestPercent}%</div>
-                                <div className="text-xs text-emerald-500 font-medium mt-0.5">คะแนนดีสุด</div>
+                            <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 p-3 text-center">
+                                <div className="text-2xl font-black text-emerald-600 dark:text-emerald-300">{examSummary.bestPercent}%</div>
+                                <div className="text-xs text-emerald-500 dark:text-emerald-400 font-medium mt-0.5">คะแนนดีสุด</div>
                             </div>
                         </div>
 
                         {/* Weak topics */}
                         {examSummary.weakTags.length > 0 && (
                             <div className="mb-5">
-                                <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5">
-                                    <Target size={13} className="text-amber-500" />
+                                <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                                    <Target size={13} className="text-amber-500 dark:text-amber-400" />
                                     หัวข้อที่ควรฝึกเพิ่ม
                                 </p>
                                 <div className="flex flex-wrap gap-2">
                                     {examSummary.weakTags.map(t => (
                                         <span
                                             key={t.tag}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs font-bold text-amber-800 dark:text-amber-300"
                                         >
                                             {t.tag}
-                                            <span className="text-rose-600">{t.pct}%</span>
+                                            <span className="text-rose-600 dark:text-rose-400">{t.pct}%</span>
                                         </span>
                                     ))}
                                 </div>
@@ -327,25 +327,25 @@ export default function ParentDashboard() {
 
                         {/* Recent exams */}
                         <div>
-                            <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5">
-                                <TrendingUp size={13} className="text-indigo-500" />
+                            <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                                <TrendingUp size={13} className="text-indigo-500 dark:text-indigo-400" />
                                 ข้อสอบล่าสุด
                             </p>
                             <div className="space-y-1.5">
                                 {examSummary.recent.map((r, i) => (
-                                    <div key={i} className="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg hover:bg-slate-50 transition-colors">
-                                        <span className="text-slate-700 truncate flex-1 pr-2">
+                                    <div key={i} className="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                                        <span className="text-slate-700 dark:text-slate-200 truncate flex-1 pr-2">
                                             {r.examTitle || "ข้อสอบไม่ระบุชื่อ"}
                                         </span>
                                         <span
                                             className={`flex-shrink-0 font-bold text-xs px-2 py-0.5 rounded-full ${
                                                 (r.percent || 0) >= 80
-                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                                                     : (r.percent || 0) >= 60
-                                                    ? 'bg-blue-100 text-blue-700'
+                                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
                                                     : (r.percent || 0) >= 40
-                                                    ? 'bg-amber-100 text-amber-700'
-                                                    : 'bg-rose-100 text-rose-700'
+                                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                                    : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
                                             }`}
                                         >
                                             {r.score}/{r.total} ({r.percent || 0}%)
@@ -359,12 +359,12 @@ export default function ParentDashboard() {
 
                 {/* Courses List - Notion Style Accordion */}
                 <div className="space-y-3">
-                    <p className="text-sm font-medium text-slate-500 px-1">📚 คอร์สที่ลงเรียน ({courses.length} คอร์ส)</p>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 px-1">📚 คอร์สที่ลงเรียน ({courses.length} คอร์ส)</p>
 
                     {courses.length === 0 ? (
-                        <div className="bg-white rounded-2xl p-8 text-center border border-slate-100">
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 text-center border border-slate-100 dark:border-slate-800">
                             <p className="text-4xl mb-2">📭</p>
-                            <p className="text-slate-500">ยังไม่มีคอร์สที่ลงเรียน</p>
+                            <p className="text-slate-500 dark:text-slate-400">ยังไม่มีคอร์สที่ลงเรียน</p>
                         </div>
                     ) : (
                         courses.map(course => {
@@ -373,26 +373,26 @@ export default function ParentDashboard() {
                             const completedCount = progress?.completed.filter(id => progress.lessons.some(l => l.id === id)).length || 0;
 
                             return (
-                                <div key={course.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                                <div key={course.id} className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
                                     {/* Course Header - Clickable */}
                                     <button
                                         onClick={() => setExpandedCourseId(isExpanded ? null : course.id)}
-                                        className="w-full p-4 flex items-center gap-4 hover:bg-slate-50/50 transition text-left"
+                                        className="w-full p-4 flex items-center gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition text-left"
                                     >
                                         {/* Progress Ring */}
                                         <div className="relative w-14 h-14 flex-shrink-0">
                                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                                <circle cx="18" cy="18" r="15" fill="none" stroke="#E2E8F0" strokeWidth="3" />
+                                                <circle cx="18" cy="18" r="15" fill="none" className="stroke-slate-200 dark:stroke-slate-700" strokeWidth="3" />
                                                 <circle
                                                     cx="18" cy="18" r="15" fill="none"
-                                                    stroke={progress?.percent === 100 ? "#F59E0B" : "#6366F1"}
+                                                    className={progress?.percent === 100 ? "stroke-amber-500 dark:stroke-amber-400" : "stroke-indigo-500 dark:stroke-indigo-400"}
                                                     strokeWidth="3"
                                                     strokeLinecap="round"
                                                     strokeDasharray={`${(progress?.percent || 0) * 0.94} 100`}
                                                 />
                                             </svg>
                                             <div className="absolute inset-0 flex items-center justify-center">
-                                                <span className={`text-sm font-bold ${progress?.percent === 100 ? 'text-amber-600' : 'text-indigo-600'}`}>
+                                                <span className={`text-sm font-bold ${progress?.percent === 100 ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
                                                     {progress?.percent || 0}%
                                                 </span>
                                             </div>
@@ -400,15 +400,15 @@ export default function ParentDashboard() {
 
                                         {/* Course Info */}
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-bold text-slate-800 truncate">{course.title}</h3>
-                                            <p className="text-sm text-slate-500">
+                                            <h3 className="font-bold text-slate-800 dark:text-white truncate">{course.title}</h3>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">
                                                 ดูจบแล้ว {completedCount} / {progress?.total || 0} คลิป
                                             </p>
                                         </div>
 
                                         {/* Expand Icon */}
                                         <ChevronDown
-                                            className={`text-slate-300 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+                                            className={`text-slate-300 dark:text-slate-500 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
                                             size={20}
                                         />
                                     </button>
@@ -418,19 +418,19 @@ export default function ParentDashboard() {
                                         className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
                                             }`}
                                     >
-                                        <div className="border-t border-slate-100">
+                                        <div className="border-t border-slate-100 dark:border-slate-800">
                                             {/* Last Updated */}
                                             {progress?.lastUpdated && (
-                                                <div className="px-4 py-3 bg-slate-50/50 flex items-center gap-2 text-sm text-slate-500">
+                                                <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-800/40 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                                                     <Clock size={14} />
                                                     <span>อัปเดตล่าสุด: {formatDate(progress.lastUpdated)}</span>
                                                 </div>
                                             )}
 
                                             {/* Lessons List */}
-                                            <div className="divide-y divide-slate-50 max-h-[400px] overflow-y-auto">
+                                            <div className="divide-y divide-slate-50 dark:divide-slate-800 max-h-[400px] overflow-y-auto">
                                                 {progress?.lessons.length === 0 ? (
-                                                    <div className="p-6 text-center text-slate-400 text-sm">
+                                                    <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-sm">
                                                         ยังไม่มีบทเรียนในคอร์สนี้
                                                     </div>
                                                 ) : (
@@ -442,18 +442,18 @@ export default function ParentDashboard() {
                                                             <div key={lesson.id} className="flex items-center gap-3 px-4 py-3">
                                                                 <div className="flex-shrink-0">
                                                                     {isCompleted ? (
-                                                                        <CheckCircle2 className="text-emerald-500" size={18} />
+                                                                        <CheckCircle2 className="text-emerald-500 dark:text-emerald-400" size={18} />
                                                                     ) : isInProgress ? (
-                                                                        <PlayCircle className="text-amber-500" size={18} />
+                                                                        <PlayCircle className="text-amber-500 dark:text-amber-400" size={18} />
                                                                     ) : (
-                                                                        <Lock className="text-slate-300" size={16} />
+                                                                        <Lock className="text-slate-300 dark:text-slate-600" size={16} />
                                                                     )}
                                                                 </div>
-                                                                <span className={`flex-1 text-sm truncate ${isCompleted ? 'text-slate-700' : isInProgress ? 'text-slate-600' : 'text-slate-400'}`}>
+                                                                <span className={`flex-1 text-sm truncate ${isCompleted ? 'text-slate-700 dark:text-slate-200' : isInProgress ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}`}>
                                                                     {lesson.title}
                                                                 </span>
                                                                 {isCompleted && (
-                                                                    <span className="text-xs text-emerald-600 font-medium">✓</span>
+                                                                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">✓</span>
                                                                 )}
                                                             </div>
                                                         );
@@ -469,7 +469,7 @@ export default function ParentDashboard() {
                 </div>
 
                 {/* Footer */}
-                <div className="mt-10 text-center text-slate-400 text-xs pb-8">
+                <div className="mt-10 text-center text-slate-400 dark:text-slate-500 text-xs pb-8">
                     <p>📊 ข้อมูลจาก KruHeem Math School</p>
                     <p className="mt-1">อัปเดตแบบ Real-time เมื่อนักเรียนเข้าเรียน</p>
                 </div>
