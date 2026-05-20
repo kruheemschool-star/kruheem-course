@@ -578,7 +578,7 @@ export default function PaymentPage() {
                         <button
                           type="button"
                           onClick={() => toggleCourse(course.id)}
-                          className="w-8 h-8 flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-500 rounded-full transition-colors flex-shrink-0"
+                          className="w-8 h-8 flex items-center justify-center bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-400 dark:text-red-300 hover:text-red-500 dark:hover:text-red-200 rounded-full transition-colors flex-shrink-0"
                           title="เอาคอร์สนี้ออก"
                         >
                           ✕
@@ -644,7 +644,7 @@ export default function PaymentPage() {
                 {/* QR Code Section */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-md border border-slate-100 dark:border-slate-700 mb-6">
                   <div className="flex flex-col items-center">
-                    <div className="w-80 h-80 bg-white dark:bg-white p-3 rounded-2xl shadow-inner border-2 border-slate-100 dark:border-slate-300 mb-4">
+                    <div className="w-80 h-80 bg-white p-3 rounded-2xl shadow-inner border-2 border-slate-100 dark:border-slate-700 mb-4">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/qrcode.png"
@@ -706,7 +706,7 @@ export default function PaymentPage() {
                             setDiscount(null);
                             setCouponCode("");
                           }}
-                          className="px-4 py-2 bg-red-100 text-red-500 font-bold rounded-xl hover:bg-red-200 transition"
+                          className="px-4 py-2 bg-red-100 dark:bg-red-950/40 text-red-500 dark:text-red-300 font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/40 transition"
                         >
                           ยกเลิก
                         </button>
@@ -751,7 +751,7 @@ export default function PaymentPage() {
 
               {/* Error message */}
               {slipError && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-bold px-4 py-3 rounded-2xl flex items-center gap-2">
+                <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-300 text-sm font-bold px-4 py-3 rounded-2xl flex items-center gap-2">
                   <span>⚠️</span> {slipError}
                 </div>
               )}
@@ -787,7 +787,7 @@ export default function PaymentPage() {
                       <button
                         type="button"
                         onClick={clearSlip}
-                        className="px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-500 hover:bg-red-100 transition"
+                        className="px-4 py-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-sm font-bold text-red-500 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 transition"
                       >
                         ✕ ลบ
                       </button>
@@ -816,7 +816,7 @@ export default function PaymentPage() {
                         <button
                           type="button"
                           onClick={() => { setIsCompressing(false); clearSlip(); }}
-                          className="text-xs text-red-500 font-bold hover:underline"
+                          className="text-xs text-red-500 dark:text-red-400 font-bold hover:underline"
                         >
                           ยกเลิก
                         </button>
