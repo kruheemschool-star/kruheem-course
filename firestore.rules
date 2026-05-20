@@ -193,11 +193,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // === Polls (public read, admin manage) ===
+    // === Polls (public read, admin manage, authenticated vote) ===
+    // Vote / update requires sign-in so anonymous traffic can't ballot-stuff.
+    // If polls are reintroduced, prefer a per-user vote sub-doc instead of
+    // letting clients mutate the poll document directly.
     match /polls/{pollId} {
       allow read: if true;
       allow create: if isAdmin();
-      allow update: if true; // Allow voting
+      allow update: if isAuth();
       allow delete: if isAdmin();
     }
 
