@@ -51,27 +51,27 @@ function LiveAvatar({ photo, name }: { photo?: string; name: string }) {
 
 function LiveReviewCard({ review }: { review: LiveReview }) {
     return (
-        <div className="flex-shrink-0 w-[320px] md:w-[360px] bg-white rounded-2xl shadow-md border border-slate-100 p-6 relative hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <Quote className="absolute top-4 right-4 text-slate-100" size={28} fill="currentColor" />
+        <div className="flex-shrink-0 w-[320px] md:w-[360px] bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-100 dark:border-slate-800 p-6 relative hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <Quote className="absolute top-4 right-4 text-slate-100 dark:text-slate-800" size={28} fill="currentColor" />
             <div className="flex items-center gap-3 mb-3">
-                <div className={`w-11 h-11 rounded-full overflow-hidden border-2 border-white shadow-sm flex items-center justify-center shrink-0 bg-gradient-to-br ${getAvatarGradient(review.userName)}`}>
+                <div className={`w-11 h-11 rounded-full overflow-hidden border-2 border-white dark:border-slate-800 shadow-sm flex items-center justify-center shrink-0 bg-gradient-to-br ${getAvatarGradient(review.userName)}`}>
                     <LiveAvatar photo={review.userPhoto} name={review.userName} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-slate-800 text-sm truncate">{review.userName}</h4>
+                    <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{review.userName}</h4>
                     <div className="flex gap-0.5 mt-0.5">
                         {[1, 2, 3, 4, 5].map((i) => (
-                            <Star key={i} size={12} className={i <= review.rating ? "text-amber-400" : "text-slate-200"} fill={i <= review.rating ? "currentColor" : "none"} />
+                            <Star key={i} size={12} className={i <= review.rating ? "text-amber-400" : "text-slate-200 dark:text-slate-700"} fill={i <= review.rating ? "currentColor" : "none"} />
                         ))}
                     </div>
                 </div>
             </div>
             {review.courseName && (
-                <div className="mb-2 inline-block text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md truncate max-w-full">
+                <div className="mb-2 inline-block text-[11px] font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md truncate max-w-full">
                     📖 {review.courseName}
                 </div>
             )}
-            <p className="text-sm text-slate-600 leading-relaxed line-clamp-5">
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-5">
                 &ldquo;{review.comment}&rdquo;
             </p>
         </div>
@@ -166,13 +166,13 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
     if (source === "live" && !loadingLive && liveReviews.length === 0) return null;
 
     return (
-        <section className="w-full py-16 overflow-hidden bg-white">
+        <section className="w-full py-16 overflow-hidden bg-white dark:bg-slate-950">
             <div className="text-center mb-12 px-4">
-                <h2 className="text-3xl md:text-4xl font-extrabold text-slate-800 mb-4 tracking-tight">
-                    {data.title || "อย่าเชื่อแค่คำพูด..."} <span className="text-indigo-600">แต่จงเชื่อ &ldquo;ผลลัพธ์&rdquo;</span>
+                <h2 className="text-3xl md:text-4xl font-extrabold text-slate-800 dark:text-white mb-4 tracking-tight">
+                    {data.title || "อย่าเชื่อแค่คำพูด..."} <span className="text-indigo-600 dark:text-indigo-400">แต่จงเชื่อ &ldquo;ผลลัพธ์&rdquo;</span>
                 </h2>
-                {data.subtitle && <p className="text-slate-500 text-lg">{data.subtitle}</p>}
-                <div className="w-24 h-1.5 bg-indigo-600 mx-auto rounded-full opacity-20 mt-4"></div>
+                {data.subtitle && <p className="text-slate-500 dark:text-slate-400 text-lg">{data.subtitle}</p>}
+                <div className="w-24 h-1.5 bg-indigo-600 dark:bg-indigo-400 mx-auto rounded-full opacity-20 mt-4"></div>
             </div>
 
             <div
@@ -180,8 +180,8 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
             >
-                <div className="absolute left-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
-                <div className="absolute right-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+                <div className="absolute left-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-r from-white dark:from-slate-950 to-transparent z-10 pointer-events-none"></div>
+                <div className="absolute right-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-l from-white dark:from-slate-950 to-transparent z-10 pointer-events-none"></div>
 
                 {source === "live" ? (
                     <div ref={trackRef} className="flex gap-5 py-4 will-change-transform" style={{ width: "max-content" }}>
@@ -197,7 +197,7 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
                                 className="flex-shrink-0 w-[280px] md:w-[350px] transition-transform duration-300 hover:scale-105 cursor-pointer"
                                 onClick={() => setSelectedImage(img)}
                             >
-                                <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden h-full">
+                                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-800 overflow-hidden h-full">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                         src={img}

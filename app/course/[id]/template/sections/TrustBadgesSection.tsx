@@ -64,14 +64,14 @@ function StatCard({ stat, index, onVisible, started }: { stat: TrustBadgeStat; i
     return (
         <div
             ref={ref}
-            className="flex-1 min-w-[140px] max-w-[240px] bg-white rounded-2xl p-4 md:p-5 border border-slate-100 shadow-sm text-center hover:shadow-lg transition-all"
+            className="flex-1 min-w-[140px] max-w-[240px] bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-5 border border-slate-100 dark:border-slate-800 shadow-sm text-center hover:shadow-lg transition-all"
             style={{ transitionDelay: `${index * 50}ms` }}
         >
             <div className="text-3xl mb-2">{stat.icon}</div>
-            <div className="text-2xl md:text-3xl font-black text-indigo-600 mb-1 tabular-nums">
+            <div className="text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 mb-1 tabular-nums">
                 <AnimatedNumber value={stat.number} started={started} />
             </div>
-            <div className="text-xs sm:text-sm text-slate-500 font-medium leading-snug">{stat.label}</div>
+            <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-snug">{stat.label}</div>
         </div>
     );
 }
@@ -83,7 +83,7 @@ export default function TrustBadgesSection({ data }: { data: TrustBadgesData }) 
     return (
         <section className="max-w-6xl mx-auto px-6 py-12">
             {data.title && (
-                <h2 className="text-3xl font-bold text-center text-slate-800 mb-10">{data.title}</h2>
+                <h2 className="text-3xl font-bold text-center text-slate-800 dark:text-white mb-10">{data.title}</h2>
             )}
 
             <div className="flex flex-wrap justify-center gap-3 md:gap-4">

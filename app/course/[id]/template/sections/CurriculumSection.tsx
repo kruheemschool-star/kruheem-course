@@ -16,9 +16,9 @@ export default function CurriculumSection({ data }: { data: CurriculumData }) {
 
     return (
         <section className="max-w-4xl mx-auto px-6 py-16">
-            <div className="bg-white/60 backdrop-blur-xl rounded-[2.5rem] shadow-lg p-8 md:p-12 border border-white/50">
-                <h2 className="text-4xl font-bold text-center text-slate-800 mb-4">{data.title}</h2>
-                {data.subtitle && <p className="text-center text-lg text-slate-500 mb-12">{data.subtitle}</p>}
+            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2.5rem] shadow-lg p-8 md:p-12 border border-white/50 dark:border-slate-800/60">
+                <h2 className="text-4xl font-bold text-center text-slate-800 dark:text-white mb-4">{data.title}</h2>
+                {data.subtitle && <p className="text-center text-lg text-slate-500 dark:text-slate-400 mb-12">{data.subtitle}</p>}
 
                 <div className="space-y-4">
                     {data.chapters.map((ch, i) => {
@@ -39,12 +39,12 @@ export default function CurriculumSection({ data }: { data: CurriculumData }) {
                                             {i + 1}
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-xl text-slate-800">{ch.title}</h3>
-                                            {ch.desc && <p className="text-slate-600 text-base">{ch.desc}</p>}
+                                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">{ch.title}</h3>
+                                            {ch.desc && <p className="text-slate-600 dark:text-slate-300 text-base">{ch.desc}</p>}
                                         </div>
                                     </div>
                                     <svg
-                                        className={`w-6 h-6 text-slate-500 transition-transform duration-300 flex-shrink-0 ${openIndex === i ? "rotate-180" : ""}`}
+                                        className={`w-6 h-6 text-slate-500 dark:text-slate-400 transition-transform duration-300 flex-shrink-0 ${openIndex === i ? "rotate-180" : ""}`}
                                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
                                     >
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -53,7 +53,7 @@ export default function CurriculumSection({ data }: { data: CurriculumData }) {
                                 <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${openIndex === i ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                                     <div className="overflow-hidden">
                                         <div className="px-5 pb-5 pt-0 pl-[5.5rem]">
-                                            <ul className="list-disc text-slate-700 space-y-3 text-lg">
+                                            <ul className="list-disc text-slate-700 dark:text-slate-200 space-y-3 text-lg">
                                                 {ch.content.map((item, j) => (
                                                     <li key={j}>{item}</li>
                                                 ))}
