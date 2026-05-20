@@ -117,9 +117,11 @@ export default function PaymentPage() {
       }
 
       // Calculate Discount
+      // Use Math.round so the customer never silently loses up to ฿1
+      // from a percent discount being floored.
       let discountAmount = 0;
       if (couponData.discountPercent) {
-        discountAmount = Math.floor((totalPrice * couponData.discountPercent) / 100);
+        discountAmount = Math.round((totalPrice * couponData.discountPercent) / 100);
       } else if (couponData.discountAmount) {
         discountAmount = couponData.discountAmount;
       }

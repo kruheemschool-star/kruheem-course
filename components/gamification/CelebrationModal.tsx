@@ -91,6 +91,16 @@ export default function CelebrationModal({
         }
     }, [isOpen, onClose, playSound]);
 
+    // Close on Escape key
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return (

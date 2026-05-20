@@ -15,6 +15,19 @@ interface ReviewFormProps {
 }
 
 const MIN_COMMENT_LENGTH = 20;
+const MAX_COMMENT_LENGTH = 2000;
+
+// Cryptographically random A-Z0-9 string for coupon codes.
+// Falls back to Math.random only if the runtime has no crypto (very rare).
+function generateSecureCode(len: number): string {
+    const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+        const bytes = new Uint8Array(len);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes, (b) => charset[b % charset.length]).join("");
+    }
+    return Array.from({ length: len }, () => charset[Math.floor(Math.random() * charset.length)]).join("");
+}
 
 export default function ReviewForm({ courseId, courseName, initialCouponCode, isCouponUsed, onReviewSubmitted }: ReviewFormProps) {
     const { user, userProfile } = useUserAuth();
@@ -73,6 +86,9 @@ export default function ReviewForm({ courseId, courseName, initialCouponCode, is
         if (comment.trim().length < MIN_COMMENT_LENGTH) {
             return alert(`กรุณาเขียนรีวิวอย่างน้อย ${MIN_COMMENT_LENGTH} ตัวอักษร เพื่อรับคูปองส่วนลด`);
         }
+        if (comment.trim().length > MAX_COMMENT_LENGTH) {
+            return alert(`รีวิวยาวเกินไป (สูงสุด ${MAX_COMMENT_LENGTH.toLocaleString()} ตัวอักษร)`);
+        }
 
         setIsSubmitting(true);
 
@@ -93,8 +109,9 @@ export default function ReviewForm({ courseId, courseName, initialCouponCode, is
                 }
             }
 
-            // 2. Generate Coupon Code
-            const code = `REVIEW-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+            // 2. Generate Coupon Code (cryptographically random, not Math.random)
+            // Must satisfy firestore.rules pattern ^REVIEW-[A-Z0-9]{6}$
+            const code = `REVIEW-${generateSecureCode(6)}`;
 
             // 3. Add Review
             await addDoc(collection(db, "reviews"), {
