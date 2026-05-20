@@ -12,6 +12,8 @@ import {
     CheckCircle2, XCircle, ChevronRight, Loader2, LogIn, ShieldOff,
     Flame, Clock, Users, Zap, Timer, Calendar, Bookmark
 } from "lucide-react";
+import LoadingState from "@/components/ui/LoadingState";
+import EmptyState from "@/components/ui/EmptyState";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, Area, AreaChart, ReferenceLine
@@ -307,19 +309,14 @@ export default function ExamDashboardPage() {
                 </div>
 
                 {loading ? (
-                    <div className="text-center py-20">
-                        <Loader2 className="animate-spin text-indigo-500 mx-auto mb-4" size={32} />
-                        <p className="text-slate-400 font-medium">กำลังโหลดข้อมูล...</p>
-                    </div>
+                    <LoadingState message="กำลังโหลดข้อมูล..." size="lg" />
                 ) : results.length === 0 ? (
-                    <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800">
-                        <BookOpen size={48} className="text-slate-200 dark:text-slate-700 mx-auto mb-4" />
-                        <h2 className="text-xl font-bold text-slate-600 dark:text-slate-300 mb-2">ยังไม่มีผลสอบ</h2>
-                        <p className="text-slate-400 mb-6">ลองทำข้อสอบสักชุดแล้วกลับมาดูผลที่นี่!</p>
-                        <Link href="/exam" className="px-6 py-3 bg-indigo-600 text-white rounded-full font-bold hover:bg-indigo-700 transition-all">
-                            ไปทำข้อสอบ
-                        </Link>
-                    </div>
+                    <EmptyState
+                        icon={<BookOpen size={48} className="text-slate-300 dark:text-slate-600 mx-auto" />}
+                        title="ยังไม่มีผลสอบ"
+                        description="ลองทำข้อสอบสักชุดแล้วกลับมาดูผลที่นี่!"
+                        cta={{ label: "ไปทำข้อสอบ", href: "/exam" }}
+                    />
                 ) : stats && (
                     <>
                         {/* Overall Stats Cards */}
