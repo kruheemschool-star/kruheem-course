@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useTheme } from "next-themes";
 import { useUserAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, doc, getDoc, query, orderBy, limit } from "firebase/firestore";
@@ -53,6 +54,24 @@ const gradeColors: Record<string, { text: string; bg: string; border: string }> 
 
 export default function ExamDashboardPage() {
     const { user, loading: authLoading } = useUserAuth();
+    const { resolvedTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
+    const isDark = mounted && resolvedTheme === "dark";
+
+    // Theme-aware chart palette — pre-computed to avoid recalculating per render
+    const chartColors = {
+        grid: isDark ? "#334155" : "#e2e8f0",       // slate-700 / slate-200
+        axis: isDark ? "#64748b" : "#94a3b8",       // slate-500 / slate-400
+        primary: isDark ? "#a5b4fc" : "#6366f1",    // indigo-300 / indigo-500
+        primaryFill: isDark ? "#818cf8" : "#6366f1",
+        trend: isDark ? "#34d399" : "#10b981",      // emerald-400 / emerald-500
+        reference: isDark ? "#fbbf24" : "#f59e0b",  // amber-400 / amber-500
+        tooltipBg: isDark ? "#0f172a" : "#ffffff",
+        tooltipBorder: isDark ? "#334155" : "#e2e8f0",
+        tooltipText: isDark ? "#e2e8f0" : "#0f172a",
+    };
+
     const [results, setResults] = useState<ExamResult[]>([]);
     const [loading, setLoading] = useState(true);
     const [globalAvg, setGlobalAvg] = useState<GlobalAverages | null>(null);
@@ -271,7 +290,7 @@ export default function ExamDashboardPage() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <Link href="/exam" className="text-sm text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1 mb-2 transition-colors">
+                        <Link href="/exam" className="text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-medium flex items-center gap-1 mb-2 transition-colors">
                             <ArrowLeft size={14} /> กลับไปคลังข้อสอบ
                         </Link>
                         <h1 className="text-3xl font-black text-slate-800 dark:text-white flex items-center gap-3">
@@ -424,15 +443,17 @@ export default function ExamDashboardPage() {
                                         <AreaChart data={stats.progressWithTrend} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                                             <defs>
                                                 <linearGradient id="colorPercent" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                                    <stop offset="5%" stopColor={chartColors.primaryFill} stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor={chartColors.primaryFill} stopOpacity={0} />
                                                 </linearGradient>
                                             </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                            <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#94a3b8" />
-                                            <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                                            <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: chartColors.axis }} stroke={chartColors.axis} />
+                                            <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: chartColors.axis }} stroke={chartColors.axis} />
                                             <Tooltip
-                                                contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 13, fontWeight: 600 }}
+                                                contentStyle={{ borderRadius: 12, border: `1px solid ${chartColors.tooltipBorder}`, backgroundColor: chartColors.tooltipBg, color: chartColors.tooltipText, fontSize: 13, fontWeight: 600 }}
+                                                labelStyle={{ color: chartColors.tooltipText }}
+                                                itemStyle={{ color: chartColors.tooltipText }}
                                                 formatter={(value: any, name: any) => [
                                                     `${value}%`,
                                                     name === 'percent' ? 'คะแนน' : 'ค่าเฉลี่ยสะสม'
@@ -443,14 +464,14 @@ export default function ExamDashboardPage() {
                                                 }}
                                             />
                                             {globalAvg && (
-                                                <ReferenceLine y={globalAvg.globalAvgPercent} stroke="#f59e0b" strokeDasharray="5 5" label={{ value: `ค่าเฉลี่ยรวม ${globalAvg.globalAvgPercent}%`, position: 'insideTopRight', fontSize: 11, fill: '#f59e0b' }} />
+                                                <ReferenceLine y={globalAvg.globalAvgPercent} stroke={chartColors.reference} strokeDasharray="5 5" label={{ value: `ค่าเฉลี่ยรวม ${globalAvg.globalAvgPercent}%`, position: 'insideTopRight', fontSize: 11, fill: chartColors.reference }} />
                                             )}
-                                            <Area type="monotone" dataKey="percent" stroke="#6366f1" strokeWidth={2} fill="url(#colorPercent)" dot={{ r: 4, fill: '#6366f1' }} activeDot={{ r: 6 }} />
-                                            <Line type="monotone" dataKey="trend" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                                            <Area type="monotone" dataKey="percent" stroke={chartColors.primary} strokeWidth={2} fill="url(#colorPercent)" dot={{ r: 4, fill: chartColors.primary }} activeDot={{ r: 6 }} />
+                                            <Line type="monotone" dataKey="trend" stroke={chartColors.trend} strokeWidth={2} strokeDasharray="5 5" dot={false} />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </div>
-                                <div className="flex items-center gap-6 mt-3 text-xs text-slate-500">
+                                <div className="flex items-center gap-6 mt-3 text-xs text-slate-500 dark:text-slate-400">
                                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-indigo-500"></span> คะแนนแต่ละชุด</span>
                                     <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-emerald-500 inline-block" style={{borderTop: '2px dashed'}}></span> ค่าเฉลี่ยสะสม</span>
                                     {globalAvg && <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-amber-500 inline-block" style={{borderTop: '2px dashed'}}></span> ค่าเฉลี่ยรวมทุกคน</span>}
@@ -493,7 +514,7 @@ export default function ExamDashboardPage() {
                                                     <div key={cat.name} className="flex items-center justify-between text-sm">
                                                         <span className="font-medium text-slate-600 dark:text-slate-300 truncate mr-2">{cat.name}</span>
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-slate-500">{cat.percent}%</span>
+                                                            <span className="text-slate-500 dark:text-slate-400">{cat.percent}%</span>
                                                             <span className="text-slate-300 dark:text-slate-600">vs</span>
                                                             <span className="text-slate-400">{globalCat.avgPercent}%</span>
                                                             <span className={`font-bold text-xs px-1.5 py-0.5 rounded ${diff >= 0 ? 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/30' : 'text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-900/30'}`}>
@@ -556,7 +577,7 @@ export default function ExamDashboardPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                     <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 text-center">
                                         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">เวลาเฉลี่ยต่อข้อ</div>
-                                        <div className="text-2xl font-black text-slate-800 dark:text-white">{stats.avgTimePerQ} <span className="text-sm font-bold text-slate-400">วินาที</span></div>
+                                        <div className="text-2xl font-black text-slate-800 dark:text-white">{stats.avgTimePerQ} <span className="text-sm font-bold text-slate-400 dark:text-slate-500">วินาที</span></div>
                                     </div>
                                     {stats.fastestExam && (
                                         <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 text-center">
@@ -582,7 +603,7 @@ export default function ExamDashboardPage() {
                                             <div key={`time-${r.examId}-${i}`} className="flex items-center gap-3 text-sm">
                                                 <Clock size={14} className="text-slate-300 flex-shrink-0" />
                                                 <span className="font-medium text-slate-600 dark:text-slate-300 truncate flex-grow">{r.examTitle}</span>
-                                                <span className="font-bold text-slate-500 flex-shrink-0">{min > 0 ? `${min}น. ${sec}วิ.` : `${sec}วิ.`}</span>
+                                                <span className="font-bold text-slate-500 dark:text-slate-400 flex-shrink-0">{min > 0 ? `${min}น. ${sec}วิ.` : `${sec}วิ.`}</span>
                                                 <span className="text-xs text-slate-400 flex-shrink-0">({r.avgTimePerQuestion || '-'} วิ/ข้อ)</span>
                                             </div>
                                         );
@@ -603,7 +624,7 @@ export default function ExamDashboardPage() {
                                         <div key={cat.name}>
                                             <div className="flex justify-between items-center mb-1">
                                                 <span className="font-bold text-sm text-slate-600 dark:text-slate-300">{cat.name}</span>
-                                                <span className="text-sm font-bold text-slate-500">{cat.correct}/{cat.total} ({cat.percent}%)</span>
+                                                <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{cat.correct}/{cat.total} ({cat.percent}%)</span>
                                             </div>
                                             <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                                 <div
@@ -641,7 +662,7 @@ export default function ExamDashboardPage() {
                                         <div key={tag.name}>
                                             <div className="flex justify-between items-center mb-1">
                                                 <span className="font-bold text-sm text-slate-600 dark:text-slate-300">{tag.name}</span>
-                                                <span className="text-sm font-bold text-slate-500">{tag.percent}%</span>
+                                                <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{tag.percent}%</span>
                                             </div>
                                             <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                                 <div
@@ -695,7 +716,7 @@ export default function ExamDashboardPage() {
                                                 <div className="font-black text-slate-700 dark:text-slate-200">{r.score}/{r.total}</div>
                                                 <div className={`text-xs font-bold ${gc.text}`}>{r.percent}%</div>
                                             </div>
-                                            <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
+                                            <ChevronRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors flex-shrink-0" />
                                         </Link>
                                     );
                                 })}
