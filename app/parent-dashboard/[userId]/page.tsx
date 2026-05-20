@@ -3,10 +3,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { getCachedData } from "@/lib/dataCache";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, BookOpen, Clock, CheckCircle2, PlayCircle, Lock } from "lucide-react";
+import { ArrowLeft, ChevronDown, BookOpen, Clock, CheckCircle2, PlayCircle, Lock, Award, Target, TrendingUp } from "lucide-react";
 
 // Types
 interface Course {
@@ -39,6 +39,26 @@ interface CourseProgress {
     lessons: Lesson[];
 }
 
+interface ExamResultLite {
+    examId?: string;
+    examTitle?: string;
+    score: number;
+    total: number;
+    percent: number;
+    grade?: string;
+    tags?: string[];
+    wrongQuestionIndices?: number[];
+    completedAt?: any;
+}
+
+interface ExamSummary {
+    totalAttempts: number;
+    avgPercent: number;
+    bestPercent: number;
+    weakTags: { tag: string; pct: number; total: number }[];
+    recent: ExamResultLite[];
+}
+
 // Helper: Format date
 const formatDate = (date: any) => {
     if (!date) return "-";
@@ -59,6 +79,7 @@ export default function ParentDashboard() {
     const [courses, setCourses] = useState<Course[]>([]);
     const [courseProgressMap, setCourseProgressMap] = useState<Record<string, CourseProgress>>({});
     const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
+    const [examSummary, setExamSummary] = useState<ExamSummary | null>(null);
 
     // Fetch user and enrolled courses with progress
     useEffect(() => {
@@ -135,6 +156,56 @@ export default function ParentDashboard() {
 
                 setCourseProgressMap(progressMap);
 
+                // 5. Fetch latest exam results (capped) to compute summary.
+                //    Capped at 200 latest to keep parent-dashboard cheap.
+                try {
+                    const examQ = query(
+                        collection(db, "users", uid, "examResults"),
+                        orderBy("completedAt", "desc"),
+                        limit(200)
+                    );
+                    const examSnap = await getDocs(examQ);
+                    if (!examSnap.empty) {
+                        const results: ExamResultLite[] = examSnap.docs.map(d => d.data() as ExamResultLite);
+                        const totalAttempts = results.length;
+                        const avgPercent = Math.round(
+                            results.reduce((s, r) => s + (r.percent || 0), 0) / totalAttempts
+                        );
+                        const bestPercent = Math.max(...results.map(r => r.percent || 0));
+
+                        // Aggregate per-tag wrong rate across all attempts
+                        const tagStats: Record<string, { wrong: number; total: number }> = {};
+                        for (const r of results) {
+                            const wrongSet = new Set(r.wrongQuestionIndices || []);
+                            // Without per-question tags we only know the union of tags;
+                            // approximate weak-rate by mapping any wrong-on-attempt to all tags.
+                            if (!r.tags || r.tags.length === 0) continue;
+                            const wrongCount = wrongSet.size;
+                            const totalQ = r.total || 0;
+                            for (const tag of r.tags) {
+                                if (!tagStats[tag]) tagStats[tag] = { wrong: 0, total: 0 };
+                                tagStats[tag].wrong += wrongCount;
+                                tagStats[tag].total += totalQ;
+                            }
+                        }
+                        const weakTags = Object.entries(tagStats)
+                            .filter(([, s]) => s.total >= 3 && s.wrong / s.total >= 0.4)
+                            .map(([tag, s]) => ({ tag, pct: Math.round((s.wrong / s.total) * 100), total: s.total }))
+                            .sort((a, b) => b.pct - a.pct)
+                            .slice(0, 5);
+
+                        setExamSummary({
+                            totalAttempts,
+                            avgPercent,
+                            bestPercent,
+                            weakTags,
+                            recent: results.slice(0, 5),
+                        });
+                    }
+                } catch (examErr) {
+                    console.warn("Exam summary fetch failed (non-blocking):", examErr);
+                }
+
                 // Auto-expand first course (Disabled as per user request)
                 // if (filteredCourses.length > 0) {
                 //     setExpandedCourseId(filteredCourses[0].id);
@@ -208,6 +279,83 @@ export default function ParentDashboard() {
                         </div>
                     </div>
                 </div>
+
+                {/* Exam Summary */}
+                {examSummary && examSummary.totalAttempts > 0 && (
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 mb-6">
+                        <p className="text-sm font-medium text-slate-500 mb-3 flex items-center gap-2">
+                            <Award size={16} className="text-amber-500" />
+                            ผลการทำข้อสอบ ({examSummary.totalAttempts} ครั้งล่าสุด)
+                        </p>
+
+                        {/* Stat row */}
+                        <div className="grid grid-cols-3 gap-3 mb-5">
+                            <div className="rounded-xl bg-slate-50 p-3 text-center">
+                                <div className="text-2xl font-black text-slate-700">{examSummary.totalAttempts}</div>
+                                <div className="text-xs text-slate-500 font-medium mt-0.5">ทำไปแล้ว</div>
+                            </div>
+                            <div className="rounded-xl bg-indigo-50 p-3 text-center">
+                                <div className="text-2xl font-black text-indigo-600">{examSummary.avgPercent}%</div>
+                                <div className="text-xs text-indigo-500 font-medium mt-0.5">คะแนนเฉลี่ย</div>
+                            </div>
+                            <div className="rounded-xl bg-emerald-50 p-3 text-center">
+                                <div className="text-2xl font-black text-emerald-600">{examSummary.bestPercent}%</div>
+                                <div className="text-xs text-emerald-500 font-medium mt-0.5">คะแนนดีสุด</div>
+                            </div>
+                        </div>
+
+                        {/* Weak topics */}
+                        {examSummary.weakTags.length > 0 && (
+                            <div className="mb-5">
+                                <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5">
+                                    <Target size={13} className="text-amber-500" />
+                                    หัวข้อที่ควรฝึกเพิ่ม
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {examSummary.weakTags.map(t => (
+                                        <span
+                                            key={t.tag}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800"
+                                        >
+                                            {t.tag}
+                                            <span className="text-rose-600">{t.pct}%</span>
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Recent exams */}
+                        <div>
+                            <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5">
+                                <TrendingUp size={13} className="text-indigo-500" />
+                                ข้อสอบล่าสุด
+                            </p>
+                            <div className="space-y-1.5">
+                                {examSummary.recent.map((r, i) => (
+                                    <div key={i} className="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg hover:bg-slate-50 transition-colors">
+                                        <span className="text-slate-700 truncate flex-1 pr-2">
+                                            {r.examTitle || "ข้อสอบไม่ระบุชื่อ"}
+                                        </span>
+                                        <span
+                                            className={`flex-shrink-0 font-bold text-xs px-2 py-0.5 rounded-full ${
+                                                (r.percent || 0) >= 80
+                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                    : (r.percent || 0) >= 60
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : (r.percent || 0) >= 40
+                                                    ? 'bg-amber-100 text-amber-700'
+                                                    : 'bg-rose-100 text-rose-700'
+                                            }`}
+                                        >
+                                            {r.score}/{r.total} ({r.percent || 0}%)
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Courses List - Notion Style Accordion */}
                 <div className="space-y-3">
