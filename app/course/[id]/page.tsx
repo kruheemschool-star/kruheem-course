@@ -127,8 +127,8 @@ export default function CourseSalesPage() {
         }
     };
 
-    if (loading) return <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center text-stone-500">กำลังโหลด...</div>;
-    if (!course) return <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center text-stone-500">ไม่พบคอร์สเรียนนี้</div>;
+    if (loading) return <div className="min-h-screen bg-[#F7F6F3] dark:bg-slate-950 flex items-center justify-center text-stone-500 dark:text-slate-400">กำลังโหลด...</div>;
+    if (!course) return <div className="min-h-screen bg-[#F7F6F3] dark:bg-slate-950 flex items-center justify-center text-stone-500 dark:text-slate-400">ไม่พบคอร์สเรียนนี้</div>;
 
     // ✅ NEW: Check if this course has a section-based sales page template enabled
     const salesPage: SalesPageConfig | undefined = course.salesPage;
