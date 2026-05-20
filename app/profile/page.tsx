@@ -271,40 +271,40 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans pb-20">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans pb-20">
             <Navbar />
             <Toaster />
 
             <main className="container mx-auto px-4 py-8 pt-24 max-w-6xl">
 
                 {/* Back Button */}
-                <Link href="/my-courses" className="inline-flex items-center text-slate-500 hover:text-indigo-600 mb-6 transition">
+                <Link href="/my-courses" className="inline-flex items-center text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-6 transition">
                     <ArrowLeft size={20} className="mr-1" />
                     กลับไปหน้าคอร์สเรียน
                 </Link>
 
                 <div className="mx-auto p-4 sm:p-6 space-y-6 min-h-screen pb-24 font-['Sarabun']">
-                    <h1 className="text-3xl font-bold text-slate-800 leading-relaxed">
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-white leading-relaxed">
                         แก้ไขข้อมูลส่วนตัว
                     </h1>
 
                     {/* Top Section: Name Input & Save Button */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-sm">
                         <div className="flex flex-col sm:flex-row gap-4 items-end">
                             <div className="flex-1 w-full">
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">
                                     ชื่อแสดงผล (Display Name)
                                 </label>
                                 <input
                                     type="text"
                                     value={firstName}
                                     onChange={(e) => setFirstName(e.target.value)}
-                                    className="w-full h-12 px-4 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-slate-200 focus:border-slate-400 transition-all font-medium text-slate-800 placeholder-slate-400"
+                                    className="w-full h-12 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 focus:border-slate-400 dark:focus:border-slate-500 transition-all font-medium text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
                                     placeholder="กรอกชื่อของคุณ"
                                 />
                             </div>
                             <div className="flex-1 w-full relative">
-                                <label className="block text-sm font-medium text-slate-600 mb-1.5 flex justify-between">
+                                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5 flex justify-between">
                                     <span>แคปชั่นประจำตัว (Personal Caption)</span>
                                 </label>
                                 <div className="flex gap-2">
@@ -312,12 +312,12 @@ export default function ProfilePage() {
                                         type="text"
                                         value={caption}
                                         onChange={(e) => setCaption(e.target.value)}
-                                        className="w-full h-12 px-4 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-slate-200 focus:border-slate-400 transition-all font-medium text-slate-800 placeholder-slate-400"
+                                        className="w-full h-12 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 focus:border-slate-400 dark:focus:border-slate-500 transition-all font-medium text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
                                         placeholder="เขียนแคปชั่นเท่ๆ หรือเลือกคำคม..."
                                     />
                                     <button
                                         onClick={() => setShowQuoteDrawer(!showQuoteDrawer)}
-                                        className={`h-12 w-12 flex items-center justify-center rounded-lg border border-slate-200 transition-all ${showQuoteDrawer ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white text-slate-400 hover:text-indigo-500 hover:border-indigo-200'}`}
+                                        className={`h-12 w-12 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 transition-all ${showQuoteDrawer ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300' : 'bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-700'}`}
                                         title="เลือกคำคม"
                                     >
                                         <Lightbulb size={20} />
@@ -325,11 +325,11 @@ export default function ProfilePage() {
                                 </div>
 
                                 {/* Hidden Quote Drawer */}
-                                <div className={`absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden transition-all duration-300 origin-top ${showQuoteDrawer ? 'opacity-100 scale-y-100 max-h-[400px]' : 'opacity-0 scale-y-95 max-h-0 pointer-events-none'}`}>
-                                    <div className="p-4 border-b border-slate-100 bg-slate-50 flex gap-2 overflow-x-auto no-scrollbar">
-                                        <button onClick={() => setQuoteCategory('healing')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${quoteCategory === 'healing' ? 'bg-rose-100 text-rose-600' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>❤️ ฮีลใจ</button>
-                                        <button onClick={() => setQuoteCategory('passion')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${quoteCategory === 'passion' ? 'bg-amber-100 text-amber-600' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>🔥 ปลุกไฟ</button>
-                                        <button onClick={() => setQuoteCategory('growth')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${quoteCategory === 'growth' ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>🌟 Growth Mindset</button>
+                                <div className={`absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-20 overflow-hidden transition-all duration-300 origin-top ${showQuoteDrawer ? 'opacity-100 scale-y-100 max-h-[400px]' : 'opacity-0 scale-y-95 max-h-0 pointer-events-none'}`}>
+                                    <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex gap-2 overflow-x-auto no-scrollbar">
+                                        <button onClick={() => setQuoteCategory('healing')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${quoteCategory === 'healing' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>❤️ ฮีลใจ</button>
+                                        <button onClick={() => setQuoteCategory('passion')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${quoteCategory === 'passion' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>🔥 ปลุกไฟ</button>
+                                        <button onClick={() => setQuoteCategory('growth')} className={`px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${quoteCategory === 'growth' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>🌟 Growth Mindset</button>
                                     </div>
                                     <div className="p-2 max-h-[250px] overflow-y-auto">
                                         {QUOTES[quoteCategory].map((q, idx) => (
@@ -339,7 +339,7 @@ export default function ProfilePage() {
                                                     setCaption(q);
                                                     setShowQuoteDrawer(false);
                                                 }}
-                                                className="w-full text-left px-4 py-3 hover:bg-slate-50 rounded-lg text-slate-700 text-sm font-medium transition-colors border-b border-slate-50 last:border-0"
+                                                className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-lg text-slate-700 dark:text-slate-200 text-sm font-medium transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0"
                                             >
                                                 {q}
                                             </button>
@@ -350,7 +350,7 @@ export default function ProfilePage() {
                             <button
                                 onClick={handleSave}
                                 disabled={loading}
-                                className="w-full sm:w-auto px-8 h-12 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 active:bg-slate-950 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center whitespace-nowrap shadow-sm"
+                                className="w-full sm:w-auto px-8 h-12 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg font-semibold hover:bg-slate-800 dark:hover:bg-white active:bg-slate-950 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center whitespace-nowrap shadow-sm"
                             >
                                 {loading ? (
                                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -368,14 +368,14 @@ export default function ProfilePage() {
                     <div className="flex flex-col lg:flex-row gap-6 items-start">
 
                         {/* LEFT COLUMN: Preview & Upload (Sticky on Desktop) */}
-                        <div className="w-full lg:w-80 flex flex-col gap-6 lg:sticky lg:top-8 bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-center">
-                            <h2 className="text-lg font-bold text-slate-800 flex items-center justify-center gap-2">
+                        <div className="w-full lg:w-80 flex flex-col gap-6 lg:sticky lg:top-8 bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm text-center">
+                            <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center justify-center gap-2">
                                 <span className="text-xl">📸</span> รูปโปรไฟล์
                             </h2>
 
                             {/* Center Preview */}
                             <div className="relative group mx-auto">
-                                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border border-slate-200 shadow-sm bg-slate-50 transition-transform duration-500 hover:scale-105">
+                                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm bg-slate-50 dark:bg-slate-800 transition-transform duration-500 hover:scale-105">
                                     {avatar ? (
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img
@@ -389,7 +389,7 @@ export default function ProfilePage() {
                                             }}
                                         />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-600">
                                             <User size={64} />
                                         </div>
                                     )}
@@ -417,7 +417,7 @@ export default function ProfilePage() {
                                 <button
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading}
-                                    className="mx-auto px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-all flex items-center justify-center gap-2"
+                                    className="mx-auto px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-all flex items-center justify-center gap-2"
                                 >
                                     <Camera className="w-4 h-4" />
                                     <span>อัปโหลด</span>
@@ -429,7 +429,7 @@ export default function ProfilePage() {
                                 <Link
                                     href={`/parent-dashboard/${user.uid}`}
                                     prefetch={false}
-                                    className="mt-4 w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 text-indigo-700 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-indigo-100 hover:border-indigo-200"
+                                    className="mt-4 w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-900/40 dark:hover:to-purple-900/40 text-indigo-700 dark:text-indigo-300 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-indigo-100 dark:border-indigo-800 hover:border-indigo-200 dark:hover:border-indigo-700"
                                 >
                                     <span className="text-lg">📊</span>
                                     <span>ติดตามผลการเรียน (สำหรับผู้ปกครอง)</span>
@@ -438,9 +438,9 @@ export default function ProfilePage() {
                         </div>
 
                         {/* RIGHT COLUMN: Selection Grid */}
-                        <div className="flex-1 w-full bg-white rounded-xl p-6 sm:p-8 shadow-sm border border-slate-200">
+                        <div className="flex-1 w-full bg-white dark:bg-slate-900 rounded-xl p-6 sm:p-8 shadow-sm border border-slate-200 dark:border-slate-800">
                             <div className="flex flex-col items-center gap-6 mb-8">
-                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <h2 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
                                     <span className="text-xl">🎭</span> เลือกรูปประจำตัว
                                 </h2>
 
@@ -451,8 +451,8 @@ export default function ProfilePage() {
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id)}
                                             className={`px-5 py-2 rounded-lg font-medium text-sm transition-all ${activeTab === tab.id
-                                                ? 'bg-slate-800 text-white shadow-sm'
-                                                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm'
+                                                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
                                                 }`}
                                         >
                                             {tab.emoji} {tab.label}
@@ -463,14 +463,14 @@ export default function ProfilePage() {
 
                             {/* Grid - Sticker Shop Style */}
                             {libLoading ? (
-                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-16 text-center text-slate-500 flex flex-col items-center gap-3">
-                                    <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                                <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 px-6 py-16 text-center text-slate-500 dark:text-slate-400 flex flex-col items-center gap-3">
+                                    <Loader2 className="w-6 h-6 animate-spin text-slate-400 dark:text-slate-500" />
                                     <span>กำลังโหลดรูปประจำตัว...</span>
                                 </div>
                             ) : (avatarLib[activeTab] || []).length === 0 ? (
-                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-16 text-center text-slate-500">
+                                <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 px-6 py-16 text-center text-slate-500 dark:text-slate-400">
                                     <p className="font-semibold mb-1">ยังไม่มีรูปในหมวดนี้</p>
-                                    <p className="text-xs text-slate-400">หรืออัปโหลดรูปของคุณเองได้ที่ปุ่ม "อัปโหลด" ด้านซ้าย</p>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500">หรืออัปโหลดรูปของคุณเองได้ที่ปุ่ม "อัปโหลด" ด้านซ้าย</p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-4">
@@ -479,8 +479,8 @@ export default function ProfilePage() {
                                             key={src}
                                             onClick={() => setAvatar(src)}
                                             className={`group relative p-2 rounded-xl transition-all duration-200 border ${avatar === src
-                                                ? "bg-slate-50 border-slate-400 ring-1 ring-slate-400"
-                                                : "bg-white border-transparent hover:border-slate-200 hover:bg-slate-50 hover:shadow-sm"
+                                                ? "bg-slate-50 dark:bg-slate-800 border-slate-400 dark:border-slate-500 ring-1 ring-slate-400 dark:ring-slate-500"
+                                                : "bg-white dark:bg-slate-900 border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 hover:shadow-sm"
                                                 }`}
                                         >
                                             <div className="aspect-square w-full flex items-center justify-center min-w-[80px]">
