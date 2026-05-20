@@ -25,8 +25,8 @@ function calcTimeLeft(endDate: string): TimeLeft {
 function Cell({ value, label }: { value: number; label: string }) {
     return (
         <div className="flex flex-col items-center">
-            <div className="bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl px-4 py-3 md:px-6 md:py-4 min-w-[72px] md:min-w-[96px] shadow-lg">
-                <span className="text-3xl md:text-5xl font-black text-white tabular-nums">
+            <div className="bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 md:px-6 md:py-4 min-w-[56px] sm:min-w-[72px] md:min-w-[96px] shadow-lg">
+                <span className="text-2xl sm:text-3xl md:text-5xl font-black text-white tabular-nums">
                     {String(value).padStart(2, "0")}
                 </span>
             </div>

@@ -51,7 +51,7 @@ function LiveAvatar({ photo, name }: { photo?: string; name: string }) {
 
 function LiveReviewCard({ review }: { review: LiveReview }) {
     return (
-        <div className="flex-shrink-0 w-[320px] md:w-[360px] bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-100 dark:border-slate-800 p-6 relative hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+        <div className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-100 dark:border-slate-800 p-6 relative hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
             <Quote className="absolute top-4 right-4 text-slate-100 dark:text-slate-800" size={28} fill="currentColor" />
             <div className="flex items-center gap-3 mb-3">
                 <div className={`w-11 h-11 rounded-full overflow-hidden border-2 border-white dark:border-slate-800 shadow-sm flex items-center justify-center shrink-0 bg-gradient-to-br ${getAvatarGradient(review.userName)}`}>
@@ -194,7 +194,7 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
                         {[...data.images, ...data.images].map((img, i) => (
                             <div
                                 key={i}
-                                className="flex-shrink-0 w-[280px] md:w-[350px] transition-transform duration-300 hover:scale-105 cursor-pointer"
+                                className="flex-shrink-0 w-[240px] sm:w-[280px] md:w-[350px] transition-transform duration-300 hover:scale-105 cursor-pointer"
                                 onClick={() => setSelectedImage(img)}
                             >
                                 <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-800 overflow-hidden h-full">

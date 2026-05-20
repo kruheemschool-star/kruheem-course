@@ -644,7 +644,7 @@ export default function PaymentPage() {
                 {/* QR Code Section */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-md border border-slate-100 dark:border-slate-700 mb-6">
                   <div className="flex flex-col items-center">
-                    <div className="w-80 h-80 bg-white p-3 rounded-2xl shadow-inner border-2 border-slate-100 dark:border-slate-700 mb-4">
+                    <div className="w-64 h-64 sm:w-80 sm:h-80 bg-white p-3 rounded-2xl shadow-inner border-2 border-slate-100 dark:border-slate-700 mb-4">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/qrcode.png"

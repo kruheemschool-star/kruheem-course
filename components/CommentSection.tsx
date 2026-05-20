@@ -121,7 +121,7 @@ export default function CommentSection({ summaryId }: CommentSectionProps) {
                                 onChange={(e) => setNewComment(e.target.value)}
                                 placeholder="เขียนความคิดเห็น..."
                                 rows={3}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-slate-500 resize-none"
+                                className="w-full px-4 py-3.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 dark:focus:border-amber-500 resize-none transition-all"
                             />
                             <div className="flex justify-end mt-2">
                                 <button

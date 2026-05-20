@@ -467,14 +467,14 @@ export default function HomePage() {
                         {/* Content Body */}
                         <div className="p-8 flex flex-col flex-1 bg-white dark:bg-slate-900 relative z-10">
                           <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3 line-clamp-2 leading-relaxed group-hover:text-amber-600 transition-colors">{course.title}</h3>
-                          <p className="text-slate-500 dark:text-slate-400 text-base line-clamp-2 mb-8 leading-relaxed font-medium">{course.desc || "ไม่มีรายละเอียด"}</p>
+                          <p className="text-slate-600 dark:text-slate-300 text-base line-clamp-2 mb-8 leading-relaxed font-medium">{course.desc || "ไม่มีรายละเอียด"}</p>
 
                           <div className="flex items-center justify-between mt-auto pt-6 border-t border-slate-100 dark:border-slate-800">
                             <div className="flex flex-col">
-                              <span className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-1">ราคาคอร์ส</span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1">ราคาคอร์ส</span>
                               <div className="flex items-center gap-2">
                                 {(course.fullPrice ?? 0) > 0 && (
-                                  <span className="text-sm font-bold text-slate-400 line-through">฿{course.fullPrice?.toLocaleString()}</span>
+                                  <span className="text-sm font-bold text-slate-500 dark:text-slate-400 line-through">฿{course.fullPrice?.toLocaleString()}</span>
                                 )}
                                 <span className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{course.price ? `฿${course.price.toLocaleString()}` : "ฟรี"}</span>
                               </div>
