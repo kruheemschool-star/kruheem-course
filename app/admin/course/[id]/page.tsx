@@ -145,8 +145,13 @@ const tryParseJson = (str: string) => {
 };
 
 // ✨ Component แสดงกลุ่มบทเรียน
-const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, handleMoveLesson, onDragEnd }: { group: any, handleEdit: any, handleDelete: any, handleToggleVisibility: any, handleMoveLesson: any, onDragEnd: (event: DragEndEvent, groupItems: any[]) => void }) => {
+const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, handleMoveLesson, onDragEnd, selectedIds, toggleSelect, toggleSelectGroup }: { group: any, handleEdit: any, handleDelete: any, handleToggleVisibility: any, handleMoveLesson: any, onDragEnd: (event: DragEndEvent, groupItems: any[]) => void, selectedIds: Set<string>, toggleSelect: (id: string) => void, toggleSelectGroup: (ids: string[]) => void }) => {
     const [isOpen, setIsOpen] = useState(true);
+    const itemIds: string[] = group.items.map((l: any) => l.id);
+    const groupCheckIds: string[] = group.header ? [group.header.id, ...itemIds] : itemIds;
+    const selectedInGroup = groupCheckIds.filter(id => selectedIds.has(id)).length;
+    const allInGroupSelected = groupCheckIds.length > 0 && selectedInGroup === groupCheckIds.length;
+    const someInGroupSelected = selectedInGroup > 0 && selectedInGroup < groupCheckIds.length;
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -157,6 +162,22 @@ const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, 
         <div className={`rounded-[1.5rem] border-2 shadow-sm overflow-hidden mb-4 transition-colors ${!group.header ? 'bg-amber-50 border-amber-200 border-dashed' : 'bg-white border-indigo-50'}`}>
             <div onClick={() => setIsOpen(!isOpen)} className={`p-4 flex items-center justify-between cursor-pointer hover:bg-opacity-80 transition ${!group.header ? 'bg-amber-100/50' : (!isOpen ? 'bg-white' : 'bg-indigo-50/30')}`}>
                 <div className="flex items-center gap-4">
+                    {/* Group-level checkbox — ticks every lesson + chapter doc in this group */}
+                    <label
+                        className="flex items-center justify-center w-5 h-5 cursor-pointer flex-shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <input
+                            type="checkbox"
+                            className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500/40 cursor-pointer"
+                            checked={allInGroupSelected}
+                            ref={(el) => {
+                                if (el) el.indeterminate = someInGroupSelected;
+                            }}
+                            onChange={() => toggleSelectGroup(groupCheckIds)}
+                            aria-label={group.header ? `เลือก ${group.header.title}` : "เลือกบทเรียนที่ยังไม่ได้จัดหมวด"}
+                        />
+                    </label>
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${group.header ? 'bg-orange-500 text-white' : 'bg-amber-300 text-amber-700'}`}>
                         {group.header ? <HeaderIcon /> : <span className="text-2xl">📂</span>}
                     </div>
@@ -183,8 +204,18 @@ const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, 
                         <SortableContext items={group.items.map((l: any) => l.id)} strategy={verticalListSortingStrategy}>
                             {group.items.map((lesson: any, index: number) => (
                                 <SortableLessonItem key={lesson.id} id={lesson.id}>
-                                    <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-md transition group ml-4 md:ml-10">
+                                    <div className={`flex items-center justify-between p-3 rounded-xl border transition group ml-4 md:ml-10 ${selectedIds.has(lesson.id) ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md'}`}>
                                         <div className="flex items-center gap-3 overflow-hidden">
+                                            {/* Per-lesson checkbox for bulk select */}
+                                            <label className="flex items-center justify-center w-5 h-5 cursor-pointer flex-shrink-0">
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500/40 cursor-pointer"
+                                                    checked={selectedIds.has(lesson.id)}
+                                                    onChange={() => toggleSelect(lesson.id)}
+                                                    aria-label={`เลือก ${lesson.title}`}
+                                                />
+                                            </label>
                                             {/* ✅ Color logic สำหรับ Exercise (สีเขียว) */}
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 text-sm 
                                         ${lesson.type === 'quiz' ? 'bg-purple-100 text-purple-600'
@@ -235,6 +266,29 @@ export default function ManageLessonsPage() {
     const [activeTab, setActiveTab] = useState<'lessons' | 'students'>('lessons');
     const [students, setStudents] = useState<any[]>([]);
     const [expandedStudentIds, setExpandedStudentIds] = useState<string[]>([]);
+
+    // Multi-select for bulk delete. selectedIds holds the lesson doc ids
+    // (chapters or sub-lessons) the admin has ticked. Cleared on every
+    // fetchCourseInfo() call to avoid stale ids surviving a refetch.
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+    const toggleSelectGroup = (ids: string[]) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            const allSelected = ids.every(id => next.has(id));
+            if (allSelected) ids.forEach(id => next.delete(id));
+            else ids.forEach(id => next.add(id));
+            return next;
+        });
+    };
+    const clearSelection = () => setSelectedIds(new Set());
 
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
 
@@ -1214,14 +1268,96 @@ export default function ManageLessonsPage() {
     };
 
     const handleDelete = (lessonId: string) => {
+        const target = lessons.find(l => l.id === lessonId);
+
+        // If the target is a chapter header, cascade-delete every lesson that
+        // references it. Previously only the header was deleted, leaving the
+        // children to appear under "Uncategorized (รอจัดหมวด)" — which is
+        // not what teachers expect when they click ลบ on a whole chapter.
+        if (target?.type === "header") {
+            const children = lessons.filter(l => l.headerId === lessonId);
+            const childCount = children.length;
+            const totalCount = childCount + 1;
+
+            const message = childCount > 0
+                ? `จะลบบท "${target.title}" พร้อมบทเรียนย่อย ${childCount} ตอนทั้งหมด — รวม ${totalCount} รายการ\n\nการลบนี้กู้คืนไม่ได้`
+                : `ต้องการลบบท "${target.title}" ใช่ไหม? การลบนี้กู้คืนไม่ได้`;
+
+            confirmModal("ยืนยันการลบบท", message, async () => {
+                try {
+                    // writeBatch caps at 500 ops/commit. Chunk at 400 to be safe
+                    // (matches the bulk-import pattern elsewhere in this file).
+                    const allIds = [lessonId, ...children.map(c => c.id)];
+                    const CHUNK = 400;
+                    for (let i = 0; i < allIds.length; i += CHUNK) {
+                        const batch = writeBatch(db);
+                        allIds.slice(i, i + CHUNK).forEach(id => {
+                            batch.delete(doc(db, "courses", courseId, "lessons", id));
+                        });
+                        await batch.commit();
+                    }
+                    await recalculateTotalLessons();
+                    showToast(`ลบบทและ ${childCount} บทเรียนย่อยเรียบร้อย`);
+                    fetchCourseInfo();
+                } catch (err: any) {
+                    showToast("ลบไม่สำเร็จ: " + err.message, "error");
+                }
+            }, true);
+            return;
+        }
+
+        // Regular single-lesson delete (unchanged behaviour).
         confirmModal("ยืนยันการลบเนื้อหา", "ต้องการลบรายการนี้ใช่ไหม? เนื้อหานี้จะถูกลบและไม่สามารถกู้คืนได้", async () => {
             await deleteDoc(doc(db, "courses", courseId, "lessons", lessonId));
-
-            // ✅ Recalculate Total
             await recalculateTotalLessons();
-
             showToast("ลบเรียบร้อย");
             fetchCourseInfo();
+        }, true);
+    };
+
+    // Bulk delete every ticked lesson + cascade-delete any ticked chapter's
+    // children even if those children weren't individually ticked. Uses the
+    // same 400-doc chunk pattern as handleDelete above so we never bump the
+    // 500 op/batch Firestore limit.
+    const handleBulkDelete = () => {
+        if (selectedIds.size === 0) return;
+
+        const tickedIds = Array.from(selectedIds);
+        const tickedHeaders = lessons.filter(l => tickedIds.includes(l.id) && l.type === "header");
+        const cascadeChildIds = new Set<string>();
+        for (const h of tickedHeaders) {
+            for (const child of lessons) {
+                if (child.headerId === h.id) cascadeChildIds.add(child.id);
+            }
+        }
+        const finalIds = Array.from(new Set([...tickedIds, ...cascadeChildIds]));
+        const headerCount = tickedHeaders.length;
+        const cascadeCount = cascadeChildIds.size;
+        const directLessonCount = finalIds.length - headerCount - cascadeCount;
+
+        const lines: string[] = [];
+        if (headerCount > 0) lines.push(`• ${headerCount} บท (พร้อมบทเรียนย่อย ${cascadeCount} ตอน)`);
+        if (directLessonCount > 0) lines.push(`• ${directLessonCount} บทเรียน`);
+        lines.push("");
+        lines.push(`รวม ${finalIds.length} รายการ — การลบนี้กู้คืนไม่ได้`);
+
+        confirmModal("ยืนยันการลบหลายรายการ", lines.join("\n"), async () => {
+            try {
+                const CHUNK = 400;
+                for (let i = 0; i < finalIds.length; i += CHUNK) {
+                    const batch = writeBatch(db);
+                    finalIds.slice(i, i + CHUNK).forEach(id => {
+                        batch.delete(doc(db, "courses", courseId, "lessons", id));
+                    });
+                    await batch.commit();
+                }
+                await recalculateTotalLessons();
+                showToast(`ลบ ${finalIds.length} รายการเรียบร้อย`);
+                clearSelection();
+                fetchCourseInfo();
+            } catch (err: any) {
+                showToast("ลบไม่สำเร็จ: " + err.message, "error");
+            }
         }, true);
     };
 
@@ -2169,6 +2305,9 @@ export default function ManageLessonsPage() {
                                                         handleToggleVisibility={handleToggleVisibility}
                                                         handleMoveLesson={handleMoveLesson}
                                                         onDragEnd={handleDragEnd}
+                                                        selectedIds={selectedIds}
+                                                        toggleSelect={toggleSelect}
+                                                        toggleSelectGroup={toggleSelectGroup}
                                                     />
                                                 </SortableLessonItem>
                                             ))}
@@ -2184,6 +2323,9 @@ export default function ManageLessonsPage() {
                                             handleToggleVisibility={handleToggleVisibility}
                                             handleMoveLesson={handleMoveLesson}
                                             onDragEnd={handleDragEnd}
+                                            selectedIds={selectedIds}
+                                            toggleSelect={toggleSelect}
+                                            toggleSelectGroup={toggleSelectGroup}
                                         />
                                     ))}
                                 </div>
@@ -2351,6 +2493,31 @@ export default function ManageLessonsPage() {
                     )
                 }
             </div >
+
+            {/* Floating bulk-action bar — sticky bottom, shown only when something is selected */}
+            {selectedIds.size > 0 && (
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900 dark:bg-slate-800 text-white shadow-2xl shadow-slate-900/30 border border-slate-700/40 animate-in slide-in-from-bottom-4 duration-200">
+                    <span className="text-sm font-bold">
+                        เลือกแล้ว <span className="text-amber-300">{selectedIds.size}</span> รายการ
+                    </span>
+                    <span className="w-px h-5 bg-slate-700" aria-hidden="true" />
+                    <button
+                        type="button"
+                        onClick={clearSelection}
+                        className="text-sm font-bold px-3 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700/60 transition"
+                    >
+                        ล้าง
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleBulkDelete}
+                        className="text-sm font-bold px-4 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-400 text-white shadow-md shadow-rose-500/40 transition flex items-center gap-1.5"
+                    >
+                        🗑 ลบที่เลือก
+                    </button>
+                </div>
+            )}
+
             <ConfirmDialog />
         </div >
     );
