@@ -45,6 +45,9 @@ next-env.d.ts
 .firebase/
 service-account*.json
 
+# Local backups created when bulk-compressing static images
+public/.backup-images-*/
+
 # Playwright
 /playwright-report/
 /test-results/
