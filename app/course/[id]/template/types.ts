@@ -29,6 +29,38 @@ export interface BaseSection<T extends SectionType, D> {
 
 // ---------- Section Data Types ----------
 
+// ---------- Hero: rich course-card sub-shapes ----------
+export interface HeroTrustChip {
+    icon: string;            // emoji or short glyph (⚡ ✓ …)
+    text: string;            // leading label
+    boldText?: string;       // emphasized value (rendered <b>)
+    suffix?: string;         // trailing label after the bold value
+    tone?: "amber" | "green"; // icon bubble color (default "amber")
+}
+
+export interface HeroPreview {
+    label?: string;          // "คลิปตัวอย่างฟรี"
+    epLabel?: string;        // "EP.01 · 13:42"
+    freeChipText?: string;   // idle overlay chip: "ดูฟรี · ไม่ต้องสมัคร"
+    playingChipText?: string;// playing overlay chip: "กำลังเล่น"
+    chapterTitle?: string;   // "บทที่ 01 · จำนวนและการดำเนินการ"
+    totalTime?: string;      // "13:42"
+    totalSeconds?: number;   // 822 — used to render the running timer
+    equations?: string[];    // decorative formulas on the player bg
+    videoUrl?: string;       // optional real video (wired in future)
+}
+
+export interface HeroChapter {
+    title: string;
+    desc?: string;           // "8 คลิป · แบบฝึก 24"
+    free?: boolean;          // true → green "ฟรี" badge; else 🔒
+}
+
+export interface HeroCardStat {
+    value: string;           // "1,247"
+    label?: string;          // "นักเรียน"
+}
+
 export interface HeroData {
     badgeText?: string;
     title: string;
@@ -51,15 +83,32 @@ export interface HeroData {
     blob1Color?: string;  // decorative blob 1 (hex)
     blob2Color?: string;  // decorative blob 2 (hex)
 
+    // ---------- NEW: Left-column extras (A3 redesign) ----------
+    regularPriceText?: string;   // strikethrough, e.g. "ราคาปกติ ฿3,900" (default: derived from courseFullPrice)
+    savingsText?: string;        // e.g. "ประหยัด ฿1,000" (default: courseFullPrice − coursePrice)
+    secondaryCtaMeta?: string;   // muted text after secondary CTA, e.g. "· 40 บท"
+    trustChips?: HeroTrustChip[];// small reassurance chips under the CTAs
+
     // ---------- NEW: Cover ----------
-    coverType?: "image" | "card"; // default "image"
-    // Card-specific (when coverType === "card")
-    cardMainText?: string;   // e.g. "ม.4"
+    coverType?: "image" | "card" | "courseCard"; // default "courseCard" (rich card); set "image" for a plain image cover
+    // Cover header (shared by card variants)
+    cardMainText?: string;   // big cover title, e.g. "Gifted ม.1" (default: courseTitle)
     cardSubText?: string;    // e.g. "เทอม 2"
     cardBadgeText?: string;  // e.g. "คณิตศาสตร์เพิ่มเติม"
     cardColorFrom?: string;  // gradient start (hex)
     cardColorTo?: string;    // gradient end (hex)
     cardTextColor?: string;  // hex
+
+    // ---------- NEW: Rich course card (coverType "card" | "courseCard") ----------
+    cardLiveLabel?: string;      // "LIVE · UPDATED 2026"
+    cardVolLabel?: string;       // "KRUHEEM · VOL.04"
+    cardTags?: string[];         // ["40 บท", "5 ปี", "HD"]
+    preview?: HeroPreview;       // free preview-video block
+    chaptersTitle?: string;      // "สารบัญทั้งหมด · 40 บท"
+    chaptersScrollLabel?: string;// "เลื่อนต่อเนื่อง"
+    chapters?: HeroChapter[];    // auto-scrolling chapter list (default: built-in Gifted ม.1 syllabus)
+    cardStats?: HeroCardStat[];  // footer stat strip
+    cardViewAllText?: string;    // "ดูทั้งหมด →"
 }
 
 export interface PainPointData {

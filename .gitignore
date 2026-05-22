@@ -44,6 +44,7 @@ next-env.d.ts
 # firebase
 .firebase/
 service-account*.json
+serviceAccountKey.json
 
 # Local backups created when bulk-compressing static images
 public/.backup-images-*/

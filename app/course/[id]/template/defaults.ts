@@ -33,9 +33,12 @@ export function createDefaultSection(type: SectionType, order: number): Section 
                     subtitle: "คำอธิบายสั้นๆ",
                     ctaText: "สมัครเรียนทันที",
                     ctaPriceText: "฿2,900",
-                    secondaryCtaText: "ทดลองเรียน",
+                    secondaryCtaText: "ดูเนื้อหาทั้งหมด",
                     pricePerDayText: "เฉลี่ยวันละ 1.59 บาท",
                     blobColors: ["bg-indigo-200/40", "bg-rose-200/40"],
+                    // Rich course card is the standard cover for this template.
+                    // (Set coverType: "image" on a course to use a plain image cover instead.)
+                    coverType: "courseCard",
                 },
             };
         case "painPoint":

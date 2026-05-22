@@ -22,6 +22,8 @@ import type { Section, SectionType } from "@/app/course/[id]/template/types";
 interface FormProps {
     value: any;
     onChange: (next: any) => void;
+    courseId?: string;
+    courseTitle?: string;
 }
 
 /**
