@@ -2,6 +2,46 @@
 import { useState } from "react";
 import type { FAQData } from "../types";
 
+// Render inline **bold** markdown within a line of text.
+function renderInline(text: string) {
+    return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+        part.startsWith("**") && part.endsWith("**") ? (
+            <strong key={i} className="font-bold text-slate-900 dark:text-white">
+                {part.slice(2, -2)}
+            </strong>
+        ) : (
+            <span key={i}>{part}</span>
+        )
+    );
+}
+
+// Turn a plain-text answer (with \n line breaks, blank-line paragraphs,
+// • bullets and **bold**) into a readable, well-spaced block.
+function renderAnswer(text: string) {
+    const sections = text.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+    return (
+        <div className="space-y-4">
+            {sections.map((section, si) => {
+                const lines = section.split("\n").map((l) => l.trim()).filter(Boolean);
+                return (
+                    <div key={si} className="space-y-1.5">
+                        {lines.map((line, li) =>
+                            line.startsWith("•") ? (
+                                <div key={li} className="flex gap-2 pl-1">
+                                    <span className="flex-shrink-0 text-slate-400 dark:text-slate-500">•</span>
+                                    <span>{renderInline(line.replace(/^•\s*/, ""))}</span>
+                                </div>
+                            ) : (
+                                <p key={li}>{renderInline(line)}</p>
+                            )
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 const COLORS = [
     "bg-rose-50 border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/50",
     "bg-orange-50 border-orange-100 dark:bg-orange-950/30 dark:border-orange-900/50",
@@ -47,8 +87,8 @@ export default function FAQSection({ data }: { data: FAQData }) {
                             }`}
                         >
                             <div className="overflow-hidden">
-                                <div className="px-6 pb-6 pt-2 text-slate-700 dark:text-slate-200 leading-relaxed border-t border-black/5 dark:border-white/10 text-base">
-                                    {faq.a}
+                                <div className="px-6 pb-6 pt-4 text-slate-700 dark:text-slate-200 leading-relaxed border-t border-black/5 dark:border-white/10 text-base">
+                                    {renderAnswer(faq.a)}
                                 </div>
                             </div>
                         </div>
