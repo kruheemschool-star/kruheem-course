@@ -118,7 +118,7 @@ export default function TemplatePage({
             <Navbar />
             <main className="pb-24">
                 {visibleSections.map((section) => (
-                    <div key={section.id}>{renderSection(section, ctx)}</div>
+                    <div key={section.id} id={`section-${section.type}`}>{renderSection(section, ctx)}</div>
                 ))}
             </main>
             <Footer />

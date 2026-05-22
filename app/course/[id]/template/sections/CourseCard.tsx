@@ -106,7 +106,12 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
     };
 
     const doubledChapters = [...chapters, ...chapters];
-    const learnHref = interactive && courseId ? `/learn/${courseId}` : undefined;
+    const curriculumHref = interactive ? "#section-curriculum" : undefined;
+    const scrollToCurriculum = (e: React.MouseEvent) => {
+        e.preventDefault();
+        const el = document.getElementById("section-curriculum");
+        if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: "instant" as ScrollBehavior });
+    };
 
     return (
         <div
@@ -423,9 +428,10 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                         </span>
                     ))}
                 </div>
-                {learnHref ? (
+                {curriculumHref ? (
                     <a
-                        href={learnHref}
+                        href={curriculumHref}
+                        onClick={scrollToCurriculum}
                         className="px-3 py-1.5 rounded-lg text-xs font-bold"
                         style={{
                             background: "linear-gradient(180deg,#fef3e0,#fde2c0)",
