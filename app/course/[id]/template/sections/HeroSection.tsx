@@ -1,6 +1,7 @@
 "use client";
 import type { HeroTrustChip, HeroData, SectionContext } from "../types";
 import CourseCard from "./CourseCard";
+import { smoothScrollToId } from "../smoothScroll";
 
 interface Props {
     data: HeroData;
@@ -187,8 +188,7 @@ export default function HeroSection({ data, ctx }: Props) {
                             href="#section-curriculum"
                             onClick={(e) => {
                                 e.preventDefault();
-                                const el = document.getElementById("section-curriculum");
-                                if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: "instant" as ScrollBehavior });
+                                smoothScrollToId("section-curriculum");
                             }}
                             className="inline-flex items-center gap-3 pl-3 pr-[18px] py-3 rounded-[14px] font-semibold text-[15px] w-fit mx-auto lg:mx-0 hover:bg-white/60 transition-colors"
                             style={{ border: "1px solid rgba(20,20,40,.08)", color: "#13132a" }}

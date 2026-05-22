@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { HeroCardStat, HeroChapter, HeroData } from "../types";
+import { smoothScrollToId } from "../smoothScroll";
 
 // ============================================================
 // Defaults — keep the card looking complete even before the
@@ -109,8 +110,7 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
     const curriculumHref = interactive ? "#section-curriculum" : undefined;
     const scrollToCurriculum = (e: React.MouseEvent) => {
         e.preventDefault();
-        const el = document.getElementById("section-curriculum");
-        if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: "instant" as ScrollBehavior });
+        smoothScrollToId("section-curriculum");
     };
 
     return (
