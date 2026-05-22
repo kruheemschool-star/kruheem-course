@@ -192,8 +192,9 @@ function CoursePlayer() {
         return lessons.filter(l => !l.isHidden || isAdmin);
     }, [lessons, isAdmin]);
 
-    // ✅ บทเรียนเริ่มต้นแบบ "ยุบ" ทุกบท — เปิดเฉพาะบทของบทเรียนที่กำลังดูอยู่
-    //    (ดู effect ด้านล่างที่เปิด section ของ active lesson)
+    // ✅ บทเรียนเริ่มต้นแบบ "ยุบ" ทุกบท (รวมบทของบทเรียนปัจจุบันด้วย)
+    //    เลือก active lesson เพื่อเล่นวิดีโอได้ปกติ แต่ไม่กาง section ใด ๆ
+    //    ผู้เรียนกดหัวข้อบทเพื่อเปิดดูเองได้
 
     // ✅ Set initial active lesson based on VISIBLE lessons OR Query Param
     useEffect(() => {
@@ -203,17 +204,11 @@ function CoursePlayer() {
             const target = visibleLessons.find(l => l.id === lessonIdParam);
             if (target && target.id !== activeLesson?.id) {
                 setActiveLesson(target);
-                if (target.headerId) {
-                    setOpenSections(prev => prev.includes(target.headerId!) ? prev : [...prev, target.headerId!]);
-                }
             }
         } else if (!activeLesson) {
             const firstLearnable = visibleLessons.find(l => l.type !== 'header');
             if (firstLearnable) {
                 setActiveLesson(firstLearnable);
-                if (firstLearnable.headerId) {
-                    setOpenSections(prev => prev.includes(firstLearnable.headerId!) ? prev : [...prev, firstLearnable.headerId!]);
-                }
             }
         }
     }, [visibleLessons, lessonIdParam]);
