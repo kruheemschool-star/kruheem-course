@@ -334,4 +334,5 @@ export interface SectionContext {
     onCTAClick: () => void | Promise<void>;
     user: any;
     enrollmentStatus: "none" | "pending" | "approved";
+    previewVideoId?: string;
 }

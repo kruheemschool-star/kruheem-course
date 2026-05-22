@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, collection, query, orderBy, getDocs, limit as firestoreLimit } from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
@@ -32,6 +32,8 @@ export default function CourseSalesPage() {
     const [enrollmentStatus, setEnrollmentStatus] = useState<'none' | 'pending' | 'approved'>('none');
     const [isNavigating, setIsNavigating] = useState(false);
 
+    const [previewVideoId, setPreviewVideoId] = useState<string | undefined>();
+
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [slipPreview, setSlipPreview] = useState("");
     const [studentInfo, setStudentInfo] = useState({ fullName: "", tel: "", lineId: "" });
@@ -59,11 +61,16 @@ export default function CourseSalesPage() {
                 const courseDoc = await getDoc(doc(db, "courses", courseId));
                 if (courseDoc.exists()) setCourse(courseDoc.data());
 
-                // Fetch lessons just to check if they exist or for future use, but currently unused in UI
-                // Keeping it commented out or removing if truly unused.
-                // const q = query(collection(db, "courses", courseId, "lessons"), orderBy("createdAt", "asc"));
-                // const querySnapshot = await getDocs(q);
-                // setLessons(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                try {
+                    const lessonsQ = query(
+                        collection(db, "courses", courseId, "lessons"),
+                        orderBy("order", "asc"),
+                        firestoreLimit(10),
+                    );
+                    const snap = await getDocs(lessonsQ);
+                    const firstVideo = snap.docs.find((d) => d.data().videoId);
+                    if (firstVideo) setPreviewVideoId(firstVideo.data().videoId);
+                } catch (_) { /* non-critical — card falls back to simulated player */ }
             } catch (error) { console.error("Error:", error); }
             finally { setLoading(false); }
         };
@@ -144,6 +151,7 @@ export default function CourseSalesPage() {
                 user={user}
                 enrollmentStatus={enrollmentStatus}
                 onLogin={handleLogin}
+                previewVideoId={previewVideoId}
             />
         );
     }

@@ -45,6 +45,8 @@ interface CourseCardProps {
     courseTitle?: string;
     /** When false, the play toggle and links don't navigate (admin preview). Default true. */
     interactive?: boolean;
+    /** YouTube video ID for the first free lesson (fetched from Firestore). */
+    previewVideoId?: string;
 }
 
 /**
@@ -52,20 +54,32 @@ interface CourseCardProps {
  * Pure presentational component — driven entirely by HeroData props so it can
  * be reused in both the live hero and the admin live-preview.
  */
-export default function CourseCard({ data, courseId, courseTitle, interactive = true }: CourseCardProps) {
+export default function CourseCard({ data, courseId, courseTitle, interactive = true, previewVideoId }: CourseCardProps) {
     const cardMainText = data.cardMainText || courseTitle || "Gifted ม.1";
     const cardTags = data.cardTags ?? ["40 บท", "5 ปี", "HD"];
     const chapters = data.chapters?.length ? data.chapters : DEFAULT_CHAPTERS;
     const stats = data.cardStats?.length ? data.cardStats : DEFAULT_STATS;
     const equations = data.preview?.equations?.length ? data.preview.equations : DEFAULT_EQUATIONS;
 
-    // ---- Preview video (simulated player — same UX as design prototype) ----
+    // ---- Resolve video ID (admin override → auto-fetched → none) ----
+    const resolvedVideoId = (() => {
+        const raw = data.preview?.videoUrl || previewVideoId || "";
+        if (!raw) return "";
+        const match = raw.match(/(?:youtu\.be\/|v=|embed\/)([A-Za-z0-9_-]{11})/);
+        return match ? match[1] : raw.length === 11 ? raw : "";
+    })();
+    const hasRealVideo = !!resolvedVideoId;
+
+    // ---- Simulated player (fallback when no real video) ----
     const [playing, setPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    // ---- Real video state ----
+    const [videoPlaying, setVideoPlaying] = useState(false);
+
     useEffect(() => {
-        if (playing) {
+        if (!hasRealVideo && playing) {
             timerRef.current = setInterval(() => {
                 setProgress((p) => {
                     if (p >= 100) {
@@ -81,7 +95,7 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
         };
-    }, [playing]);
+    }, [playing, hasRealVideo]);
 
     const totalSeconds = data.preview?.totalSeconds ?? 822;
     const fmt = (p: number) => {
@@ -171,81 +185,147 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                     <span>{data.preview?.epLabel || "EP.01 · 13:42"}</span>
                 </div>
 
-                <div
-                    onClick={() => interactive && setPlaying((p) => !p)}
-                    className="relative rounded-[13px] overflow-hidden cursor-pointer"
-                    style={{
-                        aspectRatio: "16 / 9",
-                        background: playing
-                            ? "linear-gradient(135deg,#1a1430,#3b1f4d 60%,#7c2d12)"
-                            : "linear-gradient(135deg,#fb923c 0%, #f97316 40%, #dc2626 100%)",
-                        transition: "background .3s",
-                        boxShadow: "0 8px 20px -8px rgba(180,80,30,.4)",
-                    }}
-                >
-                    {/* decorative equations */}
+                {hasRealVideo ? (
+                    /* ---- Real YouTube embed ---- */
                     <div
-                        className="absolute inset-0 overflow-hidden text-white"
-                        style={{ fontFamily: "Georgia, serif", opacity: playing ? 0.25 : 0.16, transition: "opacity .3s" }}
+                        className="relative rounded-[13px] overflow-hidden"
+                        style={{
+                            aspectRatio: "16 / 9",
+                            boxShadow: "0 8px 20px -8px rgba(180,80,30,.4)",
+                            background: "#000",
+                        }}
                     >
-                        {equations[0] && <div className="absolute" style={{ left: 16, top: 14, fontSize: 26 }}>{equations[0]}</div>}
-                        {equations[1] && <div className="absolute" style={{ right: 14, top: 50, fontSize: 20 }}>{equations[1]}</div>}
-                        {equations[2] && <div className="absolute" style={{ left: 24, bottom: 44, fontSize: 22 }}>{equations[2]}</div>}
-                    </div>
-
-                    {/* status chip */}
-                    <div
-                        className="absolute left-3 top-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold text-white"
-                        style={{ background: "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.2)" }}
-                    >
-                        <span
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{ background: playing ? "#ef4444" : "#22c55e" }}
-                        />
-                        {playing
-                            ? data.preview?.playingChipText || "กำลังเล่น"
-                            : data.preview?.freeChipText || "ดูฟรี · ไม่ต้องสมัคร"}
-                    </div>
-
-                    {/* play button */}
-                    <div className="absolute inset-0 grid place-items-center">
-                        <div
-                            className="w-[62px] h-[62px] rounded-full grid place-items-center text-[22px]"
-                            style={{
-                                background: "rgba(255,255,255,.96)",
-                                color: "#dc2626",
-                                boxShadow: "0 10px 24px -6px rgba(220,40,40,.5)",
-                                opacity: playing ? 0 : 1,
-                                transform: playing ? "scale(.85)" : "scale(1)",
-                                transition: "transform .2s, opacity .2s",
-                            }}
-                        >
-                            ▶
-                        </div>
-                    </div>
-
-                    {/* bottom control bar */}
-                    <div
-                        className="absolute left-0 right-0 bottom-0 px-3.5 pt-3 pb-2.5 text-white"
-                        style={{ background: "linear-gradient(180deg, transparent, rgba(0,0,0,.55))" }}
-                    >
-                        <div className="text-sm font-bold">
-                            {data.preview?.chapterTitle || "บทที่ 01 · จำนวนและการดำเนินการ"}
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                            <span className="text-[10.5px] font-mono">{fmt(progress)}</span>
-                            <div className="flex-1 h-[3px] rounded-sm overflow-hidden" style={{ background: "rgba(255,255,255,.25)" }}>
-                                <div
-                                    className="h-full rounded-sm"
-                                    style={{ width: `${progress}%`, background: "#fb923c", transition: "width .08s linear" }}
+                        {!videoPlaying ? (
+                            <>
+                                {/* YouTube thumbnail */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={`https://img.youtube.com/vi/${resolvedVideoId}/hqdefault.jpg`}
+                                    alt="Preview"
+                                    className="absolute inset-0 w-full h-full object-cover"
                                 />
+                                {/* status chip */}
+                                <div
+                                    className="absolute left-3 top-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold text-white z-10"
+                                    style={{ background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.2)" }}
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#22c55e" }} />
+                                    {data.preview?.freeChipText || "ดูฟรี · ไม่ต้องสมัคร"}
+                                </div>
+                                {/* play button overlay */}
+                                <div
+                                    className="absolute inset-0 grid place-items-center cursor-pointer z-10"
+                                    onClick={() => interactive && setVideoPlaying(true)}
+                                >
+                                    <div
+                                        className="w-[62px] h-[62px] rounded-full grid place-items-center text-[22px]"
+                                        style={{
+                                            background: "rgba(255,255,255,.96)",
+                                            color: "#dc2626",
+                                            boxShadow: "0 10px 24px -6px rgba(220,40,40,.5)",
+                                        }}
+                                    >
+                                        ▶
+                                    </div>
+                                </div>
+                                {/* bottom info bar */}
+                                <div
+                                    className="absolute left-0 right-0 bottom-0 px-3.5 pt-3 pb-2.5 text-white z-10"
+                                    style={{ background: "linear-gradient(180deg, transparent, rgba(0,0,0,.6))" }}
+                                >
+                                    <div className="text-sm font-bold">
+                                        {data.preview?.chapterTitle || "บทที่ 01 · จำนวนและการดำเนินการ"}
+                                    </div>
+                                    <div className="text-[10.5px] opacity-80 mt-0.5">
+                                        {data.preview?.totalTime || "13:42"}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <iframe
+                                src={`https://www.youtube.com/embed/${resolvedVideoId}?autoplay=1&rel=0&modestbranding=1`}
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                className="absolute inset-0 w-full h-full"
+                                style={{ border: 0 }}
+                            />
+                        )}
+                    </div>
+                ) : (
+                    /* ---- Simulated player (no real video available) ---- */
+                    <div
+                        onClick={() => interactive && setPlaying((p) => !p)}
+                        className="relative rounded-[13px] overflow-hidden cursor-pointer"
+                        style={{
+                            aspectRatio: "16 / 9",
+                            background: playing
+                                ? "linear-gradient(135deg,#1a1430,#3b1f4d 60%,#7c2d12)"
+                                : "linear-gradient(135deg,#fb923c 0%, #f97316 40%, #dc2626 100%)",
+                            transition: "background .3s",
+                            boxShadow: "0 8px 20px -8px rgba(180,80,30,.4)",
+                        }}
+                    >
+                        {/* decorative equations */}
+                        <div
+                            className="absolute inset-0 overflow-hidden text-white"
+                            style={{ fontFamily: "Georgia, serif", opacity: playing ? 0.25 : 0.16, transition: "opacity .3s" }}
+                        >
+                            {equations[0] && <div className="absolute" style={{ left: 16, top: 14, fontSize: 26 }}>{equations[0]}</div>}
+                            {equations[1] && <div className="absolute" style={{ right: 14, top: 50, fontSize: 20 }}>{equations[1]}</div>}
+                            {equations[2] && <div className="absolute" style={{ left: 24, bottom: 44, fontSize: 22 }}>{equations[2]}</div>}
+                        </div>
+                        {/* status chip */}
+                        <div
+                            className="absolute left-3 top-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold text-white"
+                            style={{ background: "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.2)" }}
+                        >
+                            <span
+                                className="w-1.5 h-1.5 rounded-full"
+                                style={{ background: playing ? "#ef4444" : "#22c55e" }}
+                            />
+                            {playing
+                                ? data.preview?.playingChipText || "กำลังเล่น"
+                                : data.preview?.freeChipText || "ดูฟรี · ไม่ต้องสมัคร"}
+                        </div>
+                        {/* play button */}
+                        <div className="absolute inset-0 grid place-items-center">
+                            <div
+                                className="w-[62px] h-[62px] rounded-full grid place-items-center text-[22px]"
+                                style={{
+                                    background: "rgba(255,255,255,.96)",
+                                    color: "#dc2626",
+                                    boxShadow: "0 10px 24px -6px rgba(220,40,40,.5)",
+                                    opacity: playing ? 0 : 1,
+                                    transform: playing ? "scale(.85)" : "scale(1)",
+                                    transition: "transform .2s, opacity .2s",
+                                }}
+                            >
+                                ▶
                             </div>
-                            <span className="text-[10.5px] font-mono opacity-80">
-                                {data.preview?.totalTime || "13:42"}
-                            </span>
+                        </div>
+                        {/* bottom control bar */}
+                        <div
+                            className="absolute left-0 right-0 bottom-0 px-3.5 pt-3 pb-2.5 text-white"
+                            style={{ background: "linear-gradient(180deg, transparent, rgba(0,0,0,.55))" }}
+                        >
+                            <div className="text-sm font-bold">
+                                {data.preview?.chapterTitle || "บทที่ 01 · จำนวนและการดำเนินการ"}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="text-[10.5px] font-mono">{fmt(progress)}</span>
+                                <div className="flex-1 h-[3px] rounded-sm overflow-hidden" style={{ background: "rgba(255,255,255,.25)" }}>
+                                    <div
+                                        className="h-full rounded-sm"
+                                        style={{ width: `${progress}%`, background: "#fb923c", transition: "width .08s linear" }}
+                                    />
+                                </div>
+                                <span className="text-[10.5px] font-mono opacity-80">
+                                    {data.preview?.totalTime || "13:42"}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* --- Chapter list header --- */}

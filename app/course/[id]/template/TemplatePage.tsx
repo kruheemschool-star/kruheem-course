@@ -19,6 +19,7 @@ interface Props {
     user: any;
     enrollmentStatus: "none" | "pending" | "approved";
     onLogin: () => Promise<void>;
+    previewVideoId?: string;
 }
 
 export default function TemplatePage({
@@ -31,6 +32,7 @@ export default function TemplatePage({
     user,
     enrollmentStatus,
     onLogin,
+    previewVideoId,
 }: Props) {
     const router = useRouter();
 
@@ -106,6 +108,7 @@ export default function TemplatePage({
         user,
         enrollmentStatus,
         onCTAClick: handleCTAClick,
+        previewVideoId,
     };
 
     const boosters = config.boosters;
