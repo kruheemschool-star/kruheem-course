@@ -52,7 +52,7 @@ export default function CurriculumSection({ data }: { data: CurriculumData }) {
                                 </button>
                                 <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${openIndex === i ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                                     <div className="overflow-hidden">
-                                        <div className="px-5 pb-5 pt-0 pl-[5.5rem]">
+                                        <div className="px-5 pb-5 pt-0 sm:pl-[5.5rem]">
                                             <ul className="list-disc text-slate-700 dark:text-slate-200 space-y-3 text-lg">
                                                 {ch.content.map((item, j) => (
                                                     <li key={j}>{item}</li>

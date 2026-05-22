@@ -415,10 +415,10 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
 
             {/* --- Footer stat strip --- */}
             <div
-                className="flex items-center justify-between px-[22px] pt-3 pb-[18px] mt-2"
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-3 px-[22px] pt-3 pb-[18px] mt-2"
                 style={{ borderTop: "1px solid #f5f0e4" }}
             >
-                <div className="flex gap-[18px] text-xs" style={{ color: "#7a7a8a" }}>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: "#7a7a8a" }}>
                     {stats.map((s, i) => (
                         <span key={i}>
                             <b className="text-sm" style={{ color: "#13132a" }}>
