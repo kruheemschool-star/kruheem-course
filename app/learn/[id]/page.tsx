@@ -192,17 +192,8 @@ function CoursePlayer() {
         return lessons.filter(l => !l.isHidden || isAdmin);
     }, [lessons, isAdmin]);
 
-    // ✅ Auto-open ทุก section เมื่อ lessons โหลดเสร็จ
-    useEffect(() => {
-        if (visibleLessons.length === 0) return;
-        const headerIds = visibleLessons.filter(l => l.type === 'header').map(l => l.id);
-        if (headerIds.length > 0) {
-            setOpenSections(prev => {
-                const merged = new Set([...prev, ...headerIds]);
-                return merged.size !== prev.length ? Array.from(merged) : prev;
-            });
-        }
-    }, [visibleLessons]);
+    // ✅ บทเรียนเริ่มต้นแบบ "ยุบ" ทุกบท — เปิดเฉพาะบทของบทเรียนที่กำลังดูอยู่
+    //    (ดู effect ด้านล่างที่เปิด section ของ active lesson)
 
     // ✅ Set initial active lesson based on VISIBLE lessons OR Query Param
     useEffect(() => {
