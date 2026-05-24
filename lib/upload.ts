@@ -3,7 +3,7 @@ import { storage } from "@/lib/firebase";
 import imageCompression from "browser-image-compression";
 
 const COMPRESSION_TIMEOUT = 10_000; // 10 seconds max for compression
-const COMPRESSION_THRESHOLD = 1 * 1024 * 1024; // Compress files > 1MB
+const COMPRESSION_THRESHOLD = 500 * 1024; // Compress files > 500KB
 
 /**
  * Compresses an image with a hard timeout to prevent hanging on mobile/slow devices.
