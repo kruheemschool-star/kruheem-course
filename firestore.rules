@@ -26,7 +26,12 @@ service cloud.firestore {
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.isUsed == false
         // Prevent injecting a percentage discount into "review_reward" coupons.
-        && request.resource.data.discountPercent == null
+        // IMPORTANT: use get(field, default). Accessing a field that is ABSENT
+        // from the document raises an error and denies the whole write. The
+        // client never sends discountPercent, so the bare `== null` check below
+        // silently broke ALL review-coupon creation. get() treats absent as null
+        // while still rejecting any explicitly-set percentage.
+        && request.resource.data.get('discountPercent', null) == null
         && request.resource.data.discountAmount == 100
         // REVIEW-XXXXXX (6 chars A-Z/0-9)
         && request.resource.data.code.matches('^REVIEW-[A-Z0-9]{6}$');
@@ -45,7 +50,11 @@ service cloud.firestore {
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.courseId == resource.data.courseId
         && request.resource.data.discountAmount == resource.data.discountAmount
-        && request.resource.data.discountPercent == resource.data.discountPercent
+        // get(field, default): coupons created before discountPercent existed
+        // (every review reward + admin promo) don't carry this key. Comparing a
+        // missing key directly errors and denies the redeem. Treat absent as null
+        // on both sides so existing coupons can still be marked as used.
+        && request.resource.data.get('discountPercent', null) == resource.data.get('discountPercent', null)
         && request.resource.data.createdAt == resource.data.createdAt
         // Only allow these fields to change via client redeem.
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([

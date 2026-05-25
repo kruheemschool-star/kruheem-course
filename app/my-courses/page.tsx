@@ -216,7 +216,7 @@ export default function MyCoursesPage() {
         const fetchCouponsAndReviews = async () => {
             try {
                 // Fetch coupons
-                const couponQ = query(collection(db, "coupons"), where("userId", "==", user.uid), where("source", "==", "review_reward"));
+                const couponQ = query(collection(db, "coupons"), where("userId", "==", user.uid));
                 const couponSnap = await getDocs(couponQ);
                 const coupons = couponSnap.docs.map(d => d.data() as UserCoupon);
                 setUserCoupons(coupons);
@@ -454,7 +454,7 @@ export default function MyCoursesPage() {
                                 // Refresh coupons and reviews
                                 if (user) {
                                     const fetchUpdated = async () => {
-                                        const couponQ = query(collection(db, "coupons"), where("userId", "==", user.uid), where("source", "==", "review_reward"));
+                                        const couponQ = query(collection(db, "coupons"), where("userId", "==", user.uid));
                                         const couponSnap = await getDocs(couponQ);
                                         setUserCoupons(couponSnap.docs.map(d => d.data() as UserCoupon));
 
@@ -934,7 +934,7 @@ function CouponBanner({ coupons }: { coupons: UserCoupon[] }) {
                 </div>
                 <div>
                     <h3 className="font-black text-slate-800 dark:text-slate-100">คูปองของฉัน</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">โค้ดส่วนลดจากการรีวิว ดูย้อนหลังได้เสมอ</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">โค้ดส่วนลดของคุณ ดูย้อนหลังได้เสมอ</p>
                 </div>
             </div>
 

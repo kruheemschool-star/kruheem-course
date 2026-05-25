@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { collection, serverTimestamp, query, where, getDocs, writeBatch, doc } from "firebase/firestore";
 import { useUserAuth } from "@/context/AuthContext";
 import { Star, Send, Gift, CheckCircle, Copy, AlertCircle } from "lucide-react";
 
@@ -113,8 +113,15 @@ export default function ReviewForm({ courseId, courseName, initialCouponCode, is
             // Must satisfy firestore.rules pattern ^REVIEW-[A-Z0-9]{6}$
             const code = `REVIEW-${generateSecureCode(6)}`;
 
-            // 3. Add Review
-            await addDoc(collection(db, "reviews"), {
+            // 3. Write the review AND its coupon atomically.
+            // These used to be two separate addDoc calls. If the coupon write
+            // failed (e.g. the firestore rule denied it), the review was already
+            // saved and the user got stuck as "already reviewed" with no coupon
+            // and no way to retry. A batch makes both succeed or both fail.
+            const batch = writeBatch(db);
+
+            const reviewRef = doc(collection(db, "reviews"));
+            batch.set(reviewRef, {
                 userId: user.uid,
                 userName: customName.trim() || userProfile?.displayName || user.displayName || "ผู้เรียน",
                 userPhoto: userProfile?.avatar || user.photoURL || "",
@@ -127,10 +134,12 @@ export default function ReviewForm({ courseId, courseName, initialCouponCode, is
                 couponCode: code,
             });
 
-            // 4. Create Coupon (bound to userId)
-            await addDoc(collection(db, "coupons"), {
+            const couponRef = doc(collection(db, "coupons"));
+            batch.set(couponRef, {
                 code: code,
                 discountAmount: 100,
+                // Explicitly null so the field always exists (the rule checks it).
+                discountPercent: null,
                 userId: user.uid,
                 courseId: courseId || null,
                 isUsed: false,
@@ -139,6 +148,8 @@ export default function ReviewForm({ courseId, courseName, initialCouponCode, is
                 createdAt: serverTimestamp(),
                 source: "review_reward"
             });
+
+            await batch.commit();
 
             setCouponCode(code);
             setAlreadyReviewed(true);
