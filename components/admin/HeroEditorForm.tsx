@@ -57,28 +57,49 @@ export default function HeroEditorForm({ value, onChange, courseId, courseTitle 
     const coverType = value.coverType || "courseCard";
     const isCard = coverType === "card" || coverType === "courseCard";
 
-    // Pull real lessons from this course's Firestore subcollection into the
-    // chapter list (video only, sorted by order, strip "[EPxx]", free = isFree).
+    // Pull real lessons from this course's Firestore subcollection, grouped by
+    // header into chapters (title + "X คลิป · แบบฝึก Y" + free if any free lesson).
+    // Falls back to a flat video list for courses that don't use headers.
     const pullChapters = async () => {
         if (!courseId) return;
         const existing = value.chapters?.length ?? 0;
         if (existing > 0 && !confirm(`มีรายการตอนอยู่แล้ว ${existing} ตอน — ดึงใหม่ทับของเดิม?`)) return;
         setPulling(true);
         try {
+            const clean = (t?: string) =>
+                (t || "").replace(/^\[EP\d+\]\s*/i, "").replace(/^บทที่\s*\d+[\s:.\-–]*/u, "").trim();
             const snap = await getDocs(collection(db, "courses", courseId, "lessons"));
-            const chapters = snap.docs
-                .map((d) => d.data() as { title?: string; type?: string; order?: number; isFree?: boolean })
-                .filter((l) => l.type === "video")
-                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                .map((l) => {
-                    const title = (l.title || "").replace(/^\[EP\d+\]\s*/, "").trim();
-                    return l.isFree ? { title, free: true } : { title };
+            const lessons = snap.docs.map((d) => ({ id: d.id, ...(d.data() as { title?: string; type?: string; order?: number; isFree?: boolean; headerId?: string }) }));
+            const headers = lessons.filter((l) => l.type === "header").sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+            let chapters: HeroChapter[];
+            if (headers.length > 0) {
+                // Group by header → one chapter per บท.
+                chapters = headers.map((h) => {
+                    const subs = lessons.filter((l) => l.headerId === h.id && l.type !== "header");
+                    const videos = subs.filter((l) => l.type === "video").length;
+                    const exercises = subs.filter((l) => l.type === "exercise" || l.type === "quiz").length;
+                    const descParts: string[] = [];
+                    if (videos) descParts.push(`${videos} คลิป`);
+                    if (exercises) descParts.push(`แบบฝึก ${exercises}`);
+                    const chap: HeroChapter = { title: clean(h.title) };
+                    if (descParts.length) chap.desc = descParts.join(" · ");
+                    if (subs.some((l) => l.isFree)) chap.free = true;
+                    return chap;
                 });
+            } else {
+                // No headers — fall back to a flat list of videos.
+                chapters = lessons
+                    .filter((l) => l.type === "video")
+                    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                    .map((l) => (l.isFree ? { title: clean(l.title), free: true } : { title: clean(l.title) }));
+            }
+
             if (chapters.length === 0) {
-                alert("ไม่พบตอนวิดีโอในคอร์สนี้");
+                alert("ไม่พบบทเรียนในคอร์สนี้");
             } else {
                 update({ chapters });
-                alert(`✅ ดึงมา ${chapters.length} ตอนแล้ว — อย่าลืมกด "บันทึก"`);
+                alert(`✅ ดึงมา ${chapters.length} บทแล้ว — อย่าลืมกด "บันทึก"`);
             }
         } catch (e: unknown) {
             alert("ดึงไม่สำเร็จ: " + (e instanceof Error ? e.message : String(e)));
