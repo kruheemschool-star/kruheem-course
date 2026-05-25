@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus, AlertCircle, Pencil, Check, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus, AlertCircle, Pencil, Check, X, ChevronDown, ChevronUp, Download, FileText, BookOpen, Loader2 } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
 import { deriveExamLevel } from "@/lib/exam-level";
+import { buildExamExport, parseExamQuestions, examFilenameSlug } from "@/lib/exam-export";
 import toast, { Toaster } from "react-hot-toast";
 
 // Drag and Drop imports
@@ -17,7 +18,7 @@ import { CSS } from '@dnd-kit/utilities';
 import React from "react";
 
 // Sortable Table Row Component
-function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking, onCategoryChange }: { exam: any; categoryOptions: string[]; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void; onCategoryChange: (id: string, newCategory: string) => void }) {
+function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking, onCategoryChange, onExport }: { exam: any; categoryOptions: string[]; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void; onCategoryChange: (id: string, newCategory: string) => void; onExport: (exam: any) => void }) {
     const {
         attributes,
         listeners,
@@ -120,6 +121,13 @@ function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onTogg
                         title={exam.hidden ? 'แสดงข้อสอบ (ปลดซ่อน)' : 'ซ่อนข้อสอบ'}
                     >
                         {exam.hidden ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                    <button
+                        onClick={() => onExport(exam)}
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg tooltip"
+                        title="ดาวน์โหลดข้อมูล JSON (โจทย์/เฉลย)"
+                    >
+                        <Download size={18} />
                     </button>
                     <Link
                         href={`/admin/exams/${exam.id}`}
@@ -225,10 +233,122 @@ function SortableCategoryRow({ category, count, onDelete, onRename }: { category
     );
 }
 
+// Export modal — downloads an exam's data as JSON for external typesetting.
+// Offers three shapes (full / problems-only / solutions-only) so โจทย์ and
+// เฉลย can be laid out as separate documents. Questions are resolved from the
+// inline field, falling back to the exam's questionsUrl if there are none.
+function ExamExportModal({ exam, onClose }: { exam: any; onClose: () => void }) {
+    const [resolved, setResolved] = useState<any[] | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            let qs = parseExamQuestions(exam.questions);
+            if (qs.length === 0 && exam.questionsUrl) {
+                try {
+                    const res = await fetch(exam.questionsUrl, { signal: AbortSignal.timeout(8000) });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (Array.isArray(data)) qs = data;
+                    }
+                } catch { /* ignore — falls through to empty */ }
+            }
+            if (!cancelled) setResolved(qs);
+        })();
+        return () => { cancelled = true; };
+    }, [exam]);
+
+    const data = useMemo(() => (resolved ? buildExamExport(exam, resolved) : null), [resolved, exam]);
+
+    const download = (suffix: string, payload: any) => {
+        const slug = examFilenameSlug(exam.title);
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = suffix ? `${slug}-${suffix}.json` : `${slug}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const loading = resolved === null;
+    const count = data?.meta.questionCount ?? 0;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-start justify-between mb-1">
+                    <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                        <Download size={22} className="text-emerald-600" />
+                        ดาวน์โหลดข้อมูล JSON
+                    </h2>
+                    <button onClick={onClose} className="p-2 -mr-2 -mt-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+                <p className="text-slate-500 text-sm mb-5 truncate">{exam.title}</p>
+
+                {loading ? (
+                    <div className="py-10 flex flex-col items-center text-slate-400">
+                        <Loader2 className="animate-spin mb-3" size={28} />
+                        <p className="text-sm font-medium">กำลังเตรียมข้อมูล...</p>
+                    </div>
+                ) : count === 0 ? (
+                    <div className="py-8 text-center">
+                        <p className="text-slate-600 font-bold mb-1">ชุดนี้ยังไม่มีโจทย์ที่ใช้งานได้</p>
+                        <p className="text-slate-400 text-sm">เพิ่มโจทย์ในหน้าแก้ไขก่อน แล้วค่อยดาวน์โหลด</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="mb-4 px-4 py-3 bg-slate-50 rounded-xl text-sm text-slate-600 font-medium">
+                            มีโจทย์ใช้งานได้ <span className="font-black text-slate-800">{count}</span> ข้อ — แยกโจทย์และเฉลยให้อัตโนมัติ
+                        </div>
+                        <div className="space-y-2">
+                            <button
+                                onClick={() => download("", data)}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition text-left"
+                            >
+                                <FileJson size={20} className="text-emerald-600 shrink-0" />
+                                <div className="flex-1">
+                                    <div className="font-bold text-slate-800">ทั้งชุด (โจทย์ + เฉลย)</div>
+                                    <div className="text-xs text-slate-500">ไฟล์เดียว แยกเป็นส่วน problems และ solutions</div>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => download("โจทย์", { meta: data!.meta, problems: data!.problems })}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition text-left"
+                            >
+                                <FileText size={20} className="text-indigo-500 shrink-0" />
+                                <div className="flex-1">
+                                    <div className="font-bold text-slate-800">เฉพาะโจทย์</div>
+                                    <div className="text-xs text-slate-500">ไม่มีเฉลย — สำหรับหน้าข้อสอบ</div>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => download("เฉลย", { meta: data!.meta, solutions: data!.solutions })}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition text-left"
+                            >
+                                <BookOpen size={20} className="text-amber-500 shrink-0" />
+                                <div className="flex-1">
+                                    <div className="font-bold text-slate-800">เฉพาะเฉลย</div>
+                                    <div className="text-xs text-slate-500">คำตอบ + คำอธิบายละเอียด</div>
+                                </div>
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function ExamManagerPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const { isAdmin, loading: authLoading } = useUserAuth();
     const [exams, setExams] = useState<any[]>([]);
+    const [exportExam, setExportExam] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [isSavingOrder, setIsSavingOrder] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -752,7 +872,7 @@ export default function ExamManagerPage() {
                                         <tbody className="divide-y divide-slate-50">
                                             <SortableContext items={group.items.map(e => e.id)} strategy={verticalListSortingStrategy}>
                                                 {group.items.map((exam) => (
-                                                    <SortableExamRow key={exam.id} exam={exam} categoryOptions={categoryOptions} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} />
+                                                    <SortableExamRow key={exam.id} exam={exam} categoryOptions={categoryOptions} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} onExport={setExportExam} />
                                                 ))}
                                             </SortableContext>
                                         </tbody>
@@ -764,6 +884,11 @@ export default function ExamManagerPage() {
                 )}
             </div>
             <ConfirmDialog />
+
+            {/* Export JSON Modal */}
+            {exportExam && (
+                <ExamExportModal exam={exportExam} onClose={() => setExportExam(null)} />
+            )}
 
             {/* Custom Create Exam Modal */}
             {isAddModalOpen && (

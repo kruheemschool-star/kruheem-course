@@ -5,7 +5,6 @@ import { ExamSystem } from "@/components/exam/ExamSystem";
 import ExamAccessGuard from "@/components/exam/ExamAccessGuard";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import BookmarkButton from "@/components/exam/BookmarkButton";
-import ExamPrintButton from "@/components/exam/ExamPrintButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isValidExamQuestion, getValidQuestionCount } from "@/lib/exam-utils";
@@ -202,7 +201,6 @@ export default async function ExamRoomPage(props: Props) {
                     {exam.title}
                 </div>
                 <div className="flex items-center gap-1">
-                    <ExamPrintButton examId={exam.id} />
                     <BookmarkButton examId={exam.id} />
                 </div>
             </div>
