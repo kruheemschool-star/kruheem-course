@@ -494,9 +494,10 @@ export default function AdminCouponsPage() {
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="bg-slate-50 border-b border-slate-100">
+                                            <th className="text-left px-4 py-3 font-bold text-slate-500 text-xs uppercase">ผู้ใช้ / อีเมล</th>
+                                            <th className="text-left px-4 py-3 font-bold text-slate-500 text-xs uppercase">คอร์สที่รีวิว</th>
                                             <th className="text-left px-4 py-3 font-bold text-slate-500 text-xs uppercase">โค้ด</th>
                                             <th className="text-left px-4 py-3 font-bold text-slate-500 text-xs uppercase">ส่วนลด</th>
-                                            <th className="text-left px-4 py-3 font-bold text-slate-500 text-xs uppercase">ผู้ใช้ / อีเมล</th>
                                             <th className="text-left px-4 py-3 font-bold text-slate-500 text-xs uppercase">ประเภท</th>
                                             <th className="text-left px-4 py-3 font-bold text-slate-500 text-xs uppercase">สถานะ / การใช้</th>
                                             <th className="text-left px-4 py-3 font-bold text-slate-500 text-xs uppercase">วันที่สร้าง</th>
@@ -508,6 +509,23 @@ export default function AdminCouponsPage() {
                                             const userInfo = userMap[coupon.userId || ""];
                                             return (
                                                 <tr key={coupon.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition">
+                                                    <td className="px-4 py-3">
+                                                        {coupon.userId ? (
+                                                            <div>
+                                                                <div className="font-bold text-slate-700 text-xs">{userInfo?.displayName || "(ยังไม่ตั้งชื่อ)"}</div>
+                                                                <div className="text-[10px] text-slate-400">{userInfo?.email || coupon.userId.substring(0, 12) + "..."}</div>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-400 text-xs">ใครก็ได้</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {coupon.courseId && courseMap[coupon.courseId] ? (
+                                                            <span className="text-xs text-slate-600">{courseMap[coupon.courseId]}</span>
+                                                        ) : (
+                                                            <span className="text-slate-300 text-xs">—</span>
+                                                        )}
+                                                    </td>
                                                     <td className="px-4 py-3">
                                                         <button
                                                             onClick={() => handleCopy(coupon.code)}
@@ -525,16 +543,6 @@ export default function AdminCouponsPage() {
                                                         <span className="font-bold text-slate-700">
                                                             {coupon.discountAmount ? `${coupon.discountAmount} บาท` : coupon.discountPercent ? `${coupon.discountPercent}%` : '-'}
                                                         </span>
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        {coupon.userId ? (
-                                                            <div>
-                                                                <div className="font-bold text-slate-700 text-xs">{userInfo?.displayName || "(ยังไม่ตั้งชื่อ)"}</div>
-                                                                <div className="text-[10px] text-slate-400">{userInfo?.email || coupon.userId.substring(0, 12) + "..."}</div>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-slate-400 text-xs">ใครก็ได้</span>
-                                                        )}
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${coupon.source === "review_reward"
