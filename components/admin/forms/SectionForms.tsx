@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 import type {
     PainPointData,
     SolutionData,
@@ -213,13 +215,77 @@ export function SolutionForm({ value, onChange }: { value: SolutionData; onChang
 /* ============================================================
    CurriculumForm
    ============================================================ */
-export function CurriculumForm({ value, onChange }: { value: CurriculumData; onChange: (v: CurriculumData) => void }) {
+const CHAPTER_PALETTE = [
+    { color: "#EEF2FF", iconColor: "#4338CA" },
+    { color: "#FEF2F2", iconColor: "#DC2626" },
+    { color: "#F0FDF4", iconColor: "#16A34A" },
+    { color: "#FFFBEB", iconColor: "#D97706" },
+    { color: "#EFF6FF", iconColor: "#2563EB" },
+    { color: "#F5F3FF", iconColor: "#7C3AED" },
+    { color: "#FDF2F8", iconColor: "#DB2777" },
+    { color: "#ECFEFF", iconColor: "#0891B2" },
+];
+
+export function CurriculumForm({ value, onChange, courseId }: { value: CurriculumData; onChange: (v: CurriculumData) => void; courseId?: string }) {
+    const [pulling, setPulling] = useState(false);
     const update = (patch: Partial<CurriculumData>) => onChange({ ...value, ...patch });
+
+    const pullFromLessons = async () => {
+        if (!courseId) return;
+        const existing = value.chapters?.length ?? 0;
+        if (existing > 0 && !confirm(`มีบทอยู่แล้ว ${existing} บท — ดึงใหม่ทับของเดิม?`)) return;
+        setPulling(true);
+        try {
+            const snap = await getDocs(collection(db, "courses", courseId, "lessons"));
+            const lessons = snap.docs.map((d) => ({ id: d.id, ...d.data() as { title?: string; type?: string; order?: number; isFree?: boolean; headerId?: string } }));
+            const headers = lessons.filter((l) => l.type === "header").sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            if (headers.length === 0) { alert("ไม่พบบทเรียน (header) ในคอร์สนี้"); setPulling(false); return; }
+
+            const chapters: CurriculumChapter[] = headers.map((h, i) => {
+                const subs = lessons
+                    .filter((l) => l.headerId === h.id && l.type !== "header")
+                    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                const videos = subs.filter((l) => l.type === "video").length;
+                const exercises = subs.filter((l) => l.type === "exercise" || l.type === "quiz").length;
+                const descParts: string[] = [];
+                if (videos) descParts.push(`${videos} คลิป`);
+                if (exercises) descParts.push(`แบบฝึก ${exercises}`);
+                const palette = CHAPTER_PALETTE[i % CHAPTER_PALETTE.length];
+                return {
+                    id: i + 1,
+                    title: (h.title || "").replace(/^\[EP\d+\]\s*/, "").trim(),
+                    desc: descParts.join(" · ") || undefined,
+                    content: subs.map((s) => (s.title || "").replace(/^\[EP\d+\]\s*/, "").trim()).filter(Boolean),
+                    color: palette.color,
+                    iconColor: palette.iconColor,
+                };
+            });
+            update({ chapters });
+            alert(`✅ ดึงมา ${chapters.length} บทแล้ว — อย่าลืมกด "บันทึก"`);
+        } catch (e: unknown) {
+            alert("ดึงไม่สำเร็จ: " + (e instanceof Error ? e.message : String(e)));
+        }
+        setPulling(false);
+    };
+
     return (
         <div className="flex flex-col flex-1 min-h-0">
             <FormScroll>
                 <TextField label="ชื่อหัวข้อ" value={value.title} onChange={(v) => update({ title: v })} required />
                 <TextField label="คำอธิบาย" value={value.subtitle} onChange={(v) => update({ subtitle: v })} />
+
+                {courseId && (
+                    <button
+                        type="button"
+                        onClick={pullFromLessons}
+                        disabled={pulling}
+                        className="w-full py-2.5 px-4 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50 text-indigo-700 font-semibold text-sm hover:bg-indigo-100 transition disabled:opacity-50"
+                    >
+                        {pulling ? "⏳ กำลังดึง..." : "⬇️ ดึงบทเรียนจริงจากคอร์สนี้อัตโนมัติ"}
+                        <span className="block text-xs font-normal opacity-70 mt-0.5">จัดกลุ่มตาม header + นับคลิป/แบบฝึก + ใส่สีอัตโนมัติ</span>
+                    </button>
+                )}
+
                 <ArrayField
                     label="บทเรียน"
                     items={value.chapters || []}
@@ -489,6 +555,9 @@ export function TrustBadgesForm({ value, onChange }: { value: TrustBadgesData; o
         <div className="flex flex-col flex-1 min-h-0">
             <FormScroll>
                 <TextField label="ชื่อหัวข้อ" value={value.title} onChange={(v) => update({ title: v })} />
+                <p className="-mt-1 mb-1 text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+                    💡 พิมพ์ <code className="font-mono font-bold">{"{students}"}</code> ในช่องตัวเลข = ดึงจำนวนนักเรียนจริงทั้งหมดอัตโนมัติ (เช่น <code className="font-mono">{"{students}+"}</code> → 815+) ใช้ได้ทุกเซลล์เพจ
+                </p>
                 <ArrayField
                     label="ตัวเลขสถิติ"
                     items={value.stats || []}
@@ -510,7 +579,7 @@ export function TrustBadgesForm({ value, onChange }: { value: TrustBadgesData; o
                                     type="text"
                                     value={item.number}
                                     onChange={(e) => upd({ number: e.target.value })}
-                                    placeholder="ตัวเลข เช่น 1,500+"
+                                    placeholder="ตัวเลข เช่น {students}+ หรือ 1,500+"
                                     className="flex-1 px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
                                 />
                             </div>

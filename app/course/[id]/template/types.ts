@@ -335,4 +335,7 @@ export interface SectionContext {
     user: any;
     enrollmentStatus: "none" | "pending" | "approved";
     previewVideoId?: string;
+    /** Live total registrations across ALL courses (whole enrollments collection).
+     *  Used to auto-fill student-count stats via the {students} token. */
+    totalStudents?: number;
 }

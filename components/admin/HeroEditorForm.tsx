@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
     HeroData,
     HeroCardStat,
@@ -9,7 +9,7 @@ import type {
 } from "@/app/course/[id]/template/types";
 import CourseCard from "@/app/course/[id]/template/sections/CourseCard";
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, getCountFromServer } from "firebase/firestore";
 import {
     TextField,
     TextareaField,
@@ -41,6 +41,14 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 export default function HeroEditorForm({ value, onChange, courseId, courseTitle }: Props) {
     const [tab, setTab] = useState<Tab>("content");
     const [pulling, setPulling] = useState(false);
+    // Live total registrations (all courses) so the {students} token previews correctly.
+    const [totalStudents, setTotalStudents] = useState<number | undefined>();
+
+    useEffect(() => {
+        getCountFromServer(collection(db, "enrollments"))
+            .then((s) => setTotalStudents(s.data().count))
+            .catch(() => { /* preview falls back to authored value */ });
+    }, []);
 
     const update = (patch: Partial<HeroData>) => onChange({ ...value, ...patch });
     const updatePreview = (patch: Partial<NonNullable<HeroData["preview"]>>) =>
@@ -388,10 +396,10 @@ export default function HeroEditorForm({ value, onChange, courseId, courseTitle 
                                         newItem={() => ({ value: "" })}
                                         addLabel="+ เพิ่มสถิติ"
                                         itemTitle={(s) => s.value || "สถิติใหม่"}
-                                        helper="เช่น 1,247 นักเรียน · 87% ผ่าน Gifted · 4.9★"
+                                        helper="พิมพ์ {students} ในช่องตัวเลข = ดึงจำนวนนักเรียนจริงอัตโนมัติ (เช่น {students}+ → 815+) · เช่น 87% ผ่าน Gifted · 4.9★"
                                         renderItem={(item, upd) => (
                                             <div className="grid grid-cols-2 gap-2">
-                                                <TextField label="ตัวเลข" value={item.value} onChange={(v) => upd({ value: v })} placeholder="1,247" />
+                                                <TextField label="ตัวเลข" value={item.value} onChange={(v) => upd({ value: v })} placeholder="{students}" />
                                                 <TextField label="ความหมาย" value={item.label} onChange={(v) => upd({ label: v })} placeholder="นักเรียน" />
                                             </div>
                                         )}
@@ -439,7 +447,7 @@ export default function HeroEditorForm({ value, onChange, courseId, courseTitle 
                     </p>
                     <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-4 flex justify-center max-h-[70vh] overflow-y-auto">
                         {isCard ? (
-                            <CourseCard data={value} courseTitle="คอร์สตัวอย่าง" interactive={false} />
+                            <CourseCard data={value} courseTitle="คอร์สตัวอย่าง" interactive={false} totalStudents={totalStudents} />
                         ) : value.imageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={value.imageUrl} alt="preview" className="w-full rounded-2xl self-start" />

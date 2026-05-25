@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, onSnapshot, collection, query, orderBy, getDocs, limit as firestoreLimit } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, collection, query, orderBy, getDocs, limit as firestoreLimit, getCountFromServer } from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
@@ -33,6 +33,8 @@ export default function CourseSalesPage() {
     const [isNavigating, setIsNavigating] = useState(false);
 
     const [previewVideoId, setPreviewVideoId] = useState<string | undefined>();
+    // Live total registrations across all courses → auto-fills {students} stats on the sales page.
+    const [totalStudents, setTotalStudents] = useState<number | undefined>();
 
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [slipPreview, setSlipPreview] = useState("");
@@ -71,6 +73,12 @@ export default function CourseSalesPage() {
                     const firstVideo = snap.docs.find((d) => d.data().videoId);
                     if (firstVideo) setPreviewVideoId(firstVideo.data().videoId);
                 } catch (_) { /* non-critical — card falls back to simulated player */ }
+
+                try {
+                    // Total registrations across ALL courses (whole collection) — matches the admin students table count.
+                    const countSnap = await getCountFromServer(collection(db, "enrollments"));
+                    setTotalStudents(countSnap.data().count);
+                } catch (_) { /* non-critical — stats fall back to their authored value */ }
             } catch (error) { console.error("Error:", error); }
             finally { setLoading(false); }
         };
@@ -152,6 +160,7 @@ export default function CourseSalesPage() {
                 enrollmentStatus={enrollmentStatus}
                 onLogin={handleLogin}
                 previewVideoId={previewVideoId}
+                totalStudents={totalStudents}
             />
         );
     }

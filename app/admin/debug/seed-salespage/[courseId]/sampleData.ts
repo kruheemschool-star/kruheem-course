@@ -77,7 +77,7 @@ export function buildSampleSalesPage({ title, price, fullPrice }: Input): SalesP
                 enabled: true,
                 data: {
                     stats: [
-                        { icon: "👨‍🎓", number: "1,500+", label: "นักเรียนที่เรียนแล้ว" },
+                        { icon: "👨‍🎓", number: "{students}+", label: "นักเรียนที่เรียนแล้ว" },
                         { icon: "⭐", number: "4.9", label: "คะแนนรีวิวเฉลี่ย" },
                         { icon: "🏫", number: "10+", label: "ปีประสบการณ์สอน" },
                         { icon: "💯", number: "87%", label: "เด็กได้เกรด A" },

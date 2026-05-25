@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { HeroCardStat, HeroChapter, HeroData } from "../types";
 import { smoothScrollToId } from "../smoothScroll";
+import { resolveStudentToken } from "../liveStats";
 
 // ============================================================
 // Defaults — keep the card looking complete even before the
@@ -32,8 +33,9 @@ const DEFAULT_CHAPTERS: HeroChapter[] = [
 
 const DEFAULT_EQUATIONS = ["x² + 4x − 5 = 0", "√(a²+b²)", "(x−1)(x+5)"];
 
+// Student value defaults to the live-count token so every card auto-fills it.
 const DEFAULT_STATS: HeroCardStat[] = [
-    { value: "1,247", label: "นักเรียน" },
+    { value: "{students}", label: "นักเรียน" },
     { value: "87%", label: "ผ่าน Gifted" },
     { value: "4.9★" },
 ];
@@ -48,6 +50,8 @@ interface CourseCardProps {
     interactive?: boolean;
     /** YouTube video ID for the first free lesson (fetched from Firestore). */
     previewVideoId?: string;
+    /** Live total registrations across all courses — fills the {students} token in stats. */
+    totalStudents?: number;
 }
 
 /**
@@ -55,11 +59,14 @@ interface CourseCardProps {
  * Pure presentational component — driven entirely by HeroData props so it can
  * be reused in both the live hero and the admin live-preview.
  */
-export default function CourseCard({ data, courseId, courseTitle, interactive = true, previewVideoId }: CourseCardProps) {
+export default function CourseCard({ data, courseId, courseTitle, interactive = true, previewVideoId, totalStudents }: CourseCardProps) {
     const cardMainText = data.cardMainText || courseTitle || "Gifted ม.1";
     const cardTags = data.cardTags ?? ["40 บท", "5 ปี", "HD"];
     const chapters = data.chapters?.length ? data.chapters : DEFAULT_CHAPTERS;
-    const stats = data.cardStats?.length ? data.cardStats : DEFAULT_STATS;
+    // Resolve the live {students} count; drop any stat left empty (e.g. count unavailable).
+    const stats = (data.cardStats?.length ? data.cardStats : DEFAULT_STATS)
+        .map((s) => ({ ...s, value: resolveStudentToken(s.value, totalStudents) }))
+        .filter((s) => s.value.trim().length > 0);
     const equations = data.preview?.equations?.length ? data.preview.equations : DEFAULT_EQUATIONS;
 
     // ---- Resolve video ID (admin override → auto-fetched → none) ----

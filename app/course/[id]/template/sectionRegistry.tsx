@@ -31,7 +31,7 @@ export function renderSection(section: Section, ctx: SectionContext) {
         case "testimonial":
             return <TestimonialSection data={section.data} />;
         case "trustBadges":
-            return <TrustBadgesSection data={section.data} />;
+            return <TrustBadgesSection data={section.data} ctx={ctx} />;
         case "priceStack":
             return <PriceStackSection data={section.data} ctx={ctx} />;
         case "guarantee":

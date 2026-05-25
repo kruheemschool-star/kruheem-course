@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import type { TrustBadgesData, TrustBadgeStat } from "../types";
+import type { TrustBadgesData, TrustBadgeStat, SectionContext } from "../types";
+import { resolveStudentToken } from "../liveStats";
 
 function parseNumber(raw: string): { num: number; prefix: string; suffix: string } {
     // Extract the first number + surrounding text (e.g. "1,500+" → 1500, suffix="+")
@@ -76,9 +77,15 @@ function StatCard({ stat, index, onVisible, started }: { stat: TrustBadgeStat; i
     );
 }
 
-export default function TrustBadgesSection({ data }: { data: TrustBadgesData }) {
+export default function TrustBadgesSection({ data, ctx }: { data: TrustBadgesData; ctx?: SectionContext }) {
     const [started, setStarted] = useState(false);
     if (!data.stats || data.stats.length === 0) return null;
+
+    // Auto-fill the live student count into any stat using the {students} token.
+    const stats = data.stats.map((s) => ({
+        ...s,
+        number: resolveStudentToken(s.number, ctx?.totalStudents),
+    }));
 
     return (
         <section className="max-w-6xl mx-auto px-6 py-12">
@@ -87,7 +94,7 @@ export default function TrustBadgesSection({ data }: { data: TrustBadgesData }) 
             )}
 
             <div className="flex flex-wrap justify-center gap-3 md:gap-4">
-                {data.stats.map((stat, i) => (
+                {stats.map((stat, i) => (
                     <StatCard
                         key={i}
                         stat={stat}

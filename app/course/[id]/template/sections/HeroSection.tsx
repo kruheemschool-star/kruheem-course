@@ -248,7 +248,7 @@ export default function HeroSection({ data, ctx }: Props) {
                 {/* ============ RIGHT COLUMN ============ */}
                 <div className="w-full lg:flex-1 flex justify-center lg:justify-end">
                     {showRichCard ? (
-                        <CourseCard data={data} courseId={ctx.courseId} courseTitle={ctx.courseTitle} previewVideoId={ctx.previewVideoId} />
+                        <CourseCard data={data} courseId={ctx.courseId} courseTitle={ctx.courseTitle} previewVideoId={ctx.previewVideoId} totalStudents={ctx.totalStudents} />
                     ) : (
                         // Backward-compatible image cover
                         (data.imageUrl || ctx.courseImage) && (
