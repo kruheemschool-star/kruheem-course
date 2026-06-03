@@ -106,6 +106,18 @@ export function NumberField({
     );
 }
 
+// Curated one-click palette: neutrals, warm/brand, pastels, cools, darks.
+// Lowercase so it matches the native <input type="color"> value when we
+// highlight the active swatch.
+const COLOR_PRESETS: string[] = [
+    "#ffffff", "#f8fafc", "#e2e8f0", "#fffaf2", "#fef3e0", "#fde68a",
+    "#fca5a5", "#fb923c", "#f97316", "#ef4444", "#ec4899", "#f472b6",
+    "#99f6e4", "#2dd4bf", "#14b8a6", "#22c55e", "#93c5fd", "#3b82f6",
+    "#6366f1", "#8b5cf6", "#64748b", "#334155", "#13132a", "#000000",
+];
+
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
+
 export function ColorField({
     label,
     value,
@@ -117,34 +129,70 @@ export function ColorField({
     onChange: (v: string) => void;
     defaultColor: string;
 }) {
-    const current = value || defaultColor;
+    // The swatch / native picker always need a valid 6-digit hex, even while
+    // the user is mid-typing a partial code in the text box.
+    const raw = value || defaultColor;
+    const current = (HEX6.test(raw) ? raw : defaultColor).toLowerCase();
+
     return (
         <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1.5">{label}</label>
+            <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-bold text-slate-700">{label}</label>
+                {value ? (
+                    <button
+                        type="button"
+                        onClick={() => onChange("")}
+                        className="text-xs text-slate-400 hover:text-indigo-600 transition-colors"
+                        title="คืนค่าสีเริ่มต้น"
+                    >
+                        ↺ ค่าเริ่มต้น
+                    </button>
+                ) : (
+                    <span className="text-xs text-slate-300">ค่าเริ่มต้น</span>
+                )}
+            </div>
+
+            {/* Big swatch — click anywhere on it to open the colour picker — + hex box */}
             <div className="flex items-center gap-2">
-                <input
-                    type="color"
-                    value={current}
-                    onChange={(e) => onChange(e.target.value)}
-                    className="w-12 h-10 rounded-lg border-2 border-slate-200 cursor-pointer"
-                />
+                <label
+                    className="relative w-14 h-11 rounded-xl border-2 border-slate-200 shadow-sm cursor-pointer shrink-0 overflow-hidden hover:border-indigo-400 transition-colors"
+                    style={{ backgroundColor: current }}
+                    title="คลิกเพื่อเลือกสีเอง"
+                >
+                    <input
+                        type="color"
+                        value={current}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
+                        aria-label={`เลือกสี: ${label}`}
+                    />
+                </label>
                 <input
                     type="text"
                     value={value || ""}
                     onChange={(e) => onChange(e.target.value)}
                     placeholder={defaultColor}
-                    className="flex-1 px-3 py-2 text-sm font-mono border-2 border-slate-200 rounded-xl focus:border-indigo-400 outline-none"
+                    spellCheck={false}
+                    className="flex-1 min-w-0 px-3 py-2.5 text-sm font-mono uppercase border-2 border-slate-200 rounded-xl focus:border-indigo-400 outline-none"
                 />
-                {value && (
-                    <button
-                        type="button"
-                        onClick={() => onChange("")}
-                        className="px-2 py-1 text-xs text-slate-500 hover:text-red-600"
-                        title="ใช้ค่าเริ่มต้น"
-                    >
-                        ล้าง
-                    </button>
-                )}
+            </div>
+
+            {/* One-click presets — pick a colour without knowing any hex code */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+                {COLOR_PRESETS.map((c) => {
+                    const active = current === c;
+                    return (
+                        <button
+                            key={c}
+                            type="button"
+                            onClick={() => onChange(c)}
+                            title={c}
+                            aria-label={c}
+                            className={`h-6 w-6 rounded-lg transition-transform hover:scale-110 ${active ? "ring-2 ring-indigo-500 ring-offset-1" : "border border-slate-200"}`}
+                            style={{ backgroundColor: c }}
+                        />
+                    );
+                })}
             </div>
         </div>
     );
