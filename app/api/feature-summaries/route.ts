@@ -1,26 +1,29 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
+import { listCollection } from "@/lib/firestoreRest";
 
 // ISR metadata-only feed for the homepage FeatureCarousel (summaries).
 // Returns only {id,title,coverImage} so the full `content` blob isn't
-// shipped to the browser. No orderBy (matches the existing summaries
-// query convention — avoids any composite index).
+// shipped to the browser. No ordering (matches the existing summaries
+// convention — avoids any composite index).
+//
+// Reads via the Firestore REST API (see lib/firestoreRest) rather than the
+// Firebase client SDK, which is unreliable inside Vercel route handlers.
 export const revalidate = 300;
 
 export async function GET() {
     try {
-        const snapshot = await getDocs(query(collection(db, "summaries")));
-        const summaries = snapshot.docs
-            .map((doc) => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    title: data.title || "",
-                    coverImage: data.coverImage || "",
-                    status: data.status || "",
-                };
-            })
+        const docs = await listCollection(
+            "summaries",
+            ["title", "coverImage", "status"],
+            { revalidate: 300 }
+        );
+        const summaries = docs
+            .map((d) => ({
+                id: d.id,
+                title: (d.title as string) || "",
+                coverImage: (d.coverImage as string) || "",
+                status: (d.status as string) || "",
+            }))
             // Preserve the exact current carousel filter (published or legacy no-status)
             .filter((s) => s.status === "published" || !s.status)
             .slice(0, 12)

@@ -1,30 +1,34 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { listCollection } from "@/lib/firestoreRest";
 
-// ISR metadata-only feed for the homepage FeatureCarousel (posts).
-// The Firestore client SDK has no field projection, so reading post
-// docs in the browser pulls every post's full `content` blob just to
-// show 6 covers. Doing that read here (server, cached) and returning
-// only {id,title,coverImage} keeps the multi-MB content off the client.
+// ISR metadata-only feed for the homepage FeatureCarousel (posts). Returns
+// only {id,title,coverImage} so a post's multi-MB `content` blob never
+// reaches the browser.
+//
+// Reads via the Firestore REST API (see lib/firestoreRest). The Firebase
+// client SDK was resolving with an EMPTY snapshot for `posts` inside this
+// route handler on Vercel, which got frozen into the ISR cache, so the
+// carousel lost its post slides.
 export const revalidate = 300;
 
 export async function GET() {
     try {
-        const snapshot = await getDocs(
-            query(collection(db, "posts"), orderBy("createdAt", "desc"))
+        const docs = await listCollection(
+            "posts",
+            ["title", "coverImage", "status", "createdAt"],
+            { revalidate: 300 }
         );
-        const posts = snapshot.docs
-            .map((doc) => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    title: data.title || "",
-                    coverImage: data.coverImage || "",
-                    status: data.status || "published",
-                };
-            })
+        const posts = docs
+            .map((d) => ({
+                id: d.id,
+                title: (d.title as string) || "",
+                coverImage: (d.coverImage as string) || "",
+                status: (d.status as string) || "published",
+                createdAt: (d.createdAt as string) || "",
+            }))
             .filter((p) => p.status === "published")
+            // createdAt is an ISO 8601 string -> lexicographic compare == chronological
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
             .slice(0, 12)
             .map(({ id, title, coverImage }) => ({ id, title, coverImage }));
         return NextResponse.json({ posts });
