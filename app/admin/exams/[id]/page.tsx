@@ -687,6 +687,7 @@ export default function ExamEditorPage() {
     const [category, setCategory] = useState("");
     const [level, setLevel] = useState("");
     const [timeLimit, setTimeLimit] = useState(30);
+    const [recommendedSecondsPerQuestion, setRecommendedSecondsPerQuestion] = useState(90);
     const [difficulty, setDifficulty] = useState("Medium");
     const [themeColor, setThemeColor] = useState("Amber");
 
@@ -704,6 +705,7 @@ export default function ExamEditorPage() {
                     setCategory(data.category || "");
                     setLevel(data.level || "");
                     setTimeLimit(data.timeLimit || 30);
+                    setRecommendedSecondsPerQuestion(data.recommendedSecondsPerQuestion || 90);
                     setDifficulty(data.difficulty || "Medium");
                     setThemeColor(data.themeColor || "Amber");
 
@@ -839,6 +841,7 @@ export default function ExamEditorPage() {
                 description,
                 coverImage,
                 timeLimit: Number(timeLimit),
+                recommendedSecondsPerQuestion: Number(recommendedSecondsPerQuestion),
                 difficulty,
                 themeColor,
                 questions: parsedQuestions,
@@ -868,7 +871,7 @@ export default function ExamEditorPage() {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [jsonContent, title, description, coverImage, category, level, timeLimit, difficulty, themeColor]); // Deps need to be current for handleSave closure if not using refs (React state closure trap), strictly relying on state in handleSave
+    }, [jsonContent, title, description, coverImage, category, level, timeLimit, recommendedSecondsPerQuestion, difficulty, themeColor]); // Deps need to be current for handleSave closure if not using refs (React state closure trap), strictly relying on state in handleSave
 
     // Toast State (Local helper)
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
@@ -1003,6 +1006,18 @@ export default function ExamEditorPage() {
                                         <option value="Hard">ยาก</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-500 mb-2">เวลาที่แนะนำต่อข้อ (วินาที)</label>
+                                <input
+                                    type="number"
+                                    min={10}
+                                    value={recommendedSecondsPerQuestion}
+                                    onChange={(e) => setRecommendedSecondsPerQuestion(Number(e.target.value))}
+                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                                />
+                                <p className="text-xs text-slate-400 mt-1.5">ใช้วิเคราะห์จังหวะการทำข้อสอบของนักเรียน (ค่าเริ่มต้น 90 วินาที)</p>
                             </div>
 
                             {/* Theme Color Selector */}

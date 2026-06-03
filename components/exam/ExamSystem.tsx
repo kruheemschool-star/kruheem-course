@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
-import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -17,6 +17,7 @@ interface SavedExamProgress {
     checkedQuestions: Record<number, boolean>;
     currentQuestionIndex: number;
     questionTimes: Record<number, number>;
+    elapsedBeforeSeconds?: number; // accumulated active exam time (sec) up to this save — resume-safe
     savedAt: number; // timestamp
 }
 
@@ -92,6 +93,7 @@ const loadProgressFromCloud = async (uid: string, examId: string): Promise<Saved
             checkedQuestions: data.checkedQuestions || {},
             currentQuestionIndex: data.currentQuestionIndex || 0,
             questionTimes: data.questionTimes || {},
+            elapsedBeforeSeconds: data.elapsedBeforeSeconds || 0,
             savedAt,
         };
     } catch (e) {
@@ -120,6 +122,7 @@ interface ExamSystemProps {
     isTrial?: boolean;
     showAnswerChecking?: boolean;
     enableResultTracking?: boolean;
+    recommendedSecondsPerQuestion?: number; // pacing benchmark (sec); defaults to 90
 }
 
 // Grade Calculation Helper
@@ -131,6 +134,7 @@ interface FinalScore {
     label: string;
     gradeColor: string;
     bgColor: string;
+    durationSeconds: number;
 }
 
 const getGradeFromPercent = (percent: number): { grade: string; label: string; gradeColor: string; bgColor: string } => {
@@ -189,7 +193,7 @@ class QuestionErrorBoundary extends React.Component<
     }
 }
 
-export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, examId, category, level, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false, enableResultTracking = false }) => {
+export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, examId, category, level, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false, enableResultTracking = false, recommendedSecondsPerQuestion }) => {
     const { user } = useUserAuth();
     const savedQ = useSavedQuestions();
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
@@ -206,6 +210,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const examStartTime = React.useRef<number>(Date.now());
     const questionStartTime = React.useRef<number>(Date.now());
     const questionTimes = React.useRef<Record<number, number>>({});
+    const elapsedBeforeRef = React.useRef<number>(0); // active time before this session (resume-safe)
+    const [, setStopwatchTick] = useState(0); // bump once per second to re-render the live timer
 
     // Sanitize Data using shared utility
     const sanitizedExamData = React.useMemo(() => sanitizeExamData(examData), [examData]);
@@ -218,6 +224,38 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         : 0;
     const currentQuestion = sanitizedExamData[safeIndex];
     const questionCardRef = useRef<HTMLDivElement>(null);
+
+    // === Timing: helpers shared by the live stopwatch, autosave and results ===
+    // Total active exam time (seconds), correct across save → resume.
+    const getElapsedSeconds = useCallback(
+        () => elapsedBeforeRef.current + Math.max(0, Math.round((Date.now() - examStartTime.current) / 1000)),
+        []
+    );
+
+    // Accumulate the time spent on the current question, then restart its clock.
+    // Called whenever the student leaves a question (prev / next / jump / finish)
+    // so every visit is counted — not just the moment of first answering.
+    const commitTimeForCurrentQuestion = useCallback(() => {
+        const elapsed = Math.round((Date.now() - questionStartTime.current) / 1000);
+        if (elapsed > 0) {
+            questionTimes.current[currentQuestionIndex] =
+                (questionTimes.current[currentQuestionIndex] || 0) + elapsed;
+        }
+        questionStartTime.current = Date.now();
+    }, [currentQuestionIndex]);
+
+    // Jump to a specific question (from the question-map grid), counting time first.
+    const goToQuestion = useCallback((idx: number) => {
+        commitTimeForCurrentQuestion();
+        setCurrentQuestionIndex(idx);
+    }, [commitTimeForCurrentQuestion]);
+
+    // Tick the live stopwatch once per second while the exam is in progress.
+    useEffect(() => {
+        if (isFinished || finalScore || totalQuestions === 0) return;
+        const id = setInterval(() => setStopwatchTick((t) => t + 1), 1000);
+        return () => clearInterval(id);
+    }, [isFinished, finalScore, totalQuestions]);
 
     // Snap state back into range if it drifted out of bounds
     useEffect(() => {
@@ -250,6 +288,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             setCheckedQuestions(local.checkedQuestions || {});
             setCurrentQuestionIndex(local.currentQuestionIndex || 0);
             questionTimes.current = local.questionTimes || {};
+            elapsedBeforeRef.current = local.elapsedBeforeSeconds || 0;
+            examStartTime.current = Date.now();
+            questionStartTime.current = Date.now();
             setWasRestored(true);
             return;
         }
@@ -262,6 +303,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 setCheckedQuestions(cloud.checkedQuestions || {});
                 setCurrentQuestionIndex(cloud.currentQuestionIndex || 0);
                 questionTimes.current = cloud.questionTimes || {};
+                elapsedBeforeRef.current = cloud.elapsedBeforeSeconds || 0;
+                examStartTime.current = Date.now();
+                questionStartTime.current = Date.now();
                 setWasRestored(true);
                 setRestoredFromCloud(true);
             }
@@ -279,11 +323,12 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 checkedQuestions,
                 currentQuestionIndex,
                 questionTimes: questionTimes.current,
+                elapsedBeforeSeconds: getElapsedSeconds(),
                 savedAt: Date.now(),
             };
             saveProgressToLocal(examId, data);
         }, 500); // Debounce 500ms
-    }, [examId, isTrial, isFinished, answers, checkedQuestions, currentQuestionIndex]);
+    }, [examId, isTrial, isFinished, answers, checkedQuestions, currentQuestionIndex, getElapsedSeconds]);
 
     useEffect(() => {
         debouncedSave();
@@ -296,11 +341,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     const handleSelectOption = (optionIndex: number) => {
         if (checkedQuestions[currentQuestionIndex]) return;
-        // Track time spent on this question when first answered
-        if (answers[currentQuestionIndex] === undefined) {
-            const elapsed = Math.round((Date.now() - questionStartTime.current) / 1000);
-            questionTimes.current[currentQuestionIndex] = (questionTimes.current[currentQuestionIndex] || 0) + elapsed;
-        }
+        // Per-question time is accumulated on navigation (commitTimeForCurrentQuestion),
+        // so picking an answer no longer needs to touch the timer.
         setAnswers({ ...answers, [currentQuestionIndex]: optionIndex });
         setWasRestored(false); // Dismiss restored banner on interaction
     };
@@ -311,14 +353,14 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     const handlePrev = () => {
         if (currentQuestionIndex > 0) {
-            questionStartTime.current = Date.now();
+            commitTimeForCurrentQuestion();
             setCurrentQuestionIndex(prev => prev - 1);
         }
     };
 
     const handleNext = () => {
         if (currentQuestionIndex < totalQuestions - 1) {
-            questionStartTime.current = Date.now();
+            commitTimeForCurrentQuestion();
             setCurrentQuestionIndex(prev => prev + 1);
         }
     };
@@ -331,6 +373,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         } else if (!confirm("ยืนยันการส่งคำตอบ?")) {
             return;
         }
+
+        // Freeze timing at submit: count the current question's dwell, then snapshot total time.
+        commitTimeForCurrentQuestion();
+        const totalDurationSec = getElapsedSeconds();
 
         // Calculate Score with NEW Clean Logic
         let score = 0;
@@ -345,6 +391,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             score,
             total: answerableCount,
             percent,
+            durationSeconds: totalDurationSec,
             ...gradeInfo
         });
 
@@ -369,7 +416,6 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 if (answers[idx] !== q.correctIndex) wrongIndices.push(idx);
                 if (q.tags) q.tags.forEach((t: string) => allTags.add(t));
             });
-            const totalDurationSec = Math.round((Date.now() - examStartTime.current) / 1000);
             const avgTimePerQuestion = answerableCount > 0 ? Math.round(totalDurationSec / answerableCount) : 0;
             const resultDoc = {
                 examId,
@@ -418,6 +464,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         setFinalScore(null);
         setWasRestored(false);
         questionTimes.current = {};
+        elapsedBeforeRef.current = 0;
         examStartTime.current = Date.now();
         questionStartTime.current = Date.now();
         // Clear localStorage
@@ -445,6 +492,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             checkedQuestions,
             currentQuestionIndex,
             questionTimes: questionTimes.current,
+            elapsedBeforeSeconds: getElapsedSeconds(),
             savedAt: Date.now(),
         });
         setCloudSaveState(ok ? 'saved' : 'error');
@@ -482,6 +530,38 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 }))
                 .sort((a, b) => b.pct - a.pct || b.wrong - a.wrong)
                 .slice(0, 3);
+        })();
+
+        // === Per-question pacing analysis (in-memory times; no Firestore reads) ===
+        const paceTarget = (recommendedSecondsPerQuestion && recommendedSecondsPerQuestion > 0)
+            ? recommendedSecondsPerQuestion
+            : DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION;
+        const perQuestionTiming = sanitizedExamData.slice(0, finalScore.total).map((q, idx) => ({
+            idx,
+            seconds: questionTimes.current[idx] ?? 0,
+            answered: answers[idx] !== undefined,
+            isCorrect: answers[idx] === q.correctIndex,
+        }));
+        const timedQuestions = perQuestionTiming.filter(p => p.answered && p.seconds > 0);
+        const hasTimingData = timedQuestions.length > 0;
+        const attemptAvgPace = hasTimingData
+            ? Math.round(timedQuestions.reduce((s, p) => s + p.seconds, 0) / timedQuestions.length)
+            : paceTarget;
+        const totalTimeSec = finalScore.durationSeconds || 0;
+        const avgPaceAll = finalScore.total > 0 ? Math.round(totalTimeSec / finalScore.total) : 0;
+        const tooSlowCount = perQuestionTiming.filter(p => p.seconds > 1.5 * paceTarget).length;
+        const tooFastCount = perQuestionTiming.filter(p => p.answered && p.seconds > 0 && p.seconds < 0.4 * paceTarget).length;
+        const reviewQuestions = perQuestionTiming.filter(p => {
+            if (!p.answered || p.seconds <= 0) return false;
+            const v = getCombinedVerdict(p.seconds, paceTarget, p.isCorrect, p.answered);
+            const selfSlow = p.seconds > 1.5 * attemptAvgPace;
+            return v.shouldReview || (selfSlow && !p.isCorrect);
+        });
+        const pacingSummary = (() => {
+            if (avgPaceAll <= paceTarget && finalScore.percent >= 60) return { text: 'จังหวะดีมาก ทำได้รวดเร็วและแม่นยำ 👏', color: 'text-emerald-600 dark:text-emerald-400' };
+            if (avgPaceAll <= paceTarget) return { text: 'ทำเร็วแต่ยังพลาดหลายข้อ ลองทบทวนแนวคิดให้แม่นขึ้น', color: 'text-amber-600 dark:text-amber-400' };
+            if (avgPaceAll <= 1.5 * paceTarget) return { text: 'จังหวะใกล้เคียงเป้าหมาย ฝึกอีกนิดให้คล่องขึ้น', color: 'text-amber-600 dark:text-amber-400' };
+            return { text: 'ใช้เวลามากกว่าเป้าหมาย ลองฝึกความเร็วในข้อที่ช้า', color: 'text-rose-600 dark:text-rose-400' };
         })();
 
         return (
@@ -529,6 +609,39 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                     <div className="text-slate-500 dark:text-slate-400 text-sm font-medium">ข้อทั้งหมด</div>
                                 </div>
                             </div>
+
+                            {/* ⏱️ Pacing Analysis Overview */}
+                            {hasTimingData && (
+                                <div className="mb-10 rounded-3xl border border-indigo-100 dark:border-slate-700 bg-gradient-to-br from-indigo-50/60 to-white dark:from-slate-800 dark:to-slate-800/40 p-6 md:p-8">
+                                    <div className="flex items-start gap-4 mb-5">
+                                        <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-300/50 dark:shadow-indigo-900/50">
+                                            <Clock size={24} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100 mb-1">ภาพรวมการจับเวลา</h3>
+                                            <p className={`text-sm font-bold ${pacingSummary.color}`}>{pacingSummary.text}</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        <div className="bg-white dark:bg-slate-900/40 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                                            <div className="text-2xl font-black tabular-nums text-slate-800 dark:text-slate-100">{formatDuration(totalTimeSec)}</div>
+                                            <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5">เวลารวม</div>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-900/40 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                                            <div className={`text-2xl font-black tabular-nums ${avgPaceAll <= paceTarget ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>{avgPaceAll} วิ</div>
+                                            <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5">เฉลี่ย/ข้อ · เป้า {paceTarget} วิ</div>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-900/40 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                                            <div className={`text-2xl font-black tabular-nums ${tooSlowCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-200'}`}>{tooSlowCount}</div>
+                                            <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5">ข้อที่ช้าเกินเป้า</div>
+                                        </div>
+                                        <div className="bg-white dark:bg-slate-900/40 rounded-2xl p-4 border border-slate-100 dark:border-slate-700">
+                                            <div className={`text-2xl font-black tabular-nums ${tooFastCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>{tooFastCount}</div>
+                                            <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mt-0.5">ข้อที่เร็วผิดปกติ</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     ) : (
                         <p className="text-indigo-600 dark:text-indigo-400 mb-8 font-bold text-center text-lg">ตอบแล้ว {Object.keys(answers).length}/{finalScore.total} ข้อ — กดที่ข้อใดก็ได้เพื่อดูเฉลยละเอียด</p>
@@ -612,6 +725,37 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             </div>
                         </div>
                     )}
+
+                    {/* ⏱️ Questions to review — slow+wrong, or unusually slow for this attempt */}
+                    {showAnswerChecking && reviewQuestions.length > 0 && (
+                        <div className="mt-2 rounded-3xl border border-rose-100 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-900/10 p-6 md:p-8">
+                            <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
+                                <Clock size={20} className="text-rose-500" /> ข้อที่ควรทบทวน (เรื่องเวลา)
+                            </h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">ข้อที่ใช้เวลามากผิดปกติ หรือช้าแล้วยังตอบผิด — คลิกเพื่อดูเฉลย</p>
+                            <div className="flex flex-col gap-2">
+                                {reviewQuestions.map((p) => {
+                                    const cv = getCombinedVerdict(p.seconds, paceTarget, p.isCorrect, p.answered);
+                                    return (
+                                        <button
+                                            key={p.idx}
+                                            onClick={() => { setCurrentQuestionIndex(p.idx); setIsFinished(false); }}
+                                            className="group flex items-center justify-between gap-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-4 py-3 text-left shadow-sm hover:shadow-md hover:border-rose-300 dark:hover:border-rose-700 transition-all"
+                                        >
+                                            <span className="flex items-center gap-3 min-w-0">
+                                                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-700 text-sm font-black text-slate-600 dark:text-slate-300">{p.idx + 1}</span>
+                                                <span className={`text-sm font-bold truncate ${cv.color}`}>{cv.label}</span>
+                                            </span>
+                                            <span className="flex items-center gap-2 flex-shrink-0">
+                                                <span className="text-sm font-black tabular-nums text-slate-700 dark:text-slate-200">{formatDuration(p.seconds)}</span>
+                                                <span className="text-xs text-slate-400 group-hover:text-rose-500 transition-colors">ดู →</span>
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Question Map with Results */}
@@ -621,6 +765,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         {sanitizedExamData.slice(0, finalScore.total).map((q, idx) => {
                             const isUnanswered = answers[idx] === undefined;
                             const isCorrect = !isUnanswered && answers[idx] === q.correctIndex;
+                            const secs = questionTimes.current[idx] ?? 0;
+                            const tv = getTimeVerdict(secs, paceTarget);
 
                             let btnClass: string;
                             let content: React.ReactNode = idx + 1;
@@ -636,14 +782,26 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 btnClass = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-700";
                             }
 
+                            const cellTitle = isUnanswered
+                                ? "ไม่ได้ตอบ"
+                                : showAnswerChecking
+                                    ? `ข้อ ${idx + 1} · ${formatDuration(secs)} · ${getCombinedVerdict(secs, paceTarget, isCorrect, true).label}`
+                                    : `ข้อ ${idx + 1} · ${formatDuration(secs)}`;
+
                             return (
                                 <button
                                     key={idx}
                                     onClick={() => { setCurrentQuestionIndex(idx); setIsFinished(false); }}
-                                    className={`aspect-square rounded-lg text-sm font-bold flex items-center justify-center border transition-all hover:scale-105 ${btnClass}`}
-                                    title={isUnanswered ? "ไม่ได้ตอบ" : showAnswerChecking ? (isCorrect ? "ถูก" : "ผิด") : "ตอบแล้ว"}
+                                    className={`relative aspect-square rounded-lg flex flex-col items-center justify-center border transition-all hover:scale-105 ${btnClass}`}
+                                    title={cellTitle}
                                 >
-                                    {content}
+                                    {secs > 0 && !isUnanswered && (
+                                        <span className={`absolute top-1 right-1 h-1.5 w-1.5 rounded-full ${tv.dot}`} />
+                                    )}
+                                    <span className="text-sm font-bold leading-none">{content}</span>
+                                    {secs > 0 && (
+                                        <span className="mt-0.5 text-[9px] font-semibold leading-none tabular-nums opacity-70">{formatDuration(secs)}</span>
+                                    )}
                                 </button>
                             );
                         })}
@@ -710,7 +868,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         return (
                             <button
                                 key={idx}
-                                onClick={() => setCurrentQuestionIndex(idx)}
+                                onClick={() => goToQuestion(idx)}
                                 className={`aspect-square rounded-lg text-sm flex items-center justify-center transition-all border ${btnClass}`}
                             >
                                 {isTrial && idx >= 5 ? <Lock size={14} className="opacity-50" /> : content}
@@ -801,6 +959,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         </p>
                     </div>
 
+                    {/* Live Stopwatch (count-up) — hidden once the exam is finished */}
+                    {!finalScore && (
+                        <div className="flex items-center gap-2.5 self-start md:self-auto rounded-2xl border border-indigo-100 dark:border-slate-700 bg-gradient-to-br from-indigo-50 to-white dark:from-slate-800 dark:to-slate-800/60 px-4 py-2.5 shadow-sm">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20">
+                                <Clock size={18} className="text-indigo-500 dark:text-indigo-400 animate-pulse" />
+                            </div>
+                            <div className="leading-tight">
+                                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">เวลาที่ใช้</div>
+                                <div className="text-xl font-black tabular-nums text-slate-800 dark:text-slate-100">{formatDuration(getElapsedSeconds())}</div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Mobile Progress & Grid Toggle */}
                     <div className="w-full md:w-48 lg:hidden">
                         <div className="flex justify-between text-xs font-bold text-stone-400 dark:text-slate-500 mb-2">
@@ -836,7 +1007,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             {Array.from({ length: totalQuestions }).map((_, idx) => (
                                 <button
                                     key={idx}
-                                    onClick={() => { setCurrentQuestionIndex(idx); setShowGrid(false); }}
+                                    onClick={() => { goToQuestion(idx); setShowGrid(false); }}
                                     className={`aspect-square rounded-lg text-xs font-bold flex items-center justify-center border
                                         ${currentQuestionIndex === idx ? 'ring-2 ring-amber-400 ring-offset-2 z-10 border-transparent' : ''}
                                         ${answers[idx] !== undefined ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-600'}

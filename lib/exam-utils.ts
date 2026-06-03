@@ -221,3 +221,68 @@ export const transformExamQuestion = (q: any) => {
         suggestedTags,
     };
 };
+
+/* ============================================================
+   Timing helpers — exam stopwatch + per-question pacing analysis.
+   Pure functions (no React / Firestore) so they're reusable from
+   ExamSystem and the dashboard, and easy to reason about.
+   ============================================================ */
+
+/** Benchmark used when an exam doesn't set its own recommended time. */
+export const DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION = 90;
+
+/** Format seconds as "m:ss" (e.g. 125 -> "2:05"). Guards NaN/negative. */
+export const formatDuration = (totalSeconds: number): string => {
+    if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '0:00';
+    const s = Math.round(totalSeconds);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+export type TimeVerdictKey = 'veryFast' | 'fast' | 'good' | 'slow' | 'verySlow';
+
+export interface TimeVerdict {
+    key: TimeVerdictKey;
+    label: string; // Thai
+    color: string; // Tailwind text classes (light + dark)
+    bg: string;    // Tailwind bg classes (light + dark)
+    dot: string;   // Tailwind bg for a small indicator dot
+}
+
+/** Classify the time spent on one question against the target T (seconds). */
+export const getTimeVerdict = (seconds: number, targetSeconds: number): TimeVerdict => {
+    const T = targetSeconds > 0 ? targetSeconds : DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION;
+    const r = seconds / T;
+    if (r < 0.4) return { key: 'veryFast', label: 'เร็วไป', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/30', dot: 'bg-rose-400' };
+    if (r < 0.75) return { key: 'fast', label: 'เร็ว', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30', dot: 'bg-emerald-400' };
+    if (r <= 1.5) return { key: 'good', label: 'พอดี', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30', dot: 'bg-emerald-500' };
+    if (r <= 2.5) return { key: 'slow', label: 'ช้าไป', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/30', dot: 'bg-amber-400' };
+    return { key: 'verySlow', label: 'ช้ามาก', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/30', dot: 'bg-rose-500' };
+};
+
+export interface CombinedVerdict {
+    label: string; // e.g. "ช้า + ผิด → ควรทบทวน"
+    color: string;
+    bg: string;
+    shouldReview: boolean;
+}
+
+/** Combine the time verdict with correctness into one actionable label. */
+export const getCombinedVerdict = (
+    seconds: number,
+    targetSeconds: number,
+    isCorrect: boolean,
+    answered: boolean,
+): CombinedVerdict => {
+    if (!answered) {
+        return { label: 'ไม่ได้ตอบ', color: 'text-slate-400 dark:text-slate-500', bg: 'bg-slate-50 dark:bg-slate-700/40', shouldReview: false };
+    }
+    const v = getTimeVerdict(seconds, targetSeconds);
+    const isSlow = v.key === 'slow' || v.key === 'verySlow';
+    const isFast = v.key === 'fast' || v.key === 'veryFast';
+    if (!isCorrect && isSlow) return { label: 'ช้า + ผิด → ควรทบทวน', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/30', shouldReview: true };
+    if (!isCorrect && isFast) return { label: 'เร็ว + ผิด → อาจเดา', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/30', shouldReview: true };
+    if (!isCorrect) return { label: 'พอดี + ผิด → ทบทวนแนวคิด', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900/30', shouldReview: true };
+    if (isSlow) return { label: 'ช้า + ถูก → ใช้เวลาเยอะ', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/30', shouldReview: false };
+    if (isFast) return { label: 'เร็ว + ถูก → แม่นยำ', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30', shouldReview: false };
+    return { label: 'พอดี + ถูก → เยี่ยม', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30', shouldReview: false };
+};

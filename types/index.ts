@@ -187,6 +187,7 @@ export interface Exam {
     courseId?: string;
     questions: ExamQuestion[];
     timeLimit?: number; // in minutes
+    recommendedSecondsPerQuestion?: number; // per-question pacing benchmark (seconds), default 90
     passingScore?: number;
     isPublished: boolean;
     createdAt: Timestamp | Date;

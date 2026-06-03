@@ -213,6 +213,7 @@ export default async function ExamRoomPage(props: Props) {
                         examId={exam.id}
                         category={exam.category || ''}
                         level={exam.level || ''}
+                        recommendedSecondsPerQuestion={exam.recommendedSecondsPerQuestion}
                         initialQuestionIndex={initialQuestionIndex}
                         showAnswerChecking={exam.showAnswerChecking || false}
                         enableResultTracking={examConfig.enableResultTracking || false}
