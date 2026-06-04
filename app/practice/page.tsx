@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query } from "firebase/firestore";
 import Link from "next/link";
-import { Search, BookOpen, Loader2, ArrowRight, Tag } from "lucide-react";
+import { Search, BookOpen, Loader2, ArrowRight, ArrowLeft, Tag } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -123,6 +123,16 @@ export default function PracticeModePage() {
 
             {/* Header — minimal clean, matches the /exam bottom banner */}
             <div className="pt-32 pb-16 px-6 bg-gradient-to-b from-slate-50 dark:from-slate-950 to-white dark:to-slate-950 transition-colors">
+                {/* Back to the exam bank */}
+                <div className="max-w-4xl mx-auto mb-6">
+                    <Link
+                        href="/exam"
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 shadow-sm transition-colors hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400"
+                    >
+                        <ArrowLeft size={18} />
+                        กลับไปคลังข้อสอบ
+                    </Link>
+                </div>
                 <div className="max-w-4xl mx-auto rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 py-12 md:px-16 md:py-16 text-center shadow-[0_10px_50px_-20px_rgba(15,23,42,0.15)]">
                     <div className="inline-flex items-center gap-2 mb-5 text-[11px] font-bold uppercase tracking-[0.22em] text-amber-600 dark:text-amber-400">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
