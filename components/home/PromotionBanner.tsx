@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Sparkles, ArrowRight, X } from "lucide-react";
+import { Sparkles, ArrowRight, X, Clock } from "lucide-react";
 import { logPromoClick } from "@/lib/promoTracking";
 
 // SSR-safe "was this promo dismissed?" state, stored in localStorage per promo
@@ -29,6 +29,44 @@ function dismissPromo(key: string) {
     window.dispatchEvent(new Event(DISMISS_EVENT));
 }
 
+// Shared 1-second clock via useSyncExternalStore, so a live countdown ticks
+// without setState-in-effect and stays SSR-safe. getServerSnapshot returns 0, so
+// the server renders no countdown and there's no hydration mismatch.
+let clockNow = typeof window !== "undefined" ? Date.now() : 0;
+const clockListeners = new Set<() => void>();
+let clockTimer: ReturnType<typeof setInterval> | null = null;
+const getClockNow = () => clockNow;
+const zeroSnapshot = () => 0;
+const noopSubscribe = () => () => {};
+function clockSubscribe(cb: () => void) {
+    clockListeners.add(cb);
+    if (clockTimer === null && typeof window !== "undefined") {
+        clockTimer = setInterval(() => {
+            clockNow = Date.now();
+            clockListeners.forEach((l) => l());
+        }, 1000);
+    }
+    return () => {
+        clockListeners.delete(cb);
+        if (clockListeners.size === 0 && clockTimer !== null) {
+            clearInterval(clockTimer);
+            clockTimer = null;
+        }
+    };
+}
+function useNow(active: boolean): number {
+    return useSyncExternalStore(active ? clockSubscribe : noopSubscribe, active ? getClockNow : zeroSnapshot, zeroSnapshot);
+}
+
+// End-of-day ms for a date-only (YYYY-MM-DD) endDate, or exact ms for a full ISO
+// value. null when there's no end date.
+function promoEndMs(endDate?: string): number | null {
+    if (!endDate) return null;
+    const base = new Date(endDate).getTime();
+    if (!Number.isFinite(base)) return null;
+    return endDate.length <= 10 ? base + 86_400_000 - 1 : base;
+}
+
 export interface PromotionData {
     enabled?: boolean;
     imageUrl?: string;
@@ -40,6 +78,7 @@ export interface PromotionData {
     badgeText?: string;
     startDate?: string; // ISO / YYYY-MM-DD; empty = no start bound
     endDate?: string;   // ISO / YYYY-MM-DD; empty = no end bound
+    showCountdown?: boolean; // live countdown to endDate (default: on when endDate set)
     version?: string;   // promo updatedAt — used as the dismiss key
 }
 
@@ -124,6 +163,31 @@ export const PROMO_THEMES: Record<string, PromoTheme> = {
 export const DEFAULT_PROMO_THEME = "peach";
 export const PROMO_THEME_LIST = Object.values(PROMO_THEMES);
 
+// Live "หมดโปรในอีก D วัน H ชม. M นาที S วิ" chips. Pure/presentational —
+// the caller passes the current `msLeft`, so no hooks/hydration concerns here.
+function CountdownChips({ msLeft, numberClass, chipBg }: { msLeft: number; numberClass: string; chipBg: string }) {
+    const total = Math.max(0, Math.floor(msLeft / 1000));
+    const parts = [
+        { n: Math.floor(total / 86400), l: "วัน" },
+        { n: Math.floor((total % 86400) / 3600), l: "ชม." },
+        { n: Math.floor((total % 3600) / 60), l: "นาที" },
+        { n: total % 60, l: "วิ" },
+    ];
+    return (
+        <div className={`mt-4 flex flex-wrap items-center gap-2 ${numberClass}`}>
+            <span className="inline-flex items-center gap-1 text-xs font-bold opacity-70">
+                <Clock size={14} /> หมดโปรในอีก
+            </span>
+            {parts.map((p, i) => (
+                <div key={i} className={`flex flex-col items-center min-w-[46px] rounded-xl px-2 py-1 ${chipBg}`}>
+                    <span className="text-xl font-black tabular-nums leading-none">{String(p.n).padStart(2, "0")}</span>
+                    <span className="text-[10px] font-bold opacity-70">{p.l}</span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 /**
  * Big promotional card shown above the hero. Background is a chosen gradient
  * theme; image, title, subtitle and button are all OPTIONAL (omit to hide).
@@ -140,7 +204,19 @@ export default function PromotionBanner({ promo, dismissKey, track }: { promo: P
 
     // Dismiss (remembered per promo version) — SSR-safe, no setState-in-effect.
     const dismissed = useSyncExternalStore(subscribeDismiss, () => readDismissed(dismissKey), () => false);
+
+    // Live countdown to the end date (client only; the server already hides
+    // expired promos via getActivePromotion, so this just keeps the client honest).
+    const endMs = promoEndMs(promo.endDate);
+    const showCountdown = endMs !== null && promo.showCountdown !== false;
+    const now = useNow(showCountdown);
+
     if (dismissKey && dismissed) return null;
+    if (showCountdown && now > 0 && now >= (endMs as number)) return null; // expired
+
+    const countdownEl = showCountdown && now > 0
+        ? <CountdownChips msLeft={(endMs as number) - now} numberClass={t.title} chipBg={onLight ? "bg-black/5" : "bg-white/15"} />
+        : null;
 
     const btnClass = `mt-5 inline-flex items-center gap-2 px-7 py-3.5 rounded-full font-bold transition-all hover:scale-105 active:scale-95 ${t.button}`;
     const btnInner = (
@@ -181,6 +257,7 @@ export default function PromotionBanner({ promo, dismissKey, track }: { promo: P
                     {promo.subtitle && (
                         <p className={`text-base md:text-lg leading-relaxed whitespace-pre-line ${t.subtitle}`}>{promo.subtitle}</p>
                     )}
+                    {countdownEl}
                     {hasCta && (
                         isExternal ? (
                             <a href={promo.ctaLink as string} target="_blank" rel="noopener noreferrer" className={btnClass} onClick={handleCtaClick}>

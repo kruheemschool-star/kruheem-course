@@ -28,6 +28,7 @@ export default function AdminPromotions() {
     const [badgeText, setBadgeText] = useState("โปรโมชันพิเศษ");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [showCountdown, setShowCountdown] = useState(true);
     const [clickStats, setClickStats] = useState<{ total: number; today: number }>({ total: 0, today: 0 });
     const [loaded, setLoaded] = useState(false);
     const snapshot = useRef("");        // JSON of last-saved values (for the dirty check)
@@ -49,6 +50,7 @@ export default function AdminPromotions() {
                     badgeText: d.badgeText !== undefined ? d.badgeText : "โปรโมชันพิเศษ",
                     startDate: d.startDate || "",
                     endDate: d.endDate || "",
+                    showCountdown: d.showCountdown !== undefined ? d.showCountdown : true,
                 };
                 setEnabled(vals.enabled);
                 setImageUrl(vals.imageUrl);
@@ -60,6 +62,7 @@ export default function AdminPromotions() {
                 setBadgeText(vals.badgeText);
                 setStartDate(vals.startDate);
                 setEndDate(vals.endDate);
+                setShowCountdown(vals.showCountdown);
                 originalImageUrl.current = vals.imageUrl;
                 snapshot.current = JSON.stringify(vals);
 
@@ -110,7 +113,7 @@ export default function AdminPromotions() {
             setSaving(true);
             await setDoc(
                 doc(db, "settings", "homepage_promotion"),
-                { enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate, updatedAt: serverTimestamp() },
+                { enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate, showCountdown, updatedAt: serverTimestamp() },
                 { merge: true },
             );
             // Clean up the previously-saved image if it was replaced or removed.
@@ -118,7 +121,7 @@ export default function AdminPromotions() {
                 deleteImageByUrl(originalImageUrl.current);
             }
             originalImageUrl.current = imageUrl;
-            snapshot.current = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate });
+            snapshot.current = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate, showCountdown });
             setSavedAt(new Date().toLocaleTimeString("th-TH"));
         } catch (e) {
             console.error("Error saving promotion:", e);
@@ -128,7 +131,7 @@ export default function AdminPromotions() {
         }
     };
 
-    const currentJson = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate });
+    const currentJson = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate, showCountdown });
     const dirty = loaded && currentJson !== snapshot.current;
 
     // Warn before leaving the page with unsaved changes.
@@ -146,7 +149,7 @@ export default function AdminPromotions() {
         );
     }
 
-    const draft = { enabled: true, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText };
+    const draft = { enabled: true, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, endDate, showCountdown };
     const hasPreview = !!(title || subtitle || imageUrl);
 
     return (
@@ -313,6 +316,10 @@ export default function AdminPromotions() {
                             </div>
                         </div>
                         <p className="text-xs text-slate-400 mt-1.5">ตั้งวันแล้วระบบเปิด/ปิดแบนเนอร์ให้อัตโนมัติตามช่วง (ต้องเปิดสวิตช์ด้านบนด้วย)</p>
+                        <label className="flex items-center gap-2 mt-3 cursor-pointer">
+                            <input type="checkbox" checked={showCountdown} onChange={(e) => setShowCountdown(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400" />
+                            <span className="text-sm font-bold text-slate-600">แสดงนาฬิกานับถอยหลังถึงวันหมด</span>
+                        </label>
                     </div>
                 </div>
 

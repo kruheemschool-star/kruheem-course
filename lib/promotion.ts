@@ -47,6 +47,7 @@ export async function getActivePromotion(): Promise<PromotionData | null> {
             badgeText: doc.badgeText as string | undefined,
             startDate,
             endDate,
+            showCountdown: doc.showCountdown as boolean | undefined,
             version: (doc.updatedAt as string) || "",
         };
     } catch (e) {
