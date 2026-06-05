@@ -1,10 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
-import { db } from "@/lib/firebase";
+import { useState, useEffect, useRef } from "react";
+import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { ref, deleteObject } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
+import { PROMO_STATS_DOC } from "@/lib/promoTracking";
 import Link from "next/link";
-import { ArrowLeft, Upload, Save, Loader2, Trash2, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Upload, Save, Loader2, Trash2, Eye, EyeOff, MousePointerClick } from "lucide-react";
 import PromotionBanner, { PROMO_THEME_LIST, DEFAULT_PROMO_THEME } from "@/components/home/PromotionBanner";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -23,25 +25,55 @@ export default function AdminPromotions() {
     const [ctaText, setCtaText] = useState("");
     const [ctaLink, setCtaLink] = useState("");
     const [theme, setTheme] = useState(DEFAULT_PROMO_THEME);
+    const [badgeText, setBadgeText] = useState("โปรโมชันพิเศษ");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [clickStats, setClickStats] = useState<{ total: number; today: number }>({ total: 0, today: 0 });
+    const [loaded, setLoaded] = useState(false);
+    const snapshot = useRef("");        // JSON of last-saved values (for the dirty check)
+    const originalImageUrl = useRef(""); // last-saved image (to delete when replaced)
 
     useEffect(() => {
         (async () => {
             try {
                 const snap = await getDoc(doc(db, "settings", "homepage_promotion"));
-                if (snap.exists()) {
-                    const d = snap.data();
-                    setEnabled(d.enabled ?? false);
-                    setImageUrl(d.imageUrl || "");
-                    setTitle(d.title || "");
-                    setSubtitle(d.subtitle || "");
-                    setCtaText(d.ctaText || "");
-                    setCtaLink(d.ctaLink || "");
-                    setTheme(d.theme || DEFAULT_PROMO_THEME);
+                const d = snap.exists() ? snap.data() : {};
+                const vals = {
+                    enabled: d.enabled ?? false,
+                    imageUrl: d.imageUrl || "",
+                    title: d.title || "",
+                    subtitle: d.subtitle || "",
+                    ctaText: d.ctaText || "",
+                    ctaLink: d.ctaLink || "",
+                    theme: d.theme || DEFAULT_PROMO_THEME,
+                    badgeText: d.badgeText !== undefined ? d.badgeText : "โปรโมชันพิเศษ",
+                    startDate: d.startDate || "",
+                    endDate: d.endDate || "",
+                };
+                setEnabled(vals.enabled);
+                setImageUrl(vals.imageUrl);
+                setTitle(vals.title);
+                setSubtitle(vals.subtitle);
+                setCtaText(vals.ctaText);
+                setCtaLink(vals.ctaLink);
+                setTheme(vals.theme);
+                setBadgeText(vals.badgeText);
+                setStartDate(vals.startDate);
+                setEndDate(vals.endDate);
+                originalImageUrl.current = vals.imageUrl;
+                snapshot.current = JSON.stringify(vals);
+
+                const statsSnap = await getDoc(doc(db, "stats", PROMO_STATS_DOC));
+                if (statsSnap.exists()) {
+                    const s = statsSnap.data();
+                    const today = new Date().toISOString().split("T")[0];
+                    setClickStats({ total: s.total_clicks || 0, today: s[`${today}_clicks`] || 0 });
                 }
             } catch (e) {
                 console.error("Error loading promotion:", e);
             } finally {
                 setLoading(false);
+                setLoaded(true);
             }
         })();
     }, []);
@@ -63,14 +95,30 @@ export default function AdminPromotions() {
         }
     };
 
+    const deleteImageByUrl = async (url: string) => {
+        try {
+            const m = url.match(/\/o\/([^?]+)/);
+            if (!m) return;
+            await deleteObject(ref(storage, decodeURIComponent(m[1])));
+        } catch (e) {
+            console.warn("Could not delete old promo image:", e);
+        }
+    };
+
     const handleSave = async () => {
         try {
             setSaving(true);
             await setDoc(
                 doc(db, "settings", "homepage_promotion"),
-                { enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, updatedAt: serverTimestamp() },
+                { enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate, updatedAt: serverTimestamp() },
                 { merge: true },
             );
+            // Clean up the previously-saved image if it was replaced or removed.
+            if (originalImageUrl.current && originalImageUrl.current !== imageUrl) {
+                deleteImageByUrl(originalImageUrl.current);
+            }
+            originalImageUrl.current = imageUrl;
+            snapshot.current = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate });
             setSavedAt(new Date().toLocaleTimeString("th-TH"));
         } catch (e) {
             console.error("Error saving promotion:", e);
@@ -80,6 +128,16 @@ export default function AdminPromotions() {
         }
     };
 
+    const currentJson = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate });
+    const dirty = loaded && currentJson !== snapshot.current;
+
+    // Warn before leaving the page with unsaved changes.
+    useEffect(() => {
+        const handler = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
+        window.addEventListener("beforeunload", handler);
+        return () => window.removeEventListener("beforeunload", handler);
+    }, [dirty]);
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -88,7 +146,7 @@ export default function AdminPromotions() {
         );
     }
 
-    const draft = { enabled: true, imageUrl, title, subtitle, ctaText, ctaLink, theme };
+    const draft = { enabled: true, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText };
     const hasPreview = !!(title || subtitle || imageUrl);
 
     return (
@@ -98,7 +156,8 @@ export default function AdminPromotions() {
                     <ArrowLeft size={18} /> กลับหน้าแอดมิน
                 </Link>
                 <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-1">🎁 โปรโมชันหน้าแรก</h1>
-                <p className="text-slate-500 mb-6">แบนเนอร์โปรโมชันที่แสดงเหนือส่วน Hero บนหน้าแรก — เปิด/ปิด และแก้ไขรูป/ข้อความได้ที่นี่</p>
+                <p className="text-slate-500 mb-2">แบนเนอร์โปรโมชันที่แสดงเหนือส่วน Hero บนหน้าแรก — เปิด/ปิด และแก้ไขรูป/ข้อความได้ที่นี่</p>
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-6 inline-block">⏱️ หลังบันทึก การเปลี่ยนแปลงจะแสดงบนหน้าเว็บภายในประมาณ 1 นาที</p>
 
                 {/* Show/Hide toggle */}
                 <div className="bg-white rounded-2xl border border-slate-100 p-5 mb-5 flex items-center justify-between gap-4 shadow-sm">
@@ -119,6 +178,19 @@ export default function AdminPromotions() {
                     >
                         <span className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow transition-transform ${enabled ? "translate-x-6" : ""}`}></span>
                     </button>
+                </div>
+
+                {/* Click stats */}
+                <div className="bg-white rounded-2xl border border-slate-100 p-5 mb-5 shadow-sm flex items-center gap-8">
+                    <MousePointerClick className="text-amber-500 shrink-0" size={28} />
+                    <div>
+                        <div className="text-xs text-slate-400 font-bold">คลิกปุ่มทั้งหมด</div>
+                        <div className="text-2xl font-black text-slate-800">{clickStats.total.toLocaleString()}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-slate-400 font-bold">คลิกวันนี้</div>
+                        <div className="text-2xl font-black text-amber-600">{clickStats.today.toLocaleString()}</div>
+                    </div>
                 </div>
 
                 {/* Content editor */}
@@ -193,6 +265,17 @@ export default function AdminPromotions() {
                         />
                     </div>
 
+                    {/* Badge text */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-500 mb-2">ข้อความป้าย <span className="font-normal text-slate-400">(เว้นว่าง = ไม่แสดงป้าย)</span></label>
+                        <input
+                            value={badgeText}
+                            onChange={(e) => setBadgeText(e.target.value)}
+                            placeholder="เช่น โปรโมชันพิเศษ / ด่วน! / ลดสูงสุด 50%"
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400"
+                        />
+                    </div>
+
                     {/* CTA */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -214,7 +297,23 @@ export default function AdminPromotions() {
                             />
                         </div>
                     </div>
-                    <p className="text-xs text-slate-400">ปุ่มจะแสดงก็ต่อเมื่อใส่ทั้ง &ldquo;ข้อความปุ่ม&rdquo; และ &ldquo;ลิงก์ปุ่ม&rdquo;</p>
+                    <p className="text-xs text-slate-400">ปุ่มจะแสดงก็ต่อเมื่อใส่ทั้ง &ldquo;ข้อความปุ่ม&rdquo; และ &ldquo;ลิงก์ปุ่ม&rdquo; · ลิงก์ที่ขึ้นต้น http จะเปิดในแท็บใหม่</p>
+
+                    {/* Schedule */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-500 mb-2">ช่วงเวลาแสดง <span className="font-normal text-slate-400">(เว้นว่าง = ไม่จำกัด)</span></label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <span className="text-xs text-slate-400">เริ่มแสดง</span>
+                                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400" />
+                            </div>
+                            <div>
+                                <span className="text-xs text-slate-400">หยุดแสดง (ถึงสิ้นวัน)</span>
+                                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400" />
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1.5">ตั้งวันแล้วระบบเปิด/ปิดแบนเนอร์ให้อัตโนมัติตามช่วง (ต้องเปิดสวิตช์ด้านบนด้วย)</p>
+                    </div>
                 </div>
 
                 {/* Live preview */}
@@ -232,7 +331,7 @@ export default function AdminPromotions() {
                 {/* Sticky save bar */}
                 <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-slate-200 p-4 z-30">
                     <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-                        <span className="text-sm text-slate-400">{savedAt ? `บันทึกล่าสุด ${savedAt} ✓` : "ยังไม่ได้บันทึก"}</span>
+                        <span className="text-sm text-slate-400">{dirty ? "● มีการแก้ไขที่ยังไม่บันทึก" : savedAt ? `บันทึกล่าสุด ${savedAt} ✓` : "ยังไม่ได้บันทึก"}</span>
                         <button
                             type="button"
                             onClick={handleSave}
