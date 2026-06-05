@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
 import { ArrowLeft, Upload, Save, Loader2, Trash2, Eye, EyeOff } from "lucide-react";
-import PromotionBanner from "@/components/home/PromotionBanner";
+import PromotionBanner, { PROMO_THEME_LIST, DEFAULT_PROMO_THEME } from "@/components/home/PromotionBanner";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -22,6 +22,7 @@ export default function AdminPromotions() {
     const [subtitle, setSubtitle] = useState("");
     const [ctaText, setCtaText] = useState("");
     const [ctaLink, setCtaLink] = useState("");
+    const [theme, setTheme] = useState(DEFAULT_PROMO_THEME);
 
     useEffect(() => {
         (async () => {
@@ -35,6 +36,7 @@ export default function AdminPromotions() {
                     setSubtitle(d.subtitle || "");
                     setCtaText(d.ctaText || "");
                     setCtaLink(d.ctaLink || "");
+                    setTheme(d.theme || DEFAULT_PROMO_THEME);
                 }
             } catch (e) {
                 console.error("Error loading promotion:", e);
@@ -66,7 +68,7 @@ export default function AdminPromotions() {
             setSaving(true);
             await setDoc(
                 doc(db, "settings", "homepage_promotion"),
-                { enabled, imageUrl, title, subtitle, ctaText, ctaLink, updatedAt: serverTimestamp() },
+                { enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, updatedAt: serverTimestamp() },
                 { merge: true },
             );
             setSavedAt(new Date().toLocaleTimeString("th-TH"));
@@ -86,7 +88,7 @@ export default function AdminPromotions() {
         );
     }
 
-    const draft = { enabled: true, imageUrl, title, subtitle, ctaText, ctaLink };
+    const draft = { enabled: true, imageUrl, title, subtitle, ctaText, ctaLink, theme };
     const hasPreview = !!(title || subtitle || imageUrl);
 
     return (
@@ -123,9 +125,28 @@ export default function AdminPromotions() {
                 <div className="bg-white rounded-2xl border border-slate-100 p-5 md:p-6 mb-5 shadow-sm space-y-5">
                     <h2 className="font-bold text-slate-700">รายละเอียดแบนเนอร์</h2>
 
+                    {/* Background theme (gradient) */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-500 mb-2">สีพื้นหลัง (ไล่เฉด)</label>
+                        <div className="flex flex-wrap gap-2">
+                            {PROMO_THEME_LIST.map((th) => (
+                                <button
+                                    key={th.key}
+                                    type="button"
+                                    onClick={() => setTheme(th.key)}
+                                    className={`flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border-2 transition-all ${theme === th.key ? "border-amber-400 bg-amber-50" : "border-slate-200 hover:border-slate-300"}`}
+                                >
+                                    <span className={`w-6 h-6 rounded-full ring-1 ring-black/10 ${th.swatch}`}></span>
+                                    <span className="text-sm font-bold text-slate-600">{th.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Image */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-500 mb-2">รูปภาพ <span className="font-normal text-slate-400">(ไม่ใส่ก็ได้)</span></label>
+                        <label className="block text-sm font-bold text-slate-500 mb-1">รูปภาพ <span className="font-normal text-slate-400">(ไม่ใส่ก็ได้)</span></label>
+                        <p className="text-xs text-slate-400 mb-2">แนะนำขนาด ~1200 × 750 px (อัตราส่วน 16:10) เพื่อให้คมชัด · JPG/PNG/WebP · สูงสุด 5MB</p>
                         {imageUrl ? (
                             <div className="relative inline-block">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}

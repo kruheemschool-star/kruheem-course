@@ -22,6 +22,7 @@ export async function GET() {
                 subtitle: (doc.subtitle as string) || "",
                 ctaText: (doc.ctaText as string) || "",
                 ctaLink: (doc.ctaLink as string) || "",
+                theme: (doc.theme as string) || "peach",
             },
         });
     } catch (error) {
