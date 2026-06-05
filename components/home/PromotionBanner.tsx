@@ -75,6 +75,7 @@ export interface PromotionData {
     ctaText?: string;
     ctaLink?: string;
     theme?: string;
+    bgStyle?: "solid" | "glass"; // card background: solid gradient (default) or frosted glass
     badgeText?: string;
     startDate?: string; // ISO / YYYY-MM-DD; empty = no start bound
     endDate?: string;   // ISO / YYYY-MM-DD; empty = no end bound
@@ -92,6 +93,8 @@ export interface PromoTheme {
     subtitle: string;// subtitle text colour
     button: string;  // CTA button colours
     swatch: string;  // small gradient shown in the admin theme picker
+    titleGradient: string; // accent gradient for the clipped title (also drives glass button/glow)
+    glassBadge: string;    // badge colours that read on a frosted (light) card
 }
 
 // Background gradient presets. Each bundles the gradient with text/badge/button
@@ -107,6 +110,8 @@ export const PROMO_THEMES: Record<string, PromoTheme> = {
         subtitle: "text-slate-600 dark:text-slate-300",
         button: "text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-200",
         swatch: "bg-gradient-to-br from-amber-200 to-rose-300",
+        titleGradient: "from-amber-500 via-orange-500 to-rose-500",
+        glassBadge: "bg-amber-500/15 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300",
     },
     sky: {
         key: "sky", label: "ฟ้าใส",
@@ -117,6 +122,8 @@ export const PROMO_THEMES: Record<string, PromoTheme> = {
         subtitle: "text-slate-600 dark:text-slate-300",
         button: "text-white bg-gradient-to-r from-sky-500 to-blue-500 hover:from-sky-600 hover:to-blue-600 shadow-lg shadow-sky-200",
         swatch: "bg-gradient-to-br from-sky-200 to-blue-300",
+        titleGradient: "from-sky-500 via-cyan-500 to-blue-500",
+        glassBadge: "bg-sky-500/15 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300",
     },
     mint: {
         key: "mint", label: "เขียวมิ้นต์",
@@ -127,6 +134,8 @@ export const PROMO_THEMES: Record<string, PromoTheme> = {
         subtitle: "text-slate-600 dark:text-slate-300",
         button: "text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-lg shadow-emerald-200",
         swatch: "bg-gradient-to-br from-emerald-200 to-teal-300",
+        titleGradient: "from-emerald-500 via-teal-500 to-green-500",
+        glassBadge: "bg-emerald-500/15 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300",
     },
     sunset: {
         key: "sunset", label: "ส้มสด",
@@ -137,6 +146,8 @@ export const PROMO_THEMES: Record<string, PromoTheme> = {
         subtitle: "text-white/90",
         button: "text-orange-600 bg-white hover:bg-white/90 shadow-lg shadow-black/10",
         swatch: "bg-gradient-to-br from-amber-500 to-rose-500",
+        titleGradient: "from-amber-500 via-orange-500 to-rose-500",
+        glassBadge: "bg-orange-500/15 text-orange-700 dark:bg-orange-400/15 dark:text-orange-300",
     },
     ocean: {
         key: "ocean", label: "น้ำเงินเข้ม",
@@ -147,6 +158,8 @@ export const PROMO_THEMES: Record<string, PromoTheme> = {
         subtitle: "text-white/90",
         button: "text-blue-700 bg-white hover:bg-white/90 shadow-lg shadow-black/10",
         swatch: "bg-gradient-to-br from-indigo-600 to-sky-500",
+        titleGradient: "from-indigo-500 via-blue-500 to-sky-500",
+        glassBadge: "bg-blue-500/15 text-blue-700 dark:bg-blue-400/15 dark:text-blue-300",
     },
     grape: {
         key: "grape", label: "ม่วงเข้ม",
@@ -157,11 +170,17 @@ export const PROMO_THEMES: Record<string, PromoTheme> = {
         subtitle: "text-white/90",
         button: "text-purple-700 bg-white hover:bg-white/90 shadow-lg shadow-black/10",
         swatch: "bg-gradient-to-br from-violet-600 to-fuchsia-600",
+        titleGradient: "from-violet-500 via-purple-500 to-fuchsia-500",
+        glassBadge: "bg-purple-500/15 text-purple-700 dark:bg-purple-400/15 dark:text-purple-300",
     },
 };
 
 export const DEFAULT_PROMO_THEME = "peach";
 export const PROMO_THEME_LIST = Object.values(PROMO_THEMES);
+
+// Frosted-glass card style (matches the homepage glass cards). The chosen theme
+// still drives the accent colours (badge, button, gradient title, glow tint).
+const GLASS_CARD = "border-white/60 dark:border-white/10 bg-white/45 dark:bg-slate-900/50 backdrop-blur-xl";
 
 // Live "หมดโปรในอีก D วัน H ชม. M นาที S วิ" chips. Pure/presentational —
 // the caller passes the current `msLeft`, so no hooks/hydration concerns here.
@@ -179,9 +198,9 @@ function CountdownChips({ msLeft, numberClass, chipBg }: { msLeft: number; numbe
                 <Clock size={14} /> หมดโปรในอีก
             </span>
             {parts.map((p, i) => (
-                <div key={i} className={`flex flex-col items-center min-w-[46px] rounded-xl px-2 py-1 ${chipBg}`}>
-                    <span className="text-xl font-black tabular-nums leading-none">{String(p.n).padStart(2, "0")}</span>
-                    <span className="text-[10px] font-bold opacity-70">{p.l}</span>
+                <div key={i} className={`flex flex-col items-center min-w-[52px] rounded-xl px-2.5 py-1.5 backdrop-blur-md ${chipBg}`}>
+                    <span className="text-2xl font-black tabular-nums leading-none">{String(p.n).padStart(2, "0")}</span>
+                    <span className="text-[10px] font-bold opacity-70 mt-0.5">{p.l}</span>
                 </div>
             ))}
         </div>
@@ -200,7 +219,19 @@ export default function PromotionBanner({ promo, dismissKey, track }: { promo: P
     const hasCta = !!(promo.ctaText && promo.ctaLink);
     const badge = promo.badgeText ?? "โปรโมชันพิเศษ";
     const isExternal = !!promo.ctaLink && /^https?:\/\//i.test(promo.ctaLink);
-    const onLight = !t.title.includes("white"); // dark text themes -> X is dark
+    const isGlass = promo.bgStyle === "glass";
+    const isVibrantSolid = !isGlass && t.title.includes("white"); // saturated card, white text
+    const onLight = !isVibrantSolid; // dark-text context (light/glass) vs white-text (vibrant solid)
+
+    const cardClass = isGlass ? GLASS_CARD : t.card;
+    const glowClass = isGlass ? `bg-gradient-to-br ${t.titleGradient} opacity-25` : t.glow;
+    const badgeClass = isGlass ? t.glassBadge : t.badge;
+    const subtitleClass = isVibrantSolid ? "text-white/90" : "text-slate-600 dark:text-slate-300";
+    const buttonColor = isGlass ? `text-white bg-gradient-to-r ${t.titleGradient} hover:brightness-110 shadow-lg shadow-black/5` : t.button;
+    const chipBg = isVibrantSolid
+        ? "bg-white/15 border border-white/25"
+        : "bg-white/60 dark:bg-white/10 border border-black/5 dark:border-white/15";
+    const chipText = isVibrantSolid ? "text-white" : "text-slate-800 dark:text-white";
 
     // Dismiss (remembered per promo version) — SSR-safe, no setState-in-effect.
     const dismissed = useSyncExternalStore(subscribeDismiss, () => readDismissed(dismissKey), () => false);
@@ -215,10 +246,10 @@ export default function PromotionBanner({ promo, dismissKey, track }: { promo: P
     if (showCountdown && now > 0 && now >= (endMs as number)) return null; // expired
 
     const countdownEl = showCountdown && now > 0
-        ? <CountdownChips msLeft={(endMs as number) - now} numberClass={t.title} chipBg={onLight ? "bg-black/5" : "bg-white/15"} />
+        ? <CountdownChips msLeft={(endMs as number) - now} numberClass={chipText} chipBg={chipBg} />
         : null;
 
-    const btnClass = `mt-5 inline-flex items-center gap-2 px-7 py-3.5 rounded-full font-bold transition-all hover:scale-105 active:scale-95 ${t.button}`;
+    const btnClass = `mt-5 inline-flex items-center gap-2 px-7 py-3.5 rounded-full font-bold transition-all hover:scale-105 active:scale-95 ${buttonColor}`;
     const btnInner = (
         <>
             {promo.ctaText}
@@ -228,9 +259,9 @@ export default function PromotionBanner({ promo, dismissKey, track }: { promo: P
     const handleCtaClick = () => { if (track) logPromoClick(); };
 
     return (
-        <div className={`relative overflow-hidden rounded-[2rem] md:rounded-[2.5rem] border shadow-xl ${t.card}`}>
+        <div className={`relative overflow-hidden rounded-[2rem] md:rounded-[2.5rem] border shadow-xl ${cardClass}`}>
             {/* decorative glow */}
-            <div className={`pointer-events-none absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl ${t.glow}`}></div>
+            <div className={`pointer-events-none absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl ${glowClass}`}></div>
 
             {dismissKey && (
                 <button
@@ -247,15 +278,15 @@ export default function PromotionBanner({ promo, dismissKey, track }: { promo: P
                 {/* Text side */}
                 <div className={hasImage ? "" : "max-w-3xl text-center md:text-left mx-auto md:mx-0"}>
                     {badge && (
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide mb-3 ${t.badge}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide mb-3 ${badgeClass}`}>
                             <Sparkles size={13} /> {badge}
                         </span>
                     )}
                     {promo.title && (
-                        <h2 className={`text-2xl md:text-4xl font-black leading-tight mb-2 ${t.title}`}>{promo.title}</h2>
+                        <h2 className={`font-mero text-2xl md:text-4xl font-black leading-tight mb-2 ${isVibrantSolid ? "text-white" : `bg-clip-text text-transparent bg-gradient-to-r ${t.titleGradient}`}`}>{promo.title}</h2>
                     )}
                     {promo.subtitle && (
-                        <p className={`text-base md:text-lg leading-relaxed whitespace-pre-line ${t.subtitle}`}>{promo.subtitle}</p>
+                        <p className={`text-base md:text-lg leading-relaxed whitespace-pre-line ${subtitleClass}`}>{promo.subtitle}</p>
                     )}
                     {countdownEl}
                     {hasCta && (

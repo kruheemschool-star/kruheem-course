@@ -29,6 +29,7 @@ export default function AdminPromotions() {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [showCountdown, setShowCountdown] = useState(true);
+    const [bgStyle, setBgStyle] = useState<"solid" | "glass">("solid");
     const [clickStats, setClickStats] = useState<{ total: number; today: number }>({ total: 0, today: 0 });
     const [loaded, setLoaded] = useState(false);
     const snapshot = useRef("");        // JSON of last-saved values (for the dirty check)
@@ -51,6 +52,7 @@ export default function AdminPromotions() {
                     startDate: d.startDate || "",
                     endDate: d.endDate || "",
                     showCountdown: d.showCountdown !== undefined ? d.showCountdown : true,
+                    bgStyle: (d.bgStyle === "glass" ? "glass" : "solid") as "solid" | "glass",
                 };
                 setEnabled(vals.enabled);
                 setImageUrl(vals.imageUrl);
@@ -63,6 +65,7 @@ export default function AdminPromotions() {
                 setStartDate(vals.startDate);
                 setEndDate(vals.endDate);
                 setShowCountdown(vals.showCountdown);
+                setBgStyle(vals.bgStyle);
                 originalImageUrl.current = vals.imageUrl;
                 snapshot.current = JSON.stringify(vals);
 
@@ -113,7 +116,7 @@ export default function AdminPromotions() {
             setSaving(true);
             await setDoc(
                 doc(db, "settings", "homepage_promotion"),
-                { enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate, showCountdown, updatedAt: serverTimestamp() },
+                { enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, bgStyle, badgeText, startDate, endDate, showCountdown, updatedAt: serverTimestamp() },
                 { merge: true },
             );
             // Clean up the previously-saved image if it was replaced or removed.
@@ -121,7 +124,7 @@ export default function AdminPromotions() {
                 deleteImageByUrl(originalImageUrl.current);
             }
             originalImageUrl.current = imageUrl;
-            snapshot.current = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate, showCountdown });
+            snapshot.current = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, bgStyle, badgeText, startDate, endDate, showCountdown });
             setSavedAt(new Date().toLocaleTimeString("th-TH"));
         } catch (e) {
             console.error("Error saving promotion:", e);
@@ -131,7 +134,7 @@ export default function AdminPromotions() {
         }
     };
 
-    const currentJson = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, startDate, endDate, showCountdown });
+    const currentJson = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, bgStyle, badgeText, startDate, endDate, showCountdown });
     const dirty = loaded && currentJson !== snapshot.current;
 
     // Warn before leaving the page with unsaved changes.
@@ -149,7 +152,7 @@ export default function AdminPromotions() {
         );
     }
 
-    const draft = { enabled: true, imageUrl, title, subtitle, ctaText, ctaLink, theme, badgeText, endDate, showCountdown };
+    const draft = { enabled: true, imageUrl, title, subtitle, ctaText, ctaLink, theme, bgStyle, badgeText, endDate, showCountdown };
     const hasPreview = !!(title || subtitle || imageUrl);
 
     return (
@@ -213,6 +216,23 @@ export default function AdminPromotions() {
                                 >
                                     <span className={`w-6 h-6 rounded-full ring-1 ring-black/10 ${th.swatch}`}></span>
                                     <span className="text-sm font-bold text-slate-600">{th.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Card background style */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-500 mb-2">สไตล์พื้นหลังการ์ด</label>
+                        <div className="flex gap-2">
+                            {([["solid", "ไล่เฉดทึบ"], ["glass", "กระจกฝ้า"]] as const).map(([val, lbl]) => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => setBgStyle(val)}
+                                    className={`flex-1 px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${bgStyle === val ? "border-amber-400 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}
+                                >
+                                    {lbl}
                                 </button>
                             ))}
                         </div>

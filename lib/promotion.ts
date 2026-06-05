@@ -44,6 +44,7 @@ export async function getActivePromotion(): Promise<PromotionData | null> {
             ctaText: (doc.ctaText as string) || "",
             ctaLink: (doc.ctaLink as string) || "",
             theme: (doc.theme as string) || "peach",
+            bgStyle: doc.bgStyle === "glass" ? "glass" : "solid",
             badgeText: doc.badgeText as string | undefined,
             startDate,
             endDate,
