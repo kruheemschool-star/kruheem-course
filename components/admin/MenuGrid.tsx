@@ -77,6 +77,14 @@ const menuItems = [
         coverColor: 'from-pink-100 to-rose-100',
     },
     {
+        key: 'promotions',
+        href: '/admin/promotions',
+        icon: '🎁',
+        title: 'โปรโมชันหน้าแรก',
+        description: 'แบนเนอร์โปรโมชันเหนือ Hero',
+        coverColor: 'from-rose-100 to-orange-100',
+    },
+    {
         key: 'avatars',
         href: '/admin/avatars',
         icon: '🎭',

@@ -19,6 +19,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FeatureCarousel from "@/components/home/FeatureCarousel";
 import HomeReviewCarousel from "@/components/home/HomeReviewCarousel";
+import PromotionBanner, { PromotionData } from "@/components/home/PromotionBanner";
 // import CourseFinder from "@/components/CourseFinder";
 
 // Type definitions
@@ -37,6 +38,7 @@ interface Course {
 export default function HomePage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [promo, setPromo] = useState<PromotionData | null>(null);
 
 
   useEffect(() => {
@@ -58,6 +60,27 @@ export default function HomePage() {
     };
 
     fetchCourses();
+  }, []);
+
+  // Homepage promotion banner — shown above the hero only when enabled in admin.
+  useEffect(() => {
+    const fetchPromo = async () => {
+      try {
+        const data = await getCachedData<PromotionData | null>(
+          "home_promo",
+          async () => {
+            const res = await fetch("/api/home-promotion");
+            const json = await res.json();
+            return (json.promo || null) as PromotionData | null;
+          },
+          60 * 1000,
+        );
+        setPromo(data);
+      } catch (error) {
+        console.error("Error fetching promotion:", error);
+      }
+    };
+    fetchPromo();
   }, []);
 
   const groupedCourses = courses.reduce((acc: Record<string, Course[]>, course: Course) => {
@@ -130,9 +153,17 @@ export default function HomePage() {
       <div className="relative z-10 flex flex-col min-h-screen">
         <Navbar />
 
-        {/* Hero Section */}
+        {/* Promotion Banner — above the hero; shown only when enabled in admin */}
+        {promo?.enabled && (
+          <section className="pt-28 md:pt-32 pb-2 px-6">
+            <div className="max-w-7xl mx-auto">
+              <PromotionBanner promo={promo} />
+            </div>
+          </section>
+        )}
+
         {/* Hero Section - Asymmetrical Split */}
-        <header className="pt-32 pb-16 px-6 relative overflow-visible z-10">
+        <header className={`${promo?.enabled ? "pt-8" : "pt-32"} pb-16 px-6 relative overflow-visible z-10`}>
           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-6 items-center">
 
             {/* Left Column: Text Content */}

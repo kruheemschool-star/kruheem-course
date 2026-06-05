@@ -94,3 +94,31 @@ export async function listCollection(
 
     return out;
 }
+
+/**
+ * Read a SINGLE Firestore document via REST (e.g. "settings/homepage_promotion").
+ * Returns { id, ...fields } decoded, or null if the document does not exist.
+ * Subject to security rules (public web key) — the doc must allow public read.
+ */
+export async function getDocument(
+    path: string,
+    opts: { revalidate?: number } = {}
+): Promise<FsDoc | null> {
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    if (!projectId || !apiKey) {
+        throw new Error(
+            "Missing NEXT_PUBLIC_FIREBASE_PROJECT_ID / NEXT_PUBLIC_FIREBASE_API_KEY"
+        );
+    }
+
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}?key=${apiKey}`;
+    const res = await fetch(url, { next: { revalidate: opts.revalidate ?? 300 } });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Firestore REST ${path}: HTTP ${res.status}`);
+
+    const json = (await res.json()) as { name?: string; fields?: Record<string, FsValue> };
+    const doc: FsDoc = { id: (json.name ?? "").split("/").pop() ?? "" };
+    for (const [k, v] of Object.entries(json.fields ?? {})) doc[k] = decode(v);
+    return doc;
+}

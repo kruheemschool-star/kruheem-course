@@ -196,6 +196,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // === Homepage promotion (public read so the homepage can show it; admin write) ===
+    match /settings/homepage_promotion {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // === Settings (admin only) ===
     match /settings/{settingId} {
       allow read: if isAdmin();
