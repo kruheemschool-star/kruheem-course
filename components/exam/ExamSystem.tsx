@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
-import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -123,6 +123,8 @@ interface ExamSystemProps {
     showAnswerChecking?: boolean;
     enableResultTracking?: boolean;
     recommendedSecondsPerQuestion?: number; // pacing benchmark (sec); defaults to 90
+    timedMode?: boolean; // run a countdown + auto-submit (uses timeLimitMinutes as the budget)
+    timeLimitMinutes?: number; // the exam's time budget in minutes (Exam.timeLimit)
 }
 
 // Grade Calculation Helper
@@ -193,7 +195,7 @@ class QuestionErrorBoundary extends React.Component<
     }
 }
 
-export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, examId, category, level, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false, enableResultTracking = false, recommendedSecondsPerQuestion }) => {
+export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, examId, category, level, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false, enableResultTracking = false, recommendedSecondsPerQuestion, timedMode = false, timeLimitMinutes }) => {
     const { user } = useUserAuth();
     const savedQ = useSavedQuestions();
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
@@ -211,7 +213,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const questionStartTime = React.useRef<number>(Date.now());
     const questionTimes = React.useRef<Record<number, number>>({});
     const elapsedBeforeRef = React.useRef<number>(0); // active time before this session (resume-safe)
-    const [, setStopwatchTick] = useState(0); // bump once per second to re-render the live timer
+    const [stopwatchTick, setStopwatchTick] = useState(0); // bump once per second to re-render the live timer
+    const autoSubmittedRef = useRef(false); // guards exactly-once auto-submit when the countdown hits 0
+    const handleFinishExamRef = useRef<(auto?: boolean) => void>(() => {}); // latest handleFinishExam (for the auto-submit effect)
 
     // Sanitize Data using shared utility
     const sanitizedExamData = React.useMemo(() => sanitizeExamData(examData), [examData]);
@@ -231,6 +235,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         () => elapsedBeforeRef.current + Math.max(0, Math.round((Date.now() - examStartTime.current) / 1000)),
         []
     );
+
+    // Timed (countdown) mode: active only when explicitly enabled AND a budget is set,
+    // so existing exams with a stray timeLimit stay in count-up mode.
+    const isCountdown = timedMode && (timeLimitMinutes ?? 0) > 0;
+    const timeLimitSeconds = (timeLimitMinutes ?? 0) * 60;
 
     // Accumulate the time spent on the current question, then restart its clock.
     // Called whenever the student leaves a question (prev / next / jump / finish)
@@ -256,6 +265,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const id = setInterval(() => setStopwatchTick((t) => t + 1), 1000);
         return () => clearInterval(id);
     }, [isFinished, finalScore, totalQuestions]);
+
+    // Auto-submit when a timed exam's countdown reaches zero. Fires exactly once
+    // (autoSubmittedRef); re-runs each second because it depends on stopwatchTick.
+    // Also catches a resume that lands already past the time limit (within ~1s).
+    useEffect(() => {
+        if (!isCountdown || isFinished || finalScore || totalQuestions === 0) return;
+        if (autoSubmittedRef.current) return;
+        if (getElapsedSeconds() >= timeLimitSeconds) {
+            autoSubmittedRef.current = true;
+            handleFinishExamRef.current(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [stopwatchTick, isCountdown, isFinished, finalScore, totalQuestions, timeLimitSeconds]);
 
     // Snap state back into range if it drifted out of bounds
     useEffect(() => {
@@ -365,13 +387,16 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         }
     };
 
-    const handleFinishExam = () => {
+    const handleFinishExam = (auto = false) => {
         const answerableCount = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
         const unansweredCount = answerableCount - Object.keys(answers).length;
-        if (unansweredCount > 0) {
-            if (!confirm(`คุณยังทำข้อสอบไม่ครบ ${unansweredCount} ข้อ\nต้องการส่งคำตอบเลยหรือไม่?`)) return;
-        } else if (!confirm("ยืนยันการส่งคำตอบ?")) {
-            return;
+        // Auto-submit (countdown expired) skips the confirm() prompts.
+        if (!auto) {
+            if (unansweredCount > 0) {
+                if (!confirm(`คุณยังทำข้อสอบไม่ครบ ${unansweredCount} ข้อ\nต้องการส่งคำตอบเลยหรือไม่?`)) return;
+            } else if (!confirm("ยืนยันการส่งคำตอบ?")) {
+                return;
+            }
         }
 
         // Freeze timing at submit: count the current question's dwell, then snapshot total time.
@@ -444,6 +469,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
         if (onComplete) onComplete(score, answerableCount);
     };
+    // Keep the auto-submit effect pointing at the latest closure (fresh state).
+    handleFinishExamRef.current = handleFinishExam;
 
     // Find first wrong answer for review
     const handleReviewWrongAnswers = () => {
@@ -642,6 +669,48 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                     </div>
                                 </div>
                             )}
+
+                            {/* ⏱️ Per-question time bar chart */}
+                            {hasTimingData && (() => {
+                                const maxSec = Math.max(paceTarget, ...perQuestionTiming.map(p => p.seconds), 1);
+                                const targetLeft = Math.min(100, (paceTarget / maxSec) * 100);
+                                return (
+                                    <div className="mb-10 rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-6 md:p-8">
+                                        <div className="flex items-center justify-between mb-1 gap-2">
+                                            <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100">เวลาที่ใช้รายข้อ</h3>
+                                            <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-500 dark:text-indigo-400 flex-shrink-0">
+                                                <span className="inline-block w-0.5 h-3 bg-indigo-500/70"></span> เป้า {paceTarget} วิ
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">แท่งยิ่งยาว = ยิ่งใช้เวลามาก · สีบอกความเร็ว · กดที่ข้อเพื่อดูเฉลย</p>
+                                        <div className="flex flex-col gap-1.5">
+                                            {perQuestionTiming.map((p) => {
+                                                const v = getTimeVerdict(p.seconds, paceTarget);
+                                                const widthPct = p.seconds > 0 ? Math.max(3, Math.min(100, (p.seconds / maxSec) * 100)) : 0;
+                                                return (
+                                                    <button
+                                                        key={p.idx}
+                                                        onClick={() => { setCurrentQuestionIndex(p.idx); setIsFinished(false); }}
+                                                        title={getCombinedVerdict(p.seconds, paceTarget, p.isCorrect, p.answered).label}
+                                                        className="group flex items-center gap-2 w-full text-left"
+                                                    >
+                                                        <span className="w-12 sm:w-14 flex-shrink-0 text-xs font-bold text-slate-400 dark:text-slate-500 tabular-nums">ข้อ {p.idx + 1}</span>
+                                                        <span className="relative flex-1 h-5 rounded-md bg-slate-100 dark:bg-slate-700/50 overflow-hidden">
+                                                            {p.answered && (
+                                                                <span className={`absolute inset-y-0 left-0 ${v.dot} transition-all group-hover:brightness-95`} style={{ width: `${widthPct}%` }}></span>
+                                                            )}
+                                                            <span className="absolute inset-y-0 w-px bg-indigo-500/70 dark:bg-indigo-400/70" style={{ left: `${targetLeft}%` }}></span>
+                                                        </span>
+                                                        <span className={`w-12 flex-shrink-0 text-right text-xs font-black tabular-nums ${p.answered ? v.color : 'text-slate-300 dark:text-slate-600'}`}>
+                                                            {p.answered ? formatDuration(p.seconds) : '—'}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </>
                     ) : (
                         <p className="text-indigo-600 dark:text-indigo-400 mb-8 font-bold text-center text-lg">ตอบแล้ว {Object.keys(answers).length}/{finalScore.total} ข้อ — กดที่ข้อใดก็ได้เพื่อดูเฉลยละเอียด</p>
@@ -942,6 +1011,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     </div>
                 )}
 
+                {/* Countdown low-time warning */}
+                {!finalScore && isCountdown && (() => {
+                    const cd = getCountdownState(getElapsedSeconds(), timeLimitMinutes ?? 0);
+                    if (cd.warnLevel === 'none') return null;
+                    const crit = cd.warnLevel === 'critical';
+                    return (
+                        <div className={`mb-4 flex items-center gap-2 px-4 py-3 rounded-2xl border animate-in slide-in-from-top-2 ${crit ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'}`}>
+                            <AlertTriangle size={16} className={`flex-shrink-0 ${crit ? 'animate-pulse' : ''}`} />
+                            <p className="text-sm font-bold">เหลือเวลาอีก {formatDuration(cd.remainingSeconds)} — ระบบจะส่งคำตอบให้อัตโนมัติเมื่อหมดเวลา</p>
+                        </div>
+                    );
+                })()}
+
                 {/* Top Bar: Progress & Title (Mobile Only Grid Toggle) */}
                 <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
@@ -959,18 +1041,35 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         </p>
                     </div>
 
-                    {/* Live Stopwatch (count-up) — hidden once the exam is finished */}
-                    {!finalScore && (
-                        <div className="flex items-center gap-2.5 self-start md:self-auto rounded-2xl border border-indigo-100 dark:border-slate-700 bg-gradient-to-br from-indigo-50 to-white dark:from-slate-800 dark:to-slate-800/60 px-4 py-2.5 shadow-sm">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20">
-                                <Clock size={18} className="text-indigo-500 dark:text-indigo-400 animate-pulse" />
+                    {/* Live timer — countdown (timed mode) or count-up — hidden once finished */}
+                    {!finalScore && (() => {
+                        const cd = isCountdown ? getCountdownState(getElapsedSeconds(), timeLimitMinutes ?? 0) : null;
+                        const critical = cd?.warnLevel === 'critical';
+                        const warn = cd?.warnLevel === 'warn';
+                        const shellCls = critical
+                            ? 'border-rose-200 dark:border-rose-800 bg-gradient-to-br from-rose-50 to-white dark:from-rose-900/30 dark:to-slate-800/60'
+                            : warn
+                                ? 'border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-white dark:from-amber-900/20 dark:to-slate-800/60'
+                                : 'border-indigo-100 dark:border-slate-700 bg-gradient-to-br from-indigo-50 to-white dark:from-slate-800 dark:to-slate-800/60';
+                        const iconWrapCls = critical ? 'bg-rose-500/10 dark:bg-rose-500/20' : warn ? 'bg-amber-500/10 dark:bg-amber-500/20' : 'bg-indigo-500/10 dark:bg-indigo-500/20';
+                        const iconCls = critical ? 'text-rose-500 dark:text-rose-400' : warn ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-500 dark:text-indigo-400';
+                        const valueCls = critical ? 'text-rose-600 dark:text-rose-400' : warn ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100';
+                        return (
+                            <div className={`flex items-center gap-2.5 self-start md:self-auto rounded-2xl border px-4 py-2.5 shadow-sm ${shellCls}`}>
+                                <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconWrapCls}`}>
+                                    {critical
+                                        ? <AlertTriangle size={18} className={`${iconCls} animate-pulse`} />
+                                        : <Clock size={18} className={`${iconCls} animate-pulse`} />}
+                                </div>
+                                <div className="leading-tight">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{isCountdown ? 'เวลาคงเหลือ' : 'เวลาที่ใช้'}</div>
+                                    <div className={`text-xl font-black tabular-nums ${valueCls} ${critical ? 'animate-pulse' : ''}`}>
+                                        {isCountdown && cd ? formatDuration(cd.remainingSeconds) : formatDuration(getElapsedSeconds())}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="leading-tight">
-                                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">เวลาที่ใช้</div>
-                                <div className="text-xl font-black tabular-nums text-slate-800 dark:text-slate-100">{formatDuration(getElapsedSeconds())}</div>
-                            </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* Mobile Progress & Grid Toggle */}
                     <div className="w-full md:w-48 lg:hidden">
@@ -999,6 +1098,36 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         </div>
                     </div>
                 </div>
+
+                {/* Live pacing bar — on-pace vs behind (works in both timed & count-up modes) */}
+                {!finalScore && totalQuestions > 0 && getElapsedSeconds() > 3 && (() => {
+                    const answeredCount = Object.keys(answers).length;
+                    const totalAnswerable = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
+                    const pace = getPaceStatus({
+                        answeredCount,
+                        totalAnswerable,
+                        elapsedSeconds: getElapsedSeconds(),
+                        timedMode: isCountdown,
+                        timeLimitSeconds,
+                        recommendedSecondsPerQuestion: recommendedSecondsPerQuestion ?? DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION,
+                    });
+                    return (
+                        <div className="mb-6 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/60 px-4 py-3 shadow-sm">
+                            <div className="flex items-center justify-between mb-2 gap-2">
+                                <span className={`text-sm font-bold flex items-center gap-1.5 ${pace.color}`}>
+                                    <Target size={14} /> {pace.label}
+                                </span>
+                                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 tabular-nums">ตอบแล้ว {answeredCount}/{totalAnswerable}</span>
+                            </div>
+                            <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full ${pace.barColor} rounded-full transition-all duration-500 ease-out`}
+                                    style={{ width: `${Math.round(pace.progressRatio * 100)}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* Mobile Grid Dropdown */}
                 {showGrid && (
@@ -1139,7 +1268,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         {/* Submit Button - always visible when at least 1 answer */}
                         {Object.keys(answers).length > 0 && !isTrial && (
                             <button
-                                onClick={handleFinishExam}
+                                onClick={() => handleFinishExam(false)}
                                 className="px-5 sm:px-6 py-3 rounded-full font-bold text-white bg-green-600 shadow-lg hover:bg-green-700 hover:shadow-xl hover:-translate-y-0.5 transition-all transform active:scale-95 flex items-center gap-2 text-sm sm:text-base"
                             >
                                 <CheckCircle size={18} />

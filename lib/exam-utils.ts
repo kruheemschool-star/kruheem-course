@@ -286,3 +286,94 @@ export const getCombinedVerdict = (
     if (isFast) return { label: 'เร็ว + ถูก → แม่นยำ', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30', shouldReview: false };
     return { label: 'พอดี + ถูก → เยี่ยม', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/30', shouldReview: false };
 };
+
+/* ============================================================
+   Timed mode (countdown) + live pacing — pure helpers.
+   ============================================================ */
+
+export interface CountdownState {
+    totalSeconds: number;     // budget = timeLimit (minutes) * 60
+    remainingSeconds: number; // max(0, total - elapsed)
+    expired: boolean;         // true ONLY when a real budget is set and it's used up
+    warnLevel: 'none' | 'warn' | 'critical';
+    ratioLeft: number;        // remaining / total, 0..1
+}
+
+/**
+ * Countdown state for timed exams. The budget is timeLimitMinutes; remaining =
+ * budget - elapsed. `expired` can only be true when totalSeconds > 0, so a
+ * misconfigured 0-minute limit safely falls back to count-up (never "expired").
+ * warnLevel: warn at <=60s or <=20% left; critical at <=30s or <=10% left.
+ */
+export const getCountdownState = (
+    elapsedSeconds: number,
+    timeLimitMinutes: number,
+): CountdownState => {
+    const totalSeconds = Math.max(0, Math.round((timeLimitMinutes || 0) * 60));
+    const elapsed = Math.max(0, elapsedSeconds || 0);
+    const remainingSeconds = Math.max(0, totalSeconds - elapsed);
+    const ratioLeft = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
+    let warnLevel: CountdownState['warnLevel'] = 'none';
+    if (totalSeconds > 0) {
+        if (remainingSeconds <= 30 || ratioLeft <= 0.1) warnLevel = 'critical';
+        else if (remainingSeconds <= 60 || ratioLeft <= 0.2) warnLevel = 'warn';
+    }
+    return {
+        totalSeconds,
+        remainingSeconds,
+        expired: totalSeconds > 0 && remainingSeconds <= 0,
+        warnLevel,
+        ratioLeft,
+    };
+};
+
+export interface PaceStatus {
+    onPace: boolean;
+    deltaQuestions: number; // signed: + ahead of pace, - behind pace
+    label: string;          // Thai
+    color: string;          // Tailwind text classes (light + dark)
+    barColor: string;       // Tailwind bg for the progress fill
+    progressRatio: number;  // answered / totalAnswerable, 0..1 (bar fill width)
+}
+
+/**
+ * Compare the student's progress to where they "should" be by now.
+ * Timed mode paces against the whole time budget; count-up mode paces against
+ * the recommended seconds-per-question. Progress is the count of ANSWERED
+ * questions (not the current index, which skipping ahead would inflate).
+ * A ±0.75-question tolerance band keeps the label from flickering each second.
+ */
+export const getPaceStatus = (params: {
+    answeredCount: number;
+    totalAnswerable: number;
+    elapsedSeconds: number;
+    timedMode: boolean;
+    timeLimitSeconds: number;
+    recommendedSecondsPerQuestion: number;
+}): PaceStatus => {
+    const answered = Math.max(0, params.answeredCount || 0);
+    const total = Math.max(0, params.totalAnswerable || 0);
+    const elapsed = Math.max(0, params.elapsedSeconds || 0);
+
+    let expectedDone: number;
+    if (params.timedMode && params.timeLimitSeconds > 0) {
+        expectedDone = (elapsed / params.timeLimitSeconds) * total;
+    } else {
+        const target = params.recommendedSecondsPerQuestion > 0
+            ? params.recommendedSecondsPerQuestion
+            : DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION;
+        expectedDone = elapsed / target;
+    }
+    if (total > 0) expectedDone = Math.min(expectedDone, total);
+
+    const deltaQuestions = Math.round((answered - expectedDone) * 10) / 10;
+    const progressRatio = total > 0 ? Math.min(1, answered / total) : 0;
+
+    if (deltaQuestions >= 0.75) {
+        return { onPace: true, deltaQuestions, label: 'เร็วกว่ากำหนด', color: 'text-emerald-600 dark:text-emerald-400', barColor: 'bg-emerald-500', progressRatio };
+    }
+    if (deltaQuestions >= -0.75) {
+        return { onPace: true, deltaQuestions, label: 'ตามทัน', color: 'text-emerald-600 dark:text-emerald-400', barColor: 'bg-emerald-500', progressRatio };
+    }
+    return { onPace: false, deltaQuestions, label: 'ช้ากว่ากำหนด', color: 'text-amber-600 dark:text-amber-400', barColor: 'bg-amber-500', progressRatio };
+};

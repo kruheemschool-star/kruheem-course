@@ -688,6 +688,7 @@ export default function ExamEditorPage() {
     const [level, setLevel] = useState("");
     const [timeLimit, setTimeLimit] = useState(30);
     const [recommendedSecondsPerQuestion, setRecommendedSecondsPerQuestion] = useState(90);
+    const [timedMode, setTimedMode] = useState(false);
     const [difficulty, setDifficulty] = useState("Medium");
     const [themeColor, setThemeColor] = useState("Amber");
 
@@ -706,6 +707,7 @@ export default function ExamEditorPage() {
                     setLevel(data.level || "");
                     setTimeLimit(data.timeLimit || 30);
                     setRecommendedSecondsPerQuestion(data.recommendedSecondsPerQuestion || 90);
+                    setTimedMode(data.timedMode ?? false);
                     setDifficulty(data.difficulty || "Medium");
                     setThemeColor(data.themeColor || "Amber");
 
@@ -842,6 +844,7 @@ export default function ExamEditorPage() {
                 coverImage,
                 timeLimit: Number(timeLimit),
                 recommendedSecondsPerQuestion: Number(recommendedSecondsPerQuestion),
+                timedMode,
                 difficulty,
                 themeColor,
                 questions: parsedQuestions,
@@ -871,7 +874,7 @@ export default function ExamEditorPage() {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [jsonContent, title, description, coverImage, category, level, timeLimit, recommendedSecondsPerQuestion, difficulty, themeColor]); // Deps need to be current for handleSave closure if not using refs (React state closure trap), strictly relying on state in handleSave
+    }, [jsonContent, title, description, coverImage, category, level, timeLimit, recommendedSecondsPerQuestion, timedMode, difficulty, themeColor]); // Deps need to be current for handleSave closure if not using refs (React state closure trap), strictly relying on state in handleSave
 
     // Toast State (Local helper)
     const [toast, setToast] = useState<{ msg: string, type: 'success' | 'error' } | null>(null);
@@ -983,6 +986,20 @@ export default function ExamEditorPage() {
                                     จัดหมวดหมู่ที่หน้า &ldquo;คลังข้อสอบ&rdquo; →
                                 </Link>
                             </div>
+
+                            {/* Timed mode (countdown + auto-submit) */}
+                            <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:border-indigo-300 transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={timedMode}
+                                    onChange={(e) => setTimedMode(e.target.checked)}
+                                    className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span>
+                                    <span className="block text-sm font-bold text-slate-600">⏳ จับเวลาแบบนับถอยหลัง + ส่งอัตโนมัติเมื่อหมดเวลา</span>
+                                    <span className="block text-xs text-slate-400 mt-0.5">เมื่อเปิด จะนับถอยหลังจาก &ldquo;เวลา (นาที)&rdquo; ด้านล่าง และส่งคำตอบให้อัตโนมัติเมื่อหมดเวลา · ถ้าปิด = จับเวลาแบบนับขึ้นเหมือนเดิม</span>
+                                </span>
+                            </label>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>

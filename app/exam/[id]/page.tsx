@@ -214,6 +214,8 @@ export default async function ExamRoomPage(props: Props) {
                         category={exam.category || ''}
                         level={exam.level || ''}
                         recommendedSecondsPerQuestion={exam.recommendedSecondsPerQuestion}
+                        timedMode={exam.timedMode || false}
+                        timeLimitMinutes={exam.timeLimit}
                         initialQuestionIndex={initialQuestionIndex}
                         showAnswerChecking={exam.showAnswerChecking || false}
                         enableResultTracking={examConfig.enableResultTracking || false}

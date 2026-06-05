@@ -187,6 +187,7 @@ export interface Exam {
     courseId?: string;
     questions: ExamQuestion[];
     timeLimit?: number; // in minutes
+    timedMode?: boolean; // when true AND timeLimit>0: countdown + auto-submit (else count-up)
     recommendedSecondsPerQuestion?: number; // per-question pacing benchmark (seconds), default 90
     passingScore?: number;
     isPublished: boolean;
