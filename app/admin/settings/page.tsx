@@ -20,7 +20,6 @@ const menuItems = [
     { key: 'summaries', icon: '✨', title: 'สรุปเนื้อหา', coverColor: 'from-cyan-100 to-sky-100' },
     { key: 'posts', icon: '📰', title: 'จัดการบทความ', coverColor: 'from-emerald-100 to-green-100' },
     { key: 'notifications', icon: '📢', title: 'ประกาศข่าวสาร', coverColor: 'from-yellow-100 to-amber-100' },
-    { key: 'banners', icon: '🖼️', title: 'จัดการโฆษณา', coverColor: 'from-pink-100 to-rose-100' },
     { key: 'chat', icon: '💬', title: 'แชทกับลูกค้า', coverColor: 'from-indigo-100 to-violet-100' },
     { key: 'support', icon: '🎫', title: 'แจ้งปัญหา (Ticket)', coverColor: 'from-blue-100 to-indigo-100' },
     { key: 'reviews', icon: '⭐', title: 'จัดการรีวิว', coverColor: 'from-fuchsia-100 to-pink-100' },

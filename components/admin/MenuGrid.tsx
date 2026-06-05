@@ -69,14 +69,6 @@ const menuItems = [
         coverColor: 'from-yellow-100 to-amber-100',
     },
     {
-        key: 'banners',
-        href: '/admin/banners',
-        icon: '🖼️',
-        title: 'จัดการโฆษณา',
-        description: 'เปลี่ยนรูปภาพหน้าเว็บ',
-        coverColor: 'from-pink-100 to-rose-100',
-    },
-    {
         key: 'promotions',
         href: '/admin/promotions',
         icon: '🎁',
