@@ -1569,30 +1569,36 @@ export function RichTextForm({ value, onChange }: { value: RichTextData; onChang
     return (
         <div className="flex flex-col flex-1 min-h-0">
             <FormScroll>
+                {/* รูปแบบกล่อง — ไว้บนสุดให้หาง่าย (เหนือช่องพิมพ์ที่สูง) */}
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-3">
+                    <p className="text-sm font-extrabold text-slate-700 dark:text-slate-200">🎨 รูปแบบกล่อง</p>
+                    <SelectField
+                        label="พื้นหลังของกล่อง"
+                        value={value.bg}
+                        onChange={(bg) => update({ bg })}
+                        options={[
+                            { value: "none", label: "ไม่มี (โปร่งใส)" },
+                            { value: "soft", label: "สีพื้นอ่อนๆ" },
+                            { value: "gradient", label: "ไล่สี" },
+                            { value: "grid", label: "ตารางกราฟ (เหมาะวิชาคณิต)" },
+                            { value: "dots", label: "ลายจุด" },
+                            { value: "lines", label: "ลายเส้นเฉียง" },
+                        ]}
+                        helper="เลือกลวดลายพื้นหลัง แล้วปรับสีที่ 'สีหลัก'"
+                    />
+                    <ColorField label="สีหลัก (พื้นหลัง + กรอบ)" value={value.color} onChange={(color) => update({ color })} defaultColor="#6366f1" />
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input type="checkbox" checked={!!value.framed} onChange={(e) => update({ framed: e.target.checked })} className="w-4 h-4 rounded accent-indigo-600" />
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">ใส่กรอบรอบกล่อง</span>
+                    </label>
+                </div>
+
+                {/* เนื้อหา — ช่องพิมพ์ใหญ่ ไว้ล่าง */}
                 <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">เนื้อหา (พิมพ์ + จัดรูปแบบได้เลย)</label>
                     <p className="text-xs text-slate-400 mb-2">ใช้แถบเครื่องมือ: ตัวหนา/เอียง/ขีดเส้นใต้ · ไฮไลต์สี · หัวข้อ · จัดแนว · ลิงก์ · รูป</p>
                     <TiptapEditor content={value.html || ""} onChange={(html) => update({ html })} />
                 </div>
-                <SelectField
-                    label="พื้นหลังของกล่อง"
-                    value={value.bg}
-                    onChange={(bg) => update({ bg })}
-                    options={[
-                        { value: "none", label: "ไม่มี (โปร่งใส)" },
-                        { value: "soft", label: "สีพื้นอ่อนๆ" },
-                        { value: "gradient", label: "ไล่สี" },
-                        { value: "grid", label: "ตารางกราฟ (เหมาะวิชาคณิต)" },
-                        { value: "dots", label: "ลายจุด" },
-                        { value: "lines", label: "ลายเส้นเฉียง" },
-                    ]}
-                    helper="ลวดลายพื้นหลัง — ใช้สีจาก 'สีหลัก' ด้านล่าง"
-                />
-                <ColorField label="สีหลัก (พื้นหลัง + กรอบ)" value={value.color} onChange={(color) => update({ color })} defaultColor="#6366f1" />
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input type="checkbox" checked={!!value.framed} onChange={(e) => update({ framed: e.target.checked })} className="w-4 h-4 rounded accent-indigo-600" />
-                    <span className="text-sm font-bold text-slate-700">ใส่กรอบรอบกล่อง</span>
-                </label>
             </FormScroll>
         </div>
     );
