@@ -7,44 +7,46 @@ import { X } from 'lucide-react';
 interface CelebrationModalProps {
     isOpen: boolean;
     onClose: () => void;
-    type: 'course_complete' | 'rank_up';
+    type: 'course_complete' | 'rank_up' | 'custom';
     badge?: BadgeInfo;
     courseName?: string;
+    // For type==='custom' (e.g. exam results): pass your own content.
+    customTitle?: string;
+    customMessage?: string;
+    customEmoji?: string;
 }
 
-// Confetti particle component
-const Confetti = ({ delay }: { delay: number }) => {
-    const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#FF8B94', '#A29BFE', '#FD79A8'];
-    const color = colors[Math.floor(Math.random() * colors.length)];
-    const left = Math.random() * 100;
-    const animationDuration = 2 + Math.random() * 2;
-    const size = 8 + Math.random() * 8;
-
-    return (
-        <div
-            className="absolute pointer-events-none"
-            style={{
-                left: `${left}%`,
-                top: '-20px',
-                width: size,
-                height: size,
-                backgroundColor: color,
-                borderRadius: Math.random() > 0.5 ? '50%' : '0%',
-                transform: `rotate(${Math.random() * 360}deg)`,
-                animation: `confetti-fall ${animationDuration}s ease-out ${delay}s forwards`,
-            }}
-        />
-    );
-};
+// Confetti particle — randomness is precomputed when particles are generated
+// (in an effect), so this render stays pure (no Math.random during render).
+const CONFETTI_COLORS = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#FF8B94', '#A29BFE', '#FD79A8'];
+interface Particle { color: string; left: number; size: number; duration: number; delay: number; rotate: number; radius: string }
+const Confetti = ({ p }: { p: Particle }) => (
+    <div
+        className="absolute pointer-events-none"
+        style={{
+            left: `${p.left}%`,
+            top: '-20px',
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            borderRadius: p.radius,
+            transform: `rotate(${p.rotate}deg)`,
+            animation: `confetti-fall ${p.duration}s ease-out ${p.delay}s forwards`,
+        }}
+    />
+);
 
 export default function CelebrationModal({
     isOpen,
     onClose,
     type,
     badge,
-    courseName
+    courseName,
+    customTitle,
+    customMessage,
+    customEmoji,
 }: CelebrationModalProps) {
-    const [confetti, setConfetti] = useState<number[]>([]);
+    const [confetti, setConfetti] = useState<Particle[]>([]);
     const [showContent, setShowContent] = useState(false);
 
     // Play celebration sound
@@ -72,23 +74,27 @@ export default function CelebrationModal({
     }, []);
 
     useEffect(() => {
-        if (isOpen) {
-            // Generate confetti
-            setConfetti(Array.from({ length: 50 }, (_, i) => i));
-
-            // Play sound
-            setTimeout(playSound, 300);
-
-            // Show content with delay for dramatic effect
-            setTimeout(() => setShowContent(true), 200);
-
-            // Auto-close after 5 seconds
-            const timer = setTimeout(onClose, 5000);
-            return () => clearTimeout(timer);
-        } else {
+        if (!isOpen) return;
+        // All state updates are deferred (timers / cleanup) so none run
+        // synchronously in the effect body — generate confetti, reveal content,
+        // play sound, then auto-close; reset on cleanup so reopening re-animates.
+        const genT = setTimeout(() => setConfetti(Array.from({ length: 50 }, () => ({
+            color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+            left: Math.random() * 100,
+            size: 8 + Math.random() * 8,
+            duration: 2 + Math.random() * 2,
+            delay: Math.random() * 0.5,
+            rotate: Math.random() * 360,
+            radius: Math.random() > 0.5 ? '50%' : '0%',
+        }))), 0);
+        const contentT = setTimeout(() => setShowContent(true), 200);
+        const soundT = setTimeout(playSound, 300);
+        const closeT = setTimeout(onClose, 5000);
+        return () => {
+            clearTimeout(genT); clearTimeout(contentT); clearTimeout(soundT); clearTimeout(closeT);
             setConfetti([]);
             setShowContent(false);
-        }
+        };
     }, [isOpen, onClose, playSound]);
 
     // Close on Escape key
@@ -149,8 +155,8 @@ export default function CelebrationModal({
                 onClick={onClose}
             >
                 {/* Confetti */}
-                {confetti.map((i) => (
-                    <Confetti key={i} delay={Math.random() * 0.5} />
+                {confetti.map((p, i) => (
+                    <Confetti key={i} p={p} />
                 ))}
 
                 {/* Modal Content */}
@@ -176,7 +182,7 @@ export default function CelebrationModal({
                         style={{ animation: 'glow-pulse 2s ease-in-out infinite' }}
                     >
                         <span className="text-6xl drop-shadow-lg">
-                            {type === 'rank_up' && badge ? (
+                            {type === 'custom' ? (customEmoji || '🎉') : type === 'rank_up' && badge ? (
                                 badge.rank === 'bronze' ? '🛡️' :
                                     badge.rank === 'silver' ? '🏅' :
                                         badge.rank === 'gold' ? '🏆' :
@@ -188,7 +194,7 @@ export default function CelebrationModal({
 
                     {/* Title */}
                     <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2">
-                        {type === 'rank_up' ? (
+                        {type === 'custom' ? (customTitle || 'เยี่ยมมาก! 🎉') : type === 'rank_up' ? (
                             <>ยินดีด้วย! เลื่อนยศแล้ว! 🎊</>
                         ) : (
                             <>เยี่ยมมาก! เรียนจบแล้ว! 🌟</>
@@ -197,7 +203,7 @@ export default function CelebrationModal({
 
                     {/* Description */}
                     <p className="text-slate-600 dark:text-slate-400 mb-4">
-                        {type === 'rank_up' && badge ? (
+                        {type === 'custom' ? (customMessage || '') : type === 'rank_up' && badge ? (
                             <>
                                 คุณได้รับตราสัญลักษณ์{' '}
                                 <span className="font-bold" style={{ color: badge.color }}>

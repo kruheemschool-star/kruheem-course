@@ -17,6 +17,7 @@ import { doc, getDoc, setDoc, collection, getDocs, serverTimestamp } from "fireb
 import { useParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { BarChart, Bar, Cell, XAxis, ResponsiveContainer } from "recharts";
+import CelebrationModal from "@/components/gamification/CelebrationModal";
 
 interface ExamRunnerProps {
     questions: any[];
@@ -136,6 +137,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     const isDark = resolvedTheme === 'dark';
     const [percentile, setPercentile] = useState<{ percentile: number; count: number; buckets: number[]; yourBucket: number } | null>(null);
     const percentileFetchedRef = useRef(false);
+    const [celebration, setCelebration] = useState<{ emoji: string; title: string; message: string } | null>(null);
+    const celebratedRef = useRef(false);
 
     const startTime = useRef<number>(0);   // exam start (ms)
     const qStartTime = useRef<number>(0);  // current question start (ms)
@@ -309,6 +312,16 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isSubmitted]);
 
+    // G1: celebrate great results (A / perfect) with confetti — real runs only, once.
+    useEffect(() => {
+        if (!isSubmitted || isFocused || celebratedRef.current) return;
+        celebratedRef.current = true;
+        const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+        if (pct === 100) setCelebration({ emoji: '🏆', title: 'สุดยอด! คะแนนเต็ม! 🏆', message: 'ทำได้เต็ม 100% ไม่พลาดเลยสักข้อ เก่งมากๆ!' });
+        else if (pct >= 80) setCelebration({ emoji: '🎉', title: 'ยอดเยี่ยม! ได้เกรด A', message: `ทำได้ ${pct}% เก่งมาก รักษาฟอร์มแบบนี้ไว้นะ!` });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSubmitted]);
+
     const handleSelect = (idx: number) => {
         if (isSubmitted || revealed[currentIndex]) return;
         setAnswers({ ...answers, [currentIndex]: idx });
@@ -439,6 +452,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
 
         return (
             <div className="w-full min-h-full py-10 px-4 bg-slate-50 dark:bg-slate-900">
+                {celebration && (
+                    <CelebrationModal isOpen type="custom" customEmoji={celebration.emoji} customTitle={celebration.title} customMessage={celebration.message} onClose={() => setCelebration(null)} />
+                )}
                 <div className="max-w-3xl mx-auto bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl p-7 md:p-10 border border-slate-100 dark:border-slate-700 relative overflow-hidden">
                     <div className={`absolute top-0 inset-x-0 h-52 bg-gradient-to-b ${g.bg} opacity-10 -z-10`} />
 
