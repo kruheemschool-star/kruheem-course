@@ -1586,6 +1586,19 @@ export function RichTextForm({ value, onChange }: { value: RichTextData; onChang
                         ]}
                         helper="เลือกลวดลายพื้นหลัง แล้วปรับสีที่ 'สีหลัก'"
                     />
+                    <SelectField
+                        label="ความเข้มพื้นหลัง"
+                        value={String(value.bgIntensity ?? 2)}
+                        onChange={(v) => update({ bgIntensity: Number(v) })}
+                        options={[
+                            { value: "1", label: "จาง" },
+                            { value: "2", label: "อ่อน" },
+                            { value: "3", label: "ปานกลาง" },
+                            { value: "4", label: "เข้ม" },
+                            { value: "5", label: "เข้มมาก" },
+                        ]}
+                        helper="ยิ่งเข้ม สี/ลวดลายพื้นหลังยิ่งชัดขึ้น"
+                    />
                     <ColorField label="สีหลัก (พื้นหลัง + กรอบ)" value={value.color} onChange={(color) => update({ color })} defaultColor="#6366f1" />
                     <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox" checked={!!value.framed} onChange={(e) => update({ framed: e.target.checked })} className="w-4 h-4 rounded accent-indigo-600" />

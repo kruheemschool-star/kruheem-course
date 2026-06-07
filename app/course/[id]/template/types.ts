@@ -338,6 +338,7 @@ export interface RichTextData {
     bg: 'none' | 'soft' | 'gradient' | 'grid' | 'dots' | 'lines'; // background style of the content box
     color: string;         // accent hex — drives the bg tint/pattern + frame colour
     framed: boolean;       // decorative border around the box
+    bgIntensity?: number;  // 1 (จาง) … 5 (เข้มมาก); scales the bg opacity. default 2
 }
 
 // ---------- Discriminated Union ----------

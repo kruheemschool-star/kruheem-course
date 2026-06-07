@@ -277,6 +277,7 @@ export function createDefaultSection(type: SectionType, order: number): Section 
                     bg: "grid",
                     color: "#6366f1",
                     framed: true,
+                    bgIntensity: 2,
                 },
             };
         case "quiz":
