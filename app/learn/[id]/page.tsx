@@ -12,6 +12,7 @@ import { LearnPageSkeleton } from "@/components/skeletons/LearnPageSkeleton";
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { LessonSidebar } from "@/components/learn/LessonSidebar";
 import { LessonContent } from "@/components/learn/LessonContent";
+import LearnProgressDashboard from "@/components/learn/LearnProgressDashboard";
 import { Lesson } from "@/components/learn/types";
 import { CheckIcon } from "@/components/learn/Icons";
 
@@ -58,6 +59,7 @@ function CoursePlayer() {
     // ✅ State สำหรับ Mobile Menu
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showCertificate, setShowCertificate] = useState(false);
+    const [showProgress, setShowProgress] = useState(false);
 
     // Toast Timer
     useEffect(() => {
@@ -472,6 +474,7 @@ function CoursePlayer() {
                 isEnrolled={isEnrolled}
                 isAdmin={isAdmin}
                 user={user}
+                onShowProgress={() => setShowProgress(true)}
             />
 
             {/* Main Content */}
@@ -563,6 +566,21 @@ function CoursePlayer() {
                     {toast.type === 'success' ? <div className="p-1 bg-white/20 rounded-full">✓</div> : "!"}
                     {toast.msg}
                 </div>
+            )}
+
+            {/* 📊 Progress Dashboard */}
+            {showProgress && user && (
+                <LearnProgressDashboard
+                    courseId={courseId}
+                    userId={user.uid}
+                    examLessons={examLessons}
+                    onClose={() => setShowProgress(false)}
+                    onSelectLesson={(id) => {
+                        const l = visibleLessons.find((x) => x.id === id);
+                        if (l) changeLesson(l);
+                        setIsMobileMenuOpen(false);
+                    }}
+                />
             )}
         </div>
     );

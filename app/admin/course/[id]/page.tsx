@@ -1505,6 +1505,13 @@ export default function ManageLessonsPage() {
                                 >
                                     🎨 Sales Page
                                 </Link>
+                                <Link
+                                    href={`/admin/course/${courseId}/exam-results`}
+                                    className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-indigo-200"
+                                    title="ดูผลการทำข้อสอบของนักเรียนในคอร์สนี้"
+                                >
+                                    📊 ผลสอบนักเรียน
+                                </Link>
                             </div>
                         </div>
                     </div>

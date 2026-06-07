@@ -323,7 +323,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                         (() => {
                             const examQuestions = tryParseQuestions(activeLesson.content || "");
                             if (examQuestions) {
-                                return <ExamRunner questions={examQuestions} onComplete={() => { markAsComplete(activeLesson.id); setTimeout(() => handleNextLesson(), 1500); }} />;
+                                return <ExamRunner key={activeLesson.id} questions={examQuestions} onComplete={() => markAsComplete(activeLesson.id)} onNext={() => handleNextLesson()} lessonId={activeLesson.id} lessonTitle={activeLesson.title} />;
                             }
                             return (
                                 <div className="w-full min-h-full bg-white dark:bg-slate-900">

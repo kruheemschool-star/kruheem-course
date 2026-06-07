@@ -24,6 +24,7 @@ interface LessonSidebarProps {
     isEnrolled: boolean;
     isAdmin: boolean;
     user: any;
+    onShowProgress?: () => void;
 }
 
 export const LessonSidebar: React.FC<LessonSidebarProps> = ({
@@ -44,7 +45,8 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
     isLessonUnlocked,
     isEnrolled,
     isAdmin,
-    user
+    user,
+    onShowProgress
 }) => {
     // ✅ Local State for Exams Accordion (Default Collapsed)
     const [isExamsOpen, setIsExamsOpen] = useState(false);
@@ -107,6 +109,16 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                             </div>
                             <p className="text-[10px] text-gray-500 dark:text-slate-400 text-right mt-1 font-bold">{progressPercent}% COMPLETED</p>
                         </div>
+                    )}
+
+                    {/* 📊 ปุ่มดูสรุปผลการทำข้อสอบ */}
+                    {user && onShowProgress && (
+                        <button
+                            onClick={onShowProgress}
+                            className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition border border-indigo-100 dark:border-indigo-800 mx-2"
+                        >
+                            📊 ดูสรุปผลของฉัน
+                        </button>
                     )}
 
                     {/* ℹ️ ปุ่ม "ดาวน์โหลดเอกสาร" ถูกย้ายไปเป็นปุ่มลอยมุมขวาบนของวิดีโอ (ใน LessonContent) เพื่อให้สังเกตได้ง่ายขึ้น */}
