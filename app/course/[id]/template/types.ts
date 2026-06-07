@@ -17,7 +17,11 @@ export type SectionType =
     | "cta"
     | "countdown"
     | "videoPreview"
-    | "statsTable";
+    | "statsTable"
+    | "articles"
+    | "howItWorks"
+    | "quiz"
+    | "features";
 
 export interface BaseSection<T extends SectionType, D> {
     id: string;
@@ -257,6 +261,77 @@ export interface VideoPreviewData {
     videos: VideoPreviewItem[];
 }
 
+export interface ArticleItem {
+    title: string;        // article headline (required)
+    url: string;          // link target: internal "/blog/slug" or external "https://…" (required)
+    excerpt?: string;     // short teaser shown under the title
+    imageUrl?: string;    // cover image; falls back to a gradient cover when empty
+    badgeText?: string;   // small category label on the card (default "บทความ"; "" hides it)
+    postId?: string;      // source blog-post id when picked from /blog (reference only)
+}
+
+export interface ArticlesData {
+    title?: string;       // section heading (default "บทความน่าอ่าน")
+    subtitle?: string;
+    items: ArticleItem[];
+}
+
+export interface HowItWorksStep {
+    icon: string;         // emoji shown in the step circle
+    title: string;        // step headline
+    desc?: string;        // short explanation under the title
+}
+
+export interface HowItWorksData {
+    title?: string;       // section heading (default provided)
+    subtitle?: string;
+    steps: HowItWorksStep[];
+    ctaText?: string;     // optional button under the steps (triggers enroll); hidden when empty
+}
+
+export interface QuizOption {
+    text: string;         // answer label
+    score: number;        // points added to the total when chosen
+}
+
+export interface QuizQuestion {
+    question: string;
+    options: QuizOption[];
+}
+
+export interface QuizResultTier {
+    minScore: number;     // shown when total score >= this; the highest matching tier wins
+    emoji?: string;       // 🟢 🟡 🔴 …
+    title: string;        // result headline
+    desc?: string;        // result message
+    ctaText?: string;     // optional button label; hidden when empty
+    ctaUrl?: string;      // button link (e.g. a LINE URL). Empty + ctaText set → triggers enroll
+}
+
+export interface QuizData {
+    title?: string;
+    subtitle?: string;
+    questions: QuizQuestion[];
+    results: QuizResultTier[];
+    startButtonText?: string;   // default "เริ่มทำแบบทดสอบ"
+    retakeButtonText?: string;  // default "ทำใหม่อีกครั้ง"
+}
+
+export interface FeatureItem {
+    icon: string;         // emoji shown in the feature chip
+    title: string;        // feature name
+    desc?: string;        // detail line
+    imageUrl?: string;    // optional screenshot of the feature (mindmap, flashcard, …)
+    badgeText?: string;   // optional highlight badge e.g. "ยอดนิยม" / "ใหม่"
+}
+
+export interface FeaturesData {
+    title?: string;
+    subtitle?: string;
+    items: FeatureItem[];
+    ctaText?: string;     // optional button under the cards (triggers enroll); hidden when empty
+}
+
 // ---------- Discriminated Union ----------
 
 export type Section =
@@ -274,7 +349,11 @@ export type Section =
     | BaseSection<"cta", CTAData>
     | BaseSection<"countdown", CountdownData>
     | BaseSection<"videoPreview", VideoPreviewData>
-    | BaseSection<"statsTable", StatsTableData>;
+    | BaseSection<"statsTable", StatsTableData>
+    | BaseSection<"articles", ArticlesData>
+    | BaseSection<"howItWorks", HowItWorksData>
+    | BaseSection<"quiz", QuizData>
+    | BaseSection<"features", FeaturesData>;
 
 // ---------- Conversion Boosters ----------
 

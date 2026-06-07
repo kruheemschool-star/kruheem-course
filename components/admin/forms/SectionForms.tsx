@@ -24,6 +24,16 @@ import type {
     CountdownData,
     VideoPreviewData,
     VideoPreviewItem,
+    ArticlesData,
+    ArticleItem,
+    HowItWorksData,
+    HowItWorksStep,
+    QuizData,
+    QuizQuestion,
+    QuizOption,
+    QuizResultTier,
+    FeaturesData,
+    FeatureItem,
 } from "@/app/course/[id]/template/types";
 import {
     TextField,
@@ -33,6 +43,7 @@ import {
     IconPalette,
     SelectField,
     ArrayField,
+    ImageUploadField,
     FormTabs,
     FormScroll,
 } from "./primitives";
@@ -1050,6 +1061,497 @@ export function VideoPreviewForm({ value, onChange }: { value: VideoPreviewData;
                 <p className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
                     🎬 วิดีโอจะแสดงในกรอบแท็บเล็ตสวยงาม รองรับ URL จาก YouTube ทุกรูปแบบ
                 </p>
+            </FormScroll>
+        </div>
+    );
+}
+
+/* ============================================================
+   ArticlesForm — link cards to blog posts or any external URL.
+   "เลือกจาก blog" pulls title/cover/excerpt/link automatically;
+   "เพิ่มบทความ" lets the admin paste a custom link by hand.
+   ============================================================ */
+interface BlogPostLite {
+    id: string;
+    title?: string;
+    slug?: string;
+    coverImage?: string;
+    excerpt?: string;
+    status?: string;
+    views?: number;
+    createdAt?: { toMillis?: () => number };
+}
+
+export function ArticlesForm({ value, onChange }: { value: ArticlesData; onChange: (v: ArticlesData) => void }) {
+    const update = (patch: Partial<ArticlesData>) => onChange({ ...value, ...patch });
+    const items = value.items || [];
+
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [posts, setPosts] = useState<BlogPostLite[] | null>(null);
+    const [loadingPosts, setLoadingPosts] = useState(false);
+    const [postsError, setPostsError] = useState<string | null>(null);
+    const [search, setSearch] = useState("");
+
+    const openPicker = async () => {
+        setPickerOpen(true);
+        if (posts) return; // load once, then reuse
+        setLoadingPosts(true);
+        setPostsError(null);
+        try {
+            const snap = await getDocs(collection(db, "posts"));
+            const list: BlogPostLite[] = snap.docs.map((d) => ({ ...(d.data() as Omit<BlogPostLite, "id">), id: d.id }));
+            // Most-viewed first so standout articles are easy to spot; newest breaks ties.
+            list.sort((a, b) => {
+                const dv = (b.views ?? 0) - (a.views ?? 0);
+                if (dv !== 0) return dv;
+                return (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0);
+            });
+            setPosts(list);
+        } catch (e) {
+            setPostsError(e instanceof Error ? e.message : "โหลดบทความไม่สำเร็จ");
+        } finally {
+            setLoadingPosts(false);
+        }
+    };
+
+    const addFromPost = (p: BlogPostLite) => {
+        const newItem: ArticleItem = {
+            title: p.title || "บทความ",
+            url: `/blog/${p.slug}`,
+            excerpt: p.excerpt || "",
+            imageUrl: p.coverImage || "",
+            postId: p.id,
+        };
+        update({ items: [...items, newItem] });
+    };
+
+    const isAdded = (slug?: string) => !!slug && items.some((it) => it.url === `/blog/${slug}`);
+
+    const withSlug = (posts || []).filter((p) => p.slug);
+    const filtered = withSlug.filter(
+        (p) => !search || (p.title || "").toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+        <div className="flex flex-col flex-1 min-h-0">
+            <FormScroll>
+                <TextField label="ชื่อหัวข้อ section" value={value.title} onChange={(v) => update({ title: v })} placeholder="บทความน่าอ่าน" />
+                <TextField label="คำอธิบายใต้หัวข้อ" value={value.subtitle} onChange={(v) => update({ subtitle: v })} placeholder="เจาะลึกเทคนิคและแนวข้อสอบ" />
+
+                {/* Pick from existing blog posts */}
+                <button
+                    type="button"
+                    onClick={openPicker}
+                    className="w-full py-3 rounded-xl border-2 border-dashed border-emerald-300 text-emerald-700 font-bold text-sm hover:bg-emerald-50 hover:border-emerald-400 transition flex items-center justify-center gap-2"
+                >
+                    📰 เลือกจากบทความใน blog
+                </button>
+
+                <ArrayField
+                    label="รายการบทความ"
+                    helper="แต่ละการ์ดต้องมี 'ชื่อบทความ' + 'ลิงก์' — ลิงก์ใส่ของ blog (/blog/...) หรือเว็บภายนอก (https://...) ก็ได้"
+                    items={items}
+                    onChange={(next) => update({ items: next })}
+                    newItem={() => ({ title: "", url: "", excerpt: "", imageUrl: "" }) as ArticleItem}
+                    addLabel="+ เพิ่มบทความ (วางลิงก์เอง)"
+                    itemTitle={(item) => item.title || "บทความใหม่"}
+                    renderItem={(item, upd) => (
+                        <div className="space-y-2">
+                            <input
+                                type="text"
+                                value={item.title}
+                                onChange={(e) => upd({ title: e.target.value })}
+                                placeholder="ชื่อบทความ เช่น เทคนิคพิชิตโจทย์ปริซึม"
+                                className="w-full px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                            />
+                            <input
+                                type="text"
+                                value={item.url}
+                                onChange={(e) => upd({ url: e.target.value })}
+                                placeholder="ลิงก์ เช่น /blog/prism-tips หรือ https://..."
+                                className="w-full px-3 py-2 text-sm font-mono border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                            />
+                            <textarea
+                                value={item.excerpt || ""}
+                                onChange={(e) => upd({ excerpt: e.target.value })}
+                                placeholder="เกริ่นนำสั้นๆ (ไม่บังคับ)"
+                                rows={2}
+                                className="w-full px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none resize-none"
+                            />
+                            <ImageUploadField
+                                label="รูปปก (ไม่บังคับ)"
+                                value={item.imageUrl}
+                                onChange={(url) => upd({ imageUrl: url })}
+                                pathPrefix="salespage/articles"
+                                helper="เว้นว่างได้ — จะใช้พื้นหลังไล่สีสวยๆ ให้แทน"
+                            />
+                        </div>
+                    )}
+                />
+
+                <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                    💡 กด <b>“เลือกจากบทความใน blog”</b> เพื่อดึงชื่อ/รูปปก/ลิงก์อัตโนมัติ — หรือกด <b>“เพิ่มบทความ”</b> เพื่อวางลิงก์เอง (รองรับลิงก์ภายนอกด้วย)
+                </p>
+            </FormScroll>
+
+            {/* Blog picker modal */}
+            {pickerOpen && (
+                <div
+                    className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => setPickerOpen(false)}
+                >
+                    <div
+                        className="bg-white rounded-3xl max-w-2xl w-full max-h-[80vh] flex flex-col p-6"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="font-bold text-lg text-slate-800">📰 เลือกบทความจาก blog</h3>
+                            <button
+                                onClick={() => setPickerOpen(false)}
+                                className="text-slate-400 hover:text-slate-700 text-2xl leading-none"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="ค้นหาชื่อบทความ..."
+                            className="w-full px-3 py-2 mb-2 text-sm border-2 border-slate-200 rounded-xl focus:border-indigo-400 outline-none"
+                        />
+                        <p className="text-[11px] text-slate-400 mb-3 px-1">
+                            🔥 เรียงตามยอดเข้าชม — บทความที่คนดูเยอะ (โดดเด่น) อยู่บนสุด
+                        </p>
+
+                        <div className="flex-1 overflow-y-auto space-y-2 min-h-0 pr-1">
+                            {loadingPosts && <p className="text-center text-slate-400 py-10 text-sm">กำลังโหลดบทความ...</p>}
+                            {postsError && <p className="text-center text-red-500 py-10 text-sm">❌ {postsError}</p>}
+                            {!loadingPosts && !postsError && filtered.length === 0 && (
+                                <p className="text-center text-slate-400 py-10 text-sm">
+                                    {withSlug.length === 0 ? "ยังไม่มีบทความใน blog" : "ไม่พบบทความที่ค้นหา"}
+                                </p>
+                            )}
+                            {filtered.map((p) => {
+                                const added = isAdded(p.slug);
+                                const draft = p.status && p.status !== "published";
+                                return (
+                                    <button
+                                        key={p.id}
+                                        type="button"
+                                        onClick={() => addFromPost(p)}
+                                        className="w-full flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-left transition"
+                                    >
+                                        <div className="w-16 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
+                                            {p.coverImage ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={p.coverImage} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-slate-300 text-lg">📄</div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-bold text-sm text-slate-800 truncate">{p.title || "(ไม่มีชื่อ)"}</p>
+                                            <p className="text-xs text-slate-400 truncate">
+                                                <span className="font-mono">/blog/{p.slug}</span>
+                                                <span className="mx-1.5 text-slate-300">·</span>
+                                                👁 {(p.views ?? 0).toLocaleString()}
+                                            </p>
+                                        </div>
+                                        {draft && (
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 flex-shrink-0">ฉบับร่าง</span>
+                                        )}
+                                        {added ? (
+                                            <span className="text-[11px] font-bold text-emerald-600 flex-shrink-0">✓ เพิ่มแล้ว</span>
+                                        ) : (
+                                            <span className="text-indigo-500 text-xl leading-none flex-shrink-0">＋</span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <button
+                            onClick={() => setPickerOpen(false)}
+                            className="mt-3 w-full py-2.5 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200"
+                        >
+                            เสร็จสิ้น
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ============================================================
+   HowItWorksForm — numbered "how the course works" steps.
+   ============================================================ */
+export function HowItWorksForm({ value, onChange }: { value: HowItWorksData; onChange: (v: HowItWorksData) => void }) {
+    const update = (patch: Partial<HowItWorksData>) => onChange({ ...value, ...patch });
+    return (
+        <div className="flex flex-col flex-1 min-h-0">
+            <FormScroll>
+                <TextField label="ชื่อหัวข้อ" value={value.title} onChange={(v) => update({ title: v })} placeholder="เรียนยังไง? ง่ายแค่ 3 ขั้นตอน" />
+                <TextField label="คำอธิบายใต้หัวข้อ" value={value.subtitle} onChange={(v) => update({ subtitle: v })} placeholder="สมัครแล้วเริ่มเรียนได้ทันที ไม่ยุ่งยาก" />
+                <ArrayField
+                    label="ขั้นตอน"
+                    helper="แนะนำ 3–4 ขั้นตอน เรียงตามลำดับการเรียนจริง (ตัวเลขลำดับจะขึ้นให้อัตโนมัติ)"
+                    items={value.steps || []}
+                    onChange={(steps) => update({ steps })}
+                    newItem={() => ({ icon: "⭐", title: "ขั้นตอนใหม่", desc: "" }) as HowItWorksStep}
+                    addLabel="+ เพิ่มขั้นตอน"
+                    itemTitle={(item) => item.title || "ขั้นตอน"}
+                    renderItem={(item, upd) => (
+                        <div className="space-y-2">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={item.icon}
+                                    onChange={(e) => upd({ icon: e.target.value })}
+                                    maxLength={4}
+                                    placeholder="📝"
+                                    className="w-16 px-2 py-2 text-2xl text-center border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                                <input
+                                    type="text"
+                                    value={item.title}
+                                    onChange={(e) => upd({ title: e.target.value })}
+                                    placeholder="ชื่อขั้นตอน เช่น สมัครเรียน"
+                                    className="flex-1 px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                            </div>
+                            <IconPalette value={item.icon} onChange={(v) => upd({ icon: v })} />
+                            <textarea
+                                value={item.desc || ""}
+                                onChange={(e) => upd({ desc: e.target.value })}
+                                placeholder="อธิบายขั้นตอนสั้นๆ (ไม่บังคับ)"
+                                rows={2}
+                                className="w-full px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none resize-none"
+                            />
+                        </div>
+                    )}
+                />
+                <TextField
+                    label="ปุ่มท้าย section (ไม่บังคับ)"
+                    value={value.ctaText}
+                    onChange={(v) => update({ ctaText: v })}
+                    placeholder="เช่น พร้อมแล้ว สมัครเลย"
+                    helper="ถ้าใส่ข้อความ จะมีปุ่มสมัคร (ไปหน้าชำระเงิน) อยู่ท้าย section — เว้นว่าง = ไม่มีปุ่ม"
+                />
+            </FormScroll>
+        </div>
+    );
+}
+
+/* ============================================================
+   QuizForm — interactive readiness quiz.
+   Questions → scored options; total score maps to a result tier.
+   ============================================================ */
+export function QuizForm({ value, onChange }: { value: QuizData; onChange: (v: QuizData) => void }) {
+    const update = (patch: Partial<QuizData>) => onChange({ ...value, ...patch });
+    return (
+        <div className="flex flex-col flex-1 min-h-0">
+            <FormScroll>
+                <TextField label="ชื่อหัวข้อ" value={value.title} onChange={(v) => update({ title: v })} placeholder="ลูกพร้อมสอบเข้าแค่ไหน?" />
+                <TextField label="คำอธิบายใต้หัวข้อ" value={value.subtitle} onChange={(v) => update({ subtitle: v })} placeholder="ตอบ 5 ข้อสั้นๆ รู้ผลทันที" />
+
+                {/* Questions (each with scored options) */}
+                <ArrayField
+                    label="คำถาม"
+                    helper="แต่ละข้อมีหลายตัวเลือก ใส่ 'คะแนน' ให้แต่ละตัวเลือก (ตอบดี = คะแนนมาก)"
+                    items={value.questions || []}
+                    onChange={(qs) => update({ questions: qs })}
+                    newItem={() => ({ question: "คำถามใหม่?", options: [{ text: "ตัวเลือก 1", score: 2 }, { text: "ตัวเลือก 2", score: 0 }] }) as QuizQuestion}
+                    addLabel="+ เพิ่มคำถาม"
+                    itemTitle={(q, i) => q.question || `ข้อ ${i + 1}`}
+                    renderItem={(q, updQ) => (
+                        <div className="space-y-2">
+                            <input
+                                type="text"
+                                value={q.question}
+                                onChange={(e) => updQ({ question: e.target.value })}
+                                placeholder="พิมพ์คำถาม"
+                                className="w-full px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                            />
+                            <ArrayField
+                                label="ตัวเลือก"
+                                items={q.options || []}
+                                onChange={(ops) => updQ({ options: ops })}
+                                newItem={() => ({ text: "ตัวเลือกใหม่", score: 0 }) as QuizOption}
+                                addLabel="+ เพิ่มตัวเลือก"
+                                itemTitle={(o) => o.text || ""}
+                                renderItem={(o, updO) => (
+                                    <div className="flex gap-2 items-center">
+                                        <input
+                                            type="text"
+                                            value={o.text}
+                                            onChange={(e) => updO({ text: e.target.value })}
+                                            placeholder="ข้อความตัวเลือก"
+                                            className="flex-1 px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                        />
+                                        <span className="text-xs text-slate-400 whitespace-nowrap">คะแนน</span>
+                                        <input
+                                            type="number"
+                                            value={o.score}
+                                            onChange={(e) => updO({ score: parseInt(e.target.value, 10) || 0 })}
+                                            className="w-16 px-2 py-2 text-sm text-center border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                        />
+                                    </div>
+                                )}
+                            />
+                        </div>
+                    )}
+                />
+
+                {/* Result tiers (by total score) */}
+                <ArrayField
+                    label="ผลลัพธ์ (ตามช่วงคะแนนรวม)"
+                    helper="ระบบรวมคะแนนทุกข้อ แล้วโชว์ผลของช่วงที่ตรง — ใส่ 'คะแนนขั้นต่ำ' ของแต่ละระดับ (เช่น 0 / 4 / 7)"
+                    items={value.results || []}
+                    onChange={(rs) => update({ results: rs })}
+                    newItem={() => ({ minScore: 0, emoji: "🟢", title: "ผลลัพธ์ใหม่", desc: "", ctaText: "", ctaUrl: "" }) as QuizResultTier}
+                    addLabel="+ เพิ่มระดับผลลัพธ์"
+                    itemTitle={(r) => `${r.emoji || ""} ${r.title || ""} (≥${r.minScore ?? 0})`}
+                    renderItem={(r, updR) => (
+                        <div className="space-y-2">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={r.emoji || ""}
+                                    onChange={(e) => updR({ emoji: e.target.value })}
+                                    maxLength={4}
+                                    placeholder="🟢"
+                                    className="w-14 px-2 py-2 text-xl text-center border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                                <input
+                                    type="text"
+                                    value={r.title}
+                                    onChange={(e) => updR({ title: e.target.value })}
+                                    placeholder="หัวข้อผลลัพธ์"
+                                    className="flex-1 px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-400 whitespace-nowrap">แสดงเมื่อคะแนนรวม ≥</span>
+                                <input
+                                    type="number"
+                                    value={r.minScore ?? 0}
+                                    onChange={(e) => updR({ minScore: parseInt(e.target.value, 10) || 0 })}
+                                    className="w-20 px-2 py-2 text-sm text-center border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                            </div>
+                            <textarea
+                                value={r.desc || ""}
+                                onChange={(e) => updR({ desc: e.target.value })}
+                                placeholder="ข้อความผลลัพธ์ / คำแนะนำ"
+                                rows={2}
+                                className="w-full px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none resize-none"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    value={r.ctaText || ""}
+                                    onChange={(e) => updR({ ctaText: e.target.value })}
+                                    placeholder="ข้อความปุ่ม (ไม่บังคับ)"
+                                    className="px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                                <input
+                                    type="text"
+                                    value={r.ctaUrl || ""}
+                                    onChange={(e) => updR({ ctaUrl: e.target.value })}
+                                    placeholder="ลิงก์ปุ่ม เช่น LINE (เว้นว่าง=ไปสมัคร)"
+                                    className="px-3 py-2 text-sm font-mono border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                            </div>
+                        </div>
+                    )}
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                    <TextField label="ปุ่มเริ่มทำ" value={value.startButtonText} onChange={(v) => update({ startButtonText: v })} placeholder="เริ่มทำแบบทดสอบ" />
+                    <TextField label="ปุ่มทำใหม่" value={value.retakeButtonText} onChange={(v) => update({ retakeButtonText: v })} placeholder="ทำใหม่อีกครั้ง" />
+                </div>
+
+                <p className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                    🧭 ค่าเริ่มต้นตั้งคะแนนไว้ 0–10 (5 ข้อ × 2 คะแนน) ถ้าแก้จำนวนข้อหรือคะแนน อย่าลืมปรับ &ldquo;คะแนนขั้นต่ำ&rdquo; ของผลลัพธ์ให้สอดคล้องกัน
+                </p>
+            </FormScroll>
+        </div>
+    );
+}
+
+/* ============================================================
+   FeaturesForm — course feature / highlight cards.
+   Each card: icon + title + detail, plus optional screenshot & badge.
+   ============================================================ */
+export function FeaturesForm({ value, onChange }: { value: FeaturesData; onChange: (v: FeaturesData) => void }) {
+    const update = (patch: Partial<FeaturesData>) => onChange({ ...value, ...patch });
+    return (
+        <div className="flex flex-col flex-1 min-h-0">
+            <FormScroll>
+                <TextField label="ชื่อหัวข้อ" value={value.title} onChange={(v) => update({ title: v })} placeholder="ในคอร์สมีอะไรบ้าง?" />
+                <TextField label="คำอธิบายใต้หัวข้อ" value={value.subtitle} onChange={(v) => update({ subtitle: v })} placeholder="เครื่องมือครบ ช่วยให้เข้าใจ ฝึกจริง จำได้นาน" />
+                <ArrayField
+                    label="การ์ดฟีเจอร์"
+                    helper="เพิ่ม-ลดได้ตามต้องการ — ใส่รูปประกอบ (เช่น ภาพ mindmap / flashcard จริง) เพื่อให้น่าสนใจยิ่งขึ้น"
+                    items={value.items || []}
+                    onChange={(items) => update({ items })}
+                    newItem={() => ({ icon: "✨", title: "ฟีเจอร์ใหม่", desc: "", imageUrl: "", badgeText: "" }) as FeatureItem}
+                    addLabel="+ เพิ่มฟีเจอร์"
+                    itemTitle={(item) => item.title || "ฟีเจอร์"}
+                    renderItem={(item, upd) => (
+                        <div className="space-y-2">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={item.icon}
+                                    onChange={(e) => upd({ icon: e.target.value })}
+                                    maxLength={4}
+                                    placeholder="📝"
+                                    className="w-16 px-2 py-2 text-2xl text-center border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                                <input
+                                    type="text"
+                                    value={item.title}
+                                    onChange={(e) => upd({ title: e.target.value })}
+                                    placeholder="ชื่อฟีเจอร์ เช่น ข้อสอบฝึกทำ + เฉลยละเอียด"
+                                    className="flex-1 px-3 py-2 text-sm font-bold border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                                />
+                            </div>
+                            <IconPalette value={item.icon} onChange={(v) => upd({ icon: v })} />
+                            <textarea
+                                value={item.desc || ""}
+                                onChange={(e) => upd({ desc: e.target.value })}
+                                placeholder="รายละเอียดสั้นๆ ของฟีเจอร์"
+                                rows={2}
+                                className="w-full px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none resize-none"
+                            />
+                            <input
+                                type="text"
+                                value={item.badgeText || ""}
+                                onChange={(e) => upd({ badgeText: e.target.value })}
+                                placeholder="ป้ายเด่น (ไม่บังคับ) เช่น ยอดนิยม / ใหม่"
+                                className="w-full px-3 py-2 text-sm border-2 border-slate-200 rounded-lg focus:border-indigo-400 outline-none"
+                            />
+                            <ImageUploadField
+                                label="รูปประกอบ (ไม่บังคับ)"
+                                value={item.imageUrl}
+                                onChange={(url) => upd({ imageUrl: url })}
+                                pathPrefix="salespage/features"
+                                helper="เว้นว่างได้ — จะโชว์ไอคอนสวยๆ ให้แทน"
+                            />
+                        </div>
+                    )}
+                />
+                <TextField
+                    label="ปุ่มท้าย section (ไม่บังคับ)"
+                    value={value.ctaText}
+                    onChange={(v) => update({ ctaText: v })}
+                    placeholder="เช่น สมัครเรียนเลย"
+                    helper="ถ้าใส่ข้อความ จะมีปุ่มสมัคร (ไปหน้าชำระเงิน) อยู่ท้าย section — เว้นว่าง = ไม่มีปุ่ม"
+                />
             </FormScroll>
         </div>
     );

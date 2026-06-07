@@ -16,6 +16,10 @@ import {
     CountdownForm,
     VideoPreviewForm,
     StatsTableForm,
+    ArticlesForm,
+    HowItWorksForm,
+    QuizForm,
+    FeaturesForm,
 } from "./SectionForms";
 import type { Section, SectionType } from "@/app/course/[id]/template/types";
 
@@ -47,6 +51,10 @@ export function getSectionForm(type: SectionType): React.ComponentType<FormProps
         case "countdown": return CountdownForm as any;
         case "videoPreview": return VideoPreviewForm as any;
         case "statsTable": return StatsTableForm as any;
+        case "articles": return ArticlesForm as any;
+        case "howItWorks": return HowItWorksForm as any;
+        case "quiz": return QuizForm as any;
+        case "features": return FeaturesForm as any;
         default: return null;
     }
 }

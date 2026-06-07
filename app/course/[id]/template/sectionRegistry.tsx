@@ -15,6 +15,10 @@ import CTASection from "./sections/CTASection";
 import CountdownSection from "./sections/CountdownSection";
 import VideoPreviewSection from "./sections/VideoPreviewSection";
 import StatsTableSection from "./sections/StatsTableSection";
+import ArticlesSection from "./sections/ArticlesSection";
+import HowItWorksSection from "./sections/HowItWorksSection";
+import QuizSection from "./sections/QuizSection";
+import FeaturesSection from "./sections/FeaturesSection";
 
 export function renderSection(section: Section, ctx: SectionContext) {
     switch (section.type) {
@@ -48,6 +52,14 @@ export function renderSection(section: Section, ctx: SectionContext) {
             return <VideoPreviewSection data={section.data} />;
         case "statsTable":
             return <StatsTableSection data={section.data} />;
+        case "articles":
+            return <ArticlesSection data={section.data} />;
+        case "howItWorks":
+            return <HowItWorksSection data={section.data} ctx={ctx} />;
+        case "quiz":
+            return <QuizSection data={section.data} ctx={ctx} />;
+        case "features":
+            return <FeaturesSection data={section.data} ctx={ctx} />;
         default:
             return null;
     }
