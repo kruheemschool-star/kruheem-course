@@ -8,12 +8,15 @@ import {
     getCountdownState,
     getPaceStatus,
     getProficiencyLevel,
+    percentileFromBuckets,
 } from "@/lib/exam-utils";
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { useParams } from "next/navigation";
+import { useTheme } from "next-themes";
+import { BarChart, Bar, Cell, XAxis, ResponsiveContainer } from "recharts";
 
 interface ExamRunnerProps {
     questions: any[];
@@ -129,6 +132,10 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     const [attemptNumber, setAttemptNumber] = useState(0);
     const [weakLessons, setWeakLessons] = useState<{ title: string; percent: number }[]>([]);
     const persistedRef = useRef(false);
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === 'dark';
+    const [percentile, setPercentile] = useState<{ percentile: number; count: number; buckets: number[]; yourBucket: number } | null>(null);
+    const percentileFetchedRef = useRef(false);
 
     const startTime = useRef<number>(0);   // exam start (ms)
     const qStartTime = useRef<number>(0);  // current question start (ms)
@@ -277,6 +284,28 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                 console.warn('[ExamRunner] could not save/compare attempt:', e);
             }
         })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSubmitted]);
+
+    // L-F4: fetch peer score distribution for this lesson → percentile (once).
+    // Skips for focused runs / logged-out / no lessonId; degrades silently on error.
+    useEffect(() => {
+        if (!isSubmitted || isFocused || !lessonId || percentileFetchedRef.current) return;
+        percentileFetchedRef.current = true;
+        const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        fetch('/api/lesson-exam-averages', { signal: controller.signal })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                const pl = data?.perLesson?.[lessonId];
+                if (pl && Array.isArray(pl.buckets) && pl.count > 0) {
+                    const yourBucket = Math.min(9, Math.max(0, Math.floor(pct / 10)));
+                    setPercentile({ percentile: percentileFromBuckets(pl.buckets, pl.count, pct), count: pl.count, buckets: pl.buckets, yourBucket });
+                }
+            })
+            .catch(() => { /* non-fatal: card just won't show */ })
+            .finally(() => clearTimeout(timeoutId));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isSubmitted]);
 
@@ -440,6 +469,28 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                             <div className="inline-flex items-start gap-2 text-left bg-white/70 dark:bg-slate-900/40 rounded-2xl px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 max-w-md">
                                 <span className="flex-shrink-0">👉</span><span>{proficiency.nextStep}</span>
                             </div>
+                        </div>
+                    )}
+
+                    {/* 🏆 อันดับ/เปอร์เซ็นไทล์เทียบเพื่อน (L-F4) */}
+                    {!isFocused && percentile && percentile.count >= 5 && (
+                        <div className="mb-8 rounded-3xl border border-indigo-100 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/70 to-white dark:from-indigo-900/20 dark:to-slate-800/40 p-5 md:p-6">
+                            <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🏆 อันดับของคุณ</h3>
+                            <p className="text-slate-600 dark:text-slate-300 mb-3">
+                                ทำได้ <span className="text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 align-middle">เก่งกว่า {percentile.percentile}%</span>{' '}
+                                <span className="text-sm">ของคนที่ทำชุดนี้ ({percentile.count} คน)</span>
+                            </p>
+                            <ResponsiveContainer width="100%" height={140}>
+                                <BarChart data={percentile.buckets.map((c, i) => ({ label: `${i * 10}`, count: c }))} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} interval={0} stroke={isDark ? '#334155' : '#e2e8f0'} />
+                                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                                        {percentile.buckets.map((_, i) => (
+                                            <Cell key={i} fill={i === percentile.yourBucket ? '#f59e0b' : (isDark ? '#4f46e5' : '#c7d2fe')} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-1">การกระจายคะแนนของทุกคน · <span className="text-amber-500 font-bold">แท่งสีส้ม</span> = ช่วงคะแนนของคุณ</p>
                         </div>
                     )}
 
