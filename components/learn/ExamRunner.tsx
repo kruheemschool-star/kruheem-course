@@ -7,6 +7,7 @@ import {
     getCombinedVerdict,
     getCountdownState,
     getPaceStatus,
+    getProficiencyLevel,
 } from "@/lib/exam-utils";
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
@@ -379,6 +380,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
             if (avgPaceAll <= 1.5 * paceTarget) return { text: 'จังหวะใกล้เคียงเป้าหมาย ฝึกอีกนิดให้คล่องขึ้น', color: 'text-amber-600 dark:text-amber-400' };
             return { text: 'ใช้เวลามากกว่าเป้าหมาย ลองฝึกความเร็วในข้อที่ช้า', color: 'text-rose-600 dark:text-rose-400' };
         })();
+        const paceRatio = (paceTarget > 0 && avgPaceAll > 0) ? avgPaceAll / paceTarget : 1;
+        const proficiency = getProficiencyLevel(percent, paceRatio);
         const reviewList = perQ.filter((p) =>
             !p.answered || getCombinedVerdict(p.seconds, paceTarget, p.isCorrect, p.answered).shouldReview
         );
@@ -426,6 +429,19 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                         <p className={`text-lg font-bold ${g.color}`}>{g.label}</p>
                         {isFocused && <p className="mt-2 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-full">🔁 ทบทวนเฉพาะข้อที่ผิด · ไม่นับเป็นคะแนนของชุด</p>}
                     </div>
+
+                    {/* 🎯 ระดับความพร้อม (L-F1) */}
+                    {!isFocused && (
+                        <div className={`mb-8 rounded-3xl border bg-gradient-to-br ${proficiency.bg} p-5 md:p-6 text-center`}>
+                            <div className="text-4xl mb-1">{proficiency.emoji}</div>
+                            <div className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">ระดับความพร้อม</div>
+                            <h3 className={`text-2xl font-black ${proficiency.color} mb-2`}>{proficiency.label}</h3>
+                            <p className="text-slate-600 dark:text-slate-300 text-sm max-w-md mx-auto mb-3">{proficiency.meaning}</p>
+                            <div className="inline-flex items-start gap-2 text-left bg-white/70 dark:bg-slate-900/40 rounded-2xl px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 max-w-md">
+                                <span className="flex-shrink-0">👉</span><span>{proficiency.nextStep}</span>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-3 mb-8 text-center">

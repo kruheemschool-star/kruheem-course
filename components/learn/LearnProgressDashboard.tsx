@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { tryParseQuestions } from "./utils";
-import { formatDuration } from "@/lib/exam-utils";
+import { formatDuration, projectAttemptsToGoal } from "@/lib/exam-utils";
 import type { Lesson } from "./types";
 import { X, Target, Trophy, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
+import { useTheme } from "next-themes";
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, ReferenceLine } from "recharts";
 
 interface AttemptSummary { percent: number; durationSeconds: number; at?: number }
 interface StoredResult {
@@ -80,6 +82,18 @@ export function ProgressDashboardView({ examLessons, byLesson, loading, onClose,
     const g = getGrade(avgBest);
     const weak = done.filter((x) => (x.r.bestPercent || 0) < 70).sort((a, b) => (a.r.bestPercent || 0) - (b.r.bestPercent || 0));
 
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === 'dark';
+    const cc = { grid: isDark ? '#334155' : '#e2e8f0', axis: isDark ? '#94a3b8' : '#64748b', primary: isDark ? '#a5b4fc' : '#6366f1', fill: isDark ? '#818cf8' : '#6366f1', goal: isDark ? '#c4b5fd' : '#8b5cf6' };
+    // L-F2 radar (best% per set) + L-F3 trend (all attempts merged, chronological) + projection
+    const radarData = done.map((x) => ({ set: x.lesson.title.length > 24 ? x.lesson.title.slice(0, 23) + '…' : x.lesson.title, percent: x.r.bestPercent || 0 }));
+    const trendData = done
+        .flatMap((x) => (Array.isArray(x.r.history) ? x.r.history : []))
+        .filter((h) => typeof h.at === 'number' && typeof h.percent === 'number')
+        .sort((a, b) => (a.at || 0) - (b.at || 0))
+        .map((h, i) => ({ idx: i + 1, percent: h.percent }));
+    const projection = projectAttemptsToGoal(trendData.map((d) => d.percent), 80);
+
     const go = (id: string) => { onSelectLesson(id); onClose(); };
 
     return (
@@ -131,6 +145,48 @@ export function ProgressDashboardView({ examLessons, byLesson, loading, onClose,
                                     </div>
                                 </div>
                             </div>
+
+                            {/* 📊 เรดาร์รายชุด (L-F2) */}
+                            {radarData.length >= 3 && (
+                                <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-5 shadow-sm">
+                                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">📊 เรดาร์รายชุด</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">คะแนนดีที่สุดของแต่ละชุด — ยิ่งกางออกไกล = ยิ่งเก่ง (เต็ม 100%)</p>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <RadarChart data={radarData} outerRadius="68%">
+                                            <PolarGrid stroke={cc.grid} />
+                                            <PolarAngleAxis dataKey="set" tick={{ fontSize: 11, fill: cc.axis, fontWeight: 600 }} />
+                                            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                                            <Radar dataKey="percent" stroke={cc.primary} fill={cc.fill} fillOpacity={0.35} strokeWidth={2} />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+
+                            {/* 📈 พัฒนาการ + เป้า + คาดการณ์ (L-F3) */}
+                            {trendData.length >= 2 && (
+                                <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-5 shadow-sm">
+                                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2"><TrendingUp size={18} className="text-emerald-500" /> พัฒนาการของฉัน</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">คะแนนทุกครั้งที่ทำ (รวมทุกชุด เรียงตามเวลา)</p>
+                                    <ResponsiveContainer width="100%" height={220}>
+                                        <AreaChart data={trendData} margin={{ top: 5, right: 10, left: -22, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="learnTrendFill" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor={cc.fill} stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor={cc.fill} stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
+                                            <XAxis dataKey="idx" tick={{ fontSize: 10, fill: cc.axis }} stroke={cc.axis} />
+                                            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: cc.axis }} stroke={cc.axis} />
+                                            <ReferenceLine y={80} stroke={cc.goal} strokeDasharray="6 4" strokeWidth={2} label={{ value: 'เป้า 80%', position: 'insideBottomRight', fontSize: 10, fill: cc.goal, fontWeight: 700 }} />
+                                            <Area type="monotone" dataKey="percent" stroke={cc.primary} strokeWidth={2} fill="url(#learnTrendFill)" dot={{ r: 3, fill: cc.primary }} activeDot={{ r: 5 }} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                    <div className={`mt-3 rounded-xl px-4 py-3 text-sm font-bold ${projection.reached ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : projection.trend === 'down' ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300' : 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300'}`}>
+                                        🎯 {projection.message}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Weak topics */}
                             {weak.length > 0 && (
