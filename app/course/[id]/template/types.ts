@@ -21,7 +21,8 @@ export type SectionType =
     | "articles"
     | "howItWorks"
     | "quiz"
-    | "features";
+    | "features"
+    | "richText";
 
 export interface BaseSection<T extends SectionType, D> {
     id: string;
@@ -332,6 +333,13 @@ export interface FeaturesData {
     ctaText?: string;     // optional button under the cards (triggers enroll); hidden when empty
 }
 
+export interface RichTextData {
+    html: string;          // rich HTML authored in the TipTap editor (bold/underline/highlight/headings/align/links)
+    bg: 'none' | 'soft' | 'gradient' | 'grid' | 'dots' | 'lines'; // background style of the content box
+    color: string;         // accent hex — drives the bg tint/pattern + frame colour
+    framed: boolean;       // decorative border around the box
+}
+
 // ---------- Discriminated Union ----------
 
 export type Section =
@@ -353,7 +361,8 @@ export type Section =
     | BaseSection<"articles", ArticlesData>
     | BaseSection<"howItWorks", HowItWorksData>
     | BaseSection<"quiz", QuizData>
-    | BaseSection<"features", FeaturesData>;
+    | BaseSection<"features", FeaturesData>
+    | BaseSection<"richText", RichTextData>;
 
 // ---------- Conversion Boosters ----------
 

@@ -19,6 +19,7 @@ export const SECTION_META: Record<SectionType, { label: string; icon: string; de
     howItWorks: { label: "วิธีเรียน (3 ขั้นตอน)", icon: "🪜", desc: "อธิบายขั้นตอนการเรียน ลดความกังวล" },
     quiz: { label: "แบบทดสอบประเมิน", icon: "🧭", desc: "quiz โต้ตอบ ประเมินความพร้อม + ผลลัพธ์" },
     features: { label: "ฟีเจอร์เด่นในคอร์ส", icon: "✨", desc: "การ์ดจุดเด่น/สิ่งที่มีในคอร์ส (ใส่รูปได้)" },
+    richText: { label: "เนื้อหาอิสระ (Rich Text)", icon: "✍️", desc: "พิมพ์+จัดรูปแบบเอง (สี/ไฮไลต์/ขีดเส้นใต้/พื้นหลังลวดลาย/กรอบ)" },
     statsTable: { label: "ตารางสถิติ", icon: "📋", desc: "ตาราง 2 คอลัมน์ (ตัวเลข | ความหมาย)" },
 };
 
@@ -265,6 +266,17 @@ export function createDefaultSection(type: SectionType, order: number): Section 
                         { icon: "🎴", title: "Flashcard ทบทวน", desc: "บัตรคำช่วยทบทวนสูตรและนิยาม ทวนซ้ำก่อนสอบได้ทุกที่ทุกเวลา", badgeText: "", imageUrl: "" },
                     ],
                     ctaText: "",
+                },
+            };
+        case "richText":
+            return {
+                ...base,
+                type: "richText",
+                data: {
+                    html: "<h2>หัวข้อที่อยากเล่า ✨</h2><p>พิมพ์ข้อความตรงนี้ได้เลย — ใช้แถบเครื่องมือทำ <strong>ตัวหนา</strong> <u>ขีดเส้นใต้</u> <mark>ไฮไลต์สี</mark> ใส่หัวข้อ จัดกึ่งกลาง ใส่ลิงก์ หรือรูปได้</p><p>เหมาะกับการอธิบายอะไรเพิ่มเติมแบบอิสระ ที่ section สำเร็จรูปอื่นไม่มี</p>",
+                    bg: "grid",
+                    color: "#6366f1",
+                    framed: true,
                 },
             };
         case "quiz":

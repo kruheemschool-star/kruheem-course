@@ -19,6 +19,7 @@ import ArticlesSection from "./sections/ArticlesSection";
 import HowItWorksSection from "./sections/HowItWorksSection";
 import QuizSection from "./sections/QuizSection";
 import FeaturesSection from "./sections/FeaturesSection";
+import RichTextSection from "./sections/RichTextSection";
 
 export function renderSection(section: Section, ctx: SectionContext) {
     switch (section.type) {
@@ -60,6 +61,8 @@ export function renderSection(section: Section, ctx: SectionContext) {
             return <QuizSection data={section.data} ctx={ctx} />;
         case "features":
             return <FeaturesSection data={section.data} ctx={ctx} />;
+        case "richText":
+            return <RichTextSection data={section.data} />;
         default:
             return null;
     }

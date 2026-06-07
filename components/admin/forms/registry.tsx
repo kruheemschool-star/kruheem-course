@@ -20,6 +20,7 @@ import {
     HowItWorksForm,
     QuizForm,
     FeaturesForm,
+    RichTextForm,
 } from "./SectionForms";
 import type { Section, SectionType } from "@/app/course/[id]/template/types";
 
@@ -55,6 +56,7 @@ export function getSectionForm(type: SectionType): React.ComponentType<FormProps
         case "howItWorks": return HowItWorksForm as any;
         case "quiz": return QuizForm as any;
         case "features": return FeaturesForm as any;
+        case "richText": return RichTextForm as any;
         default: return null;
     }
 }
