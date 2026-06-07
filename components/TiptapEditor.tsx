@@ -7,6 +7,7 @@ import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
 import Highlight from '@tiptap/extension-highlight';
+import { TextStyle, FontSize, FontFamily } from '@tiptap/extension-text-style';
 import { useState, useEffect, useRef } from 'react';
 import imageCompression from 'browser-image-compression';
 import {
@@ -120,6 +121,9 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
                     },
                 },
             }),
+            TextStyle,
+            FontSize,
+            FontFamily,
             Underline,
             Highlight.configure({
                 multicolor: true,
@@ -336,6 +340,54 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
                                 <MenuButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} isActive={editor.isActive('heading', { level: 3 })} title="หัวข้อเล็ก (H3)">
                                     <Heading3 size={16} />
                                 </MenuButton>
+
+                                <div className="w-px h-5 bg-slate-200 mx-0.5"></div>
+
+                                {/* Font size — small → very large for emphasis */}
+                                <select
+                                    title="ขนาดตัวอักษร"
+                                    aria-label="ขนาดตัวอักษร"
+                                    defaultValue=""
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        const c = editor.chain().focus();
+                                        if (v === 'reset') c.unsetFontSize().run();
+                                        else if (v) c.setFontSize(v).run();
+                                        e.currentTarget.selectedIndex = 0;
+                                    }}
+                                    className="text-xs font-bold border-2 border-slate-200 rounded-lg px-1.5 py-1.5 outline-none focus:border-teal-400 cursor-pointer bg-white text-slate-600 hover:border-slate-300"
+                                >
+                                    <option value="" disabled>ขนาด</option>
+                                    <option value="reset">↺ ปกติ</option>
+                                    <option value="13px">เล็กมาก</option>
+                                    <option value="15px">เล็ก</option>
+                                    <option value="20px">ใหญ่</option>
+                                    <option value="26px">ใหญ่มาก</option>
+                                    <option value="34px">ใหญ่พิเศษ</option>
+                                    <option value="48px">ยักษ์</option>
+                                    <option value="68px">ยักษ์มาก</option>
+                                </select>
+
+                                {/* Font family */}
+                                <select
+                                    title="ฟอนต์"
+                                    aria-label="ฟอนต์"
+                                    defaultValue=""
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        const c = editor.chain().focus();
+                                        if (v === 'reset') c.unsetFontFamily().run();
+                                        else if (v) c.setFontFamily(v).run();
+                                        e.currentTarget.selectedIndex = 0;
+                                    }}
+                                    className="text-xs font-bold border-2 border-slate-200 rounded-lg px-1.5 py-1.5 outline-none focus:border-teal-400 cursor-pointer bg-white text-slate-600 hover:border-slate-300"
+                                >
+                                    <option value="" disabled>ฟอนต์</option>
+                                    <option value="reset">↺ ปกติ</option>
+                                    <option value="var(--font-mitr)">ตัวกลม (Mitr)</option>
+                                    <option value="Georgia, serif">มีหัว (Serif)</option>
+                                    <option value="'Courier New', monospace">พิมพ์ดีด</option>
+                                </select>
 
                                 <div className="w-px h-5 bg-slate-200 mx-0.5"></div>
 
