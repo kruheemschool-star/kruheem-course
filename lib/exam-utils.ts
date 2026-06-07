@@ -377,3 +377,111 @@ export const getPaceStatus = (params: {
     }
     return { onPace: false, deltaQuestions, label: 'ช้ากว่ากำหนด', color: 'text-amber-600 dark:text-amber-400', barColor: 'bg-amber-500', progressRatio };
 };
+
+/* ============================================================
+   Proficiency level — turn a result into a friendly "level".
+   ============================================================ */
+
+export interface ProficiencyLevel {
+    key: 'beginner' | 'developing' | 'good' | 'ready' | 'expert';
+    emoji: string;
+    label: string;   // Thai
+    color: string;   // Tailwind text classes (light + dark)
+    bg: string;      // Tailwind gradient + border classes for the card
+    meaning: string; // "ระดับนี้แปลว่า..."
+    nextStep: string; // "ควรทำต่อ..."
+}
+
+/**
+ * Map accuracy (%) + pace ratio (avgSecondsPerQuestion / target) to a friendly
+ * proficiency band. Pace is a SECONDARY signal — only "fast AND accurate" reaches
+ * the top "expert" band; lower bands are decided by accuracy alone. paceRatio
+ * defaults to 1 (on-pace) when no timing data is available.
+ */
+export const getProficiencyLevel = (percent: number, paceRatio = 1): ProficiencyLevel => {
+    const p = Math.max(0, Math.min(100, percent || 0));
+    const fast = paceRatio > 0 && paceRatio <= 1; // at or under the target pace
+
+    if (p >= 85 && fast) {
+        return { key: 'expert', emoji: '💎', label: 'เชี่ยวชาญ', color: 'text-violet-600 dark:text-violet-400', bg: 'from-violet-50 to-indigo-50 dark:from-violet-900/30 dark:to-indigo-900/20 border-violet-200 dark:border-violet-700/50', meaning: 'แม่นและเร็วในระดับท็อป คุมเนื้อหาชุดนี้ได้ขาด', nextStep: 'ลองชุดที่ยากขึ้น หรือจับเวลาให้กระชับเพื่อรักษาฟอร์ม' };
+    }
+    if (p >= 75) {
+        return { key: 'ready', emoji: '🥇', label: 'พร้อมสอบ', color: 'text-amber-600 dark:text-amber-400', bg: 'from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20 border-amber-200 dark:border-amber-700/50', meaning: 'พื้นฐานแน่น ทำข้อสอบแนวนี้ได้ดีแล้ว', nextStep: 'เก็บข้อที่ยังพลาด + ฝึกความเร็วให้คงที่ ก็พร้อมสนามจริง' };
+    }
+    if (p >= 55) {
+        return { key: 'good', emoji: '🥈', label: 'กำลังไปได้สวย', color: 'text-blue-600 dark:text-blue-400', bg: 'from-blue-50 to-sky-50 dark:from-blue-900/30 dark:to-sky-900/20 border-blue-200 dark:border-blue-700/50', meaning: 'เข้าใจเกินครึ่ง แต่ยังมีบางจุดที่หลุดอยู่', nextStep: 'โฟกัสหัวข้อที่อ่อนสุด แล้วทำซ้ำให้คล่อง' };
+    }
+    if (p >= 35) {
+        return { key: 'developing', emoji: '🥉', label: 'กำลังพัฒนา', color: 'text-orange-600 dark:text-orange-400', bg: 'from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/20 border-orange-200 dark:border-orange-700/50', meaning: 'เริ่มจับทางได้ แต่พื้นฐานบางเรื่องยังไม่แน่น', nextStep: 'กลับไปทบทวนเฉลยทีละข้อ + ฝึกหัวข้อพื้นฐานก่อน' };
+    }
+    return { key: 'beginner', emoji: '🌱', label: 'เริ่มต้น', color: 'text-emerald-600 dark:text-emerald-400', bg: 'from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/20 border-emerald-200 dark:border-emerald-700/50', meaning: 'เพิ่งเริ่ม ยังต้องปูพื้นอีกนิด — ไม่เป็นไร ทุกคนเริ่มจากตรงนี้', nextStep: 'ดูเฉลยให้ครบ เข้าใจวิธีคิดก่อน แล้วค่อยๆ ไต่ระดับ' };
+};
+
+/* ============================================================
+   Goal projection — "how many more attempts to reach X%".
+   ============================================================ */
+
+export interface GoalProjection {
+    reached: boolean;
+    attemptsToGoal: number | null; // est. more attempts; null when not projectable
+    trend: 'up' | 'flat' | 'down';
+    message: string; // Thai
+}
+
+/**
+ * Estimate how many more attempts until the student reaches `goal`%, using a
+ * least-squares slope over the most recent scores (up to 6). `history` is a
+ * chronological list of percent scores. Returns a friendly Thai message.
+ */
+export const projectAttemptsToGoal = (history: number[], goal = 80): GoalProjection => {
+    const pts = (history || []).filter((v) => typeof v === 'number' && !Number.isNaN(v));
+    const n = pts.length;
+    const latest = n > 0 ? pts[n - 1] : 0;
+
+    if (latest >= goal) {
+        return { reached: true, attemptsToGoal: 0, trend: 'up', message: `เยี่ยมมาก! ทำถึงเป้า ${goal}% แล้ว 🎉 รักษาระดับนี้ไว้นะ` };
+    }
+    if (n < 2) {
+        return { reached: false, attemptsToGoal: null, trend: 'flat', message: `ทำข้อสอบอีกสัก 2–3 ครั้ง แล้วระบบจะคาดการณ์เส้นทางสู่เป้า ${goal}% ให้` };
+    }
+
+    const recent = pts.slice(-6);
+    const m = recent.length;
+    const meanX = (m - 1) / 2;
+    const meanY = recent.reduce((a, b) => a + b, 0) / m;
+    let num = 0, den = 0;
+    for (let i = 0; i < m; i++) { num += (i - meanX) * (recent[i] - meanY); den += (i - meanX) ** 2; }
+    const slope = den === 0 ? 0 : num / den; // percent gained per attempt
+
+    if (slope <= 0.5) {
+        return {
+            reached: false,
+            attemptsToGoal: null,
+            trend: slope < -0.5 ? 'down' : 'flat',
+            message: slope < -0.5
+                ? 'คะแนนช่วงนี้มีแนวโน้มลดลง — ลองกลับไปทบทวนหัวข้อที่อ่อนก่อนนะ'
+                : `คะแนนยังทรงตัว — โฟกัสหัวข้อที่ผิดบ่อย เพื่อดันให้ถึงเป้า ${goal}%`,
+        };
+    }
+
+    const attempts = Math.max(1, Math.ceil((goal - latest) / slope));
+    return { reached: false, attemptsToGoal: attempts, trend: 'up', message: `กำลังไปได้สวย! ถ้าพัฒนาแบบนี้ อีกประมาณ ${attempts} ครั้งน่าจะถึงเป้า ${goal}% 🚀` };
+};
+
+/* ============================================================
+   Percentile rank — "better than X%" from a score histogram.
+   ============================================================ */
+
+/**
+ * Percentile rank from a 10-bucket histogram of percents (bucket i = scores in
+ * [i*10, i*10+10)). `count` is the total attempts. Returns 0–100 = "scored
+ * better than X% of attempts". Ties within the same bucket are split in half.
+ */
+export const percentileFromBuckets = (buckets: number[], count: number, yourPercent: number): number => {
+    if (!Array.isArray(buckets) || buckets.length === 0 || count <= 0) return 0;
+    const yb = Math.min(9, Math.max(0, Math.floor((yourPercent || 0) / 10)));
+    let below = 0;
+    for (let i = 0; i < yb; i++) below += buckets[i] || 0;
+    below += (buckets[yb] || 0) / 2; // ties share the bucket
+    return Math.max(0, Math.min(99, Math.round((below / count) * 100))); // cap at 99 — can't beat everyone
+};

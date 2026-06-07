@@ -3,13 +3,15 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useTheme } from 'next-themes';
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, Cell, XAxis } from 'recharts';
 
 // === localStorage Auto-Save Helpers ===
 interface SavedExamProgress {
@@ -197,6 +199,8 @@ class QuestionErrorBoundary extends React.Component<
 
 export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, examId, category, level, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false, enableResultTracking = false, recommendedSecondsPerQuestion, timedMode = false, timeLimitMinutes }) => {
     const { user } = useUserAuth();
+    const { resolvedTheme } = useTheme();
+    const isDark = resolvedTheme === 'dark';
     const savedQ = useSavedQuestions();
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
     const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -204,6 +208,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const [isFinished, setIsFinished] = useState(false); // Restore finish state
     const [showGrid, setShowGrid] = useState(false);
     const [finalScore, setFinalScore] = useState<FinalScore | null>(null);
+    const [percentile, setPercentile] = useState<{ percentile: number; count: number; buckets: number[]; yourBucket: number } | null>(null);
+    const percentileFetchedRef = useRef(false);
     const [wasRestored, setWasRestored] = useState(false); // Show "resumed" banner
     const [cloudSaveState, setCloudSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [restoredFromCloud, setRestoredFromCloud] = useState(false);
@@ -285,6 +291,26 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             setCurrentQuestionIndex(safeIndex);
         }
     }, [currentQuestionIndex, safeIndex, totalQuestions]);
+
+    // F4: fetch peer score distribution → percentile rank (once, when results show)
+    useEffect(() => {
+        if (!isFinished || !finalScore || !examId || !showAnswerChecking || isTrial || percentileFetchedRef.current) return;
+        percentileFetchedRef.current = true;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        fetch('/api/exam-averages', { signal: controller.signal })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                const pe = data?.perExam?.[examId];
+                if (pe && Array.isArray(pe.buckets) && pe.count > 0) {
+                    const yourBucket = Math.min(9, Math.max(0, Math.floor(finalScore.percent / 10)));
+                    setPercentile({ percentile: percentileFromBuckets(pe.buckets, pe.count, finalScore.percent), count: pe.count, buckets: pe.buckets, yourBucket });
+                }
+            })
+            .catch(() => { /* non-fatal: card just won't show */ })
+            .finally(() => clearTimeout(timeoutId));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isFinished, finalScore, examId]);
 
     // 📜 Auto-scroll to question card when selecting from grid
     useEffect(() => {
@@ -591,6 +617,24 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             return { text: 'ใช้เวลามากกว่าเป้าหมาย ลองฝึกความเร็วในข้อที่ช้า', color: 'text-rose-600 dark:text-rose-400' };
         })();
 
+        // === Proficiency level (F1) — accuracy + pace → friendly level ===
+        const paceRatio = (paceTarget > 0 && avgPaceAll > 0) ? avgPaceAll / paceTarget : 1;
+        const proficiency = getProficiencyLevel(finalScore.percent, paceRatio);
+
+        // === Topic radar (F2) — % correct per tag for this exam ===
+        const radarStats: Record<string, { correct: number; total: number }> = {};
+        sanitizedExamData.slice(0, finalScore.total).forEach((q, idx) => {
+            if (!q.tags || q.tags.length === 0) return;
+            const isCorrect = answers[idx] === q.correctIndex;
+            q.tags.forEach((tag: string) => {
+                if (!radarStats[tag]) radarStats[tag] = { correct: 0, total: 0 };
+                radarStats[tag].total++;
+                if (isCorrect) radarStats[tag].correct++;
+            });
+        });
+        const radarData = Object.entries(radarStats).map(([tag, s]) => ({ tag, percent: Math.round((s.correct / s.total) * 100) }));
+        const radarColors = { grid: isDark ? '#334155' : '#e2e8f0', tick: isDark ? '#cbd5e1' : '#475569', stroke: isDark ? '#a5b4fc' : '#6366f1' };
+
         return (
             <div className="max-w-4xl mx-auto py-12 px-6">
                 <div className="bg-white dark:bg-slate-800 rounded-[3rem] shadow-xl p-8 md:p-12 border border-stone-100 dark:border-slate-700 relative overflow-hidden">
@@ -621,6 +665,17 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <p className={`text-xl font-bold ${finalScore.gradeColor}`}>{finalScore.label}</p>
                             </div>
 
+                            {/* 🎯 ระดับความพร้อม (F1) */}
+                            <div className={`mb-10 rounded-3xl border bg-gradient-to-br ${proficiency.bg} p-6 md:p-7 text-center`}>
+                                <div className="text-5xl mb-2">{proficiency.emoji}</div>
+                                <div className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">ระดับความพร้อม</div>
+                                <h3 className={`text-2xl md:text-3xl font-black ${proficiency.color} mb-2`}>{proficiency.label}</h3>
+                                <p className="text-slate-600 dark:text-slate-300 text-sm md:text-base max-w-md mx-auto mb-4">{proficiency.meaning}</p>
+                                <div className="inline-flex items-start gap-2 text-left bg-white/70 dark:bg-slate-900/40 rounded-2xl px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 max-w-md">
+                                    <span className="flex-shrink-0">👉</span><span>{proficiency.nextStep}</span>
+                                </div>
+                            </div>
+
                             {/* Stats Row */}
                             <div className="grid grid-cols-3 gap-4 mb-10 text-center">
                                 <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl p-4">
@@ -636,6 +691,44 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                     <div className="text-slate-500 dark:text-slate-400 text-sm font-medium">ข้อทั้งหมด</div>
                                 </div>
                             </div>
+
+                            {/* 📊 เรดาร์จุดแข็ง-จุดอ่อนรายหัวข้อ (F2) */}
+                            {radarData.length >= 3 && (
+                                <div className="mb-10 rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-6 md:p-8">
+                                    <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">📊 จุดแข็ง-จุดอ่อนรายหัวข้อ</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">ยิ่งกางออกไกล = ยิ่งเก่งหัวข้อนั้น (เต็ม 100%)</p>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <RadarChart data={radarData} outerRadius="72%">
+                                            <PolarGrid stroke={radarColors.grid} />
+                                            <PolarAngleAxis dataKey="tag" tick={{ fontSize: 12, fill: radarColors.tick, fontWeight: 600 }} />
+                                            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                                            <Radar dataKey="percent" stroke={radarColors.stroke} fill={radarColors.stroke} fillOpacity={0.35} strokeWidth={2} />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+
+                            {/* 🏆 อันดับ/เปอร์เซ็นไทล์ (F4) */}
+                            {percentile && percentile.count >= 5 && (
+                                <div className="mb-10 rounded-3xl border border-indigo-100 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/70 to-white dark:from-indigo-900/20 dark:to-slate-800/40 p-6 md:p-8">
+                                    <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🏆 อันดับของคุณ</h3>
+                                    <p className="text-slate-600 dark:text-slate-300 mb-4">
+                                        คุณทำได้ <span className="text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 align-middle">เก่งกว่า {percentile.percentile}%</span>{' '}
+                                        <span className="text-sm">ของคนที่ทำชุดนี้ ({percentile.count} ครั้ง)</span>
+                                    </p>
+                                    <ResponsiveContainer width="100%" height={150}>
+                                        <BarChart data={percentile.buckets.map((c, i) => ({ label: `${i * 10}`, count: c }))} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#94a3b8' }} interval={0} stroke={isDark ? '#334155' : '#e2e8f0'} />
+                                            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                                                {percentile.buckets.map((_, i) => (
+                                                    <Cell key={i} fill={i === percentile.yourBucket ? '#f59e0b' : (isDark ? '#4f46e5' : '#c7d2fe')} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-1">การกระจายคะแนนของทุกคน · <span className="text-amber-500 font-bold">แท่งสีส้ม</span> = ช่วงคะแนนของคุณ ({finalScore.percent}%)</p>
+                                </div>
+                            )}
 
                             {/* ⏱️ Pacing Analysis Overview */}
                             {hasTimingData && (

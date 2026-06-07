@@ -30,6 +30,7 @@ export async function GET() {
         let totalAvgTimeExams = 0;
         const catMap: Record<string, { totalPercent: number; count: number }> = {};
         const tagMap: Record<string, { totalPercent: number; count: number }> = {};
+        const examMap: Record<string, { count: number; buckets: number[] }> = {};
         const userIds = new Set<string>();
 
         resultsSnap.docs.forEach(doc => {
@@ -52,6 +53,14 @@ export async function GET() {
             if (typeof data.avgTimePerQuestion === "number" && data.avgTimePerQuestion > 0) {
                 totalAvgTime += data.avgTimePerQuestion;
                 totalAvgTimeExams++;
+            }
+
+            // Per-exam score histogram (10 buckets) — powers percentile ranking
+            const eid = typeof data.examId === "string" ? data.examId : "";
+            if (eid && typeof data.percent === "number") {
+                if (!examMap[eid]) examMap[eid] = { count: 0, buckets: new Array(10).fill(0) };
+                examMap[eid].count++;
+                examMap[eid].buckets[Math.min(9, Math.max(0, Math.floor(data.percent / 10)))]++;
             }
 
             // Category
@@ -98,6 +107,7 @@ export async function GET() {
             totalUsers: userIds.size,
             categories,
             tags,
+            perExam: examMap,
         });
     } catch (error) {
         console.error("Error computing exam averages:", error);

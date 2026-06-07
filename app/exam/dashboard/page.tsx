@@ -16,8 +16,10 @@ import LoadingState from "@/components/ui/LoadingState";
 import EmptyState from "@/components/ui/EmptyState";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, Area, AreaChart, ReferenceLine
+    ResponsiveContainer, Area, AreaChart, ReferenceLine,
+    RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from "recharts";
+import { projectAttemptsToGoal } from "@/lib/exam-utils";
 
 interface ExamResult {
     examId: string;
@@ -463,6 +465,7 @@ export default function ExamDashboardPage() {
                                             {globalAvg && (
                                                 <ReferenceLine y={globalAvg.globalAvgPercent} stroke={chartColors.reference} strokeDasharray="5 5" label={{ value: `ค่าเฉลี่ยรวม ${globalAvg.globalAvgPercent}%`, position: 'insideTopRight', fontSize: 11, fill: chartColors.reference }} />
                                             )}
+                                            <ReferenceLine y={80} stroke={isDark ? '#c4b5fd' : '#8b5cf6'} strokeDasharray="6 4" strokeWidth={2} label={{ value: 'เป้า 80%', position: 'insideBottomRight', fontSize: 11, fill: isDark ? '#c4b5fd' : '#8b5cf6', fontWeight: 700 }} />
                                             <Area type="monotone" dataKey="percent" stroke={chartColors.primary} strokeWidth={2} fill="url(#colorPercent)" dot={{ r: 4, fill: chartColors.primary }} activeDot={{ r: 6 }} />
                                             <Line type="monotone" dataKey="trend" stroke={chartColors.trend} strokeWidth={2} strokeDasharray="5 5" dot={false} />
                                         </AreaChart>
@@ -472,7 +475,16 @@ export default function ExamDashboardPage() {
                                     <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-indigo-500"></span> คะแนนแต่ละชุด</span>
                                     <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-emerald-500 inline-block" style={{borderTop: '2px dashed'}}></span> ค่าเฉลี่ยสะสม</span>
                                     {globalAvg && <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-amber-500 inline-block" style={{borderTop: '2px dashed'}}></span> ค่าเฉลี่ยรวมทุกคน</span>}
+                                    <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 inline-block" style={{ borderTop: '2px dashed #8b5cf6' }}></span> เป้า 80%</span>
                                 </div>
+                                {(() => {
+                                    const proj = projectAttemptsToGoal(stats.progressWithTrend.map(d => d.percent), 80);
+                                    return (
+                                        <div className={`mt-4 rounded-xl px-4 py-3 text-sm font-bold ${proj.reached ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : proj.trend === 'down' ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300' : 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300'}`}>
+                                            🎯 {proj.message}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
 
@@ -524,6 +536,22 @@ export default function ExamDashboardPage() {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* === Topic Radar (overview, F2) === */}
+                        {stats.heatmapData.length >= 3 && (
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 mb-8">
+                                <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-2">📊 เรดาร์จุดแข็ง-จุดอ่อนรายหัวข้อ</h3>
+                                <p className="text-xs text-slate-400 mb-4">ภาพรวมทุกชุด — ยิ่งกางออกไกล = ยิ่งเก่งหัวข้อนั้น (เต็ม 100%)</p>
+                                <ResponsiveContainer width="100%" height={320}>
+                                    <RadarChart data={stats.heatmapData.slice(0, 8)} outerRadius="72%">
+                                        <PolarGrid stroke={chartColors.grid} />
+                                        <PolarAngleAxis dataKey="name" tick={{ fontSize: 12, fill: chartColors.axis, fontWeight: 600 }} />
+                                        <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                                        <Radar dataKey="percent" stroke={chartColors.primary} fill={chartColors.primaryFill} fillOpacity={0.35} strokeWidth={2} />
+                                    </RadarChart>
+                                </ResponsiveContainer>
                             </div>
                         )}
 
