@@ -1272,8 +1272,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 className="px-5 sm:px-6 py-3 rounded-full font-bold text-white bg-green-600 shadow-lg hover:bg-green-700 hover:shadow-xl hover:-translate-y-0.5 transition-all transform active:scale-95 flex items-center gap-2 text-sm sm:text-base"
                             >
                                 <CheckCircle size={18} />
-                                <span className="hidden sm:inline">ส่งคำตอบ ({Object.keys(answers).length}/{totalQuestions})</span>
-                                <span className="sm:hidden">ส่ง ({Object.keys(answers).length})</span>
+                                <span className="hidden sm:inline">{showAnswerChecking ? `ส่งคำตอบและวิเคราะห์ผล (${Object.keys(answers).length}/${totalQuestions})` : `ส่งคำตอบ (${Object.keys(answers).length}/${totalQuestions})`}</span>
+                                <span className="sm:hidden">{showAnswerChecking ? `ส่ง & วิเคราะห์ (${Object.keys(answers).length})` : `ส่ง (${Object.keys(answers).length})`}</span>
                             </button>
                         )}
 
