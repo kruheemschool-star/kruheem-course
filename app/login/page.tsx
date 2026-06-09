@@ -4,7 +4,7 @@ import { useUserAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, AlertCircle, ArrowRight, ChevronDown, Play, Eye, EyeOff } from "lucide-react";
-import BrowserWarning from "@/components/BrowserWarning";
+import { useInAppBrowser, openInExternalBrowser } from "@/lib/inAppBrowser";
 
 function LoginContent() {
     const { emailSignIn, googleSignIn } = useUserAuth();
@@ -18,6 +18,33 @@ function LoginContent() {
     const [loading, setLoading] = useState(false);
     const [isSignUpOpen, setIsSignUpOpen] = useState(false);
     const [showPassword, setShowPassword] = useState(true);
+    const inApp = useInAppBrowser();
+
+    // The purple "สมัครสมาชิกใหม่ที่นี่" CTA: when opened inside an in-app browser
+    // (LINE / Messenger / …), bounce straight out to Chrome/Safari on the register
+    // page so sign-up + Google login work there. In a normal browser the <Link>
+    // navigates as usual.
+    const handleRegisterClick = (e: React.MouseEvent) => {
+        if (!inApp.isInApp || inApp.platform === "other") return;
+        e.preventDefault();
+        const target = `${window.location.origin}/register`;
+        openInExternalBrowser(target, inApp.platform);
+        // iOS only: Meta's webview can swallow the x-safari jump. If Safari takes over,
+        // this webview gets hidden — watch for that and skip the fallback. If it never
+        // hides within a beat, the jump didn't work, so open /register in-app (its own
+        // banner guides the user from there) — the button is never a dead end.
+        if (inApp.platform === "ios") {
+            let escaped = false;
+            const markEscaped = () => { escaped = true; };
+            document.addEventListener("visibilitychange", markEscaped, { once: true });
+            window.addEventListener("pagehide", markEscaped, { once: true });
+            window.setTimeout(() => {
+                document.removeEventListener("visibilitychange", markEscaped);
+                window.removeEventListener("pagehide", markEscaped);
+                if (!escaped) router.push("/register");
+            }, 1500);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -69,8 +96,6 @@ function LoginContent() {
                     </div>
                 )}
 
-                <BrowserWarning />
-
                 <div className="mb-8 pt-0">
                     <div className={`bg-white dark:bg-slate-800 border-2 ${isSignUpOpen ? 'border-indigo-400 dark:border-indigo-500 ring-4 ring-indigo-50/50 dark:ring-indigo-900/30' : 'border-slate-100 dark:border-slate-700'} rounded-3xl overflow-hidden shadow-sm transition-all duration-500`}>
                         <button
@@ -102,6 +127,7 @@ function LoginContent() {
                                 </p>
                                 <Link
                                     href="/register"
+                                    onClick={handleRegisterClick}
                                     className="relative block w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-lg text-center shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50 hover:shadow-indigo-300 dark:hover:shadow-indigo-800/50 transform hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300 group overflow-hidden"
                                 >
                                     <span className="relative z-10 flex items-center justify-center gap-2">

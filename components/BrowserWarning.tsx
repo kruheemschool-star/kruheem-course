@@ -1,42 +1,7 @@
 "use client";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { X, Smartphone, Copy, Check, ExternalLink } from "lucide-react";
-
-type Platform = "ios" | "android" | "other";
-type Detection = { isInApp: boolean; platform: Platform; appName: string };
-
-const SERVER_SNAPSHOT: Detection = { isInApp: false, platform: "other", appName: "แอปนี้" };
-let cachedDetection: Detection | null = null;
-
-/** Detect the in-app browser once on the client; cache so the snapshot ref stays stable. */
-function getDetection(): Detection {
-    if (cachedDetection) return cachedDetection;
-    const ua = navigator.userAgent || navigator.vendor || "";
-    // Test aid: ?preview_warning=android | ios | 1 forces the banner to show on any
-    // browser, so the look can be verified without opening inside Messenger/LINE.
-    const preview = /[?&]preview_warning=(android|ios|1)/.exec(window.location.search)?.[1];
-    const realApp =
-        /Line/i.test(ua) ? "LINE"
-        : /FBAN|FBAV/i.test(ua) ? "Messenger"
-        : /FB_IAB/i.test(ua) ? "Facebook"
-        : /Instagram/i.test(ua) ? "Instagram"
-        : /Twitter/i.test(ua) ? "Twitter (X)"
-        : /TikTok/i.test(ua) ? "TikTok"
-        : null;
-    cachedDetection = {
-        isInApp: !!preview || /Line|FBAN|FBAV|FB_IAB|Instagram|Twitter|TikTok/i.test(ua),
-        platform: preview === "android" ? "android"
-            : preview === "ios" ? "ios"
-            : /Android/i.test(ua) ? "android"
-            : /iPhone|iPad|iPod/i.test(ua) ? "ios"
-            : "other",
-        appName: realApp ?? (preview ? "Messenger" : "แอปนี้"),
-    };
-    return cachedDetection;
-}
-
-const subscribe = () => () => {};
-const getServerSnapshot = () => SERVER_SNAPSHOT;
+import { useInAppBrowser, openInExternalBrowser } from "@/lib/inAppBrowser";
 
 /**
  * Shown when the page is opened inside an in-app browser (LINE / Messenger /
@@ -47,19 +12,16 @@ const getServerSnapshot = () => SERVER_SNAPSHOT;
  * Plus a detailed how-to modal. Renders nothing in a normal browser.
  */
 export default function BrowserWarning() {
-    const { isInApp, platform, appName } = useSyncExternalStore(subscribe, getDetection, getServerSnapshot);
+    const { isInApp, platform, appName } = useInAppBrowser();
     const [showModal, setShowModal] = useState(false);
     const [dismissed, setDismissed] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    // Android only: hand the current URL to Chrome via an intent URL.
-    // If Chrome isn't installed, Android falls back to the normal https URL.
-    const openInChrome = () => {
-        const bare = window.location.href.replace(/^https?:\/\//, "");
-        window.location.href =
-            `intent://${bare}#Intent;scheme=https;package=com.android.chrome;` +
-            `S.browser_fallback_url=${encodeURIComponent(window.location.href)};end`;
-    };
+    // Hand the current page to the device's real browser — Chrome on Android, Safari
+    // on iOS (LINE honors the iOS jump; Meta's webview may ignore it, which is why the
+    // "คัดลอกลิงก์" button + manual steps below stay as the fallback).
+    const openInChrome = () => openInExternalBrowser(window.location.href, "android");
+    const openInSafari = () => openInExternalBrowser(window.location.href, "ios");
 
     const copyLink = async () => {
         const link = window.location.href;
@@ -117,6 +79,15 @@ export default function BrowserWarning() {
                             </button>
                         )}
 
+                        {platform === "ios" && (
+                            <button
+                                onClick={openInSafari}
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-white text-blue-600 rounded-xl font-bold text-base shadow-md hover:bg-blue-50 transition mb-2"
+                            >
+                                <ExternalLink className="w-5 h-5" /> เปิดใน Safari เลย
+                            </button>
+                        )}
+
                         <div className="flex flex-col sm:flex-row gap-2">
                             <button
                                 onClick={copyLink}
@@ -136,8 +107,8 @@ export default function BrowserWarning() {
 
                         {platform === "ios" && !copied && (
                             <p className="text-white/90 text-xs mt-3 leading-relaxed">
-                                💡 คัดลอกลิงก์แล้วเปิด <strong>Safari</strong> → วางในช่องค้นหา<br />
-                                หรือกดปุ่ม <strong>•••</strong> มุมขวาบน → <strong>&ldquo;เปิดในเบราว์เซอร์&rdquo;</strong>
+                                💡 ถ้าปุ่มไม่ทำงาน: กดปุ่ม <strong>•••</strong> มุมขวาบน → <strong>&ldquo;เปิดในเบราว์เซอร์&rdquo;</strong><br />
+                                หรือกด <strong>&ldquo;คัดลอกลิงก์&rdquo;</strong> แล้วเปิด <strong>Safari</strong> → วางในช่องค้นหา
                             </p>
                         )}
                         {copied && (
@@ -180,11 +151,11 @@ export default function BrowserWarning() {
                                 <ol className="space-y-3 text-slate-700 dark:text-slate-300">
                                     <li className="flex gap-3">
                                         <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
-                                        <span>กดปุ่ม <strong>•••</strong> หรือ <strong>⋯</strong> ที่มุมขวาบนของแอป {appName}</span>
+                                        <span>กดปุ่ม <strong className="text-blue-600 dark:text-blue-400">&ldquo;เปิดใน Safari เลย&rdquo;</strong> สีขาวด้านบน (กดครั้งเดียวเด้งเลย)</span>
                                     </li>
                                     <li className="flex gap-3">
                                         <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
-                                        <span>เลือก <strong className="text-blue-600 dark:text-blue-400">&ldquo;เปิดในเบราว์เซอร์&rdquo;</strong> หรือ <strong className="text-blue-600 dark:text-blue-400">&ldquo;Open in Safari&rdquo;</strong></span>
+                                        <span>ถ้าปุ่มไม่ทำงาน ให้กดปุ่ม <strong>•••</strong> หรือ <strong>⋯</strong> มุมขวาบนของแอป {appName} → เลือก <strong className="text-blue-600 dark:text-blue-400">&ldquo;เปิดในเบราว์เซอร์&rdquo;</strong> หรือ <strong className="text-blue-600 dark:text-blue-400">&ldquo;Open in Safari&rdquo;</strong></span>
                                     </li>
                                     <li className="flex gap-3">
                                         <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">3</span>
