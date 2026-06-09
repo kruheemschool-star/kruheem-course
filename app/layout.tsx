@@ -5,6 +5,7 @@ import { AuthContextProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Mitr, IBM_Plex_Sans_Thai_Looped } from 'next/font/google';
 import { DynamicVisitorTracker, DynamicChatWidget } from "@/components/ClientWrappers";
+import GooglePasswordBanner from "@/components/GooglePasswordBanner";
 
 const mitr = Mitr({
   weight: ['200', '300', '400', '500', '600', '700'],
@@ -118,6 +119,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthContextProvider>
             <DynamicVisitorTracker />
             {children}
+            <GooglePasswordBanner />
             {/* <DynamicChatWidget /> */}
           </AuthContextProvider>
         </ThemeProvider>

@@ -161,9 +161,14 @@ export default function AdminEnrollmentsPage() {
                     ← กลับหน้า Dashboard
                 </Link>
 
-                <div className="flex items-center gap-3 mb-8">
-                    <span className="text-3xl">💰</span>
-                    <h1 className="text-3xl font-black text-slate-800">ตรวจสอบการชำระเงิน <span className="text-base bg-orange-100 text-orange-600 px-3 py-1 rounded-full ml-2 align-middle">{enrollments.length} รายการ</span></h1>
+                <div className="flex items-center justify-between gap-3 mb-8 flex-wrap">
+                    <div className="flex items-center gap-3">
+                        <span className="text-3xl">💰</span>
+                        <h1 className="text-3xl font-black text-slate-800">ตรวจสอบการชำระเงิน <span className="text-base bg-orange-100 text-orange-600 px-3 py-1 rounded-full ml-2 align-middle">{enrollments.length} รายการ</span></h1>
+                    </div>
+                    <Link href="/admin/students/add" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition shadow-md shadow-indigo-200">
+                        <span className="text-lg">➕</span> เพิ่มนักเรียนเอง
+                    </Link>
                 </div>
 
                 {loading ? (
@@ -174,12 +179,15 @@ export default function AdminEnrollmentsPage() {
                             <div key={item.id} className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 flex flex-col md:flex-row gap-8 animate-in fade-in slide-in-from-bottom-4">
 
                                 {/* 1. ส่วนแสดงสลิป (ซ้าย) */}
-                                <div className="w-full md:w-1/3 bg-slate-100 rounded-3xl overflow-hidden border-4 border-white shadow-sm relative group cursor-pointer">
-                                    <a href={item.slipUrl} target="_blank" rel="noreferrer">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={item.slipUrl} alt="Slip" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white font-bold">🔍 คลิกเพื่อดูรูปใหญ่</div>
-                                    </a>
+                                <div className="w-full md:w-1/3 space-y-2">
+                                    {((item.slipUrls && item.slipUrls.length > 0 ? item.slipUrls : [item.slipUrl]) as string[]).filter(Boolean).map((url: string, i: number) => (
+                                        <a key={i} href={url} target="_blank" rel="noreferrer" className="block bg-slate-100 rounded-3xl overflow-hidden border-4 border-white shadow-sm relative group cursor-pointer">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={url} alt={`Slip ${i + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white font-bold">🔍 คลิกเพื่อดูรูปใหญ่</div>
+                                            {item.slipUrls && item.slipUrls.length > 1 && <span className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full font-bold">{i + 1}/{item.slipUrls.length}</span>}
+                                        </a>
+                                    ))}
                                 </div>
 
                                 {/* 2. ข้อมูลการสมัคร (ขวา) */}
