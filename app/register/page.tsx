@@ -7,7 +7,7 @@ import { Mail, Lock, AlertCircle, ArrowRight, Play, ArrowLeft } from "lucide-rea
 import BrowserWarning from "@/components/BrowserWarning";
 
 function RegisterContent() {
-    const { emailSignUp, googleSignIn } = useUserAuth();
+    const { emailSignUp } = useUserAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     const returnUrl = searchParams.get('returnUrl') || '/';
@@ -52,15 +52,6 @@ function RegisterContent() {
         }
     };
 
-    const handleGoogleSignIn = async () => {
-        try {
-            await googleSignIn();
-            router.push(returnUrl);
-        } catch (err: any) {
-            setError("Google Sign In Failed: " + err.message);
-        }
-    };
-
     return (
         <div className="min-h-screen flex items-center justify-center bg-cream p-4 font-sans">
             {/* Background Blobs */}
@@ -94,38 +85,6 @@ function RegisterContent() {
                 )}
 
                 <BrowserWarning />
-
-                {/* Google Sign-Up Section (Top Priority) */}
-                <div className="mb-8">
-                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 mb-4 text-center animate-in fade-in slide-in-from-top-4">
-                        <p className="text-indigo-900 text-sm font-bold">
-                            ✨ วิธีการสมัครที่สะดวกที่สุด
-                        </p>
-                        <p className="text-indigo-600 text-xs mt-1">
-                            คือการสมัครผ่านทาง Google (ถ้ามี Gmail)
-                        </p>
-                    </div>
-
-                    <button
-                        onClick={handleGoogleSignIn}
-                        className="w-full py-4 bg-white border-2 border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 text-slate-700 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center gap-3 group shadow-sm hover:shadow-md hover:-translate-y-1 active:scale-[0.98]"
-                    >
-                        <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Sign up with Google" className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                        สมัครด้วย Google
-                    </button>
-                </div>
-
-                {/* Divider */}
-                <div className="relative my-8 text-center">
-                    <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-slate-200"></div>
-                    </div>
-                    <div className="relative flex justify-center">
-                        <span className="bg-white/80 backdrop-blur px-4 text-xs text-slate-500 font-medium rounded-full">
-                            ถ้าไม่มี Gmail สามารถสมัครได้จากข้างล่าง
-                        </span>
-                    </div>
-                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="space-y-2">
@@ -211,24 +170,7 @@ function RegisterContent() {
                             <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
                         </summary>
                         <div className="p-4 pt-0 text-sm text-slate-600">
-                            เพื่อความปลอดภัยของบัญชีคุณ ระบบ Google Sign-In และการลงทะเบียนจะทำงานได้เฉพาะใน<strong>เบราว์เซอร์มาตรฐาน</strong> (Safari, Chrome, Firefox) และไม่รองรับการเปิดจากภายในแอปอื่นๆ เช่น LINE, Messenger
-                        </div>
-                    </details>
-
-                    <details className="group bg-slate-50 rounded-xl overflow-hidden">
-                        <summary className="cursor-pointer p-4 font-medium text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between">
-                            <span className="text-sm">✨ ลงทะเบียนด้วย Google ดีกว่าไหม?</span>
-                            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
-                        </summary>
-                        <div className="p-4 pt-0 text-sm text-slate-600 space-y-2">
-                            <p><strong>แนะนำให้ใช้ Google</strong> เพราะ:</p>
-                            <ul className="list-disc list-inside space-y-1 ml-2">
-                                <li>ไม่ต้องจำรหัสผ่าน</li>
-                                <li>เข้าสู่ระบบได้รวดเร็ว (1 คลิก)</li>
-                                <li>ปลอดภัยสูง</li>
-                                <li>กู้คืนบัญชีได้ง่าย</li>
-                            </ul>
-                            <p className="text-xs text-slate-500 mt-2">💡 แต่ถ้าไม่มี Gmail ก็สามารถใช้ Email/Password ได้เหมือนกัน</p>
+                            เพื่อความปลอดภัยของบัญชีคุณ การลงทะเบียนและการเข้าสู่ระบบจะทำงานได้เฉพาะใน<strong>เบราว์เซอร์มาตรฐาน</strong> (Safari, Chrome, Firefox) และไม่รองรับการเปิดจากภายในแอปอื่นๆ เช่น LINE, Messenger
                         </div>
                     </details>
 
@@ -238,19 +180,7 @@ function RegisterContent() {
                             <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
                         </summary>
                         <div className="p-4 pt-0 text-sm text-slate-600">
-                            ถ้าลงทะเบียนด้วย <strong>Email/Password</strong> และลืมรหัสผ่าน สามารถกดปุ่ม &quot;ลืมรหัสผ่าน?&quot; ในหน้าเข้าสู่ระบบ แล้วระบบจะส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลของคุณ<br/><br/>
-                            ถ้าลงทะเบียนด้วย <strong>Google</strong> ไม่ต้องกังวล เพราะใช้รหัสผ่าน Google โดยตรง
-                        </div>
-                    </details>
-
-                    <details className="group bg-slate-50 rounded-xl overflow-hidden">
-                        <summary className="cursor-pointer p-4 font-medium text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between">
-                            <span className="text-sm">🔄 สมัครด้วย Google แล้วเปลี่ยนเป็น Email ได้ไหม?</span>
-                            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
-                        </summary>
-                        <div className="p-4 pt-0 text-sm text-slate-600">
-                            ไม่ได้ครับ เมื่อสมัครด้วยวิธีใดแล้ว จะต้องใช้วิธีนั้นในการเข้าสู่ระบบตลอด<br/><br/>
-                            <strong>แนะนำ:</strong> เลือกวิธีที่สะดวกที่สุดสำหรับคุณตั้งแต่แรก (แนะนำ Google ถ้ามี Gmail)
+                            ถ้าลืมรหัสผ่าน สามารถกดปุ่ม &quot;ลืมรหัสผ่าน?&quot; ในหน้าเข้าสู่ระบบ แล้วระบบจะส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลของคุณได้เลย
                         </div>
                     </details>
                 </div>
