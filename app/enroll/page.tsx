@@ -8,6 +8,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
+import BrowserWarning from "@/components/BrowserWarning";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 /*
@@ -45,7 +46,7 @@ function uploadWithProgress(storageRef: ReturnType<typeof ref>, file: File, onPr
 type CourseDoc = { id: string; title: string; price?: number; fullPrice?: number; allowedExamLevel?: string | null; category?: string };
 
 export default function EnrollPage() {
-  const { user } = useUserAuth();
+  const { user, logOut } = useUserAuth();
 
   const [courses, setCourses] = useState<CourseDoc[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
@@ -135,6 +136,7 @@ export default function EnrollPage() {
       try {
         const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         uid = cred.user.uid;
+        await cred.user.getIdToken(); // ensure the auth token is attached before the Firestore writes below
         try { await updateProfile(cred.user, { displayName: fullName.trim() }); } catch { /* ignore */ }
       } catch (err) {
         const code = (err as { code?: string })?.code;
@@ -222,19 +224,31 @@ export default function EnrollPage() {
     );
   }
 
+  // This form is for NEW sign-ups. A logged-in user must log out first — creating a
+  // new account would otherwise silently switch them out of their current session
+  // (e.g. an admin testing this would get logged out of the admin area).
+  if (user) {
+    return orbWrap(
+      <div className="relative z-10 bg-white/70 dark:bg-slate-900/80 backdrop-blur-3xl border border-white/60 dark:border-slate-700/50 shadow-2xl rounded-[2.5rem] p-8 sm:p-10 w-full max-w-lg text-center text-slate-700 dark:text-slate-200">
+        <div className="text-5xl mb-4">👋</div>
+        <h1 className="text-2xl font-black text-slate-800 dark:text-white mb-2">คุณล็อกอินอยู่แล้ว</h1>
+        <p className="text-slate-500 dark:text-slate-400 mb-7">ฟอร์มนี้สำหรับ “สมัครบัญชีใหม่” เท่านั้น<br />ถ้าจะสมัครบัญชีใหม่ กรุณาออกจากระบบก่อน (กันไม่ให้สลับออกจากบัญชีปัจจุบัน)</p>
+        <div className="flex flex-col gap-3">
+          <button onClick={() => logOut()} className="w-full py-3.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold transition">ออกจากระบบ แล้วสมัครใหม่</button>
+          <Link href="/payment" className="text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-teal-600 transition">เพิ่มคอร์สให้บัญชีนี้ → หน้าจ่ายเงิน</Link>
+        </div>
+      </div>
+    );
+  }
+
   return orbWrap(
     <div className="relative z-10 bg-white/60 dark:bg-slate-900/80 backdrop-blur-3xl border border-white/60 dark:border-slate-700/50 shadow-2xl rounded-[2.5rem] p-6 sm:p-9 w-full max-w-2xl text-slate-700 dark:text-slate-200">
+      <BrowserWarning />
       <div className="text-center mb-7">
         <div className="inline-block p-3 rounded-2xl bg-white/50 dark:bg-slate-800/50 shadow-sm mb-3 text-3xl">📝</div>
         <h1 className="text-2xl sm:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-emerald-600 mb-1">ลงทะเบียน & แจ้งโอน</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm">กรอกฟอร์มเดียวจบ — สมัคร + เลือกคอร์ส + แนบสลิป</p>
       </div>
-
-      {user && (
-        <div className="mb-5 p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs">
-          คุณกำลังล็อกอินอยู่ — ฟอร์มนี้สำหรับ “สมัครใหม่” ถ้าจะเพิ่มคอร์สให้บัญชีเดิม แนะนำใช้หน้าจ่ายเงินปกติ
-        </div>
-      )}
 
       {error && (
         <div className="mb-5 p-3.5 bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-800 rounded-2xl text-rose-600 dark:text-rose-400 text-sm font-medium flex items-start gap-2">
