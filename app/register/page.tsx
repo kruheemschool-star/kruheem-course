@@ -1,22 +1,19 @@
 "use client";
 import { useState, Suspense } from "react";
 import { useUserAuth } from "@/context/AuthContext";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, AlertCircle, ArrowRight, Play, ArrowLeft } from "lucide-react";
 import BrowserWarning from "@/components/BrowserWarning";
 
 function RegisterContent() {
     const { emailSignUp } = useUserAuth();
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const returnUrl = searchParams.get('returnUrl') || '/';
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [done, setDone] = useState<null | { email: string; password: string }>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,7 +32,7 @@ function RegisterContent() {
         setLoading(true);
         try {
             await emailSignUp(email, password);
-            router.push(returnUrl); // Redirect to returnUrl or home
+            setDone({ email, password }); // show the success summary + แจ้งโอน hand-off
         } catch (err: any) {
             console.error(err);
             if (err.code === "auth/email-already-in-use") {
@@ -51,6 +48,63 @@ function RegisterContent() {
             setLoading(false);
         }
     };
+
+    // ✅ Success — summarise the new login, then hand off straight to the แจ้งโอน flow
+    if (done) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-cream p-4 font-sans">
+                {/* Background Blobs */}
+                <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute top-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-purple-200/30 rounded-full blur-[100px] mix-blend-multiply"></div>
+                    <div className="absolute bottom-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-indigo-200/30 rounded-full blur-[100px] mix-blend-multiply"></div>
+                </div>
+
+                <div className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white/50 p-8 md:p-12 relative z-10 animate-in fade-in zoom-in duration-500 text-center">
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-100 text-5xl mb-5">🎉</div>
+                    <h1 className="text-2xl sm:text-3xl font-black text-slate-800 mb-2">สมัครสมาชิกสำเร็จ!</h1>
+                    <p className="text-slate-500 mb-6 leading-relaxed">ยินดีต้อนรับสู่ KruHeem 🎊<br />เก็บข้อมูลเข้าสู่ระบบไว้นะครับ</p>
+
+                    <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 text-left space-y-4 mb-5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                <Mail size={18} className="text-indigo-500" />
+                            </div>
+                            <div className="min-w-0">
+                                <div className="text-xs text-slate-400 font-bold">อีเมล</div>
+                                <div className="font-bold text-slate-700 break-all">{done.email}</div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                                <Lock size={18} className="text-indigo-500" />
+                            </div>
+                            <div className="min-w-0">
+                                <div className="text-xs text-slate-400 font-bold">รหัสผ่าน</div>
+                                <div className="font-bold text-slate-700 break-all">{done.password}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl p-3 mb-6 text-left">
+                        <span className="text-base leading-none mt-0.5">📌</span>
+                        <p className="text-xs text-amber-700 leading-relaxed">
+                            ขั้นต่อไป: <strong>แจ้งโอนเงินค่าคอร์ส</strong> เพื่อให้ครูเปิดสิทธิ์เข้าเรียนให้นะครับ
+                        </p>
+                    </div>
+
+                    <Link
+                        href="/payment"
+                        className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
+                    >
+                        ไปแจ้งโอนเงิน <ArrowRight className="w-5 h-5" />
+                    </Link>
+                    <Link href="/my-courses" className="inline-block mt-4 text-sm font-bold text-slate-400 hover:text-indigo-600 transition-colors">
+                        ไว้ทีหลัง — เข้าหน้าเรียนของฉัน
+                    </Link>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-cream p-4 font-sans">
@@ -159,38 +213,6 @@ function RegisterContent() {
                         )}
                     </button>
                 </form>
-
-                {/* FAQ Section */}
-                <div className="mt-8 space-y-3">
-                    <h3 className="text-sm font-bold text-slate-700 text-center mb-4">คำถามที่พบบ่อย</h3>
-                    
-                    <details className="group bg-slate-50 rounded-xl overflow-hidden">
-                        <summary className="cursor-pointer p-4 font-medium text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between">
-                            <span className="text-sm">🤔 ทำไมต้องเปิดด้วย Safari/Chrome?</span>
-                            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
-                        </summary>
-                        <div className="p-4 pt-0 text-sm text-slate-600">
-                            เพื่อความปลอดภัยของบัญชีคุณ การลงทะเบียนและการเข้าสู่ระบบจะทำงานได้เฉพาะใน<strong>เบราว์เซอร์มาตรฐาน</strong> (Safari, Chrome, Firefox) และไม่รองรับการเปิดจากภายในแอปอื่นๆ เช่น LINE, Messenger
-                        </div>
-                    </details>
-
-                    <details className="group bg-slate-50 rounded-xl overflow-hidden">
-                        <summary className="cursor-pointer p-4 font-medium text-slate-700 hover:bg-slate-100 transition-colors flex items-center justify-between">
-                            <span className="text-sm">🔑 ลืมรหัสผ่านทำยังไง?</span>
-                            <span className="text-slate-400 group-open:rotate-180 transition-transform">▼</span>
-                        </summary>
-                        <div className="p-4 pt-0 text-sm text-slate-600">
-                            ถ้าลืมรหัสผ่าน สามารถกดปุ่ม &quot;ลืมรหัสผ่าน?&quot; ในหน้าเข้าสู่ระบบ แล้วระบบจะส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลของคุณได้เลย
-                        </div>
-                    </details>
-                </div>
-
-                <p className="mt-8 text-center text-slate-500 text-sm">
-                    มีบัญชีอยู่แล้ว?{" "}
-                    <Link href="/login" className="text-indigo-600 font-bold hover:underline">
-                        เข้าสู่ระบบ
-                    </Link>
-                </p>
             </div>
         </div>
     );
