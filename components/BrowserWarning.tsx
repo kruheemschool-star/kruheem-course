@@ -1,76 +1,147 @@
 "use client";
-import { useState, useEffect } from "react";
-import { AlertTriangle, X, ExternalLink, Smartphone } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
+import { X, Smartphone, Copy, Check, ExternalLink } from "lucide-react";
 
+type Platform = "ios" | "android" | "other";
+type Detection = { isInApp: boolean; platform: Platform; appName: string };
+
+const SERVER_SNAPSHOT: Detection = { isInApp: false, platform: "other", appName: "แอปนี้" };
+let cachedDetection: Detection | null = null;
+
+/** Detect the in-app browser once on the client; cache so the snapshot ref stays stable. */
+function getDetection(): Detection {
+    if (cachedDetection) return cachedDetection;
+    const ua = navigator.userAgent || navigator.vendor || "";
+    cachedDetection = {
+        isInApp: /Line|FBAN|FBAV|FB_IAB|Instagram|Twitter|TikTok/i.test(ua),
+        platform: /Android/i.test(ua) ? "android" : /iPhone|iPad|iPod/i.test(ua) ? "ios" : "other",
+        appName:
+            /Line/i.test(ua) ? "LINE"
+            : /FBAN|FBAV/i.test(ua) ? "Messenger"
+            : /FB_IAB/i.test(ua) ? "Facebook"
+            : /Instagram/i.test(ua) ? "Instagram"
+            : /Twitter/i.test(ua) ? "Twitter (X)"
+            : /TikTok/i.test(ua) ? "TikTok"
+            : "แอปนี้",
+    };
+    return cachedDetection;
+}
+
+const subscribe = () => () => {};
+const getServerSnapshot = () => SERVER_SNAPSHOT;
+
+/**
+ * Shown when the page is opened inside an in-app browser (LINE / Messenger /
+ * Facebook / Instagram / etc.) where Google login + some registration steps are
+ * unreliable. Gives the user a one-tap escape:
+ *  - Android: "เปิดใน Chrome" button → fires an intent:// that hands the URL to Chrome.
+ *  - iOS: a "คัดลอกลิงก์" button + clear instructions (Apple blocks auto-opening Safari).
+ * Plus a detailed how-to modal. Renders nothing in a normal browser.
+ */
 export default function BrowserWarning() {
-    const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+    const { isInApp, platform, appName } = useSyncExternalStore(subscribe, getDetection, getServerSnapshot);
     const [showModal, setShowModal] = useState(false);
     const [dismissed, setDismissed] = useState(false);
+    const [copied, setCopied] = useState(false);
 
-    useEffect(() => {
-        const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-        
-        const isLineApp = /Line/i.test(userAgent);
-        const isMessenger = /FBAN|FBAV/i.test(userAgent);
-        const isFacebook = /FB_IAB|FBAN/i.test(userAgent);
-        const isInstagram = /Instagram/i.test(userAgent);
-        const isTwitter = /Twitter/i.test(userAgent);
-        const isTikTok = /TikTok/i.test(userAgent);
-        
-        const inApp = isLineApp || isMessenger || isFacebook || isInstagram || isTwitter || isTikTok;
-        setIsInAppBrowser(inApp);
-    }, []);
-
-    const handleDismiss = () => {
-        setDismissed(true);
+    // Android only: hand the current URL to Chrome via an intent URL.
+    // If Chrome isn't installed, Android falls back to the normal https URL.
+    const openInChrome = () => {
+        const bare = window.location.href.replace(/^https?:\/\//, "");
+        window.location.href =
+            `intent://${bare}#Intent;scheme=https;package=com.android.chrome;` +
+            `S.browser_fallback_url=${encodeURIComponent(window.location.href)};end`;
     };
 
-    const getBrowserName = () => {
-        const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-        if (/Line/i.test(userAgent)) return "LINE";
-        if (/FBAN|FBAV/i.test(userAgent)) return "Messenger";
-        if (/FB_IAB|FBAN/i.test(userAgent)) return "Facebook";
-        if (/Instagram/i.test(userAgent)) return "Instagram";
-        if (/Twitter/i.test(userAgent)) return "Twitter";
-        if (/TikTok/i.test(userAgent)) return "TikTok";
-        return "แอปนี้";
+    const copyLink = async () => {
+        const link = window.location.href;
+        try {
+            await navigator.clipboard.writeText(link);
+            setCopied(true);
+        } catch {
+            // Fallback for webviews without the Clipboard API
+            const ta = document.createElement("textarea");
+            ta.value = link;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try { document.execCommand("copy"); setCopied(true); } catch { /* ignore */ }
+            document.body.removeChild(ta);
+        }
     };
 
-    if (!isInAppBrowser || dismissed) return null;
+    if (!isInApp || dismissed) return null;
+
+    const browserName = platform === "ios" ? "Safari" : "Chrome";
 
     return (
         <>
-            {/* Warning Banner */}
-            <div className="mb-6 p-4 bg-gradient-to-r from-rose-500 to-red-600 border-2 border-red-700 rounded-2xl shadow-lg animate-in slide-in-from-top-2">
+            {/* Action banner */}
+            <div className="mb-6 p-5 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl shadow-lg animate-in slide-in-from-top-2 relative">
+                <button
+                    onClick={() => setDismissed(true)}
+                    aria-label="ปิด"
+                    className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors"
+                >
+                    <X className="w-5 h-5" />
+                </button>
                 <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
-                        <AlertTriangle className="w-6 h-6 text-white" />
+                    <div className="flex-shrink-0 w-11 h-11 bg-white/25 rounded-full flex items-center justify-center">
+                        <Smartphone className="w-6 h-6 text-white" />
                     </div>
-                    <div className="flex-1">
-                        <h3 className="text-white font-bold text-lg mb-1">
-                            ⚠️ ไม่สามารถลงทะเบียนได้จาก {getBrowserName()}
+                    <div className="flex-1 min-w-0 pr-5">
+                        <h3 className="text-white font-bold text-lg leading-snug mb-1">
+                            เปิดในเบราว์เซอร์เพื่อสมัครให้สำเร็จ 📲
                         </h3>
-                        <p className="text-white/90 text-sm mb-3">
-                            เพื่อความปลอดภัย กรุณาเปิดลิงก์นี้ใน <span className="font-bold underline">Safari</span> หรือ <span className="font-bold underline">Chrome</span> แทน
+                        <p className="text-white/90 text-sm mb-4">
+                            ตอนนี้เปิดจาก <strong>{appName}</strong> อยู่ — เพื่อให้สมัครและเข้าสู่ระบบได้ครบถ้วน
+                            กรุณาเปิดหน้านี้ใน <strong>{browserName}</strong>
                         </p>
-                        <button
-                            onClick={() => setShowModal(true)}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-white text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors shadow-md"
-                        >
-                            <Smartphone className="w-4 h-4" />
-                            ดูวิธีเปิดด้วย Safari/Chrome
-                        </button>
+
+                        {platform === "android" && (
+                            <button
+                                onClick={openInChrome}
+                                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 bg-white text-orange-600 rounded-xl font-bold text-base shadow-md hover:bg-orange-50 transition mb-2"
+                            >
+                                <ExternalLink className="w-5 h-5" /> เปิดใน Chrome เลย
+                            </button>
+                        )}
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <button
+                                onClick={copyLink}
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white/15 border border-white/40 text-white rounded-xl font-bold text-sm hover:bg-white/25 transition"
+                            >
+                                {copied
+                                    ? <><Check className="w-4 h-4" /> คัดลอกลิงก์แล้ว!</>
+                                    : <><Copy className="w-4 h-4" /> คัดลอกลิงก์</>}
+                            </button>
+                            <button
+                                onClick={() => setShowModal(true)}
+                                className="inline-flex items-center justify-center px-4 py-2.5 text-white font-bold text-sm underline underline-offset-2 hover:text-white/80 transition-colors"
+                            >
+                                ดูวิธีแบบละเอียด
+                            </button>
+                        </div>
+
+                        {platform === "ios" && !copied && (
+                            <p className="text-white/90 text-xs mt-3 leading-relaxed">
+                                💡 คัดลอกลิงก์แล้วเปิด <strong>Safari</strong> → วางในช่องค้นหา<br />
+                                หรือกดปุ่ม <strong>•••</strong> มุมขวาบน → <strong>&ldquo;เปิดในเบราว์เซอร์&rdquo;</strong>
+                            </p>
+                        )}
+                        {copied && (
+                            <p className="text-white text-xs mt-3 font-medium leading-relaxed">
+                                ✅ คัดลอกแล้ว! เปิดแอป <strong>{browserName}</strong> แล้ววางลิงก์ในช่องค้นหาได้เลย
+                            </p>
+                        )}
                     </div>
-                    <button
-                        onClick={handleDismiss}
-                        className="flex-shrink-0 text-white/80 hover:text-white transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* Detailed how-to modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in slide-in-from-bottom-4">
@@ -101,20 +172,20 @@ export default function BrowserWarning() {
                                 <ol className="space-y-3 text-slate-700 dark:text-slate-300">
                                     <li className="flex gap-3">
                                         <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
-                                        <span><strong>กดค้าง</strong>ที่ลิงก์ในแอป {getBrowserName()}</span>
+                                        <span>กดปุ่ม <strong>•••</strong> หรือ <strong>⋯</strong> ที่มุมขวาบนของแอป {appName}</span>
                                     </li>
                                     <li className="flex gap-3">
                                         <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
-                                        <span>เลือก <strong className="text-blue-600 dark:text-blue-400">"เปิดใน Safari"</strong> หรือ <strong className="text-blue-600 dark:text-blue-400">"Open in Safari"</strong></span>
+                                        <span>เลือก <strong className="text-blue-600 dark:text-blue-400">&ldquo;เปิดในเบราว์เซอร์&rdquo;</strong> หรือ <strong className="text-blue-600 dark:text-blue-400">&ldquo;Open in Safari&rdquo;</strong></span>
                                     </li>
                                     <li className="flex gap-3">
                                         <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">3</span>
-                                        <span>หน้าเว็บจะเปิดใน Safari และสามารถลงทะเบียนได้แล้ว! ✅</span>
+                                        <span>หน้าเว็บจะเปิดใน Safari และสมัครได้แล้ว! ✅</span>
                                     </li>
                                 </ol>
                                 <div className="mt-4 p-3 bg-white/50 dark:bg-slate-800/50 rounded-xl">
                                     <p className="text-xs text-slate-600 dark:text-slate-400">
-                                        💡 <strong>ทางเลือก:</strong> คัดลอกลิงก์ → เปิด Safari → วางลิงก์ในช่องค้นหา
+                                        💡 <strong>หรือ:</strong> กดปุ่ม &ldquo;คัดลอกลิงก์&rdquo; ด้านบน → เปิด Safari → วางลิงก์ในช่องค้นหา
                                     </p>
                                 </div>
                             </div>
@@ -133,22 +204,17 @@ export default function BrowserWarning() {
                                 <ol className="space-y-3 text-slate-700 dark:text-slate-300">
                                     <li className="flex gap-3">
                                         <span className="flex-shrink-0 w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
-                                        <span><strong>กดค้าง</strong>ที่ลิงก์ในแอป {getBrowserName()}</span>
+                                        <span>กดปุ่ม <strong className="text-green-600 dark:text-green-400">&ldquo;เปิดใน Chrome เลย&rdquo;</strong> สีขาวด้านบน (กดครั้งเดียวเด้งเลย)</span>
                                     </li>
                                     <li className="flex gap-3">
                                         <span className="flex-shrink-0 w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
-                                        <span>เลือก <strong className="text-green-600 dark:text-green-400">"เปิดใน Chrome"</strong> หรือ <strong className="text-green-600 dark:text-green-400">"Open in Chrome"</strong></span>
+                                        <span>ถ้าปุ่มไม่ทำงาน ให้กดปุ่ม <strong>⋮</strong> มุมขวาบน → <strong className="text-green-600 dark:text-green-400">&ldquo;เปิดในเบราว์เซอร์&rdquo;</strong></span>
                                     </li>
                                     <li className="flex gap-3">
                                         <span className="flex-shrink-0 w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold">3</span>
-                                        <span>หน้าเว็บจะเปิดใน Chrome และสามารถลงทะเบียนได้แล้ว! ✅</span>
+                                        <span>หน้าเว็บจะเปิดใน Chrome และสมัครได้แล้ว! ✅</span>
                                     </li>
                                 </ol>
-                                <div className="mt-4 p-3 bg-white/50 dark:bg-slate-800/50 rounded-xl">
-                                    <p className="text-xs text-slate-600 dark:text-slate-400">
-                                        💡 <strong>ทางเลือก:</strong> กดปุ่ม ⋮ (มุมบนขวา) → "เปิดในเบราว์เซอร์ภายนอก"
-                                    </p>
-                                </div>
                             </div>
 
                             {/* Why? */}
@@ -158,8 +224,8 @@ export default function BrowserWarning() {
                                     ทำไมต้องเปิดด้วย Safari/Chrome?
                                 </h4>
                                 <p className="text-sm text-slate-700 dark:text-slate-300">
-                                    เพื่อความปลอดภัยของบัญชีคุณ ระบบ Google Sign-In และการลงทะเบียนจะทำงานได้เฉพาะใน<strong>เบราว์เซอร์มาตรฐาน</strong>เท่านั้น (Safari, Chrome, Firefox) 
-                                    และไม่รองรับการเปิดจากภายในแอปอื่นๆ เช่น LINE, Messenger, Facebook
+                                    การเปิดจากในแอป เช่น LINE, Messenger, Facebook บางครั้งทำให้การสมัครและแนบสลิปไม่สมบูรณ์
+                                    การเปิดด้วย<strong>เบราว์เซอร์มาตรฐาน</strong> (Safari, Chrome) จะทำให้ทุกขั้นตอนทำงานได้ครบถ้วนและปลอดภัย
                                 </p>
                             </div>
                         </div>
