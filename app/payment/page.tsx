@@ -54,6 +54,8 @@ export default function PaymentPage() {
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [slipFiles, setSlipFiles] = useState<File[]>([]);
   const [slipPreviews, setSlipPreviews] = useState<string[]>([]);
+  // Confirmation screen — set after a successful submit (snapshot of what was sent).
+  const [done, setDone] = useState<null | { courses: { title: string; price: number }[]; total: number; slipCount: number; couponCode: string | null }>(null);
 
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -361,8 +363,13 @@ export default function PaymentPage() {
         }
       }
 
-      alert("✅ แจ้งโอนเงินเรียบร้อย! ข้อมูลถูกส่งไปยัง Admin แล้วครับ");
-      router.push("/my-courses");
+      // Snapshot what was sent, then show the confirmation screen.
+      const orderedCourses = courses
+        .filter(c => selectedCourses.includes(c.id))
+        .map(c => ({ title: c.title || "คอร์ส", price: Number(c.price || 0) }));
+      slipPreviews.forEach(u => { if (u) URL.revokeObjectURL(u); });
+      setDone({ courses: orderedCourses, total: finalPrice, slipCount: slipFiles.length, couponCode: discount?.code || null });
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
 
     } catch (error: any) {
       console.error("Payment Error:", error);
@@ -421,6 +428,71 @@ export default function PaymentPage() {
     });
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center text-slate-500 dark:text-slate-400 dark:bg-slate-950">กำลังตรวจสอบสิทธิ์...</div>;
+
+  // ✅ Confirmation — what was just submitted, with the status + a way into คอร์สของฉัน
+  if (done) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
+        <Navbar />
+        <div className="relative flex-grow flex justify-center items-center p-4 overflow-hidden pt-24 pb-24">
+          <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-200 dark:bg-teal-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-60 dark:opacity-20"></div>
+          <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-lime-100 dark:bg-lime-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-70 dark:opacity-20"></div>
+
+          <div className="relative z-10 bg-white/60 dark:bg-slate-900/80 backdrop-blur-3xl border border-white/60 dark:border-slate-700/50 shadow-2xl rounded-[3rem] p-6 sm:p-10 w-full max-w-lg text-slate-700 dark:text-slate-200 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-5xl mb-5">🎉</div>
+            <h1 className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mb-2">แจ้งโอนเรียบร้อยแล้ว!</h1>
+            <p className="text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">ครูได้รับข้อมูลแล้ว กำลังตรวจสอบสลิปและจะเปิดสิทธิ์เข้าเรียนให้โดยเร็ว 🙏</p>
+
+            <div className="bg-white/50 dark:bg-slate-800/50 rounded-3xl p-5 border border-emerald-100 dark:border-emerald-900/50 text-left mb-5 space-y-4">
+              <div>
+                <div className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-2">คอร์สที่แจ้งโอน ({done.courses.length})</div>
+                <div className="space-y-2">
+                  {done.courses.map((c, i) => (
+                    <div key={i} className="flex justify-between items-center gap-3 bg-white/70 dark:bg-slate-800/70 p-3 rounded-2xl border border-white/50 dark:border-slate-700">
+                      <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{c.title}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">{c.price.toLocaleString()} บาท</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t-2 border-dashed border-emerald-100 dark:border-emerald-900/50 space-y-2">
+                {done.couponCode && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-400 dark:text-slate-500">โค้ดส่วนลด</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">🏷️ {done.couponCode}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 dark:text-slate-400 font-bold">ยอดที่แจ้งโอน</span>
+                  <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{done.total.toLocaleString()}.-</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400 dark:text-slate-500">สลิปที่แนบ</span>
+                  <span className="font-bold text-slate-600 dark:text-slate-300">🧾 {done.slipCount} รูป</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-xl p-3 mb-6 text-left">
+              <span className="text-base leading-none mt-0.5">⏳</span>
+              <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                คอร์สจะขึ้นสถานะ <strong>&ldquo;รออนุมัติ&rdquo;</strong> ในหน้าคอร์สของฉัน จนกว่าครูจะตรวจสลิปเสร็จ
+              </p>
+            </div>
+
+            <Link href="/my-courses" className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-teal-500/30 transition-all hover:scale-[1.02] active:scale-95">
+              เข้าสู่คอร์สเรียนของฉัน →
+            </Link>
+            <Link href="/" className="inline-block mt-4 text-sm font-bold text-slate-400 dark:text-slate-500 hover:text-teal-500 dark:hover:text-teal-400 transition-colors">
+              กลับหน้าหลัก
+            </Link>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
