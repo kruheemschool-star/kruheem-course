@@ -12,13 +12,15 @@ import { KeyRound, X, ArrowRight } from "lucide-react";
  * Dismissible for the session; reappears next session until they set a password.
  */
 export default function GooglePasswordBanner() {
-  const { user } = useUserAuth();
+  const { user, isAdmin } = useUserAuth();
   const pathname = usePathname();
   const [dismissed, setDismissed] = useState<boolean>(
     () => typeof window !== "undefined" && sessionStorage.getItem("gpw_banner_dismissed") === "1"
   );
 
   if (!user) return null;
+  // Admins log in with Google on purpose — never nag them to set a password.
+  if (isAdmin) return null;
   // Don't show on the set-password page itself or the auth pages.
   if (pathname === "/set-password" || pathname === "/login" || pathname === "/register") return null;
 

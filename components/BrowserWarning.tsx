@@ -12,17 +12,25 @@ let cachedDetection: Detection | null = null;
 function getDetection(): Detection {
     if (cachedDetection) return cachedDetection;
     const ua = navigator.userAgent || navigator.vendor || "";
+    // Test aid: ?preview_warning=android | ios | 1 forces the banner to show on any
+    // browser, so the look can be verified without opening inside Messenger/LINE.
+    const preview = /[?&]preview_warning=(android|ios|1)/.exec(window.location.search)?.[1];
+    const realApp =
+        /Line/i.test(ua) ? "LINE"
+        : /FBAN|FBAV/i.test(ua) ? "Messenger"
+        : /FB_IAB/i.test(ua) ? "Facebook"
+        : /Instagram/i.test(ua) ? "Instagram"
+        : /Twitter/i.test(ua) ? "Twitter (X)"
+        : /TikTok/i.test(ua) ? "TikTok"
+        : null;
     cachedDetection = {
-        isInApp: /Line|FBAN|FBAV|FB_IAB|Instagram|Twitter|TikTok/i.test(ua),
-        platform: /Android/i.test(ua) ? "android" : /iPhone|iPad|iPod/i.test(ua) ? "ios" : "other",
-        appName:
-            /Line/i.test(ua) ? "LINE"
-            : /FBAN|FBAV/i.test(ua) ? "Messenger"
-            : /FB_IAB/i.test(ua) ? "Facebook"
-            : /Instagram/i.test(ua) ? "Instagram"
-            : /Twitter/i.test(ua) ? "Twitter (X)"
-            : /TikTok/i.test(ua) ? "TikTok"
-            : "แอปนี้",
+        isInApp: !!preview || /Line|FBAN|FBAV|FB_IAB|Instagram|Twitter|TikTok/i.test(ua),
+        platform: preview === "android" ? "android"
+            : preview === "ios" ? "ios"
+            : /Android/i.test(ua) ? "android"
+            : /iPhone|iPad|iPod/i.test(ua) ? "ios"
+            : "other",
+        appName: realApp ?? (preview ? "Messenger" : "แอปนี้"),
     };
     return cachedDetection;
 }
