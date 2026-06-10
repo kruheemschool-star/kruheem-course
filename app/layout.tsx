@@ -3,7 +3,7 @@ import "./globals.css";
 // import dynamic from "next/dynamic"; // No longer needed here
 import { AuthContextProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { Mitr, IBM_Plex_Sans_Thai_Looped } from 'next/font/google';
+import { Mitr, IBM_Plex_Sans_Thai_Looped, Kanit, Sarabun } from 'next/font/google';
 import { DynamicVisitorTracker, DynamicChatWidget } from "@/components/ClientWrappers";
 import GooglePasswordBanner from "@/components/GooglePasswordBanner";
 
@@ -18,6 +18,21 @@ const ibmLoop = IBM_Plex_Sans_Thai_Looped({
   weight: ['100', '200', '300', '400', '500', '600', '700'],
   subsets: ['thai', 'latin'],
   variable: '--font-ibm-loop',
+  display: 'swap',
+});
+
+// Used only by the "Graph" theme on the /payment checkout page.
+const kanit = Kanit({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['thai', 'latin'],
+  variable: '--font-kanit',
+  display: 'swap',
+});
+
+const sarabun = Sarabun({
+  weight: ['300', '400', '500', '600', '700'],
+  subsets: ['thai', 'latin'],
+  variable: '--font-sarabun',
   display: 'swap',
 });
 
@@ -110,7 +125,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
       </head>
-      <body className={`${mitr.variable} ${ibmLoop.variable} font-sans`} suppressHydrationWarning>
+      <body className={`${mitr.variable} ${ibmLoop.variable} ${kanit.variable} ${sarabun.variable} font-sans`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

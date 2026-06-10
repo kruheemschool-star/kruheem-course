@@ -16,6 +16,9 @@ const COMPRESSION_TIMEOUT = 10_000; // 10 seconds max for compression
 const COMPRESSION_THRESHOLD = 2 * 1024 * 1024; // Only compress files > 2MB
 const MAX_SLIPS = 5; // attach up to 5 transfer slips
 
+const PHONE_RE = /^[0-9]{9,10}$/; // step-2 gate: 9–10 digit phone
+const STEP_LABELS = ["เลือกคอร์ส", "ข้อมูลผู้เรียน", "ชำระเงิน", "แนบสลิป"];
+
 /** Wrap imageCompression with a hard timeout to prevent hanging on mobile */
 async function compressWithTimeout(file: File, options: any, timeoutMs: number): Promise<File | Blob> {
   const compressionPromise = import('browser-image-compression').then(mod => mod.default(file, options));
@@ -73,6 +76,11 @@ export default function PaymentPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // --- Wizard UI state (presentation only) ---
+  const [step, setStep] = useState(1);                 // active step 1..4
+  const [maxStepReached, setMaxStepReached] = useState(1); // highest unlocked step
+  const [copied, setCopied] = useState<string | null>(null); // copy-to-clipboard feedback
 
   const categoryOrder: Record<string, number> = {
     "คอร์สสอบเข้า": 1,
@@ -427,453 +435,385 @@ export default function PaymentPage() {
       return a.title.localeCompare(b.title, 'th');
     });
 
+  // --- Wizard navigation (presentation only) ---
+  const phoneError = phoneNumber.trim().length > 0 && !PHONE_RE.test(phoneNumber.trim());
+  const canProceed: Record<number, boolean> = {
+    1: selectedCourses.length > 0,
+    2: fullName.trim().length > 0 && PHONE_RE.test(phoneNumber.trim()),
+    3: true,
+    4: slipFiles.length > 0,
+  };
+  const scrollTop = () => { if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const goNext = () => {
+    if (!canProceed[step]) return;
+    if (step < 4) { const n = step + 1; setStep(n); setMaxStepReached(m => Math.max(m, n)); scrollTop(); }
+  };
+  const goBack = () => { if (step > 1) { setStep(step - 1); scrollTop(); } };
+  const goToStep = (s: number) => { if (s <= maxStepReached) { setStep(s); scrollTop(); } };
+  const submitOrder = () => handleSubmit({ preventDefault() { } } as unknown as React.FormEvent);
+  const copyToClipboard = (text: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text)
+        .then(() => { setCopied(text); setTimeout(() => setCopied(null), 1400); })
+        .catch(() => { });
+    }
+  };
+
   if (authLoading) return <div className="min-h-screen flex items-center justify-center text-slate-500 dark:text-slate-400 dark:bg-slate-950">กำลังตรวจสอบสิทธิ์...</div>;
 
-  // ✅ Confirmation — what was just submitted, with the status + a way into คอร์สของฉัน
+  // ✅ Confirmation — graph-styled summary of what was just submitted.
   if (done) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
+      <div className="graph-theme min-h-screen flex flex-col">
         <Navbar />
-        <div className="relative flex-grow flex justify-center items-center p-4 overflow-hidden pt-24 pb-24">
-          <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-200 dark:bg-teal-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-60 dark:opacity-20"></div>
-          <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-lime-100 dark:bg-lime-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-70 dark:opacity-20"></div>
+        <main className="gp-bg flex-grow flex items-center justify-center px-[clamp(18px,4vw,40px)] pt-24 pb-24">
+          <div className="gp-card w-full max-w-lg p-8 sm:p-10 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full border-2 border-[var(--accent)] text-[color:var(--accent)] text-4xl mb-5">✓</div>
+            <h1 className="text-2xl sm:text-3xl font-medium text-[color:var(--ink)] mb-2">แจ้งโอนเรียบร้อยแล้ว!</h1>
+            <p className="text-[color:var(--ink-2)] mb-6 leading-relaxed">ครูได้รับข้อมูลแล้ว กำลังตรวจสอบสลิปและจะเปิดสิทธิ์เข้าเรียนให้โดยเร็ว 🙏</p>
 
-          <div className="relative z-10 bg-white/60 dark:bg-slate-900/80 backdrop-blur-3xl border border-white/60 dark:border-slate-700/50 shadow-2xl rounded-[3rem] p-6 sm:p-10 w-full max-w-lg text-slate-700 dark:text-slate-200 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-5xl mb-5">🎉</div>
-            <h1 className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mb-2">แจ้งโอนเรียบร้อยแล้ว!</h1>
-            <p className="text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">ครูได้รับข้อมูลแล้ว กำลังตรวจสอบสลิปและจะเปิดสิทธิ์เข้าเรียนให้โดยเร็ว 🙏</p>
-
-            <div className="bg-white/50 dark:bg-slate-800/50 rounded-3xl p-5 border border-emerald-100 dark:border-emerald-900/50 text-left mb-5 space-y-4">
+            <div className="rounded-[12px] border border-[var(--line)] bg-[var(--card-2)] p-5 text-left mb-5 space-y-4">
               <div>
-                <div className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-2">คอร์สที่แจ้งโอน ({done.courses.length})</div>
+                <div className="gp-eyebrow mb-2">คอร์สที่แจ้งโอน ({done.courses.length})</div>
                 <div className="space-y-2">
                   {done.courses.map((c, i) => (
-                    <div key={i} className="flex justify-between items-center gap-3 bg-white/70 dark:bg-slate-800/70 p-3 rounded-2xl border border-white/50 dark:border-slate-700">
-                      <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{c.title}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">{c.price.toLocaleString()} บาท</span>
+                    <div key={i} className="flex justify-between items-center gap-3 text-sm">
+                      <span className="text-[color:var(--ink)]">{c.title}</span>
+                      <span className="gp-num text-[color:var(--ink-2)] flex-shrink-0">฿{c.price.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="pt-3 border-t-2 border-dashed border-emerald-100 dark:border-emerald-900/50 space-y-2">
+              <div className="border-t border-dashed border-[var(--line-2)] pt-3 space-y-2">
                 {done.couponCode && (
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-400 dark:text-slate-500">โค้ดส่วนลด</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">🏷️ {done.couponCode}</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[color:var(--ink-2)]">โค้ดส่วนลด</span>
+                    <span className="font-semibold text-[color:var(--accent-deep)]">🎟️ {done.couponCode}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 dark:text-slate-400 font-bold">ยอดที่แจ้งโอน</span>
-                  <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{done.total.toLocaleString()}.-</span>
+                <div className="flex justify-between items-baseline">
+                  <span className="font-semibold text-[color:var(--ink)]">ยอดที่แจ้งโอน</span>
+                  <span className="gp-num text-2xl font-semibold text-[color:var(--accent-deep)]">฿{done.total.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400 dark:text-slate-500">สลิปที่แนบ</span>
-                  <span className="font-bold text-slate-600 dark:text-slate-300">🧾 {done.slipCount} รูป</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[color:var(--ink-2)]">สลิปที่แนบ</span>
+                  <span className="font-semibold text-[color:var(--ink)]">🧾 {done.slipCount} รูป</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-xl p-3 mb-6 text-left">
-              <span className="text-base leading-none mt-0.5">⏳</span>
-              <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+            <div className="flex items-start gap-2 rounded-[10px] border border-[var(--accent)]/25 bg-[var(--accent-soft)] p-3 mb-6 text-left">
+              <span className="leading-none mt-0.5">⏳</span>
+              <p className="text-xs text-[color:var(--accent-deep)] leading-relaxed">
                 คอร์สจะขึ้นสถานะ <strong>&ldquo;รออนุมัติ&rdquo;</strong> ในหน้าคอร์สของฉัน จนกว่าครูจะตรวจสลิปเสร็จ
               </p>
             </div>
 
-            <Link href="/my-courses" className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white font-bold text-lg rounded-2xl shadow-lg shadow-teal-500/30 transition-all hover:scale-[1.02] active:scale-95">
-              เข้าสู่คอร์สเรียนของฉัน →
-            </Link>
-            <Link href="/" className="inline-block mt-4 text-sm font-bold text-slate-400 dark:text-slate-500 hover:text-teal-500 dark:hover:text-teal-400 transition-colors">
-              กลับหน้าหลัก
-            </Link>
+            <Link href="/my-courses" className="gp-btn-primary block text-center text-lg">เข้าสู่คอร์สเรียนของฉัน →</Link>
+            <Link href="/" className="inline-block mt-4 text-sm font-semibold text-[color:var(--ink-2)] hover:text-[color:var(--accent)] transition-colors">กลับหน้าหลัก</Link>
           </div>
-        </div>
+        </main>
         <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
+    <div className="graph-theme min-h-screen flex flex-col">
       <Navbar />
+      <main className="gp-bg flex-grow pt-24 pb-28">
+        <div className="mx-auto w-full max-w-[1080px] px-[clamp(18px,4vw,40px)]">
 
-      {/* 🌿 Background Wrapper */}
-      <div className="relative flex-grow flex justify-center items-center p-4 overflow-hidden pt-24 pb-24">
-
-        {/* 🍃 Orbs */}
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-200 dark:bg-teal-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-60 dark:opacity-20 animate-pulse"></div>
-        <div className="absolute top-[30%] right-[-10%] w-[400px] h-[400px] bg-emerald-200 dark:bg-emerald-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-60 dark:opacity-20 animate-pulse delay-1000"></div>
-        <div className="absolute bottom-[-10%] left-[20%] w-[600px] h-[600px] bg-lime-100 dark:bg-lime-900 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-70 dark:opacity-20 animate-pulse delay-2000"></div>
-
-        {/* 💎 Glass Card */}
-        <div className="relative z-10 bg-white/60 dark:bg-slate-900/80 backdrop-blur-3xl border border-white/60 dark:border-slate-700/50 shadow-2xl rounded-[3rem] p-6 sm:p-10 w-full max-w-2xl text-slate-700 dark:text-slate-200">
-
-          <div className="text-center mb-8">
-            <div className="inline-block p-3 rounded-2xl bg-white/50 dark:bg-slate-800/50 shadow-sm mb-4 text-3xl">💳</div>
-            <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-emerald-600 mb-2">
-              ลงทะเบียน & แจ้งโอน
-            </h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">กรอกข้อมูลและแนบสลิปเพื่อเริ่มเรียนทันที</p>
+          {/* Hero */}
+          <div className="mb-1">
+            <div className="gp-eyebrow">ลงทะเบียนเรียน</div>
+            <h1 className="text-[clamp(28px,4.6vw,44px)] font-medium leading-tight text-[color:var(--ink)] mt-1">สมัครเรียน &amp; แจ้งชำระเงิน</h1>
+            <p className="text-[color:var(--ink-2)] mt-2">เลือกคอร์ส กรอกข้อมูล แล้วแนบสลิป — ใช้เวลาไม่กี่นาที</p>
           </div>
 
-          {coursesLoadError && (
-            <div className="mb-6 rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 px-5 py-4 text-rose-700 dark:text-rose-300 text-sm flex items-start gap-3">
-              <span className="text-xl leading-none">⚠️</span>
-              <span>{coursesLoadError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-8">
-
-            {/* 1. เลือกคอร์ส */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-baseline">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-200">1. เลือกคอร์สเรียน</label>
-                <span className="text-xs font-medium text-orange-500 bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded-lg border border-orange-100 dark:border-orange-800">* อย่างน้อย 1 คอร์ส</span>
-              </div>
-
-              {/* Segmented Control Buttons */}
-              <div className="flex flex-wrap gap-2">
-                {categories.map(cat => (
+          {/* Stepper */}
+          <nav className="flex items-center mt-8 mb-2" aria-label="ขั้นตอนการสมัคร">
+            {STEP_LABELS.map((label, i) => {
+              const n = i + 1;
+              const isActive = step === n;
+              const reached = n <= maxStepReached;
+              const isDone = reached && !isActive;
+              return (
+                <div key={n} className={`flex items-center ${n < 4 ? "flex-1" : ""} min-w-0`}>
                   <button
-                    key={cat}
                     type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-4 py-3 rounded-xl font-bold transition-all duration-200 ${selectedCategory === cat
-                        ? 'bg-teal-600 text-white shadow-lg shadow-teal-200'
-                        : 'bg-white/50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-white/80 dark:hover:bg-slate-700/60 hover:border-teal-300 dark:hover:border-teal-500'
-                      }`}
+                    onClick={() => goToStep(n)}
+                    disabled={!reached}
+                    aria-current={isActive ? "step" : undefined}
+                    className={`flex items-center gap-2.5 ${reached ? "cursor-pointer" : "cursor-default opacity-60"}`}
                   >
-                    {cat}
+                    <span className={`gp-step-node ${isActive ? "gp-step-node--active" : isDone ? "gp-step-node--done" : ""}`}>{isDone ? "✓" : n}</span>
+                    <span className={`text-sm font-semibold whitespace-nowrap ${isActive ? "text-[color:var(--ink)]" : "text-[color:var(--ink-2)] hidden sm:inline"}`}>{label}</span>
                   </button>
-                ))}
-              </div>
-
-              {/* Course List */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                {filteredCourses.length > 0 ? (
-                  filteredCourses.map((course) => (
-                    <div
-                      key={course.id}
-                      onClick={() => toggleCourse(course.id)}
-                      className={`p-4 rounded-2xl border transition-all duration-300 flex items-center gap-3 cursor-pointer group relative overflow-hidden
-                                            ${selectedCourses.includes(course.id)
-                          ? 'bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-                          : 'bg-white/40 dark:bg-slate-800/50 border-white/50 dark:border-slate-700 hover:bg-white/80 dark:hover:bg-slate-700/60 hover:scale-[1.02] hover:shadow-lg'}
-                                        `}
-                    >
-                      <div className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors
-                                            ${selectedCourses.includes(course.id) ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 dark:border-slate-600 group-hover:border-emerald-300'}`}>
-                        {selectedCourses.includes(course.id) && <span className="text-white text-xs font-bold">✓</span>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className={`font-bold text-sm block truncate ${selectedCourses.includes(course.id) ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-200'}`}>{course.title}</span>
-                        <div className="flex items-center gap-2">
-                          {course.fullPrice > 0 && (
-                            <span className="text-xs text-slate-300 dark:text-slate-500 line-through">฿{Number(course.fullPrice).toLocaleString()}</span>
-                          )}
-                          <span className="text-xs text-slate-400 dark:text-slate-400">{course.price?.toLocaleString()} บาท</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 text-center text-slate-400 dark:text-slate-500 py-6 bg-white/30 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-300 dark:border-slate-600">ไม่มีคอร์สในหมวดหมู่นี้</div>
-                )}
-              </div>
-
-              {/* ✅ ส่วนสรุปยอด + รายการที่เลือก (Bill Summary) */}
-              {selectedCourses.length > 0 && (
-                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-emerald-100 dark:border-emerald-900/50 rounded-3xl p-5 shadow-lg shadow-emerald-100/50 dark:shadow-none animate-in fade-in slide-in-from-bottom-4">
-                  <h3 className="text-emerald-800 dark:text-emerald-400 font-bold mb-3 flex items-center gap-2 text-sm">
-                    🛒 รายการที่เลือก ({selectedCourses.length})
-                  </h3>
-
-                  {/* Loop รายการสินค้า */}
-                  <div className="space-y-2 mb-4 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-                    {courses.filter(c => selectedCourses.includes(c.id)).map(course => (
-                      <div key={course.id} className="flex justify-between items-center bg-white/70 dark:bg-slate-800/70 p-3 rounded-2xl border border-white/50 dark:border-slate-700 shadow-sm">
-                        <div className="min-w-0 flex-1 mr-2">
-                          <div className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{course.title}</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">{Number(course.price).toLocaleString()} บาท</div>
-                        </div>
-                        {/* ปุ่มกากบาท (X) เพื่อลบ */}
-                        <button
-                          type="button"
-                          onClick={() => toggleCourse(course.id)}
-                          className="w-8 h-8 flex items-center justify-center bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-400 dark:text-red-300 hover:text-red-500 dark:hover:text-red-200 rounded-full transition-colors flex-shrink-0"
-                          title="เอาคอร์สนี้ออก"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* สรุปราคารวม */}
-                  <div className="pt-3 border-t-2 border-dashed border-emerald-100 dark:border-emerald-900/50 flex justify-between items-center">
-                    <span className="text-slate-500 dark:text-slate-400 font-bold">ยอดสุทธิ</span>
-                    <span className="text-2xl font-black text-emerald-600 tracking-tight">{totalPrice.toLocaleString()}.-</span>
-                  </div>
+                  {n < 4 && <span className={`flex-1 h-[2px] mx-2 sm:mx-3 rounded ${n < step ? "bg-[var(--accent)]" : "bg-[var(--line-2)]"}`} />}
                 </div>
-              )}
-            </div>
+              );
+            })}
+          </nav>
 
-            {/* 2. ข้อมูลผู้เรียน */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-baseline">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-200">2. ข้อมูลผู้เรียน</label>
-                <span className="text-xs font-medium text-orange-500">* จำเป็น</span>
-              </div>
+          {/* 2-column: form + sticky summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1.55fr_1fr] gap-[30px] mt-6 items-start">
 
-              <input
-                type="text"
-                placeholder="ชื่อ-นามสกุล"
-                required
-                className="w-full p-4 bg-white/50 dark:bg-slate-800/60 border border-white/60 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-teal-400/50 focus:bg-white/80 dark:focus:bg-slate-800 transition font-medium text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-              />
+            {/* ── Form panel ── */}
+            <section className="gp-card p-6 sm:p-8">
+              <div key={step} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
 
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="tel"
-                  placeholder="เบอร์โทรศัพท์"
-                  required
-                  className="w-full p-4 bg-white/50 dark:bg-slate-800/60 border border-white/60 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-teal-400/50 focus:bg-white/80 dark:focus:bg-slate-800 transition font-medium text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
-                  value={phoneNumber}
-                  onChange={e => setPhoneNumber(e.target.value)}
-                />
-                <input
-                  type="text"
-                  placeholder="LINE ID (ถ้ามี)"
-                  className="w-full p-4 bg-white/50 dark:bg-slate-800/60 border border-white/60 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-teal-400/50 focus:bg-white/80 dark:focus:bg-slate-800 transition font-medium text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
-                  value={lineId}
-                  onChange={e => setLineId(e.target.value)}
-                />
-              </div>
-            </div>
+                {/* STEP 1 — Courses */}
+                {step === 1 && (
+                  <div>
+                    <div className="gp-eyebrow mb-1">ขั้นที่ 1</div>
+                    <h2 className="text-2xl font-medium text-[color:var(--ink)] mb-1">เลือกคอร์สเรียน</h2>
+                    <p className="text-sm text-[color:var(--ink-2)] mb-5">เลือกได้หลายคอร์ส</p>
 
-            {/* 3. QR Code & Slip */}
-            <div className="space-y-4">
+                    {coursesLoadError && (
+                      <div className="mb-4 rounded-[10px] border border-[var(--bad)] bg-[var(--bad)]/5 px-4 py-3 text-sm text-[color:var(--bad)] flex items-start gap-2">
+                        <span>⚠️</span><span>{coursesLoadError}</span>
+                      </div>
+                    )}
 
-              <div className="relative overflow-hidden bg-gradient-to-br from-white/90 to-white/70 dark:from-slate-800/90 dark:to-slate-800/70 rounded-3xl p-8 border border-white dark:border-slate-700 shadow-lg backdrop-blur-sm">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-teal-400 via-emerald-400 to-lime-400"></div>
-
-                <h3 className="text-teal-900 dark:text-teal-300 font-black mb-6 flex items-center justify-center gap-2 text-lg">
-                  <span className="text-2xl">💳</span> ช่องทางการชำระเงิน
-                </h3>
-
-                {/* QR Code Section */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-md border border-slate-100 dark:border-slate-700 mb-6">
-                  <div className="flex flex-col items-center">
-                    <div className="w-64 h-64 sm:w-80 sm:h-80 bg-white p-3 rounded-2xl shadow-inner border-2 border-slate-100 dark:border-slate-700 mb-4">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src="/qrcode.png"
-                        alt="QR Code พร้อมเพย์"
-                        className="w-full h-full object-contain rounded-xl"
-                      />
-                    </div>
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-50 dark:bg-teal-900/30 rounded-xl border border-teal-100 dark:border-teal-800">
-                      <span className="text-teal-600 dark:text-teal-400 font-bold text-sm">📱 สแกน QR Code เพื่อชำระ</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bank Details */}
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl p-6 border border-emerald-100 dark:border-emerald-800/50">
-                  <h4 className="text-emerald-800 dark:text-emerald-400 font-bold mb-4 text-center flex items-center justify-center gap-2">
-                    <span>🏦</span> รายละเอียดบัญชี
-                  </h4>
-
-                  <div className="space-y-3">
-                    {/* Account Holder */}
-                    <div className="bg-white/80 dark:bg-slate-800/60 rounded-xl p-4 border border-white dark:border-slate-700 shadow-sm">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">ชื่อบัญชี</div>
-                      <div className="text-slate-800 dark:text-slate-100 font-bold text-lg">นายสุเทพ โชติมานิต</div>
+                    {/* Category tabs */}
+                    <div className="flex gap-4 border-b border-[var(--line)] mb-4 overflow-x-auto custom-scrollbar">
+                      {categories.map(cat => (
+                        <button key={cat} type="button" onClick={() => setSelectedCategory(cat)} className={`gp-tab ${selectedCategory === cat ? "gp-tab--active" : ""}`}>{cat}</button>
+                      ))}
                     </div>
 
-                    {/* PromptPay */}
-                    <div className="bg-white/80 dark:bg-slate-800/60 rounded-xl p-4 border border-white dark:border-slate-700 shadow-sm">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">พร้อมเพย์</div>
-                      <div className="text-teal-600 dark:text-teal-400 font-black text-xl tracking-wide">082-705-7440</div>
-                    </div>
-
-                    {/* Bank Account */}
-                    <div className="bg-white/80 dark:bg-slate-800/60 rounded-xl p-4 border border-white dark:border-slate-700 shadow-sm">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">ธนาคารกสิกรไทย (ออมทรัพย์)</div>
-                      <div className="text-emerald-600 dark:text-emerald-400 font-black text-xl tracking-wider">391-2-78364-1</div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">สาขา: เซ็นทรัลรัตนาธิเบศร์</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Amount to Pay */}
-                <div className="mt-6 text-center">
-                  <div className="flex flex-col gap-4 mb-4">
-                    {/* Coupon Input */}
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="กรอกโค้ดส่วนลด (ถ้ามี)"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        className="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:font-normal dark:placeholder:text-slate-500"
-                        disabled={!!discount}
-                      />
-                      {discount ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setDiscount(null);
-                            setCouponCode("");
-                          }}
-                          className="px-4 py-2 bg-red-100 dark:bg-red-950/40 text-red-500 dark:text-red-300 font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/40 transition"
-                        >
-                          ยกเลิก
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleApplyCoupon}
-                          className="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition"
-                          disabled={!couponCode.trim()}
-                        >
-                          ใช้โค้ด
-                        </button>
+                    {/* Course rows */}
+                    <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+                      {filteredCourses.length > 0 ? filteredCourses.map(course => {
+                        const sel = selectedCourses.includes(course.id);
+                        return (
+                          <button
+                            key={course.id}
+                            type="button"
+                            onClick={() => toggleCourse(course.id)}
+                            className={`w-full text-left flex items-center gap-3 p-4 rounded-[12px] border transition-all duration-200 ${sel ? "border-[var(--accent)] bg-gradient-to-r from-[var(--accent-soft)] to-transparent" : "border-[var(--line)] bg-[var(--card)] hover:border-[var(--line-2)] hover:translate-x-[3px]"}`}
+                          >
+                            <span className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center text-xs font-bold ${sel ? "bg-[var(--accent)] border-[var(--accent)] text-white" : "border-[var(--line-2)] text-transparent"}`}>{sel ? "✓" : ""}</span>
+                            <span className="flex-1 min-w-0">
+                              <span className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-[15px] text-[color:var(--ink)]">{course.title}</span>
+                                {course.tag && <span className="gp-pill">{course.tag}</span>}
+                              </span>
+                              {course.meta && <span className="block text-xs text-[color:var(--ink-2)] mt-0.5">{course.meta}</span>}
+                            </span>
+                            <span className="text-right flex-shrink-0">
+                              {course.fullPrice > 0 && <span className="block text-xs text-[color:var(--ink-2)] line-through">฿{Number(course.fullPrice).toLocaleString()}</span>}
+                              <span className="gp-num font-semibold text-[color:var(--accent-deep)]">฿{Number(course.price || 0).toLocaleString()}</span>
+                            </span>
+                          </button>
+                        );
+                      }) : (
+                        <div className="text-center text-[color:var(--ink-2)] py-8 rounded-[12px] border border-dashed border-[var(--line-2)]">ไม่มีคอร์สในหมวดนี้</div>
                       )}
                     </div>
 
-                    {discount && (
-                      <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 p-3 rounded-xl flex justify-between items-center text-emerald-700 dark:text-emerald-400 animate-in fade-in slide-in-from-top-2">
-                        <span className="text-sm font-bold flex items-center gap-2">
-                          🏷️ ใช้โค้ดส่วนลด {discount.code}
-                        </span>
-                        <span className="font-black">- ฿{discount.amount.toLocaleString()}</span>
+                    {/* mini-summary */}
+                    {selectedCourses.length > 0 && (
+                      <div className="mt-4 flex items-center justify-between rounded-[10px] bg-[var(--card-2)] border border-[var(--line)] px-4 py-3">
+                        <span className="text-sm text-[color:var(--ink-2)]">เลือกแล้ว <strong className="text-[color:var(--ink)]">{selectedCourses.length}</strong> คอร์ส</span>
+                        <span className="gp-num font-semibold text-[color:var(--accent-deep)]">฿{totalPrice.toLocaleString()}</span>
                       </div>
                     )}
                   </div>
+                )}
 
-                  <div className="inline-flex flex-col items-center gap-1 px-8 py-5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-[2rem] shadow-xl shadow-emerald-200 w-full relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                {/* STEP 2 — Info */}
+                {step === 2 && (
+                  <div>
+                    <div className="gp-eyebrow mb-1">ขั้นที่ 2</div>
+                    <h2 className="text-2xl font-medium text-[color:var(--ink)] mb-1">ข้อมูลผู้เรียน</h2>
+                    <p className="text-sm text-[color:var(--ink-2)] mb-5">กรอกข้อมูลสำหรับติดต่อกลับ</p>
 
-                    {discount && (
-                      <span className="text-emerald-100 text-sm font-bold line-through decoration-emerald-200/60 decoration-2">฿{totalPrice.toLocaleString()}</span>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[13px] font-semibold mb-1.5 text-[color:var(--ink)]">ชื่อ–นามสกุล <span className="text-[color:var(--bad)]">*</span></label>
+                        <input type="text" className="gp-input" placeholder="เช่น เด็กชายสมชาย ใจดี" value={fullName} onChange={e => setFullName(e.target.value)} />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[13px] font-semibold mb-1.5 text-[color:var(--ink)]">เบอร์โทรศัพท์ <span className="text-[color:var(--bad)]">*</span></label>
+                          <input type="tel" inputMode="numeric" className={`gp-input ${phoneError ? "gp-input--error" : ""}`} placeholder="0812345678" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} />
+                          {phoneError && <p className="text-xs text-[color:var(--bad)] mt-1">กรอกเบอร์ 9–10 หลัก</p>}
+                        </div>
+                        <div>
+                          <label className="block text-[13px] font-semibold mb-1.5 text-[color:var(--ink)]">LINE ID <span className="font-normal text-[color:var(--ink-2)]">(ถ้ามี)</span></label>
+                          <input type="text" className="gp-input" placeholder="@yourline" value={lineId} onChange={e => setLineId(e.target.value)} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 3 — Payment */}
+                {step === 3 && (
+                  <div>
+                    <div className="gp-eyebrow mb-1">ขั้นที่ 3</div>
+                    <h2 className="text-2xl font-medium text-[color:var(--ink)] mb-1">ชำระเงิน</h2>
+                    <p className="text-sm text-[color:var(--ink-2)] mb-5">สแกน QR หรือโอนเข้าบัญชี แล้วไปขั้นถัดไปเพื่อแนบสลิป</p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* QR card */}
+                      <div className="rounded-[12px] border border-[var(--line)] bg-[var(--card-2)] p-5 flex flex-col items-center">
+                        <div className="w-[188px] h-[188px] bg-white rounded-[10px] border border-[var(--line)] p-2 shadow-[var(--gp-shadow-sm)]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src="/qrcode.png" alt="QR พร้อมเพย์" className="w-full h-full object-contain rounded-md" />
+                        </div>
+                        <div className="gp-eyebrow mt-3">พร้อมเพย์ · PromptPay</div>
+                        <div className="text-sm font-semibold text-[color:var(--ink)] mt-1">นายสุเทพ โชติมานิต</div>
+                      </div>
+
+                      {/* Account numbers */}
+                      <div className="space-y-3">
+                        {[
+                          { label: "พร้อมเพย์", value: "082-705-7440" },
+                          { label: "กสิกรไทย (ออมทรัพย์)", value: "391-2-78364-1", note: "สาขา เซ็นทรัลรัตนาธิเบศร์" },
+                        ].map(acc => (
+                          <div key={acc.value} className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] p-4">
+                            <div className="text-xs text-[color:var(--ink-2)] font-semibold mb-1">{acc.label}</div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="gp-num text-lg font-semibold text-[color:var(--accent-deep)] tracking-wide">{acc.value}</span>
+                              <button type="button" onClick={() => copyToClipboard(acc.value)} className="gp-chip cursor-pointer hover:brightness-95 transition">
+                                {copied === acc.value ? "✓ คัดลอกแล้ว" : "คัดลอก"}
+                              </button>
+                            </div>
+                            {acc.note && <div className="text-xs text-[color:var(--ink-2)] mt-1">{acc.note}</div>}
+                          </div>
+                        ))}
+                        <div className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] p-4">
+                          <div className="text-xs text-[color:var(--ink-2)] font-semibold mb-1">ชื่อบัญชี</div>
+                          <div className="text-base font-semibold text-[color:var(--ink)]">นายสุเทพ โชติมานิต</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 4 — Slip */}
+                {step === 4 && (
+                  <div>
+                    <div className="gp-eyebrow mb-1">ขั้นที่ 4</div>
+                    <h2 className="text-2xl font-medium text-[color:var(--ink)] mb-1">แนบหลักฐานการโอน</h2>
+                    <p className="text-sm text-[color:var(--ink-2)] mb-5">แนบสลิปได้หลายรูป • สูงสุด {MAX_SLIPS}</p>
+
+                    {slipError && (
+                      <div className="mb-4 rounded-[10px] border border-[var(--bad)] bg-[var(--bad)]/5 px-4 py-3 text-sm font-semibold text-[color:var(--bad)] flex items-center gap-2"><span>⚠️</span> {slipError}</div>
                     )}
 
-                    <span className="text-white/90 text-xs font-bold uppercase tracking-wider mb-1">ยอดที่ต้องชำระสุทธิ</span>
-                    <span className="text-white font-black text-4xl tracking-tight leading-none">
-                      {finalPrice.toLocaleString()} <span className="text-lg font-bold opacity-80">บาท</span>
-                    </span>
+                    <input type="file" accept="image/*" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" id="slip-upload" />
+
+                    {slipPreviews.length > 0 && (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
+                        {slipPreviews.map((src, i) => (
+                          <div key={i} className="relative aspect-square rounded-[10px] overflow-hidden border-2 border-[var(--accent)]/40 bg-[var(--card-2)]">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={src} alt={`สลิป ${i + 1}`} className="w-full h-full object-cover" />
+                            <button type="button" onClick={() => removeSlip(i)} title="ลบสลิปนี้" className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-[var(--bad)] text-white text-sm flex items-center justify-center shadow hover:brightness-110 transition">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {slipFiles.length > 0 && (
+                      <div className="flex items-center gap-2 text-sm font-semibold text-[color:var(--good)] mb-3"><span>✓</span> แนบสลิปแล้ว {slipFiles.length} รูป</div>
+                    )}
+
+                    {slipFiles.length < MAX_SLIPS && (
+                      <div ref={dropZoneRef} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                        <label htmlFor="slip-upload" className={`gp-dropzone ${isDragging ? "gp-dropzone--drag" : ""} flex flex-col items-center justify-center gap-2 cursor-pointer ${slipPreviews.length > 0 ? "h-28" : "h-48"}`}>
+                          {isCompressing ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="w-9 h-9 border-[3px] border-[var(--accent)] border-t-transparent rounded-full animate-spin"></div>
+                              <span className="text-sm font-semibold text-[color:var(--accent-deep)]">กำลังบีบอัดรูป...</span>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="w-11 h-11 rounded-full bg-[var(--accent-soft)] text-[color:var(--accent)] flex items-center justify-center text-xl font-bold">↑</div>
+                              <span className="font-semibold text-[color:var(--ink)]">{slipPreviews.length > 0 ? "+ เพิ่มสลิปอีก" : "คลิกเพื่ออัปโหลดสลิป"}</span>
+                              <span className="text-xs text-[color:var(--ink-2)]">ถ่ายรูป / ลากวาง / Ctrl+V</span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Nav buttons */}
+              <div className="flex items-center gap-3 mt-7 pt-6 border-t border-[var(--line)]">
+                {step > 1 && (
+                  <button type="button" onClick={goBack} className="gp-btn-ghost">← ย้อนกลับ</button>
+                )}
+                {step < 4 ? (
+                  <button type="button" onClick={goNext} disabled={!canProceed[step]} className="gp-btn-primary ml-auto">ถัดไป →</button>
+                ) : (
+                  <button type="button" onClick={submitOrder} disabled={isSubmitting || isCompressing || !canProceed[4]} className="gp-btn-primary ml-auto relative overflow-hidden">
+                    {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
+                      <span className="absolute inset-y-0 left-0 bg-white/25" style={{ width: `${uploadProgress}%` }} />
+                    )}
+                    <span className="relative">{isSubmitting ? `${submitStatus}${uploadProgress > 0 && uploadProgress < 100 ? ` (${uploadProgress}%)` : ''}` : "ยืนยันการแจ้งโอน →"}</span>
+                  </button>
+                )}
+              </div>
+            </section>
+
+            {/* ── Sticky order summary ── */}
+            <aside className="lg:sticky lg:top-6">
+              <div className="gp-card p-5">
+                <h3 className="font-medium text-lg text-[color:var(--ink)] mb-3">สรุปคำสั่งซื้อ</h3>
+
+                {selectedCourses.length === 0 ? (
+                  <p className="text-sm text-[color:var(--ink-2)] py-4 text-center">ยังไม่ได้เลือกคอร์ส</p>
+                ) : (
+                  <div className="space-y-2 mb-4 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                    {courses.filter(c => selectedCourses.includes(c.id)).map(c => (
+                      <div key={c.id} className="flex justify-between items-start gap-2 text-sm">
+                        <span className="text-[color:var(--ink)] flex-1 min-w-0">{c.title}</span>
+                        <span className="gp-num text-[color:var(--ink-2)] flex-shrink-0">฿{Number(c.price || 0).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Coupon + totals */}
+                <div className="border-t border-[var(--line)] pt-4">
+                  {discount ? (
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="gp-chip">🎟️ {discount.code} · ลด ฿{discount.amount.toLocaleString()}</span>
+                      <button type="button" onClick={() => { setDiscount(null); setCouponCode(""); }} className="text-xs font-semibold text-[color:var(--bad)] hover:underline">ลบ</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 mb-3">
+                      <input type="text" className="gp-input flex-1 !py-2.5 text-sm" placeholder="กรอกโค้ดส่วนลด (ถ้ามี)" value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} />
+                      <button type="button" onClick={handleApplyCoupon} disabled={!couponCode.trim()} className="gp-btn-primary !px-4 !py-2.5 text-sm">ใช้</button>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between"><span className="text-[color:var(--ink-2)]">ราคารวม</span><span className="gp-num text-[color:var(--ink)]">฿{totalPrice.toLocaleString()}</span></div>
+                    {discount && <div className="flex justify-between"><span className="text-[color:var(--ink-2)]">ส่วนลด</span><span className="gp-num text-[color:var(--good)]">−฿{discount.amount.toLocaleString()}</span></div>}
+                    <div className="flex justify-between items-baseline pt-2 mt-1 border-t border-dashed border-[var(--line-2)]">
+                      <span className="font-semibold text-[color:var(--ink)]">ยอดสุทธิ</span>
+                      <span className="gp-num text-2xl font-semibold text-[color:var(--accent-deep)]">฿{finalPrice.toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
               </div>
+            </aside>
+          </div>
 
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-200">
-                3. แนบหลักฐานการโอน (สลิป) <span className="font-normal text-slate-400">(แนบได้หลายรูป • สูงสุด {MAX_SLIPS})</span>
-              </label>
-
-              {/* Error message */}
-              {slipError && (
-                <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-300 text-sm font-bold px-4 py-3 rounded-2xl flex items-center gap-2">
-                  <span>⚠️</span> {slipError}
-                </div>
-              )}
-
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                id="slip-upload"
-              />
-
-              {/* Thumbnails of attached slips */}
-              {slipPreviews.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {slipPreviews.map((src, i) => (
-                    <div key={i} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-emerald-200 dark:border-emerald-800 bg-white/40 dark:bg-slate-800/40 shadow-sm">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={src} alt={`สลิป ${i + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => removeSlip(i)}
-                        className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-red-500/90 text-white text-sm flex items-center justify-center shadow-lg hover:bg-red-600 transition"
-                        title="ลบสลิปนี้"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Upload / add-more drop zone */}
-              {slipFiles.length < MAX_SLIPS && (
-                <div
-                  ref={dropZoneRef}
-                  className="relative group"
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                >
-                  <label
-                    htmlFor="slip-upload"
-                    className={`w-full ${slipPreviews.length > 0 ? 'h-28' : 'h-48'} border-2 border-dashed rounded-3xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all duration-300 shadow-sm backdrop-blur-sm
-                      ${isCompressing
-                        ? 'border-amber-300 bg-amber-50/30 dark:bg-amber-900/10'
-                        : isDragging
-                          ? 'border-teal-400 bg-teal-50/30 dark:bg-teal-900/20 scale-[1.02]'
-                          : 'bg-white/40 dark:bg-slate-800/40 border-teal-200/50 dark:border-slate-600 hover:bg-white/60 dark:hover:bg-slate-700/40 hover:border-teal-400 text-slate-400 dark:text-slate-400 hover:text-teal-500 hover:scale-[1.01]'
-                      }`}
-                  >
-                    {isCompressing ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-10 h-10 border-[3px] border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="font-bold text-amber-600 text-sm">กำลังบีบอัดรูปภาพ...</span>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center text-2xl group-hover:rotate-12 transition-transform">🧾</div>
-                        <span className="font-bold">{slipPreviews.length > 0 ? '+ เพิ่มสลิปอีก' : 'คลิกเพื่ออัปโหลดสลิป'}</span>
-                        <span className="text-xs text-slate-300 dark:text-slate-500 font-medium">ถ่ายรูป / ลากวาง / Ctrl+V • แนบได้หลายรูป</span>
-                      </>
-                    )}
-                  </label>
-                </div>
-              )}
-
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting || isCompressing}
-              className="w-full py-5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white font-bold text-xl rounded-[1.5rem] shadow-lg shadow-teal-500/30 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none relative overflow-hidden group"
-            >
-              {/* Progress bar background */}
-              {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
-                <div
-                  className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-300 ease-out"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              )}
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-              <span className="relative">
-                {isSubmitting
-                  ? `⏳ ${submitStatus}${uploadProgress > 0 && uploadProgress < 100 ? ` (${uploadProgress}%)` : ''}`
-                  : '✨ ยืนยันการแจ้งโอน'}
-              </span>
-            </button>
-
-            <Link href="/" className="block text-center text-slate-400 dark:text-slate-500 font-bold hover:text-teal-500 dark:hover:text-teal-400 transition text-sm">ยกเลิก / กลับหน้าหลัก</Link>
-          </form>
+          <div className="text-center mt-8">
+            <Link href="/" className="text-sm font-semibold text-[color:var(--ink-2)] hover:text-[color:var(--accent)] transition-colors">ยกเลิกและกลับหน้าหลัก</Link>
+          </div>
         </div>
-      </div>
+      </main>
       <Footer />
     </div>
   );

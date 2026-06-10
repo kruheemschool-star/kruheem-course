@@ -52,6 +52,142 @@
     background-image: radial-gradient(rgba(148, 163, 184, 0.10) 1px, transparent 1.5px);
 }
 
+/* ============================================================
+   "Graph" theme — SCOPED to the /payment checkout page only.
+   Light-only by design (the spec defines no dark palette). Uses no
+   dark: utilities, so it stays light even under site dark mode.
+   ============================================================ */
+.graph-theme {
+    --paper: #FBFCFA;
+    --card: #FFFFFF;
+    --card-2: #F4F8FB;
+    --ink: #1A2A3C;
+    --ink-2: #5A6B7C;
+    --line: #E4EAF0;
+    --line-2: #D0DAE4;
+    --accent: #2F6DB5;
+    --accent-deep: #1F4E88;
+    --accent-soft: #E3EEF8;
+    --good: #2E7D5B;
+    --bad: #B4533F;
+    --gp-shadow: 0 22px 54px -34px rgba(31, 78, 136, .30);
+    --gp-shadow-sm: 0 10px 24px -18px rgba(31, 78, 136, .28);
+
+    color: var(--ink);
+    font-family: var(--font-sarabun), var(--font-ibm-loop), sans-serif;
+    background-color: var(--paper);
+}
+
+.graph-theme :is(h1, h2, h3, .gp-num, .gp-brand, .gp-eyebrow) {
+    font-family: var(--font-kanit), var(--font-mitr), sans-serif;
+}
+
+/* graph-paper background: fine 8px lines + major 40px lines, fixed */
+.gp-bg {
+    background-color: var(--paper);
+    background-image:
+        repeating-linear-gradient(0deg, transparent 0 7px, rgba(47, 109, 181, .05) 7px 8px),
+        repeating-linear-gradient(90deg, transparent 0 7px, rgba(47, 109, 181, .05) 7px 8px),
+        repeating-linear-gradient(0deg, transparent 0 39px, rgba(47, 109, 181, .12) 39px 40px),
+        repeating-linear-gradient(90deg, transparent 0 39px, rgba(47, 109, 181, .12) 39px 40px);
+    background-attachment: fixed;
+}
+.gp-bg.gp-bg--off { background-image: none; }
+
+.gp-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-deep);
+}
+
+.gp-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--gp-shadow);
+}
+
+.gp-input {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    color: var(--ink);
+    padding: 12px 14px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+.gp-input::placeholder { color: var(--ink-2); opacity: .7; }
+.gp-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.gp-input--error { border-color: var(--bad); }
+.gp-input--error:focus { box-shadow: 0 0 0 3px rgba(180, 83, 63, .15); }
+
+.gp-btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 12px 22px;
+    box-shadow: var(--gp-shadow-sm);
+    transition: transform .15s, background .15s, box-shadow .15s, opacity .15s;
+}
+.gp-btn-primary:hover:not(:disabled) { transform: translateY(-1px); background: var(--accent-deep); }
+.gp-btn-primary:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+.gp-btn-ghost {
+    background: transparent;
+    color: var(--ink-2);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 12px 20px;
+    transition: background .15s, color .15s;
+}
+.gp-btn-ghost:hover { background: var(--card-2); color: var(--ink); }
+
+.gp-step-node {
+    width: 34px; height: 34px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-kanit), sans-serif; font-weight: 600; font-size: 15px;
+    border: 1.5px solid var(--line-2); color: var(--ink-2); background: var(--card);
+    transition: all .2s; flex-shrink: 0;
+}
+.gp-step-node--active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.gp-step-node--done { border-color: var(--accent); color: var(--accent); }
+
+.gp-tab {
+    padding: 8px 2px; font-weight: 600; font-size: 14px; color: var(--ink-2);
+    border-bottom: 2px solid transparent; white-space: nowrap;
+    transition: color .15s, border-color .15s;
+}
+.gp-tab--active { color: var(--accent); border-color: var(--accent); }
+
+.gp-pill {
+    display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 999px; border: 1px solid var(--accent); color: var(--accent-deep);
+    background: var(--accent-soft); white-space: nowrap;
+}
+
+.gp-chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+    padding: 6px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-deep);
+}
+
+.gp-dropzone {
+    border: 2px dashed var(--line-2); border-radius: 14px; background: var(--card-2);
+    color: var(--ink-2); transition: border-color .2s, background .2s;
+}
+.gp-dropzone--drag { border-color: var(--accent); background: var(--accent-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+    .graph-theme *, .graph-theme *::before, .graph-theme *::after {
+        animation: none !important; transition: none !important;
+    }
+}
+
 /* Smooth light/dark switch.
    Transitions are OFF by default everywhere (no hover/scroll/load jank,
    no FOUC) and turned ON for ~300ms ONLY while .theme-transition is on
