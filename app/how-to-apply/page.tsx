@@ -9,22 +9,25 @@ import {
     PlayCircle,
     ArrowLeft,
     ArrowRight,
-    Smartphone,
-    CheckCircle,
     HelpCircle,
+    Sparkles,
 } from "lucide-react";
 
 const STEPS = [
     {
         n: 1,
+        c1: "#14b8a6",
+        c2: "#0d9488",
         icon: UserPlus,
         title: "สมัครสมาชิก",
-        desc: "สร้างบัญชีด้วยอีเมล ใช้ฟรี ใช้เวลาไม่ถึงนาที",
+        desc: "สร้างบัญชีด้วยอีเมล ใช้ฟรี ไม่ถึงนาที",
         cta: { label: "สมัครสมาชิก", href: "/register" },
         sub: { label: "มีบัญชีแล้ว? เข้าสู่ระบบ", href: "/login" },
     },
     {
         n: 2,
+        c1: "#f59e0b",
+        c2: "#f97316",
         icon: ShoppingCart,
         title: "เลือกคอร์ส & แจ้งโอน",
         desc: "เลือกคอร์สที่อยากเรียน สแกน QR โอนเงิน แล้วแนบสลิป",
@@ -32,13 +35,17 @@ const STEPS = [
     },
     {
         n: 3,
+        c1: "#8b5cf6",
+        c2: "#6366f1",
         icon: Clock,
         title: "รอครูเปิดสิทธิ์",
-        desc: "ครูตรวจสลิปแล้วเปิดสิทธิ์ให้ เช็กสถานะได้ที่ “คอร์สเรียนของฉัน”",
+        desc: "ครูตรวจสลิปแล้วเปิดสิทธิ์ให้เร็วที่สุด เช็กสถานะได้ที่ “คอร์สเรียนของฉัน”",
         cta: { label: "เช็กสถานะ", href: "/my-courses" },
     },
     {
         n: 4,
+        c1: "#10b981",
+        c2: "#059669",
         icon: PlayCircle,
         title: "เข้าเรียนได้เลย",
         desc: "พอคอร์สขึ้นว่า “เรียนได้” กดเข้าเรียนแล้วเริ่มดูวิดีโอได้ทันที",
@@ -46,142 +53,247 @@ const STEPS = [
     },
 ];
 
+const CHIPS = [
+    { emoji: "⏱️", label: "สมัครไม่ถึง 5 นาที" },
+    { emoji: "🆓", label: "สมัครฟรี" },
+    { emoji: "📱", label: "เรียนได้ทุกอุปกรณ์" },
+];
+
 export default function HowToApplyPage() {
     return (
-        <div className="min-h-screen bg-white dark:bg-slate-950 font-sans flex flex-col transition-colors">
+        <div className="hta-root min-h-screen bg-[#F4F1E9] dark:bg-[#060c18] font-sans flex flex-col transition-colors">
             <Navbar />
 
-            <div className="relative flex-grow flex justify-center items-start p-4 overflow-hidden pt-24 pb-24">
-                {/* Soft background orbs */}
-                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-200 dark:bg-teal-900/30 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-50 animate-pulse"></div>
-                <div className="absolute top-[35%] right-[-10%] w-[400px] h-[400px] bg-emerald-200 dark:bg-emerald-900/30 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-[100px] opacity-50 animate-pulse delay-1000"></div>
+            {/* Decorative, fully static background */}
+            <div className="hta-bg" aria-hidden="true">
+                <span className="hta-blob hta-blob-1" />
+                <span className="hta-blob hta-blob-2" />
+                <span className="hta-blob hta-blob-3" />
+                <span className="hta-sym" style={{ top: "12%", left: "7%" }}>＋</span>
+                <span className="hta-sym" style={{ top: "30%", right: "8%" }}>÷</span>
+                <span className="hta-sym" style={{ top: "55%", left: "5%" }}>√</span>
+                <span className="hta-sym" style={{ top: "72%", right: "9%" }}>π</span>
+                <span className="hta-sym" style={{ top: "88%", left: "12%" }}>×</span>
+                <span className="hta-sym" style={{ top: "44%", right: "16%" }}>−</span>
+            </div>
 
-                <div className="relative z-10 w-full max-w-2xl space-y-8">
+            <main className="relative z-10 flex-grow flex justify-center px-4 pt-24 pb-24">
+                <div className="w-full max-w-[760px] space-y-10">
                     {/* Back */}
-                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors group">
+                    <Link
+                        href="/"
+                        className="inline-flex items-center gap-2 text-sm font-bold text-[#6b7686] dark:text-[#9fb0c6] hover:text-teal-600 dark:hover:text-teal-400 transition-colors group"
+                    >
                         <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
                         กลับหน้าแรก
                     </Link>
 
                     {/* Hero */}
-                    <div className="text-center space-y-3">
-                        <h1 className="text-4xl md:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400">
-                            วิธีสมัครเรียน
-                        </h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-lg font-medium">
-                            แค่ 4 ขั้นตอน เริ่มเรียนกับครูฮีมได้เลย 🎉
-                        </p>
-                    </div>
+                    <header className="text-center flex flex-col items-center">
+                        <div className="hta-mascot-wrap">
+                            <span className="hta-ring" aria-hidden="true" />
+                            <div className="hta-mascot-circle">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src="/assets/kruheem_avatar.png" alt="ครูฮีม" className="hta-mascot-img" />
+                            </div>
+                            <div className="hta-bubble font-mero">สวัสดีครับ! 👋</div>
+                        </div>
 
-                    {/* Compact browser note */}
-                    <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4">
-                        <Smartphone className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
-                            <strong>เปิดในแอป LINE/Messenger ไม่ได้นะครับ</strong> — ถ้ากดลิงก์มาจากแชต ให้กดค้างลิงก์แล้วเลือก “เปิดใน Safari” (iPhone) หรือ “เปิดใน Chrome” (Android) ก่อน
+                        <p className="hta-eyebrow font-mero">
+                            <Sparkles size={14} /> เริ่มเรียนกับครูฮีม
                         </p>
-                    </div>
+                        <h1 className="hta-h1 font-mero">วิธีสมัครเรียน</h1>
+                        <p className="mt-2 text-lg font-medium text-[#6b7686] dark:text-[#9fb0c6]">
+                            แค่ 4 ขั้นตอนง่ายๆ ไม่น่ากลัวเลยครับ 🎉
+                        </p>
 
-                    {/* Steps */}
-                    <ol className="space-y-4">
+                        <div className="mt-5 flex flex-wrap justify-center gap-2.5">
+                            {CHIPS.map((c) => (
+                                <span key={c.label} className="hta-chip font-mero">
+                                    <span className="text-base leading-none">{c.emoji}</span>
+                                    {c.label}
+                                </span>
+                            ))}
+                        </div>
+                    </header>
+
+                    {/* Steps timeline */}
+                    <ol className="hta-steps">
                         {STEPS.map((s) => {
                             const Icon = s.icon;
                             return (
                                 <li
                                     key={s.n}
-                                    className="bg-white/70 dark:bg-slate-800/60 backdrop-blur-xl border border-slate-100 dark:border-slate-700 rounded-3xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow"
+                                    className="hta-step"
+                                    style={{ ["--c1" as string]: s.c1, ["--c2" as string]: s.c2 }}
                                 >
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                                        {/* Number + icon + text */}
-                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                            <div className="relative flex-shrink-0">
-                                                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white grid place-items-center font-black text-2xl shadow-lg shadow-emerald-500/20">
-                                                    {s.n}
+                                    <div className="hta-node font-mero">{s.n}</div>
+                                    <div className="hta-card">
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1.5">
+                                                    <span className="hta-step-icon">
+                                                        <Icon className="w-5 h-5" />
+                                                    </span>
+                                                    <h3 className="hta-step-title font-mero">{s.title}</h3>
                                                 </div>
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <Icon className="w-5 h-5 text-teal-600 dark:text-teal-400 flex-shrink-0" />
-                                                    <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">{s.title}</h3>
-                                                </div>
-                                                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{s.desc}</p>
+                                                <p className="text-[15px] leading-relaxed text-[#6b7686] dark:text-[#9fb0c6]">
+                                                    {s.desc}
+                                                </p>
                                                 {s.sub && (
-                                                    <Link href={s.sub.href} className="inline-block mt-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                                    <Link href={s.sub.href} className="hta-sublink font-mero">
                                                         {s.sub.label} →
                                                     </Link>
                                                 )}
                                             </div>
+                                            <Link href={s.cta.href} className="hta-cta font-mero">
+                                                {s.cta.label}
+                                                <ArrowRight className="hta-cta-arrow w-4 h-4" />
+                                            </Link>
                                         </div>
-
-                                        {/* Action button */}
-                                        <Link
-                                            href={s.cta.href}
-                                            className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-teal-500 hover:bg-teal-600 text-white font-bold text-sm shadow-md shadow-teal-500/20 hover:-translate-y-0.5 active:scale-95 transition-all whitespace-nowrap"
-                                        >
-                                            {s.cta.label}
-                                            <ArrowRight className="w-4 h-4" />
-                                        </Link>
                                     </div>
                                 </li>
                             );
                         })}
                     </ol>
 
-                    {/* How to enter class — highlighted */}
-                    <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-3xl p-6 sm:p-8 shadow-xl shadow-emerald-500/20">
-                        <div className="flex items-center gap-3 mb-5">
-                            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0">
-                                <PlayCircle className="w-7 h-7 text-white" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-black text-white">วิธีเข้าเรียน</h2>
-                                <p className="text-white/80 text-sm">หลังครูเปิดสิทธิ์แล้ว ทำตามนี้เลย</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3 mb-6">
-                            {[
-                                "เข้าเมนู “คอร์สเรียนของฉัน”",
-                                "คอร์สที่เปิดสิทธิ์แล้วจะมีปุ่ม “เข้าเรียน” — กดเข้าไป",
-                                "ดูวิดีโอ ทำแบบฝึกหัด และดูความคืบหน้าได้เลย",
-                            ].map((text, i) => (
-                                <div key={i} className="flex items-center gap-3 bg-white/10 backdrop-blur rounded-2xl p-3">
-                                    <span className="w-7 h-7 rounded-full bg-white text-teal-600 grid place-items-center font-black text-sm flex-shrink-0">
-                                        {i + 1}
-                                    </span>
-                                    <span className="text-white font-medium text-sm sm:text-base">{text}</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        <Link
-                            href="/my-courses"
-                            className="flex items-center justify-center gap-2 w-full py-4 bg-white text-teal-700 rounded-2xl font-black text-lg shadow-lg hover:-translate-y-0.5 active:scale-[0.98] transition-all"
-                        >
-                            <CheckCircle className="w-5 h-5" />
-                            ไปที่คอร์สเรียนของฉัน
-                        </Link>
-                    </div>
-
                     {/* Final CTA */}
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                        <Link
-                            href="/register"
-                            className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold text-lg rounded-full shadow-lg shadow-teal-500/30 hover:shadow-teal-500/50 hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-2"
-                        >
-                            <UserPlus size={20} />
-                            เริ่มสมัครเลย
-                        </Link>
-                        <Link
-                            href="/faq"
-                            className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-lg rounded-full hover:border-teal-300 dark:hover:border-teal-700 hover:text-teal-600 dark:hover:text-teal-400 transition-all flex items-center justify-center gap-2"
-                        >
-                            <HelpCircle size={20} />
-                            คำถามที่พบบ่อย
-                        </Link>
-                    </div>
+                    <section className="hta-final">
+                        <h2 className="text-2xl sm:text-3xl font-black text-[#243042] dark:text-[#eef2f8] font-mero leading-snug">
+                            พร้อมเริ่มเรียนกับครูฮีมแล้วหรือยัง?
+                        </h2>
+                        <p className="mt-2 mb-6 text-[#6b7686] dark:text-[#9fb0c6]">สมัครวันนี้ เริ่มต้นเส้นทางเก่งเลขกันเลย!</p>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                            <Link href="/register" className="hta-btn-primary font-mero">
+                                <UserPlus size={20} />
+                                เริ่มสมัครเลย
+                            </Link>
+                            <Link href="/faq" className="hta-btn-ghost font-mero">
+                                <HelpCircle size={20} />
+                                คำถามที่พบบ่อย
+                            </Link>
+                        </div>
+                    </section>
                 </div>
-            </div>
+            </main>
+
             <Footer />
+
+            <style>{`
+                /* ===== Decorative background (static) ===== */
+                .hta-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0;
+                    background-image:
+                        linear-gradient(to right, rgba(20,184,166,.05) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(20,184,166,.05) 1px, transparent 1px);
+                    background-size: 44px 44px; }
+                .dark .hta-bg {
+                    background-image:
+                        linear-gradient(to right, rgba(148,163,184,.06) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(148,163,184,.06) 1px, transparent 1px); }
+                .hta-blob { position: absolute; border-radius: 9999px; filter: blur(90px); opacity: .5; }
+                .dark .hta-blob { opacity: .28; }
+                .hta-blob-1 { width: 460px; height: 460px; top: -8%; left: -10%; background: #5eead4; }
+                .hta-blob-2 { width: 380px; height: 380px; top: 40%; right: -12%; background: #fcd34d; }
+                .hta-blob-3 { width: 360px; height: 360px; bottom: -10%; left: 25%; background: #c4b5fd; }
+                .hta-sym { position: absolute; font-size: 40px; font-weight: 700; color: rgba(36,48,66,.05);
+                    user-select: none; }
+                .dark .hta-sym { color: rgba(238,242,248,.06); }
+
+                /* ===== Hero mascot ===== */
+                .hta-mascot-wrap { position: relative; width: 168px; height: 168px; margin-bottom: 18px; }
+                .hta-ring { position: absolute; inset: -8px; border-radius: 9999px;
+                    border: 2px dashed rgba(20,184,166,.45); }
+                .dark .hta-ring { border-color: rgba(45,212,191,.4); }
+                .hta-mascot-circle { position: absolute; inset: 0; border-radius: 9999px;
+                    background: radial-gradient(circle at 50% 35%, #fffaf0, #f4ead3);
+                    box-shadow: 0 14px 36px rgba(20,184,166,.18); display: grid; place-items: center;
+                    overflow: hidden; }
+                .dark .hta-mascot-circle { background: radial-gradient(circle at 50% 35%, #1b2942, #121d31);
+                    box-shadow: 0 14px 36px rgba(0,0,0,.4); }
+                .hta-mascot-img { width: 88%; height: 88%; object-fit: contain; }
+                .hta-bubble { position: absolute; top: 2px; right: -18px; background: #14b8a6; color: #fff;
+                    font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 14px 14px 14px 4px;
+                    box-shadow: 0 8px 18px rgba(20,184,166,.35); white-space: nowrap; }
+
+                /* ===== Hero text ===== */
+                .hta-eyebrow { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+                    color: #0d9488; background: rgba(20,184,166,.12); padding: 5px 14px; border-radius: 9999px;
+                    margin-bottom: 12px; }
+                .dark .hta-eyebrow { color: #5eead4; background: rgba(20,184,166,.16); }
+                .hta-h1 { font-size: clamp(34px, 7vw, 52px); font-weight: 700; line-height: 1.5;
+                    background: linear-gradient(90deg, #14b8a6, #059669); -webkit-background-clip: text;
+                    background-clip: text; color: transparent; padding-bottom: 4px; }
+                .hta-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600;
+                    color: #243042; background: #fff; border: 1px solid rgba(36,48,66,.08);
+                    padding: 8px 15px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(36,48,66,.05); }
+                .dark .hta-chip { color: #eef2f8; background: #121d31; border-color: rgba(255,255,255,.08); }
+
+                /* ===== Steps timeline ===== */
+                .hta-steps { position: relative; display: flex; flex-direction: column; gap: 18px; }
+                .hta-steps::before { content: ""; position: absolute; left: 27px; top: 30px; bottom: 30px;
+                    border-left: 2px dashed rgba(36,48,66,.16); z-index: 0; }
+                .dark .hta-steps::before { border-color: rgba(255,255,255,.14); }
+                .hta-step { position: relative; display: flex; align-items: flex-start; gap: 18px;
+                    transition: opacity .3s ease, filter .3s ease, transform .3s ease; }
+                .hta-node { position: relative; z-index: 1; flex-shrink: 0; width: 54px; height: 54px;
+                    border-radius: 18px; display: grid; place-items: center; color: #fff; font-size: 24px;
+                    font-weight: 700; background: linear-gradient(135deg, var(--c1), var(--c2));
+                    box-shadow: 0 8px 20px color-mix(in srgb, var(--c1) 30%, transparent);
+                    transition: transform .3s ease; }
+                .hta-card { flex: 1; min-width: 0; background: #fff; border: 1px solid rgba(36,48,66,.07);
+                    border-radius: 22px; padding: 20px 22px; box-shadow: 0 6px 22px rgba(36,48,66,.05);
+                    transition: box-shadow .3s ease, border-color .3s ease; }
+                .dark .hta-card { background: #121d31; border-color: rgba(255,255,255,.07);
+                    box-shadow: 0 6px 22px rgba(0,0,0,.25); }
+                .hta-step-icon { display: grid; place-items: center; color: var(--c1); }
+                .dark .hta-step-icon { color: color-mix(in srgb, var(--c1) 70%, white); }
+                .hta-step-title { font-size: 18px; font-weight: 700; color: #243042; line-height: 1.5; }
+                .dark .hta-step-title { color: #eef2f8; }
+                .hta-sublink { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 600;
+                    color: #6366f1; }
+                .dark .hta-sublink { color: #a5b4fc; }
+                .hta-sublink:hover { text-decoration: underline; }
+                .hta-cta { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+                    gap: 8px; padding: 13px 22px; border-radius: 16px; color: #fff; font-size: 14px; font-weight: 600;
+                    white-space: nowrap; background: linear-gradient(135deg, var(--c1), var(--c2));
+                    box-shadow: 0 8px 18px color-mix(in srgb, var(--c1) 28%, transparent);
+                    transition: transform .2s ease, box-shadow .2s ease; }
+                .hta-cta:hover { transform: translateY(-2px); }
+                .hta-cta:active { transform: translateY(0) scale(.98); }
+                .hta-cta-arrow { transition: transform .2s ease; }
+                .hta-cta:hover .hta-cta-arrow { transform: translateX(3px); }
+
+                /* Hover-focus: lift the hovered step, dim the rest (mouse devices only) */
+                @media (hover: hover) {
+                    .hta-steps:hover .hta-step { opacity: .5; filter: blur(1px); }
+                    .hta-steps:hover .hta-step:hover { opacity: 1; filter: none; transform: translateY(-4px); }
+                    .hta-steps:hover .hta-step:hover .hta-node { transform: scale(1.08); }
+                    .hta-step:hover .hta-card { box-shadow: 0 14px 32px color-mix(in srgb, var(--c1) 22%, transparent); }
+                }
+
+                /* ===== Final CTA ===== */
+                .hta-final { text-align: center; background: #fff; border: 1px solid rgba(36,48,66,.07);
+                    border-radius: 26px; padding: 32px 24px; box-shadow: 0 6px 22px rgba(36,48,66,.05); }
+                .dark .hta-final { background: #121d31; border-color: rgba(255,255,255,.07); }
+                .hta-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+                    width: 100%; padding: 15px 32px; border-radius: 9999px; font-size: 18px; font-weight: 600;
+                    color: #fff; background: linear-gradient(135deg, #14b8a6, #059669);
+                    box-shadow: 0 12px 26px rgba(20,184,166,.32); transition: transform .2s ease; }
+                .hta-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+                    width: 100%; padding: 15px 32px; border-radius: 9999px; font-size: 18px; font-weight: 600;
+                    color: #6b7686; background: transparent; border: 1px solid rgba(36,48,66,.14);
+                    transition: color .2s ease, border-color .2s ease, transform .2s ease; }
+                .dark .hta-btn-ghost { color: #9fb0c6; border-color: rgba(255,255,255,.14); }
+                .hta-btn-primary:hover, .hta-btn-ghost:hover { transform: translateY(-2px); }
+                .hta-btn-ghost:hover { color: #0d9488; border-color: rgba(20,184,166,.4); }
+                @media (min-width: 640px) { .hta-btn-primary, .hta-btn-ghost { width: auto; } }
+
+                /* ===== Reduced motion ===== */
+                @media (prefers-reduced-motion: reduce) {
+                    .hta-root *, .hta-root *::before { transition: none !important; animation: none !important; }
+                    .hta-steps:hover .hta-step { opacity: 1 !important; filter: none !important; transform: none !important; }
+                }
+            `}</style>
         </div>
     );
 }
