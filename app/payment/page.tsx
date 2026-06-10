@@ -169,10 +169,13 @@ export default function PaymentPage() {
   }, [selectedCourses]);
 
 
+  // Not signed in → send to /login and remember this exact page (incl. ?course=…)
+  // so they land right back here after logging in / signing up. replace() keeps
+  // /payment out of history, so Back from /login won't bounce into this redirect.
   useEffect(() => {
     if (!authLoading && !user) {
-      alert("กรุณาเข้าสู่ระบบก่อนแจ้งโอนเงิน");
-      router.push("/");
+      const back = window.location.pathname + window.location.search;
+      router.replace(`/login?returnUrl=${encodeURIComponent(back)}`);
     }
   }, [user, authLoading, router]);
 

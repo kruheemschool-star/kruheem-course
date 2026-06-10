@@ -1,5 +1,6 @@
 "use client";
 import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useUserAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { Mail, Lock, AlertCircle, ArrowRight, Play, ArrowLeft } from "lucide-react";
@@ -7,6 +8,15 @@ import BrowserWarning from "@/components/BrowserWarning";
 
 function RegisterContent() {
     const { emailSignUp } = useUserAuth();
+    const searchParams = useSearchParams();
+    // Where to go after signing up. Came from a "buy course" click? keep that exact
+    // /payment target; otherwise still nudge to /payment (the แจ้งโอน hand-off).
+    const rawReturn = searchParams.get('returnUrl') || '/';
+    // Only allow same-site relative paths — block open-redirect (//evil.com, https://…).
+    const returnUrl = rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : '/';
+    const fromBuy = returnUrl.startsWith('/payment');
+    const payDest = fromBuy ? returnUrl : '/payment';
+    const loginHref = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -93,7 +103,7 @@ function RegisterContent() {
                     </div>
 
                     <Link
-                        href="/payment"
+                        href={payDest}
                         className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
                     >
                         ไปแจ้งโอนเงิน <ArrowRight className="w-5 h-5" />
@@ -116,11 +126,17 @@ function RegisterContent() {
 
             <div className="w-full max-w-md bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white/50 p-8 md:p-12 relative z-10 animate-in fade-in zoom-in duration-500">
                 <div className="mb-4">
-                    <Link href="/login" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-indigo-600 transition-colors group">
+                    <Link href={loginHref} className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-indigo-600 transition-colors group">
                         <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
                         กลับเข้าสู่ระบบ
                     </Link>
                 </div>
+                {fromBuy && (
+                    <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-center animate-in fade-in slide-in-from-top-2">
+                        <p className="font-bold text-amber-800">🛒 ก่อนซื้อคอร์ส ต้องมีบัญชีก่อนนะครับ</p>
+                        <p className="text-sm text-amber-700/80 mt-1">สมัครเสร็จ เราจะพากลับไปหน้าชำระเงินให้ทันที</p>
+                    </div>
+                )}
                 <div className="text-center mb-10">
                     <Link href="/" className="inline-block mb-6 hover:scale-105 transition-transform">
                         <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 mx-auto">

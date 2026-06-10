@@ -22,7 +22,7 @@ const StarIcon = () => (
 export default function CourseSalesPage() {
     const { id } = useParams();
     const courseId = typeof id === 'string' ? id : "";
-    const { user, isAdmin, googleSignIn } = useUserAuth();
+    const { user, isAdmin } = useUserAuth();
 
     const [course, setCourse] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -126,10 +126,11 @@ export default function CourseSalesPage() {
         }
     }, [user, courseId, slipPreview]);
 
+    // Not signed in yet → go to /login and remember to return to the แจ้งโอน page.
+    // Shared by the main CTA below and passed as onLogin to the sales-page templates,
+    // so every "สมัครเรียน" entry behaves the same (no more Google-only popup).
     const handleLogin = async () => {
-        try {
-            await googleSignIn();
-        } catch (error) { console.error("Login error", error); }
+        router.push("/login?returnUrl=/payment");
     };
 
     const handlePaymentClick = async () => {
@@ -2721,7 +2722,7 @@ export default function CourseSalesPage() {
                             },
                             {
                                 q: "8️⃣ สมัครแล้ว จะได้เรียนทันทีเลยไหม?",
-                                a: "✅ โอนปุ๊บ เรียนได้ปั๊บ! ไม่ต้องรอข้ามวัน ระบบของเราเป็นแบบอัตโนมัติ สมัครเสร็จปุ๊บ ระบบเปิดสิทธิ์ให้เข้าเรียนได้ทันทีภายใน 5 นาที! ไฟกำลังมา ต้องรีบคว้าไว้!"
+                                a: "✅ แจ้งโอนเสร็จ ครูจะรีบตรวจสลิปแล้วเปิดสิทธิ์ให้เร็วที่สุดเลยครับ! เช็กสถานะได้ที่หน้า “คอร์สเรียนของฉัน” พอครูเปิดสิทธิ์ให้แล้ว เริ่มเรียนได้ทันที 🚀"
                             },
                             {
                                 q: "9️⃣ คอร์สนี้เหมาะกับใครบ้าง?",

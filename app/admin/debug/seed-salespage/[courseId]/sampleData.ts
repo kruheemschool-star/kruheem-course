@@ -324,7 +324,7 @@ export function buildSampleSalesPage({ title, price, fullPrice }: Input): SalesP
                         },
                         {
                             q: "5️⃣ สมัครแล้วเข้าเรียนได้เลยไหม?",
-                            a: "ใช่! โอนเงินแล้วระบบจะเปิดสิทธิ์ให้เข้าเรียนภายใน 5 นาที",
+                            a: "แจ้งโอนแล้ว ครูจะตรวจสลิปและเปิดสิทธิ์ให้เร็วที่สุด เช็กสถานะได้ที่หน้าคอร์สเรียนของฉัน",
                         },
                     ],
                 },
@@ -337,7 +337,7 @@ export function buildSampleSalesPage({ title, price, fullPrice }: Input): SalesP
                 data: {
                     urgencyText: "🔥 โปรโมชั่นพิเศษ — เวลาจำกัด",
                     title: "พร้อมเปลี่ยนอนาคตการเรียนแล้วหรือยัง?",
-                    subtitle: "สมัครเรียนวันนี้ เริ่มเรียนได้ทันทีภายใน 5 นาที",
+                    subtitle: "สมัครเรียนวันนี้ ครูเปิดสิทธิ์ให้ไว เริ่มเรียนได้เลย",
                     ctaText: "สมัครเรียนเลย",
                     priceText: `฿${price.toLocaleString("th-TH")}`,
                 },

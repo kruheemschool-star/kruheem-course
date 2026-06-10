@@ -10,7 +10,12 @@ function LoginContent() {
     const { emailSignIn, googleSignIn } = useUserAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const returnUrl = searchParams.get('returnUrl') || '/';
+    // Only allow same-site relative paths — block open-redirect (//evil.com, https://…).
+    const rawReturn = searchParams.get('returnUrl') || '/';
+    const returnUrl = rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : '/';
+    // Arrived here from a "buy course" click? Show why an account is needed.
+    const fromBuy = returnUrl.startsWith('/payment');
+    const registerHref = `/register?returnUrl=${encodeURIComponent(returnUrl)}`;
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -27,7 +32,7 @@ function LoginContent() {
     const handleRegisterClick = (e: React.MouseEvent) => {
         if (!inApp.isInApp || inApp.platform === "other") return;
         e.preventDefault();
-        const target = `${window.location.origin}/register`;
+        const target = `${window.location.origin}${registerHref}`;
         openInExternalBrowser(target, inApp.platform);
         // iOS only: Meta's webview can swallow the x-safari jump. If Safari takes over,
         // this webview gets hidden — watch for that and skip the fallback. If it never
@@ -41,7 +46,7 @@ function LoginContent() {
             window.setTimeout(() => {
                 document.removeEventListener("visibilitychange", markEscaped);
                 window.removeEventListener("pagehide", markEscaped);
-                if (!escaped) router.push("/register");
+                if (!escaped) router.push(registerHref);
             }, 1500);
         }
     };
@@ -89,6 +94,13 @@ function LoginContent() {
 
             <div className="w-full max-w-md bg-white/80 dark:bg-slate-900/90 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white/50 dark:border-slate-700 p-8 md:p-12 relative z-10 animate-in fade-in zoom-in duration-500">
 
+                {fromBuy && (
+                    <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl text-center animate-in fade-in slide-in-from-top-2">
+                        <p className="font-bold text-amber-800 dark:text-amber-300">🛒 ก่อนซื้อคอร์ส ต้องมีบัญชีก่อนนะครับ</p>
+                        <p className="text-sm text-amber-700/80 dark:text-amber-400/90 mt-1">เข้าสู่ระบบ หรือสมัครสมาชิก แล้วเราจะพากลับมาซื้อต่อให้ทันที</p>
+                    </div>
+                )}
+
                 {error && (
                     <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-900/30 border border-rose-100 dark:border-rose-800 rounded-2xl flex items-start gap-3 text-rose-600 dark:text-rose-400 text-sm animate-in slide-in-from-top-2">
                         <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -126,7 +138,7 @@ function LoginContent() {
                                     การสมัครสมาชิกจะช่วยให้คุณเข้าถึงบทเรียนและติดตามความคืบหน้าได้ครับ
                                 </p>
                                 <Link
-                                    href="/register"
+                                    href={registerHref}
                                     onClick={handleRegisterClick}
                                     className="relative block w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-lg text-center shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50 hover:shadow-indigo-300 dark:hover:shadow-indigo-800/50 transform hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300 group overflow-hidden"
                                 >
@@ -242,7 +254,7 @@ function LoginContent() {
 
                 <p className="mt-8 text-center text-slate-500 dark:text-slate-400 text-sm">
                     ยังไม่มีบัญชี?{" "}
-                    <Link href="/register" className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
+                    <Link href={registerHref} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
                         สมัครสมาชิก
                     </Link>
                 </p>
