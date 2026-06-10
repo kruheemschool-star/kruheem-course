@@ -12,6 +12,8 @@ import {
     HelpCircle,
     Sparkles,
 } from "lucide-react";
+import { useInAppBrowser, openInExternalBrowser } from "@/lib/inAppBrowser";
+import type { MouseEvent } from "react";
 
 const STEPS = [
     {
@@ -60,6 +62,31 @@ const CHIPS = [
 ];
 
 export default function HowToApplyPage() {
+    const inApp = useInAppBrowser();
+
+    // Inside a chat app's in-app browser (LINE / Messenger / FB / IG), sign-up,
+    // login + checkout are unreliable, so bounce those CTAs straight to the real
+    // browser. Android and iOS-LINE open automatically; iOS Meta webviews block the
+    // jump, so after a beat we fall through to the in-app page (whose banner has a
+    // one-tap escape). Normal browsers fall through to the plain <Link>.
+    const bounceForAuth = (e: MouseEvent, href: string) => {
+        if (!inApp.isInApp || inApp.platform === "other") return;
+        if (!/^\/(register|login|payment|my-courses)/.test(href)) return;
+        e.preventDefault();
+        openInExternalBrowser(`${window.location.origin}${href}`, inApp.platform);
+        if (inApp.platform === "ios") {
+            let escaped = false;
+            const mark = () => { escaped = true; };
+            document.addEventListener("visibilitychange", mark, { once: true });
+            window.addEventListener("pagehide", mark, { once: true });
+            window.setTimeout(() => {
+                document.removeEventListener("visibilitychange", mark);
+                window.removeEventListener("pagehide", mark);
+                if (!escaped) window.location.assign(href);
+            }, 1500);
+        }
+    };
+
     return (
         <div className="hta-root min-h-screen bg-[#F4F1E9] dark:bg-[#060c18] font-sans flex flex-col transition-colors">
             <Navbar />
@@ -141,12 +168,12 @@ export default function HowToApplyPage() {
                                                     {s.desc}
                                                 </p>
                                                 {s.sub && (
-                                                    <Link href={s.sub.href} className="hta-sublink font-mero">
+                                                    <Link href={s.sub.href} onClick={(e) => bounceForAuth(e, s.sub.href)} className="hta-sublink font-mero">
                                                         {s.sub.label} →
                                                     </Link>
                                                 )}
                                             </div>
-                                            <Link href={s.cta.href} className="hta-cta font-mero">
+                                            <Link href={s.cta.href} onClick={(e) => bounceForAuth(e, s.cta.href)} className="hta-cta font-mero">
                                                 {s.cta.label}
                                                 <ArrowRight className="hta-cta-arrow w-4 h-4" />
                                             </Link>
@@ -164,7 +191,7 @@ export default function HowToApplyPage() {
                         </h2>
                         <p className="mt-2 mb-6 text-[#6b7686] dark:text-[#9fb0c6]">สมัครวันนี้ เริ่มต้นเส้นทางเก่งเลขกันเลย!</p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                            <Link href="/register" className="hta-btn-primary font-mero">
+                            <Link href="/register" onClick={(e) => bounceForAuth(e, "/register")} className="hta-btn-primary font-mero">
                                 <UserPlus size={20} />
                                 เริ่มสมัครเลย
                             </Link>
