@@ -11,13 +11,12 @@ service firebase.storage {
       ];
     }
 
-    // Allow authenticated users to upload slips
-    //
-    // Note: our app uploads slips as `slips/${uid}_${timestamp}` (single path segment),
-    // so we match a single filename here to keep the rule type-safe.
+    // === Payment slips: SENSITIVE financial data ===
+    // Our app uploads slips as `slips/${uid}_${timestamp}` (single path segment).
+    // Read is owner-or-admin only. NOTE: Firebase rules are OR-based — a broad
+    // `allow read: if true` anywhere would override this — which is exactly why
+    // the default catch-all at the BOTTOM is now admin-only (see note there).
     match /slips/{fileName} {
-      // Slips contain sensitive payment info: only the owner (based on filename prefix)
-      // and admins can read them.
       allow read: if isAdmin()
                  || (isAuth() && fileName.matches('^' + request.auth.uid + '_.*'));
       allow write: if isAuth()
@@ -31,15 +30,18 @@ service firebase.storage {
       allow read, write: if false;
     }
 
-    // Allow authenticated users to upload summary images/covers
-    match /summaries/{allPaths=**} {
+    // === Student profile photos ===
+    // Uploaded from /profile as `avatars/${uid}/...`. Public read (they appear on
+    // reviews/comments), but each user may only write to their OWN uid folder.
+    match /avatars/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 5 * 1024 * 1024;
+      allow write: if isAuth()
+                   && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
-    // Admin-curated avatar library (public read, admin-only write).
-    // Uploaded via /admin/avatars. Must be listed BEFORE the catch-all rule.
+    // === Admin-curated avatar library (public read, admin-only write) ===
     match /static/avatars/{allPaths=**} {
       allow read: if true;
       allow write: if isAdmin()
@@ -48,10 +50,35 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
-    // Default: allow read for all other paths
+    // === Admin-managed PUBLIC image folders ===
+    // These hold content images that must display to everyone (course covers,
+    // lesson images, banners, blog/post images, summary images, exam images,
+    // promo images, review avatars, support attachments, menu covers).
+    // Public read; only the admin can upload/replace/delete.
+    // Listed explicitly so the catch-all below can safely deny public read
+    // (which protects slips + any unknown path) without hiding these images.
+    match /course-images/{allPaths=**}  { allow read: if true; allow write: if isAdmin(); }
+    match /lesson-images/{allPaths=**}  { allow read: if true; allow write: if isAdmin(); }
+    match /banners/{allPaths=**}        { allow read: if true; allow write: if isAdmin(); }
+    match /promotions/{allPaths=**}     { allow read: if true; allow write: if isAdmin(); }
+    match /posts/{allPaths=**}          { allow read: if true; allow write: if isAdmin(); }
+    match /blog-content/{allPaths=**}   { allow read: if true; allow write: if isAdmin(); }
+    match /summaries/{allPaths=**}      { allow read: if true; allow write: if isAdmin(); }
+    match /exam-images/{allPaths=**}    { allow read: if true; allow write: if isAdmin(); }
+    match /review-avatars/{allPaths=**} { allow read: if true; allow write: if isAdmin(); }
+    match /support/{allPaths=**}        { allow read: if true; allow write: if isAdmin(); }
+    match /admin/{allPaths=**}          { allow read: if true; allow write: if isAdmin(); }
+
+    // === Default for any other path ===
+    // Public read is intentionally DENIED here so that payment slips and any
+    // future/unknown path are not world-readable. Content images all display via
+    // tokenized download URLs (getDownloadURL), which bypass these read rules, so
+    // denying path-based read here does NOT affect image display anywhere.
+    // Write is admin-only, which blocks signed-in students from dumping arbitrary
+    // files into the bucket.
     match /{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
   }
 }

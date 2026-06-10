@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, addDoc, where, updateDoc, doc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, addDoc, where, updateDoc, doc, limit } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
@@ -180,7 +180,10 @@ export default function PaymentPage() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const q = query(collection(db, "courses"), orderBy("createdAt", "desc"));
+        // Cap the read so this never becomes an unbounded full-collection scan as
+        // the catalog grows. 500 is far above any realistic course count, so it
+        // never hides a purchasable course — raise it if the catalog ever nears it.
+        const q = query(collection(db, "courses"), orderBy("createdAt", "desc"), limit(500));
         const snapshot = await getDocs(q);
         const courseData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setCourses(courseData);

@@ -239,24 +239,31 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // === Visitors (analytics - public write for tracking) ===
+    // === Visitors (analytics) ===
+    // Anonymous visitors must be able to write (they are not signed in), so we
+    // cannot require auth here. Instead we bound the payload so nobody can stuff
+    // a giant junk document, and keep reads admin-only. A real presence doc has
+    // ~5 fields; 30 is a generous ceiling.
     match /visitors/{visitorId} {
       allow read: if isAdmin();
-      allow create: if true;
-      allow update: if true;
+      allow create, update: if request.resource.data.size() < 30;
       allow delete: if isAdmin();
     }
 
     match /anonymous_visitors/{visitorId} {
       allow read: if isAdmin();
-      allow create: if true;
-      allow update: if true;
-      allow delete: if isAdmin() || true; // allow cleanup
+      allow create, update: if request.resource.data.size() < 30;
+      allow delete: if true; // presence cleanup on unmount / tab close
     }
 
+    // === Stats (analytics counters) ===
+    // Written via increment() by anonymous visitors, so writes stay open — but
+    // ONLY to the three known counter documents, so attackers cannot create
+    // arbitrary `stats/*` junk docs. Reads are admin-only (no public page reads
+    // these raw counters; public-facing numbers live in /public_stats).
     match /stats/{statId} {
-      allow read: if isAdmin() || true; // allow public write increment
-      allow write: if isAdmin() || true;
+      allow read: if isAdmin();
+      allow write: if statId in ['daily_visits', 'page_views', 'promo_homepage'];
     }
 
     // === Public Stats (Aggregated metrics visible to everyone) ===

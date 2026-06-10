@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import AdminGuard from "@/components/AdminGuard";
 import { db } from "@/lib/firebase";
-import { collectionGroup, getDocs, doc, getDoc } from "firebase/firestore";
+import { collectionGroup, getDocs, doc, getDoc, query, where } from "firebase/firestore";
 import { ArrowLeft } from "lucide-react";
 import { ExamResultsView, ExamResultRow } from "@/components/admin/ExamResultsView";
 
@@ -24,10 +24,23 @@ export default function AdminExamResultsPage() {
                     if (c.exists()) setCourseTitle((c.data() as { title?: string }).title || "");
                 } catch { /* title is non-critical */ }
 
-                // All students' lesson-exam results (collection group), filter this course in JS.
-                const snap = await getDocs(collectionGroup(db, "lessonExamResults"));
+                // Lesson-exam results for THIS course. Prefer the indexed
+                // collection-group query (filters server-side instead of pulling
+                // every student's results). If the composite index isn't built yet,
+                // fall back to a full scan so the page keeps working regardless of
+                // deploy order — the JS filter below keeps both paths correct.
+                let docs;
+                try {
+                    docs = (await getDocs(query(
+                        collectionGroup(db, "lessonExamResults"),
+                        where("courseId", "==", courseId)
+                    ))).docs;
+                } catch (indexErr) {
+                    console.warn("[exam-results] indexed query unavailable, full scan fallback:", indexErr);
+                    docs = (await getDocs(collectionGroup(db, "lessonExamResults"))).docs;
+                }
                 const out: ExamResultRow[] = [];
-                snap.docs.forEach((d) => {
+                docs.forEach((d) => {
                     const data = d.data() as { courseId?: string; studentName?: string; studentEmail?: string; lessonTitle?: string; bestPercent?: number; attempts?: number };
                     if ((data.courseId || "") !== courseId) return;
                     const uid = d.ref.parent.parent?.id || "?";
