@@ -2,19 +2,21 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { collection, query, where, getDocs, onSnapshot, QuerySnapshot, DocumentData } from "firebase/firestore";
+import { useTheme } from "next-themes";
 import { db } from "@/lib/firebase";
 import { getCachedData } from "@/lib/dataCache";
 import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3, SlidersHorizontal, Sparkles, RotateCcw, Check, Clock, Lock } from "lucide-react";
+import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3, SlidersHorizontal, Sparkles, RotateCcw, Check, Clock, Lock, Sun, Moon } from "lucide-react";
 import ReviewForm from "@/app/reviews/ReviewForm";
 
 /* ============================================================
-   "Dot Pop" design system (spec §2–§6) — light-only, scoped to
-   this page. Tokens mirror the Graph theme; the multicolour dot
-   background is composed here and injected as an inline style.
+   "Dot Pop" design system (spec §2–§6 + Dark-Mode spec).
+   Light is the default; dark mode is the site-wide next-themes
+   `.dark` class. All colours are computed from palette(isDark)
+   and the Dot Pop background is composed per-mode in JS.
    ============================================================ */
 
 // §3 — dot palettes (r,g,b)
@@ -26,7 +28,7 @@ const DOT_PALETTES: Record<string, number[][]> = {
     mono: [[13, 148, 136], [20, 184, 166], [45, 212, 191], [94, 234, 212]],
 };
 
-// §3 — base colour under the dots
+// §3 — base colour under the dots (light / dark per Dark-Mode spec §3)
 const DOT_BASES: Record<string, string> = {
     white: "#FDFEFD",
     mint: "#E2F9F1",
@@ -35,6 +37,15 @@ const DOT_BASES: Record<string, string> = {
     pink: "#FDE9F2",
     lavender: "#EFEAFE",
     rainbow: "linear-gradient(160deg, #DFF8EE 0%, #DFF0FE 32%, #FDEAF3 64%, #FEF7D9 100%)",
+};
+const DOT_BASES_DARK: Record<string, string> = {
+    white: "#0C1320",
+    mint: "#0A1F1A",
+    sky: "#091A2B",
+    lemon: "#1A1708",
+    pink: "#1E0E1A",
+    lavender: "#120E24",
+    rainbow: "linear-gradient(160deg, #0A1F1A 0%, #091A2B 36%, #1B0C18 68%, #1A1708 100%)",
 };
 
 // §6 — grade-level accent (`--sec`)
@@ -53,6 +64,63 @@ const GRADE_META: { key: GradeKey; thai: string; en: string }[] = [
 ];
 
 type GradeKey = "primary" | "junior" | "senior" | "other";
+
+// ── Palette: every base colour resolves through here (light / dark) ──
+function palette(d: boolean) {
+    return d
+        ? {
+              card: "#182336",
+              card2: "#1F2D44",
+              subtle: "#1F2D44",
+              track: "#0E1726",
+              ink: "#EAF1FB",
+              ink2: "#94A6C0",
+              ink3: "#6B7E99",
+              line: "#263650",
+              line2: "#37496A",
+              accent: "#4F9DF0",
+              accentDeep: "#8CBEF8",
+              good: "#46C98A",
+              shadow: "0 28px 64px -30px rgba(0,0,0,.72)",
+              shadowSm: "0 14px 32px -18px rgba(0,0,0,.6)",
+              overlay: "rgba(4,9,18,.68)",
+              disabledBg: "#1F2D44",
+              disabledFg: "#6B7E99",
+              btnFg: "#06101F",
+          }
+        : {
+              card: "#FFFFFF",
+              card2: "#F4F8FB",
+              subtle: "#F7FAFC",
+              track: "#E6EDF3",
+              ink: "#1A2A3C",
+              ink2: "#5A6B7C",
+              ink3: "#9AA8B5",
+              line: "#E4EAF0",
+              line2: "#D0DAE4",
+              accent: "#2F6DB5",
+              accentDeep: "#1F4E88",
+              good: "#16A34A",
+              shadow: "0 22px 54px -34px rgba(31,78,136,.30)",
+              shadowSm: "0 10px 24px -18px rgba(31,78,136,.28)",
+              overlay: "rgba(0,0,0,.5)",
+              disabledBg: "#EEF2F6",
+              disabledFg: "#9AA8B5",
+              btnFg: "#FFFFFF",
+          };
+}
+type Pal = ReturnType<typeof palette>;
+
+// vivid gradient ink for the hero word / avatar initial (§4 / dark §4.1)
+const gradText = (d: boolean): React.CSSProperties => ({
+    backgroundImage: d ? "linear-gradient(100deg, #5EEAD4, #7DD3FC 58%, #86EFAC)" : "linear-gradient(90deg, #0D9488, #0EA5E9 55%, #22C55E)",
+    WebkitBackgroundClip: "text",
+    backgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    color: "transparent",
+});
+// vivid teal→sky used by avatar ring / resume arrow / CTAs / FAB
+const tealSky = (d: boolean) => (d ? "linear-gradient(135deg, #2DD4BF, #7DD3FC)" : "linear-gradient(135deg, #0D9488, #0EA5E9)");
 
 interface ThemePrefs {
     vivid: boolean;
@@ -89,26 +157,35 @@ function dotOffsets(arrange: string, n: number): number[][] {
     return Array.from({ length: n }, (_, i) => base[i % base.length]);
 }
 
-// shared decorative layers
+// shared decorative layers (light / dark — Dark spec §3)
 const VEIL = "linear-gradient(180deg, rgba(255,255,255,.92) 0, rgba(255,255,255,.5) 230px, rgba(255,255,255,0) 520px)";
+const VEIL_DARK = "linear-gradient(180deg, rgba(11,19,32,.94) 0, rgba(11,19,32,.55) 230px, rgba(11,19,32,0) 520px)";
 const SOFT = "radial-gradient(640px 420px at 0% 0%, rgba(45,212,191,.14), transparent 58%), radial-gradient(700px 460px at 100% 4%, rgba(56,189,248,.12), transparent 55%)";
+const SOFT_DARK = "radial-gradient(640px 420px at 0% 0%, rgba(45,212,191,.20), transparent 58%), radial-gradient(700px 460px at 100% 4%, rgba(56,189,248,.18), transparent 55%)";
+// §3 — fallback for any non-dotpop background while in dark mode
+const DARK_FALLBACK = "radial-gradient(1000px 620px at 50% -12%, rgba(79,157,240,.18), transparent 66%), radial-gradient(820px 560px at 100% 4%, rgba(45,212,191,.12), transparent 60%), #0B1320";
 
-// §3 — compose the Dot Pop background string (top → bottom)
-function buildDotPop(p: ThemePrefs): string {
+// §3 — compose the Dot Pop background string (top → bottom), mode-aware
+function buildDotPop(p: ThemePrefs, d: boolean): string {
     const colors = DOT_PALETTES[p.palette] || DOT_PALETTES.classic;
     const offs = dotOffsets(p.arrange, colors.length);
+    const op = d ? Math.min(1, p.opacity + 0.12) : p.opacity;
     const dots = colors
         .map(([r, g, b], i) => {
             const [ox, oy] = offs[i];
-            return `radial-gradient(rgba(${r},${g},${b},${p.opacity}) ${p.size}px, transparent ${(p.size + 0.4).toFixed(1)}px) ${(ox * p.space).toFixed(2)}px ${(oy * p.space).toFixed(2)}px / ${p.space}px ${p.space}px`;
+            return `radial-gradient(rgba(${r},${g},${b},${op}) ${p.size}px, transparent ${(p.size + 0.4).toFixed(1)}px) ${(ox * p.space).toFixed(2)}px ${(oy * p.space).toFixed(2)}px / ${p.space}px ${p.space}px`;
         })
         .join(", ");
-    const baseVal = DOT_BASES[p.base] || DOT_BASES.lemon;
-    return `${VEIL}, ${dots}, ${SOFT}, ${baseVal}`;
+    const veil = d ? VEIL_DARK : VEIL;
+    const soft = d ? SOFT_DARK : SOFT;
+    const baseVal = (d ? DOT_BASES_DARK : DOT_BASES)[p.base] || (d ? DOT_BASES_DARK : DOT_BASES).lemon;
+    return `${veil}, ${dots}, ${soft}, ${baseVal}`;
 }
 
-// §3 — alternative backgrounds (switchable from the Tweak panel)
-function buildBg(p: ThemePrefs): string {
+// §3 — alternative backgrounds (light only; dark non-dotpop → DARK_FALLBACK)
+function buildBg(p: ThemePrefs, d: boolean): string {
+    if (p.style === "dotpop") return buildDotPop(p, d);
+    if (d) return DARK_FALLBACK;
     const baseVal = DOT_BASES[p.base] || DOT_BASES.lemon;
     switch (p.style) {
         case "plain":
@@ -125,30 +202,19 @@ function buildBg(p: ThemePrefs): string {
         }
         case "dots": {
             const [r, g, b] = (DOT_PALETTES[p.palette] || DOT_PALETTES.classic)[0];
-            const d = `radial-gradient(rgba(${r},${g},${b},${p.opacity}) ${p.size}px, transparent ${(p.size + 0.4).toFixed(1)}px) 0 0 / ${p.space}px ${p.space}px`;
-            return `${VEIL}, ${d}, ${SOFT}, ${baseVal}`;
+            const dot = `radial-gradient(rgba(${r},${g},${b},${p.opacity}) ${p.size}px, transparent ${(p.size + 0.4).toFixed(1)}px) 0 0 / ${p.space}px ${p.space}px`;
+            return `${VEIL}, ${dot}, ${SOFT}, ${baseVal}`;
         }
         case "aurora": {
             const a = "radial-gradient(900px 600px at 8% -4%, rgba(45,212,191,.30), transparent 60%), radial-gradient(900px 620px at 96% 6%, rgba(56,189,248,.28), transparent 60%), radial-gradient(820px 620px at 50% 108%, rgba(168,85,247,.16), transparent 62%)";
             return `${VEIL}, ${a}, ${baseVal}`;
         }
-        case "dotpop":
         default:
-            return buildDotPop(p);
+            return buildDotPop(p, d);
     }
 }
 
-// tint a hex toward white (cover backgrounds) without color-mix dependency
-function tint(hex: string, whitePct: number): string {
-    const h = hex.replace("#", "");
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    const w = whitePct / 100;
-    const mix = (c: number) => Math.round(c * (1 - w) + 255 * w);
-    return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
-}
-
+// mix `hex` toward `towardHex` by pct% (both must be 6-digit hex)
 function shade(hex: string, towardHex: string, pct: number): string {
     const a = hex.replace("#", "");
     const b = towardHex.replace("#", "");
@@ -160,6 +226,7 @@ function shade(hex: string, towardHex: string, pct: number): string {
     };
     return `rgb(${mix(0)}, ${mix(2)}, ${mix(4)})`;
 }
+const tint = (hex: string, whitePct: number) => shade(hex, "#FFFFFF", whitePct);
 
 // Helpers (data — unchanged from the original page)
 const formatDate = (date: any) => {
@@ -193,7 +260,7 @@ interface Course {
     title: string;
     image?: string;
     category?: string;
-    status?: string; // from enrollment
+    status?: string;
     expiryDate?: any;
     startedAt?: any;
     totalLessons?: number;
@@ -217,6 +284,7 @@ interface UserCoupon {
 
 export default function MyCoursesPage() {
     const { user, userProfile, loading: authLoading } = useUserAuth();
+    const { resolvedTheme, setTheme } = useTheme();
     const [courses, setCourses] = useState<Course[]>([]);
     const [progressMap, setProgressMap] = useState<Record<string, Progress>>({});
     const [lastSession, setLastSession] = useState<any>(null);
@@ -225,9 +293,18 @@ export default function MyCoursesPage() {
     const [reviewedCourseIds, setReviewedCourseIds] = useState<Set<string>>(new Set());
     const [reviewModal, setReviewModal] = useState<{ courseId: string; courseName: string } | null>(null);
 
-    // ── Theme preferences (vivid / cardful / Dot Pop params) ──
+    // ── Theme preferences + light/dark mode ──
     const [prefs, setPrefs] = useState<ThemePrefs>(DEFAULT_PREFS);
     const [tweakOpen, setTweakOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => setMounted(true), []);
+
+    // §1 — URL override ?mode=dark|light (read from the live URL, no Suspense needed)
+    useEffect(() => {
+        const m = new URLSearchParams(window.location.search).get("mode");
+        if (m === "dark" || m === "light") setTheme(m);
+    }, [setTheme]);
 
     useEffect(() => {
         try {
@@ -250,7 +327,9 @@ export default function MyCoursesPage() {
         });
     };
 
-    const bgString = useMemo(() => buildBg(prefs), [prefs]);
+    const isDark = mounted && resolvedTheme === "dark";
+    const c = useMemo(() => palette(isDark), [isDark]);
+    const bgString = useMemo(() => buildBg(prefs, isDark), [prefs, isDark]);
 
     useEffect(() => {
         if (authLoading) return;
@@ -266,7 +345,6 @@ export default function MyCoursesPage() {
         const setupListeners = async () => {
             setLoading(true);
             try {
-                // 1. Fetch Static Courses Data (Catalog)
                 const allCoursesData = await getCachedData("all-courses", async () => {
                     const coursesSnap = await getDocs(collection(db, "courses"));
                     return coursesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Course));
@@ -311,7 +389,6 @@ export default function MyCoursesPage() {
                                 let expiry = enroll?.expiryDate;
                                 let start = enroll?.createdAt;
 
-                                // Auto-generate expiry for legacy/manual enrollments if missing
                                 if (start && !expiry) {
                                     const startDate = start.toDate ? start.toDate() : new Date(start.seconds * 1000);
                                     const expiryDate = new Date(startDate);
@@ -414,7 +491,7 @@ export default function MyCoursesPage() {
         fetchVideoCounts();
     }, [courses]);
 
-    // Calculate progress map (runs when courses, progress, or cache updates)
+    // Calculate progress map
     useEffect(() => {
         if (courses.length === 0 || Object.keys(videoCountCacheRef.current).length === 0) return;
 
@@ -457,8 +534,8 @@ export default function MyCoursesPage() {
                 <div className="mc-bg-layer" style={{ background: bgString }} aria-hidden />
                 <Navbar />
                 <div className="mc-content flex flex-col items-center justify-center" style={{ minHeight: "70vh" }}>
-                    <div className="h-12 w-12 rounded-full border-[3px] border-teal-200 border-t-teal-500 animate-spin mb-4" />
-                    <p className="text-sm" style={{ color: "#5A6B7C" }}>กำลังโหลดข้อมูล...</p>
+                    <div className="h-12 w-12 rounded-full border-[3px] animate-spin mb-4" style={{ borderColor: c.line2, borderTopColor: c.accent }} />
+                    <p className="text-sm" style={{ color: c.ink2 }}>กำลังโหลดข้อมูล...</p>
                 </div>
             </div>
         );
@@ -472,7 +549,7 @@ export default function MyCoursesPage() {
             <main className="mc-content container mx-auto px-4 pb-24" style={{ paddingTop: "6.5rem", maxWidth: "64rem" }}>
                 {/* Back link */}
                 <div className="mb-4">
-                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold transition-colors group" style={{ color: "#5A6B7C" }}>
+                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold transition-colors group" style={{ color: c.ink2 }}>
                         <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
                         กลับหน้าแรก
                     </Link>
@@ -481,38 +558,38 @@ export default function MyCoursesPage() {
                 {/* §7.1 — Hero */}
                 <header className="mb-8 mc-rise">
                     <div className="flex items-center gap-2.5 mb-3">
-                        <span className="h-0.5 w-7 rounded-full" style={{ background: "#14B8A6" }} />
-                        <span className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "#0D9488" }}>
+                        <span className="h-0.5 w-7 rounded-full" style={{ background: isDark ? "linear-gradient(90deg,#2DD4BF,#7DD3FC)" : "#14B8A6" }} />
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: isDark ? "#5EEAD4" : "#0D9488" }}>
                             พื้นที่การเรียนของฉัน
                         </span>
                         {isAdmin && (
-                            <span className="ml-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full" style={{ background: "#FCE7E2", color: "#B4533F", border: "1px solid #F3C9BF" }}>
+                            <span className="ml-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full" style={isDark ? { background: "#2A1414", color: "#F8A4A4", border: "1px solid #5A2A2A" } : { background: "#FCE7E2", color: "#B4533F", border: "1px solid #F3C9BF" }}>
                                 👁️ Admin View
                             </span>
                         )}
                     </div>
-                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: "#1A2A3C" }}>
+                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: c.ink }}>
                         คอร์สเรียน
-                        <span style={vivid ? gradTextStyle : { color: "#2F6DB5" }}>ของฉัน</span>
+                        <span style={vivid ? gradText(isDark) : { color: c.accent }}>ของฉัน</span>
                     </h1>
                 </header>
 
                 {/* §7.2 — Profile */}
-                <ProfileHeader profile={userProfile || user} coursesCount={courses.length} avgProgress={avgProgress} vivid={vivid} cardful={cardful} />
+                <ProfileHeader profile={userProfile || user} coursesCount={courses.length} avgProgress={avgProgress} vivid={vivid} cardful={cardful} c={c} isDark={isDark} />
 
                 <div className="h-7" />
 
                 {/* §7.3 — Resume */}
                 {lastSession && (() => {
                     const resumeCourse = courses.find((c) => c.id === lastSession.courseId);
-                    return <ResumeCard session={lastSession} course={resumeCourse} vivid={vivid} cardful={cardful} />;
+                    return <ResumeCard session={lastSession} course={resumeCourse} vivid={vivid} cardful={cardful} c={c} isDark={isDark} />;
                 })()}
 
                 {/* §7.4 — Coupons */}
                 {userCoupons.length > 0 && (
                     <>
                         <div className="h-7" />
-                        <CouponBanner coupons={userCoupons} cardful={cardful} />
+                        <CouponBanner coupons={userCoupons} cardful={cardful} c={c} isDark={isDark} />
                     </>
                 )}
 
@@ -526,6 +603,8 @@ export default function MyCoursesPage() {
                     onReview={(courseId, courseName) => setReviewModal({ courseId, courseName })}
                     vivid={vivid}
                     cardful={cardful}
+                    c={c}
+                    isDark={isDark}
                 />
             </main>
 
@@ -533,12 +612,21 @@ export default function MyCoursesPage() {
                 <Footer />
             </div>
 
-            {/* Tweak panel (vivid / cardful / Dot Pop params) */}
-            <TweakPanel open={tweakOpen} onToggle={() => setTweakOpen((v) => !v)} prefs={prefs} update={updatePrefs} onReset={() => updatePrefs(DEFAULT_PREFS)} />
+            {/* Tweak panel */}
+            <TweakPanel
+                open={tweakOpen}
+                onToggle={() => setTweakOpen((v) => !v)}
+                prefs={prefs}
+                update={updatePrefs}
+                onReset={() => updatePrefs(DEFAULT_PREFS)}
+                isDark={isDark}
+                setMode={(m) => setTheme(m)}
+                c={c}
+            />
 
             {/* Review Modal */}
             {reviewModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setReviewModal(null)}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200" style={{ background: c.overlay }} onClick={() => setReviewModal(null)}>
                     <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <button
                             onClick={() => setReviewModal(null)}
@@ -571,17 +659,6 @@ export default function MyCoursesPage() {
     );
 }
 
-// gradient ink used by vivid headings (§4)
-const gradTextStyle: React.CSSProperties = {
-    backgroundImage: "linear-gradient(90deg, #0D9488, #0EA5E9 55%, #22C55E)",
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    color: "transparent",
-};
-
-const tealSky = "linear-gradient(135deg, #0D9488, #0EA5E9)";
-
 // ============================================================
 // §7.2 — Profile card
 // ============================================================
@@ -591,12 +668,16 @@ function ProfileHeader({
     avgProgress = 0,
     vivid,
     cardful,
+    c,
+    isDark,
 }: {
     profile: any;
     coursesCount?: number;
     avgProgress?: number;
     vivid: boolean;
     cardful: boolean;
+    c: Pal;
+    isDark: boolean;
 }) {
     const { user } = useUserAuth();
     if (!profile) return null;
@@ -607,9 +688,14 @@ function ProfileHeader({
     const statusLabel = coursesCount === 0 ? "—" : avgProgress >= 80 ? "เซียน" : avgProgress >= 30 ? "กำลังลุย" : "เริ่มต้น";
 
     const cardStyle: React.CSSProperties = cardful
-        ? { background: "linear-gradient(180deg, #FFFEF9, #FFF8E6)", border: "1px solid #EFDCA4", boxShadow: "0 22px 54px -34px rgba(31,78,136,.30)" }
-        : { background: "#fff", border: "1px solid #E4EAF0", boxShadow: "0 22px 54px -34px rgba(31,78,136,.30)" };
-    const divider = cardful ? "#F2E5BC" : "#EEF2F6";
+        ? {
+              background: isDark ? "linear-gradient(180deg, #1C2336, #241F13)" : "linear-gradient(180deg, #FFFEF9, #FFF8E6)",
+              border: `1px solid ${isDark ? "#3C3622" : "#EFDCA4"}`,
+              boxShadow: c.shadow,
+          }
+        : { background: c.card, border: `1px solid ${c.line}`, boxShadow: c.shadow };
+    const divider = cardful ? (isDark ? "#3A3624" : "#F2E5BC") : c.line;
+    const statColors = cardful ? (isDark ? ["#2DD4BF", "#56B5F7", "#FBBF24"] : ["#0D9488", "#0284C7", "#D97706"]) : [c.ink, c.ink, c.ink2];
 
     return (
         <section className="mc-rise">
@@ -617,30 +703,30 @@ function ProfileHeader({
                 {/* Header: avatar + identity + edit */}
                 <div className="flex items-center gap-4 sm:gap-5 px-5 sm:px-7 pt-6 pb-5">
                     <div className="relative shrink-0">
-                        <div className="rounded-[18px] p-[2px]" style={{ background: vivid ? tealSky : "#E4EAF0" }}>
-                            <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-2xl bg-white overflow-hidden flex items-center justify-center">
+                        <div className="rounded-[18px] p-[2px]" style={{ background: vivid ? tealSky(isDark) : c.line }}>
+                            <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-2xl overflow-hidden flex items-center justify-center" style={{ background: c.card }}>
                                 {profile.avatar || profile.photoURL ? (
                                     /* eslint-disable-next-line @next/next/no-img-element */
                                     <img src={profile.avatar || profile.photoURL} alt={displayName} className="w-full h-full object-contain" loading="lazy" />
                                 ) : (
-                                    <span className="text-2xl font-semibold mc-kanit" style={vivid ? gradTextStyle : { color: "#2F6DB5" }}>
+                                    <span className="text-2xl font-semibold mc-kanit" style={vivid ? gradText(isDark) : { color: c.accent }}>
                                         {displayName[0]}
                                     </span>
                                 )}
                             </div>
                         </div>
-                        <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white" aria-label="online" />
+                        <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-emerald-500 rounded-full" style={{ boxShadow: `0 0 0 2px ${c.card}` }} aria-label="online" />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                        <p className="text-[10.5px] uppercase tracking-[0.16em] font-medium mb-1" style={{ color: "#9AA8B5" }}>
+                        <p className="text-[10.5px] uppercase tracking-[0.16em] font-medium mb-1" style={{ color: c.ink3 }}>
                             {greeting} · นักเรียนของ KruHeem
                         </p>
-                        <h2 className="text-[22px] sm:text-2xl font-bold leading-tight tracking-tight truncate mc-kanit" style={{ color: "#1A2A3C" }}>
+                        <h2 className="text-[22px] sm:text-2xl font-bold leading-tight tracking-tight truncate mc-kanit" style={{ color: c.ink }}>
                             {displayName}
                         </h2>
                         {profile.caption && (
-                            <p className="text-sm mt-1 truncate" style={{ color: "#5A6B7C" }}>
+                            <p className="text-sm mt-1 truncate" style={{ color: c.ink2 }}>
                                 {profile.caption}
                             </p>
                         )}
@@ -650,8 +736,8 @@ function ProfileHeader({
                         href="/profile"
                         prefetch={false}
                         aria-label="แก้ไขโปรไฟล์"
-                        className="hidden sm:inline-flex shrink-0 items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg transition-colors hover:bg-white/70"
-                        style={{ color: "#5A6B7C" }}
+                        className="hidden sm:inline-flex shrink-0 items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg transition-colors hover:bg-black/5"
+                        style={{ color: c.ink2 }}
                     >
                         <Settings size={14} strokeWidth={2} />
                         <span>แก้ไข</span>
@@ -660,22 +746,22 @@ function ProfileHeader({
 
                 {/* Stats — 3 coloured numbers (§5) */}
                 <div className="grid grid-cols-3" style={{ borderTop: `1px solid ${divider}` }}>
-                    <Stat value={coursesCount > 0 ? `${coursesCount}` : "—"} label="คอร์ส" color={cardful ? "#0D9488" : "#1A2A3C"} divider={divider} first />
-                    <Stat value={coursesCount > 0 ? `${avgProgress}` : "—"} suffix={coursesCount > 0 ? "%" : ""} label="ความคืบหน้า" color={cardful ? "#0284C7" : "#1A2A3C"} divider={divider} />
-                    <Stat value={statusLabel} label="สถานะ" color={cardful ? "#D97706" : "#5A6B7C"} divider={divider} />
+                    <Stat value={coursesCount > 0 ? `${coursesCount}` : "—"} label="คอร์ส" color={statColors[0]} divider={divider} c={c} first />
+                    <Stat value={coursesCount > 0 ? `${avgProgress}` : "—"} suffix={coursesCount > 0 ? "%" : ""} label="ความคืบหน้า" color={statColors[1]} divider={divider} c={c} />
+                    <Stat value={statusLabel} label="สถานะ" color={statColors[2]} divider={divider} c={c} />
                 </div>
 
                 {/* Action strip */}
                 {user && (
                     <div className="grid grid-cols-2" style={{ borderTop: `1px solid ${divider}` }}>
-                        <ActionLink href="/guide" icon={<BookOpen size={15} strokeWidth={1.75} />} label="คู่มือใช้งาน" badge="ใหม่" divider={divider} first />
-                        <ActionLink href={`/parent-dashboard/${user.uid}`} icon={<BarChart3 size={15} strokeWidth={1.75} />} label="ติดตามผลการเรียน" divider={divider} />
+                        <ActionLink href="/guide" icon={<BookOpen size={15} strokeWidth={1.75} />} label="คู่มือใช้งาน" badge="ใหม่" divider={divider} c={c} isDark={isDark} first />
+                        <ActionLink href={`/parent-dashboard/${user.uid}`} icon={<BarChart3 size={15} strokeWidth={1.75} />} label="ติดตามผลการเรียน" divider={divider} c={c} isDark={isDark} />
                     </div>
                 )}
 
                 {/* Mobile edit */}
                 <div className="sm:hidden" style={{ borderTop: `1px solid ${divider}` }}>
-                    <Link href="/profile" prefetch={false} className="flex items-center justify-center gap-2 px-5 py-3.5 text-xs font-medium active:bg-white/70 transition-colors" style={{ color: "#5A6B7C" }}>
+                    <Link href="/profile" prefetch={false} className="flex items-center justify-center gap-2 px-5 py-3.5 text-xs font-medium active:bg-black/5 transition-colors" style={{ color: c.ink2 }}>
                         <Settings size={13} strokeWidth={2} />
                         <span>แก้ไขโปรไฟล์</span>
                     </Link>
@@ -685,37 +771,35 @@ function ProfileHeader({
     );
 }
 
-function Stat({ value, suffix, label, color, divider, first }: { value: string; suffix?: string; label: string; color: string; divider: string; first?: boolean }) {
+function Stat({ value, suffix, label, color, divider, c, first }: { value: string; suffix?: string; label: string; color: string; divider: string; c: Pal; first?: boolean }) {
     return (
         <div className="px-4 sm:px-6 py-4 sm:py-5" style={first ? undefined : { borderLeft: `1px solid ${divider}` }}>
             <div className="text-2xl sm:text-[26px] font-semibold tracking-tight tabular-nums leading-none mc-kanit" style={{ color }}>
                 {value}
-                {suffix && <span className="text-base font-normal ml-0.5" style={{ color: "#9AA8B5" }}>{suffix}</span>}
+                {suffix && <span className="text-base font-normal ml-0.5" style={{ color: c.ink3 }}>{suffix}</span>}
             </div>
-            <div className="mt-1.5 text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "#9AA8B5" }}>
+            <div className="mt-1.5 text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: c.ink3 }}>
                 {label}
             </div>
         </div>
     );
 }
 
-function ActionLink({ href, icon, label, badge, divider, first }: { href: string; icon: React.ReactNode; label: string; badge?: string; divider: string; first?: boolean }) {
+function ActionLink({ href, icon, label, badge, divider, c, isDark, first }: { href: string; icon: React.ReactNode; label: string; badge?: string; divider: string; c: Pal; isDark: boolean; first?: boolean }) {
     return (
-        <Link href={href} prefetch={false} className="group flex items-center justify-between gap-3 px-5 sm:px-6 py-4 transition-colors hover:bg-white/60" style={first ? undefined : { borderLeft: `1px solid ${divider}` }}>
+        <Link href={href} prefetch={false} className="group flex items-center justify-between gap-3 px-5 sm:px-6 py-4 transition-colors hover:bg-black/[0.03]" style={first ? undefined : { borderLeft: `1px solid ${divider}` }}>
             <div className="flex items-center gap-3 min-w-0">
-                <span style={{ color: "#7C8B98" }} className="group-hover:text-slate-700 transition-colors">
-                    {icon}
-                </span>
-                <span className="text-sm font-medium truncate" style={{ color: "#3F505F" }}>
+                <span style={{ color: c.ink3 }}>{icon}</span>
+                <span className="text-sm font-medium truncate" style={{ color: c.ink2 }}>
                     {label}
                 </span>
                 {badge && (
-                    <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full leading-none" style={{ color: "#B4533F", border: "1px solid #F3C9BF" }}>
+                    <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full leading-none" style={isDark ? { color: "#F9A8D4", border: "1px solid #7A335C" } : { color: "#B4533F", border: "1px solid #F3C9BF" }}>
                         {badge}
                     </span>
                 )}
             </div>
-            <span className="text-sm transition-all group-hover:translate-x-0.5" style={{ color: "#C2CDD8" }}>→</span>
+            <span className="text-sm transition-all group-hover:translate-x-0.5" style={{ color: c.line2 }}>→</span>
         </Link>
     );
 }
@@ -723,24 +807,26 @@ function ActionLink({ href, icon, label, badge, divider, first }: { href: string
 // ============================================================
 // §7.3 — Resume card
 // ============================================================
-function ResumeCard({ session, course, vivid, cardful }: { session: any; course?: Course; vivid: boolean; cardful: boolean }) {
+function ResumeCard({ session, course, vivid, cardful, c, isDark }: { session: any; course?: Course; vivid: boolean; cardful: boolean; c: Pal; isDark: boolean }) {
     const href = course?.isExamBank ? "/exam" : `/learn/${session.courseId}?lessonId=${session.lessonId}&t=${session.timestamp}`;
     const cardStyle: React.CSSProperties = cardful
-        ? { background: "linear-gradient(115deg, #EFF8FF, #FFFFFF 62%)", border: "1px solid #B9DDF5" }
-        : { background: "#fff", border: "1px solid #E4EAF0" };
-    const coverFallback = "linear-gradient(135deg, #BFE3FA, #D6F3EC)";
+        ? {
+              background: isDark ? "linear-gradient(115deg, #142A42, #1A2740 64%)" : "linear-gradient(115deg, #EFF8FF, #FFFFFF 62%)",
+              border: `1px solid ${isDark ? "#2E456A" : "#B9DDF5"}`,
+          }
+        : { background: c.card, border: `1px solid ${c.line}` };
+    const coverFallback = isDark ? "linear-gradient(135deg, #1E4A6B, #16463C)" : "linear-gradient(135deg, #BFE3FA, #D6F3EC)";
+    const tagBg = isDark ? (vivid ? "#0F2E2A" : "#15294A") : "#E0F2FE";
+    const tagColor = isDark ? (vivid ? "#5EEAD4" : "#7DD3FC") : "#0369A1";
     const mm = Math.floor(session.timestamp / 60);
     const ss = String(session.timestamp % 60).padStart(2, "0");
 
     return (
         <Link href={href} prefetch={false} className="block mc-rise">
-            <div
-                className="group relative w-full rounded-2xl p-5 md:p-6 transition-all duration-300 overflow-hidden cursor-pointer hover:-translate-y-0.5"
-                style={{ ...cardStyle, boxShadow: "0 22px 54px -34px rgba(31,78,136,.30)" }}
-            >
+            <div className="group relative w-full rounded-2xl p-5 md:p-6 transition-all duration-300 overflow-hidden cursor-pointer hover:-translate-y-0.5" style={{ ...cardStyle, boxShadow: c.shadow }}>
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-7">
                     {/* Cover */}
-                    <div className="w-full md:w-60 aspect-video rounded-xl overflow-hidden relative shrink-0" style={{ background: coverFallback, border: "1px solid #C7E3F4" }}>
+                    <div className="w-full md:w-60 aspect-video rounded-xl overflow-hidden relative shrink-0" style={{ background: coverFallback, border: `1px solid ${isDark ? "#2E456A" : "#C7E3F4"}` }}>
                         {course?.image ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={course.image} alt={course.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" />
@@ -759,34 +845,31 @@ function ResumeCard({ session, course, vivid, cardful }: { session: any; course?
                     {/* Info */}
                     <div className="flex-1 min-w-0 text-center md:text-left">
                         <div className="flex items-center justify-center md:justify-start gap-2.5 mb-2">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: "#E0F2FE", color: "#0369A1" }}>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: tagBg, color: tagColor }}>
                                 <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#38BDF8" }} />
                                     <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#0EA5E9" }} />
                                 </span>
                                 เรียนต่อจากครั้งล่าสุด
                             </span>
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold font-mono px-2 py-0.5 rounded-md" style={{ background: "#EFF6FB", color: "#5A6B7C" }}>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold font-mono px-2 py-0.5 rounded-md" style={{ background: isDark ? "#15294A" : "#EFF6FB", color: isDark ? "#9FC2EC" : "#5A6B7C" }}>
                                 <Clock size={11} /> {mm}:{ss}
                             </span>
                         </div>
 
-                        <h2 className="text-xl md:text-2xl font-bold leading-snug line-clamp-2 mc-kanit transition-colors group-hover:text-sky-700" style={{ color: "#1A2A3C" }}>
+                        <h2 className="text-xl md:text-2xl font-bold leading-snug line-clamp-2 mc-kanit" style={{ color: c.ink }}>
                             {session.lessonTitle}
                         </h2>
 
-                        <div className="flex items-center justify-center md:justify-start gap-2 mt-2 text-sm font-medium" style={{ color: "#5A6B7C" }}>
-                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#B9C6D2" }} />
+                        <div className="flex items-center justify-center md:justify-start gap-2 mt-2 text-sm font-medium" style={{ color: c.ink2 }}>
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: c.line2 }} />
                             <span className="line-clamp-1">{session.courseTitle || course?.title}</span>
                         </div>
                     </div>
 
                     {/* Arrow */}
                     <div className="hidden md:flex items-center justify-center pr-2">
-                        <div
-                            className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110"
-                            style={{ background: vivid ? tealSky : "#2F6DB5", color: "#fff", boxShadow: "0 10px 24px -10px rgba(14,165,233,.55)" }}
-                        >
+                        <div className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110" style={{ background: vivid ? tealSky(isDark) : c.accent, color: isDark ? "#06101F" : "#fff", boxShadow: "0 10px 24px -10px rgba(14,165,233,.45)" }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M5 12h14" />
                                 <path d="m12 5 7 7-7 7" />
@@ -840,6 +923,8 @@ function CourseList({
     onReview,
     vivid,
     cardful,
+    c,
+    isDark,
 }: {
     courses: Course[];
     progressMap: Record<string, Progress>;
@@ -847,20 +932,22 @@ function CourseList({
     onReview: (courseId: string, courseName: string) => void;
     vivid: boolean;
     cardful: boolean;
+    c: Pal;
+    isDark: boolean;
 }) {
     if (courses.length === 0)
         return (
-            <div className="text-center py-16 rounded-2xl mc-rise" style={{ background: "rgba(255,255,255,.7)", border: "2px dashed #D0DAE4", color: "#5A6B7C" }}>
+            <div className="text-center py-16 rounded-2xl mc-rise" style={{ background: isDark ? "rgba(24,35,54,.55)" : "rgba(255,255,255,.7)", border: `2px dashed ${c.line2}`, color: c.ink2 }}>
                 <div className="text-6xl mb-4">🎒</div>
                 <p className="text-lg font-medium mb-6">ยังไม่ได้ลงทะเบียนคอร์สเรียน</p>
-                <Link href="/" className="inline-block text-white px-8 py-3 rounded-full font-bold transition shadow-lg" style={{ background: tealSky }}>
+                <Link href="/" className="inline-block px-8 py-3 rounded-full font-bold transition shadow-lg" style={{ background: tealSky(isDark), color: isDark ? "#06101F" : "#fff" }}>
                     ดูคอร์สทั้งหมด
                 </Link>
             </div>
         );
 
     const grouped: Record<GradeKey, Course[]> = { primary: [], junior: [], senior: [], other: [] };
-    courses.forEach((c) => grouped[getCourseCategory(c.title)].push(c));
+    courses.forEach((cc) => grouped[getCourseCategory(cc.title)].push(cc));
     const sorter = (a: Course, b: Course) => getCourseWeight(a.title) - getCourseWeight(b.title);
     (Object.values(grouped) as Course[][]).forEach((list) => list.sort(sorter));
 
@@ -871,22 +958,22 @@ function CourseList({
                 if (list.length === 0) return null;
                 const sec = SEC[key];
                 return (
-                    <section key={key} className="mb-10 mc-rise" style={{ ["--sec" as any]: sec }}>
-                        {/* §6 — section header: short line + Thai name + EN · n คอร์ส */}
+                    <section key={key} className="mb-10 mc-rise">
+                        {/* §6 — section header */}
                         <div className="flex items-center gap-3 mb-5">
                             <span className="h-1 w-8 rounded-full shrink-0" style={{ background: sec }} />
-                            <h2 className="text-lg sm:text-xl font-bold mc-kanit" style={{ color: "#1A2A3C", whiteSpace: "nowrap" }}>
+                            <h2 className="text-lg sm:text-xl font-bold mc-kanit" style={{ color: c.ink, whiteSpace: "nowrap" }}>
                                 {thai}{" "}
-                                <span className="font-medium text-sm" style={{ color: "#7C8B98" }}>
+                                <span className="font-medium text-sm" style={{ color: c.ink3 }}>
                                     {en} · {list.length} คอร์ส
                                 </span>
                             </h2>
-                            <span className="flex-1 h-px" style={{ background: "linear-gradient(90deg, #E4EAF0, transparent)" }} />
+                            <span className="flex-1 h-px" style={{ background: `linear-gradient(90deg, ${c.line}, transparent)` }} />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                             {list.map((course) => (
-                                <CourseCard key={course.id} course={course} progress={progressMap[course.id]} isReviewed={reviewedCourseIds.has(course.id)} onReview={onReview} sec={sec} vivid={vivid} cardful={cardful} />
+                                <CourseCard key={course.id} course={course} progress={progressMap[course.id]} isReviewed={reviewedCourseIds.has(course.id)} onReview={onReview} sec={sec} vivid={vivid} cardful={cardful} c={c} isDark={isDark} />
                             ))}
                         </div>
                     </section>
@@ -894,8 +981,8 @@ function CourseList({
             })}
 
             {/* §7.6 — Refund policy */}
-            <div className="mt-10 pt-5" style={{ borderTop: "1px solid #E4EAF0" }}>
-                <p className="text-[11px] text-center leading-relaxed max-w-2xl mx-auto" style={{ color: "#9AA8B5" }}>
+            <div className="mt-10 pt-5" style={{ borderTop: `1px solid ${c.line}` }}>
+                <p className="text-[11px] text-center leading-relaxed max-w-2xl mx-auto" style={{ color: c.ink3 }}>
                     นโยบายการคืนเงิน — หากไม่พึงพอใจในคอร์สเรียน สามารถแจ้งขอคืนเงินได้ภายใน 3 วันนับตั้งแต่วันที่ได้รับการอนุมัติ โดยติดต่อผ่านระบบแชทในเว็บไซต์ หรือช่องทางที่ระบุไว้ในหน้าติดต่อเรา ทั้งนี้ขอสงวนสิทธิ์ในการพิจารณาเป็นรายกรณี
                 </p>
             </div>
@@ -914,6 +1001,8 @@ function CourseCard({
     sec,
     vivid,
     cardful,
+    c,
+    isDark,
 }: {
     course: Course;
     progress?: Progress;
@@ -922,6 +1011,8 @@ function CourseCard({
     sec: string;
     vivid: boolean;
     cardful: boolean;
+    c: Pal;
+    isDark: boolean;
 }) {
     const daysRemaining = getDaysRemaining(course.expiryDate);
     const isExpired = daysRemaining !== null && daysRemaining <= 0;
@@ -930,30 +1021,37 @@ function CourseCard({
     const done = pct === 100;
 
     const cardStyle: React.CSSProperties = {
-        background: "#fff",
-        border: "1px solid #E4EAF0",
-        borderTop: cardful ? `4px solid ${sec}` : "1px solid #E4EAF0",
-        boxShadow: "0 10px 24px -18px rgba(31,78,136,.28)",
-        opacity: isExpired ? 0.78 : 1,
+        background: c.card,
+        border: `1px solid ${c.line}`,
+        borderTop: cardful ? `4px solid ${sec}` : `1px solid ${c.line}`,
+        boxShadow: c.shadowSm,
+        opacity: isExpired ? (isDark ? 0.62 : 0.78) : 1,
     };
-    const coverBg = cardful ? tint(sec, 87) : "#F4F8FB";
+    const coverBg = cardful ? (isDark ? shade(sec, "#162236", 76) : tint(sec, 87)) : c.subtle;
 
     // progress fill: 100% always green; else sec (cardful) / teal-sky (vivid) / accent
     const fill = done
         ? "linear-gradient(90deg, #22C55E, #16A34A)"
         : cardful
-        ? `linear-gradient(90deg, ${sec}, ${shade(sec, "#1F4E88", 28)})`
+        ? isDark
+            ? `linear-gradient(90deg, ${shade(sec, "#FFFFFF", 45)}, ${sec})`
+            : `linear-gradient(90deg, ${sec}, ${shade(sec, "#1F4E88", 28)})`
         : vivid
-        ? tealSky
-        : "#2F6DB5";
+        ? tealSky(isDark)
+        : c.accent;
 
     const ctaBg = isExpired
-        ? "#EEF2F6"
+        ? c.disabledBg
         : cardful
-        ? `linear-gradient(135deg, ${sec}, ${shade(sec, "#1F4E88", 38)})`
+        ? isDark
+            ? `linear-gradient(120deg, ${shade(sec, "#0EA5E9", 18)}, ${shade(sec, "#4F9DF0", 40)})`
+            : `linear-gradient(135deg, ${sec}, ${shade(sec, "#1F4E88", 38)})`
         : vivid
-        ? tealSky
-        : "#2F6DB5";
+        ? tealSky(isDark)
+        : c.accent;
+    const ctaFg = isExpired ? c.disabledFg : isDark ? "#06101F" : "#fff";
+
+    const pctColor = done ? c.good : pct === 0 ? c.ink3 : cardful ? (isDark ? shade(sec, "#FFFFFF", 72) : sec) : c.accent;
 
     return (
         <div className="rounded-2xl p-4 flex flex-col transition-all duration-300 hover:-translate-y-1 group" style={cardStyle}>
@@ -963,12 +1061,12 @@ function CourseCard({
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={course.image} alt={course.title} className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${isExpired ? "grayscale-[.4]" : ""}`} loading="lazy" />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl" style={{ color: tint(sec, 35) }}>📘</div>
+                    <div className="w-full h-full flex items-center justify-center text-4xl" style={{ color: isDark ? shade(sec, "#FFFFFF", 30) : tint(sec, 35) }}>📘</div>
                 )}
 
                 {/* Pending overlay (§7.5) */}
                 {!isApproved && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 backdrop-blur-[2px]" style={{ background: "rgba(26,42,60,.62)" }}>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 backdrop-blur-[2px]" style={{ background: isDark ? "rgba(4,9,18,.72)" : "rgba(26,42,60,.62)" }}>
                         <Clock size={22} className="text-white mb-1.5" />
                         <span className="text-white text-sm font-bold mc-kanit">
                             {course.status === "pending" ? "รอตรวจสอบสลิป" : course.status}
@@ -982,26 +1080,26 @@ function CourseCard({
                 {/* Expiry badge */}
                 {isApproved && daysRemaining !== null && (
                     <div className="absolute top-2 right-2">
-                        <ValidityBadge days={daysRemaining} />
+                        <ValidityBadge days={daysRemaining} isDark={isDark} c={c} />
                     </div>
                 )}
             </div>
 
             {/* Title */}
-            <h3 className="font-semibold text-[17px] leading-snug mb-2 line-clamp-2 mc-kanit" style={{ color: "#1A2A3C", minHeight: "2.8rem" }}>
+            <h3 className="font-semibold text-[17px] leading-snug mb-2 line-clamp-2 mc-kanit" style={{ color: c.ink, minHeight: "2.8rem" }}>
                 {course.title}
             </h3>
 
             {/* Dates */}
             {isApproved && (
-                <div className="mb-3 text-[11px] py-1.5 px-3 rounded-lg flex justify-between items-center gap-2" style={{ background: "#F7FAFC", border: "1px solid #EAF0F5", color: "#5A6B7C" }}>
+                <div className="mb-3 text-[11px] py-1.5 px-3 rounded-lg flex justify-between items-center gap-2" style={{ background: c.subtle, border: `1px solid ${c.line}`, color: c.ink2 }}>
                     <span>
-                        <span style={{ color: "#9AA8B5" }}>เริ่ม </span>
+                        <span style={{ color: c.ink3 }}>เริ่ม </span>
                         {formatDate(course.startedAt)}
                     </span>
-                    <span style={{ color: "#D0DAE4" }}>·</span>
+                    <span style={{ color: c.line2 }}>·</span>
                     <span>
-                        <span style={{ color: "#9AA8B5" }}>หมดอายุ </span>
+                        <span style={{ color: c.ink3 }}>หมดอายุ </span>
                         {formatDate(course.expiryDate)}
                     </span>
                 </div>
@@ -1009,19 +1107,19 @@ function CourseCard({
 
             {/* Progress */}
             {progress && isApproved && (
-                <div className="mb-4 p-3.5 rounded-xl" style={{ background: "#F7FAFC", border: "1px solid #EAF0F5" }}>
+                <div className="mb-4 p-3.5 rounded-xl" style={{ background: c.subtle, border: `1px solid ${c.line}` }}>
                     <div className="flex justify-between items-end mb-2">
-                        <span className="text-xs font-semibold" style={{ color: "#5A6B7C" }}>
+                        <span className="text-xs font-semibold" style={{ color: c.ink2 }}>
                             {course.isExamBank ? "ทดสอบแล้ว " : "เรียนแล้ว "}
-                            <span className="text-sm font-bold" style={{ color: done ? "#16A34A" : sec }}>{progress.completed}</span>
-                            <span style={{ color: "#9AA8B5" }}> / {progress.total} {course.isExamBank ? "ชุด" : "คลิป"}</span>
+                            <span className="text-sm font-bold" style={{ color: done ? c.good : sec }}>{progress.completed}</span>
+                            <span style={{ color: c.ink3 }}> / {progress.total} {course.isExamBank ? "ชุด" : "คลิป"}</span>
                         </span>
-                        <span className="text-xs font-bold" style={{ color: done ? "#16A34A" : pct === 0 ? "#9AA8B5" : sec }}>
+                        <span className="text-xs font-bold" style={{ color: pctColor }}>
                             {done ? "✓ จบคอร์ส" : `${pct}%`}
                         </span>
                     </div>
 
-                    <div className="h-2.5 rounded-full overflow-hidden relative" style={{ background: "#E6EDF3" }}>
+                    <div className="h-2.5 rounded-full overflow-hidden relative" style={{ background: c.track }}>
                         <div className="h-full rounded-full relative overflow-hidden transition-[width] duration-1000 ease-out" style={{ width: `${pct === 0 ? 4 : pct}%`, background: fill, opacity: pct === 0 ? 0.55 : 1 }}>
                             {pct > 0 && (
                                 <span className="absolute inset-y-0 w-1/3 opacity-0 group-hover:opacity-100" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)", animation: "mc-sweep 1.4s ease-in-out infinite" }} />
@@ -1039,17 +1137,12 @@ function CourseCard({
                         prefetch={false}
                         onClick={(e) => isExpired && e.preventDefault()}
                         className="block w-full py-3 font-bold rounded-xl text-center transition-transform hover:-translate-y-0.5"
-                        style={{
-                            background: ctaBg,
-                            color: isExpired ? "#9AA8B5" : "#fff",
-                            cursor: isExpired ? "not-allowed" : "pointer",
-                            boxShadow: isExpired ? "none" : "0 10px 22px -12px rgba(31,78,136,.5)",
-                        }}
+                        style={{ background: ctaBg, color: ctaFg, cursor: isExpired ? "not-allowed" : "pointer", boxShadow: isExpired ? "none" : "0 10px 22px -12px rgba(31,78,136,.5)" }}
                     >
                         {isExpired ? "หมดอายุ" : course.isExamBank ? "ทำข้อสอบเลย" : pct > 0 ? "เรียนต่อ" : "เริ่มเรียน"}
                     </Link>
                 ) : (
-                    <button disabled className="w-full py-3 font-bold rounded-xl cursor-not-allowed flex items-center justify-center gap-2" style={{ background: "#EEF2F6", color: "#9AA8B5" }}>
+                    <button disabled className="w-full py-3 font-bold rounded-xl cursor-not-allowed flex items-center justify-center gap-2" style={{ background: c.disabledBg, color: c.disabledFg }}>
                         <Lock size={14} /> {course.status === "pending" ? "รออนุมัติ" : "เข้าเรียนไม่ได้"}
                     </button>
                 )}
@@ -1059,7 +1152,11 @@ function CourseCard({
                     <button
                         onClick={() => onReview(course.id, course.title)}
                         className="w-full mt-2 py-2.5 font-bold text-sm rounded-xl transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2"
-                        style={{ background: "linear-gradient(90deg, #FFF7E6, #FFF1F0)", border: "1px solid #FBD9A8", color: "#B45309" }}
+                        style={
+                            isDark
+                                ? { background: "transparent", border: `1px solid ${shade(sec, c.line2, 60)}`, color: shade(sec, "#FFFFFF", 42) }
+                                : { background: "linear-gradient(90deg, #FFF7E6, #FFF1F0)", border: "1px solid #FBD9A8", color: "#B45309" }
+                        }
                     >
                         <Star size={14} fill="currentColor" />
                         ★ รีวิวคอร์สนี้ รับส่วนลด ฿100
@@ -1067,7 +1164,7 @@ function CourseCard({
                 )}
 
                 {isReviewed && isApproved && (
-                    <div className="w-full mt-2 py-2 text-center text-xs font-bold flex items-center justify-center gap-1" style={{ color: "#16A34A" }}>
+                    <div className="w-full mt-2 py-2 text-center text-xs font-bold flex items-center justify-center gap-1" style={{ color: c.good }}>
                         <CheckCircle size={12} /> ✓ รีวิวแล้ว — ขอบคุณ!
                     </div>
                 )}
@@ -1076,16 +1173,19 @@ function CourseCard({
     );
 }
 
-function ValidityBadge({ days }: { days: number }) {
-    if (days <= 0) return <Badge text="หมดอายุ" bg="#B4533F" pulse />;
-    if (days <= 7) return <Badge text={`เหลือ ${days} วัน`} bg="#B4533F" pulse />;
-    if (days <= 30) return <Badge text={`เหลือ ${days} วัน`} bg="#D97706" />;
-    return <Badge text={`เหลือ ${days} วัน`} bg="rgba(26,42,60,.62)" />;
+function ValidityBadge({ days, isDark, c }: { days: number; isDark: boolean; c: Pal }) {
+    if (days <= 0)
+        return <Badge text="หมดอายุ" {...(isDark ? { bg: "#2A1414", color: "#F8A4A4", border: "#5A2A2A" } : { bg: "#B4533F", color: "#fff" })} pulse />;
+    if (days <= 7)
+        return <Badge text={`เหลือ ${days} วัน`} {...(isDark ? { bg: "#2A1414", color: "#F8A4A4", border: "#5A2A2A" } : { bg: "#B4533F", color: "#fff" })} pulse />;
+    if (days <= 30)
+        return <Badge text={`เหลือ ${days} วัน`} {...(isDark ? { bg: "#2A2310", color: "#FBD34A", border: "#5A4A1E" } : { bg: "#D97706", color: "#fff" })} />;
+    return <Badge text={`เหลือ ${days} วัน`} {...(isDark ? { bg: "#0E1726", color: c.ink2, border: c.line2 } : { bg: "rgba(26,42,60,.62)", color: "#fff" })} />;
 }
 
-function Badge({ text, bg, pulse }: { text: string; bg: string; pulse?: boolean }) {
+function Badge({ text, bg, color, border, pulse }: { text: string; bg: string; color: string; border?: string; pulse?: boolean }) {
     return (
-        <span className={`text-[10px] font-bold px-2 py-1 rounded-md text-white shadow-sm backdrop-blur-sm ${pulse ? "animate-pulse" : ""}`} style={{ background: bg }}>
+        <span className={`text-[10px] font-bold px-2 py-1 rounded-md shadow-sm backdrop-blur-sm ${pulse ? "animate-pulse" : ""}`} style={{ background: bg, color, border: border ? `1px solid ${border}` : undefined }}>
             {text}
         </span>
     );
@@ -1094,7 +1194,7 @@ function Badge({ text, bg, pulse }: { text: string; bg: string; pulse?: boolean 
 // ============================================================
 // §7.4 — Coupons
 // ============================================================
-function CouponBanner({ coupons, cardful }: { coupons: UserCoupon[]; cardful: boolean }) {
+function CouponBanner({ coupons, cardful, c, isDark }: { coupons: UserCoupon[]; cardful: boolean; c: Pal; isDark: boolean }) {
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
     const handleCopy = (code: string) => {
@@ -1103,25 +1203,31 @@ function CouponBanner({ coupons, cardful }: { coupons: UserCoupon[]; cardful: bo
         setTimeout(() => setCopiedCode(null), 2000);
     };
 
-    const unusedCoupons = coupons.filter((c) => !c.isUsed);
-    const usedCoupons = coupons.filter((c) => c.isUsed);
+    const unusedCoupons = coupons.filter((cp) => !cp.isUsed);
+    const usedCoupons = coupons.filter((cp) => cp.isUsed);
+
+    const readyBg = cardful ? (isDark ? "#11241B" : "#E9FBF2") : c.card;
+    const readyBorder = cardful ? (isDark ? "#2E6B53" : "#5FD9A9") : c.line;
+    const codeColor = isDark ? "#5EEAD4" : "#0B7A55";
+    const pillBg = isDark ? "#0F2E2A" : "#CBF3E2";
+    const pillColor = isDark ? "#6EE7B7" : "#0B7A55";
 
     return (
-        <div className="rounded-2xl p-5 sm:p-6 mc-rise" style={{ background: "#fff", border: "1px solid #E4EAF0", boxShadow: "0 22px 54px -34px rgba(31,78,136,.30)" }}>
+        <div className="rounded-2xl p-5 sm:p-6 mc-rise" style={{ background: c.card, border: `1px solid ${c.line}`, boxShadow: c.shadow }}>
             <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#FEF3C7" }}>
-                    <Gift size={20} style={{ color: "#D97706" }} />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: isDark ? "#2A2310" : "#FEF3C7" }}>
+                    <Gift size={20} style={{ color: isDark ? "#FBBF24" : "#D97706" }} />
                 </div>
                 <div>
-                    <h3 className="font-bold mc-kanit" style={{ color: "#1A2A3C" }}>คูปองของฉัน</h3>
-                    <p className="text-xs" style={{ color: "#7C8B98" }}>โค้ดส่วนลดของคุณ ดูย้อนหลังได้เสมอ</p>
+                    <h3 className="font-bold mc-kanit" style={{ color: c.ink }}>คูปองของฉัน</h3>
+                    <p className="text-xs" style={{ color: c.ink3 }}>โค้ดส่วนลดของคุณ ดูย้อนหลังได้เสมอ</p>
                 </div>
             </div>
 
             {/* Ready to use */}
             {unusedCoupons.length > 0 && (
                 <div className="mb-4">
-                    <p className="text-xs font-bold mb-2 flex items-center gap-1" style={{ color: "#0F9D6C" }}>
+                    <p className="text-xs font-bold mb-2 flex items-center gap-1" style={{ color: c.good }}>
                         <CheckCircle size={12} /> พร้อมใช้ ({unusedCoupons.length})
                     </p>
                     <div className="space-y-2">
@@ -1130,14 +1236,14 @@ function CouponBanner({ coupons, cardful }: { coupons: UserCoupon[]; cardful: bo
                                 key={`unused-${i}`}
                                 onClick={() => handleCopy(coupon.code)}
                                 className="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-all hover:shadow-md group"
-                                style={{ background: cardful ? "#E9FBF2" : "#fff", border: `1px solid ${cardful ? "#5FD9A9" : "#E4EAF0"}` }}
+                                style={{ background: readyBg, border: `1px solid ${readyBorder}` }}
                             >
                                 <div className="flex items-center gap-3 min-w-0">
                                     <span className="text-lg shrink-0">🎟️</span>
-                                    <span className="font-mono font-bold tracking-wider truncate" style={{ color: "#0B7A55" }}>{coupon.code}</span>
-                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: "#CBF3E2", color: "#0B7A55" }}>ลด ฿{coupon.discountAmount}</span>
+                                    <span className="font-mono font-bold tracking-wider truncate" style={{ color: codeColor }}>{coupon.code}</span>
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: pillBg, color: pillColor }}>ลด ฿{coupon.discountAmount}</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full transition-all shrink-0" style={copiedCode === coupon.code ? { background: "#10B981", color: "#fff" } : { background: "#fff", color: "#7C8B98", border: "1px solid #D6EFE2" }}>
+                                <div className="flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full transition-all shrink-0" style={copiedCode === coupon.code ? { background: c.good, color: isDark ? "#06101F" : "#fff" } : { background: c.card, color: c.ink3, border: `1px solid ${isDark ? "#2E6B53" : "#D6EFE2"}` }}>
                                     {copiedCode === coupon.code ? (
                                         <><CheckCircle size={12} /> คัดลอกแล้ว</>
                                     ) : (
@@ -1153,16 +1259,16 @@ function CouponBanner({ coupons, cardful }: { coupons: UserCoupon[]; cardful: bo
             {/* Used history */}
             {usedCoupons.length > 0 && (
                 <div>
-                    <p className="text-xs font-bold mb-2" style={{ color: "#9AA8B5" }}>ใช้แล้ว ({usedCoupons.length})</p>
+                    <p className="text-xs font-bold mb-2" style={{ color: c.ink3 }}>ใช้แล้ว ({usedCoupons.length})</p>
                     <div className="space-y-2">
                         {usedCoupons.map((coupon, i) => (
-                            <div key={`used-${i}`} className="w-full flex items-center justify-between rounded-xl px-4 py-3 opacity-60" style={{ background: "#F7FAFC", border: "1px solid #EAF0F5" }}>
+                            <div key={`used-${i}`} className="w-full flex items-center justify-between rounded-xl px-4 py-3 opacity-60" style={{ background: c.subtle, border: `1px solid ${c.line}` }}>
                                 <div className="flex items-center gap-3 min-w-0">
                                     <span className="text-lg shrink-0 grayscale">🎟️</span>
-                                    <span className="font-mono font-bold tracking-wider line-through truncate" style={{ color: "#9AA8B5" }}>{coupon.code}</span>
-                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: "#EEF2F6", color: "#9AA8B5" }}>ลด ฿{coupon.discountAmount}</span>
+                                    <span className="font-mono font-bold tracking-wider line-through truncate" style={{ color: c.ink3 }}>{coupon.code}</span>
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: c.track, color: c.ink3 }}>ลด ฿{coupon.discountAmount}</span>
                                 </div>
-                                <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0" style={{ background: "#EEF2F6", color: "#9AA8B5" }}>ใช้แล้ว</span>
+                                <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0" style={{ background: c.track, color: c.ink3 }}>ใช้แล้ว</span>
                             </div>
                         ))}
                     </div>
@@ -1173,7 +1279,7 @@ function CouponBanner({ coupons, cardful }: { coupons: UserCoupon[]; cardful: bo
 }
 
 // ============================================================
-// §4/§5 — Tweak panel (vivid / cardful / Dot Pop params)
+// §4/§5 — Tweak panel (light/dark mode + vivid/cardful + Dot Pop params)
 // ============================================================
 const STYLE_OPTIONS = [
     { key: "dotpop", label: "Dot Pop" },
@@ -1185,48 +1291,75 @@ const STYLE_OPTIONS = [
 ];
 const PALETTE_OPTIONS = ["classic", "cool", "warm", "rainbow", "mono"];
 const BASE_OPTIONS = ["lemon", "white", "mint", "sky", "pink", "lavender", "rainbow"];
-const BASE_SWATCH: Record<string, string> = { ...DOT_BASES };
 
-function TweakPanel({ open, onToggle, prefs, update, onReset }: { open: boolean; onToggle: () => void; prefs: ThemePrefs; update: (p: Partial<ThemePrefs>) => void; onReset: () => void }) {
+function TweakPanel({
+    open,
+    onToggle,
+    prefs,
+    update,
+    onReset,
+    isDark,
+    setMode,
+    c,
+}: {
+    open: boolean;
+    onToggle: () => void;
+    prefs: ThemePrefs;
+    update: (p: Partial<ThemePrefs>) => void;
+    onReset: () => void;
+    isDark: boolean;
+    setMode: (m: "light" | "dark") => void;
+    c: Pal;
+}) {
+    const swatch = isDark ? DOT_BASES_DARK : DOT_BASES;
     return (
         <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
             {open && (
-                <div className="w-[290px] max-h-[76vh] overflow-y-auto rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-200" style={{ background: "#fff", border: "1px solid #E4EAF0", boxShadow: "0 30px 60px -20px rgba(31,78,136,.4)" }}>
+                <div className="w-[290px] max-h-[76vh] overflow-y-auto rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-200" style={{ background: c.card, border: `1px solid ${c.line2}`, boxShadow: c.shadow }}>
                     <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-bold text-sm flex items-center gap-1.5 mc-kanit" style={{ color: "#1A2A3C" }}>
-                            <Sparkles size={15} style={{ color: "#0EA5E9" }} /> ปรับแต่งธีม
+                        <h4 className="font-bold text-sm flex items-center gap-1.5 mc-kanit" style={{ color: c.ink }}>
+                            <Sparkles size={15} style={{ color: c.accent }} /> ปรับแต่งธีม
                         </h4>
-                        <button onClick={onReset} className="text-[11px] font-semibold flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-50" style={{ color: "#7C8B98" }}>
+                        <button onClick={onReset} className="text-[11px] font-semibold flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-black/5" style={{ color: c.ink3 }}>
                             <RotateCcw size={11} /> รีเซ็ต
                         </button>
                     </div>
 
+                    {/* §1 — light/dark mode segmented control */}
+                    <FieldLabel c={c}>โหมดแสง</FieldLabel>
+                    <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl mb-1" style={{ background: c.subtle }}>
+                        <ModeBtn active={!isDark} onClick={() => setMode("light")} icon={<Sun size={14} />} label="สว่าง" c={c} />
+                        <ModeBtn active={isDark} onClick={() => setMode("dark")} icon={<Moon size={14} />} label="มืด" c={c} />
+                    </div>
+
+                    <Divider c={c} />
+
                     {/* Toggles */}
-                    <Toggle label="โหมดสีสด (Vivid)" on={prefs.vivid} onClick={() => update({ vivid: !prefs.vivid })} />
-                    <Toggle label="การ์ดมีสี (Cardful)" on={prefs.cardful} onClick={() => update({ cardful: !prefs.cardful })} />
+                    <Toggle label="โหมดสีสด (Vivid)" on={prefs.vivid} onClick={() => update({ vivid: !prefs.vivid })} c={c} />
+                    <Toggle label="การ์ดมีสี (Cardful)" on={prefs.cardful} onClick={() => update({ cardful: !prefs.cardful })} c={c} />
 
-                    <Divider />
+                    <Divider c={c} />
 
-                    <FieldLabel>พื้นหลัง</FieldLabel>
-                    <ChipRow options={STYLE_OPTIONS.map((s) => ({ key: s.key, label: s.label }))} value={prefs.style} onPick={(k) => update({ style: k })} />
-
-                    <FieldLabel>สีพื้น</FieldLabel>
+                    <FieldLabel c={c}>พื้นหลัง</FieldLabel>
                     <div className="flex flex-wrap gap-1.5 mb-1">
-                        {BASE_OPTIONS.map((b) => (
-                            <button
-                                key={b}
-                                onClick={() => update({ base: b })}
-                                title={b}
-                                className="w-7 h-7 rounded-lg transition-transform hover:scale-110"
-                                style={{ background: BASE_SWATCH[b], border: prefs.base === b ? "2px solid #0EA5E9" : "1px solid #D0DAE4", boxShadow: prefs.base === b ? "0 0 0 2px #BAE6FD" : "none" }}
-                            />
+                        {STYLE_OPTIONS.map((o) => (
+                            <button key={o.key} onClick={() => update({ style: o.key })} className="px-2.5 py-1 rounded-lg text-[12px] font-semibold transition-colors" style={prefs.style === o.key ? { background: c.accent, color: isDark ? "#06101F" : "#fff" } : { background: c.subtle, color: c.ink2, border: `1px solid ${c.line}` }}>
+                                {o.label}
+                            </button>
                         ))}
                     </div>
 
-                    <FieldLabel>ชุดสีจุด</FieldLabel>
+                    <FieldLabel c={c}>สีพื้น</FieldLabel>
+                    <div className="flex flex-wrap gap-1.5 mb-1">
+                        {BASE_OPTIONS.map((b) => (
+                            <button key={b} onClick={() => update({ base: b })} title={b} className="w-7 h-7 rounded-lg transition-transform hover:scale-110" style={{ background: swatch[b], border: prefs.base === b ? `2px solid ${c.accent}` : `1px solid ${c.line2}` }} />
+                        ))}
+                    </div>
+
+                    <FieldLabel c={c}>ชุดสีจุด</FieldLabel>
                     <div className="flex flex-wrap gap-1.5 mb-1">
                         {PALETTE_OPTIONS.map((p) => (
-                            <button key={p} onClick={() => update({ palette: p })} className="px-2 py-1 rounded-lg flex items-center gap-1" style={{ border: prefs.palette === p ? "2px solid #0EA5E9" : "1px solid #D0DAE4", background: prefs.palette === p ? "#F0F9FF" : "#fff" }}>
+                            <button key={p} onClick={() => update({ palette: p })} className="px-2 py-1 rounded-lg flex items-center gap-1" style={{ border: prefs.palette === p ? `2px solid ${c.accent}` : `1px solid ${c.line2}`, background: prefs.palette === p ? c.subtle : c.card }}>
                                 <span className="flex gap-0.5">
                                     {(DOT_PALETTES[p] || []).slice(0, 4).map(([r, g, b], i) => (
                                         <span key={i} className="w-2 h-2 rounded-full" style={{ background: `rgb(${r},${g},${b})` }} />
@@ -1236,72 +1369,58 @@ function TweakPanel({ open, onToggle, prefs, update, onReset }: { open: boolean;
                         ))}
                     </div>
 
-                    <Divider />
+                    <Divider c={c} />
 
-                    <Slider label="ขนาดจุด" value={prefs.size} min={1} max={4.5} step={0.5} onChange={(v) => update({ size: v })} suffix="px" />
-                    <Slider label="ระยะห่าง" value={prefs.space} min={20} max={64} step={2} onChange={(v) => update({ space: v })} suffix="px" />
-                    <Slider label="ความเข้ม" value={prefs.opacity} min={0.2} max={1} step={0.05} onChange={(v) => update({ opacity: v })} />
+                    <Slider label="ขนาดจุด" value={prefs.size} min={1} max={4.5} step={0.5} onChange={(v) => update({ size: v })} suffix="px" c={c} />
+                    <Slider label="ระยะห่าง" value={prefs.space} min={20} max={64} step={2} onChange={(v) => update({ space: v })} suffix="px" c={c} />
+                    <Slider label="ความเข้ม" value={prefs.opacity} min={0.2} max={1} step={0.05} onChange={(v) => update({ opacity: v })} c={c} />
                 </div>
             )}
 
-            <button
-                onClick={onToggle}
-                aria-label="ปรับแต่งธีม"
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white transition-transform hover:scale-105 active:scale-95"
-                style={{ background: tealSky, boxShadow: "0 14px 30px -10px rgba(14,165,233,.6)" }}
-            >
+            <button onClick={onToggle} aria-label="ปรับแต่งธีม" className="w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-105 active:scale-95" style={{ background: tealSky(isDark), color: isDark ? "#06101F" : "#fff", boxShadow: "0 14px 30px -10px rgba(14,165,233,.5)" }}>
                 {open ? <X size={20} /> : <SlidersHorizontal size={20} />}
             </button>
         </div>
     );
 }
 
-function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+function ModeBtn({ active, onClick, icon, label, c }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; c: Pal }) {
+    return (
+        <button onClick={onClick} className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-[12px] font-semibold transition-colors" style={active ? { background: c.card, color: c.accent, boxShadow: c.shadowSm } : { background: "transparent", color: c.ink3 }}>
+            {icon} {label}
+        </button>
+    );
+}
+
+function Toggle({ label, on, onClick, c }: { label: string; on: boolean; onClick: () => void; c: Pal }) {
     return (
         <button onClick={onClick} className="w-full flex items-center justify-between py-2 group">
-            <span className="text-[13px] font-medium" style={{ color: "#3F505F" }}>{label}</span>
-            <span className="w-10 h-6 rounded-full p-0.5 transition-colors flex" style={{ background: on ? "#0EA5E9" : "#D0DAE4", justifyContent: on ? "flex-end" : "flex-start" }}>
-                <span className="w-5 h-5 rounded-full bg-white shadow-sm flex items-center justify-center">
-                    {on && <Check size={11} style={{ color: "#0EA5E9" }} />}
+            <span className="text-[13px] font-medium" style={{ color: c.ink2 }}>{label}</span>
+            <span className="w-10 h-6 rounded-full p-0.5 transition-colors flex" style={{ background: on ? c.accent : c.line2, justifyContent: on ? "flex-end" : "flex-start" }}>
+                <span className="w-5 h-5 rounded-full shadow-sm flex items-center justify-center" style={{ background: c.card }}>
+                    {on && <Check size={11} style={{ color: c.accent }} />}
                 </span>
             </span>
         </button>
     );
 }
 
-function Divider() {
-    return <div className="my-3 h-px" style={{ background: "#EEF2F6" }} />;
+function Divider({ c }: { c: Pal }) {
+    return <div className="my-3 h-px" style={{ background: c.line }} />;
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-    return <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 mt-1" style={{ color: "#9AA8B5" }}>{children}</p>;
+function FieldLabel({ children, c }: { children: React.ReactNode; c: Pal }) {
+    return <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 mt-1" style={{ color: c.ink3 }}>{children}</p>;
 }
 
-function ChipRow({ options, value, onPick }: { options: { key: string; label: string }[]; value: string; onPick: (k: string) => void }) {
-    return (
-        <div className="flex flex-wrap gap-1.5 mb-1">
-            {options.map((o) => (
-                <button
-                    key={o.key}
-                    onClick={() => onPick(o.key)}
-                    className="px-2.5 py-1 rounded-lg text-[12px] font-semibold transition-colors"
-                    style={value === o.key ? { background: "#0EA5E9", color: "#fff" } : { background: "#F4F8FB", color: "#5A6B7C", border: "1px solid #E4EAF0" }}
-                >
-                    {o.label}
-                </button>
-            ))}
-        </div>
-    );
-}
-
-function Slider({ label, value, min, max, step, onChange, suffix }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; suffix?: string }) {
+function Slider({ label, value, min, max, step, onChange, suffix, c }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; suffix?: string; c: Pal }) {
     return (
         <div className="mb-2.5">
             <div className="flex justify-between items-center mb-1">
-                <span className="text-[12px] font-medium" style={{ color: "#5A6B7C" }}>{label}</span>
-                <span className="text-[11px] font-bold tabular-nums" style={{ color: "#0EA5E9" }}>{value}{suffix}</span>
+                <span className="text-[12px] font-medium" style={{ color: c.ink2 }}>{label}</span>
+                <span className="text-[11px] font-bold tabular-nums" style={{ color: c.accent }}>{value}{suffix}</span>
             </div>
-            <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="w-full accent-sky-500" style={{ accentColor: "#0EA5E9" }} />
+            <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="w-full" style={{ accentColor: c.accent }} />
         </div>
     );
 }

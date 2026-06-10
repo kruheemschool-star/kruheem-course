@@ -591,6 +591,15 @@ h6 {
     color: #1A2A3C;
     font-family: var(--font-sarabun), var(--font-ibm-loop), sans-serif;
     min-height: 100vh;
+    color-scheme: light;
+}
+
+/* dark mode is driven by next-themes' .dark class on <html>; the page's
+   colours are computed in JS from palette(isDark), so this only needs to
+   flip native form/scrollbar rendering and the default ink colour. */
+.dark .mc-theme {
+    color: #EAF1FB;
+    color-scheme: dark;
 }
 
 .mc-theme :is(h1, h2, h3, .mc-kanit) {
