@@ -9,6 +9,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
+import ConfettiBurst from "@/components/gamification/ConfettiBurst";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (before compression)
 const UPLOAD_TIMEOUT = 120_000; // 120 seconds
@@ -465,6 +466,7 @@ export default function PaymentPage() {
   if (done) {
     return (
       <div className="graph-theme min-h-screen flex flex-col">
+        <ConfettiBurst />
         <Navbar />
         <main className="gp-bg flex-grow flex items-center justify-center px-[clamp(18px,4vw,40px)] pt-24 pb-24">
           <div className="gp-card w-full max-w-lg p-8 sm:p-10 text-center">
