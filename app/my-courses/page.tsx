@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { collection, query, where, getDocs, onSnapshot, QuerySnapshot, DocumentData } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getCachedData } from "@/lib/dataCache";
@@ -8,27 +8,169 @@ import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3 } from "lucide-react";
+import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3, SlidersHorizontal, Sparkles, RotateCcw, Check, Clock, Lock } from "lucide-react";
 import ReviewForm from "@/app/reviews/ReviewForm";
 
-// Helpers
+/* ============================================================
+   "Dot Pop" design system (spec §2–§6) — light-only, scoped to
+   this page. Tokens mirror the Graph theme; the multicolour dot
+   background is composed here and injected as an inline style.
+   ============================================================ */
+
+// §3 — dot palettes (r,g,b)
+const DOT_PALETTES: Record<string, number[][]> = {
+    classic: [[20, 184, 166], [14, 165, 233], [244, 114, 182], [250, 204, 21]],
+    cool: [[96, 165, 250], [139, 92, 246], [236, 72, 153], [45, 212, 191]],
+    warm: [[251, 146, 60], [250, 204, 21], [251, 113, 133], [244, 114, 182]],
+    rainbow: [[239, 68, 68], [249, 115, 22], [250, 204, 21], [34, 197, 94], [59, 130, 246], [168, 85, 247]],
+    mono: [[13, 148, 136], [20, 184, 166], [45, 212, 191], [94, 234, 212]],
+};
+
+// §3 — base colour under the dots
+const DOT_BASES: Record<string, string> = {
+    white: "#FDFEFD",
+    mint: "#E2F9F1",
+    sky: "#DFF2FE",
+    lemon: "#FEF6D8",
+    pink: "#FDE9F2",
+    lavender: "#EFEAFE",
+    rainbow: "linear-gradient(160deg, #DFF8EE 0%, #DFF0FE 32%, #FDEAF3 64%, #FEF7D9 100%)",
+};
+
+// §6 — grade-level accent (`--sec`)
+const SEC: Record<GradeKey, string> = {
+    primary: "#22C55E",
+    junior: "#14B8A6",
+    senior: "#0EA5E9",
+    other: "#F59E0B",
+};
+
+const GRADE_META: { key: GradeKey; thai: string; en: string }[] = [
+    { key: "primary", thai: "ระดับประถมศึกษา", en: "Primary" },
+    { key: "junior", thai: "ระดับมัธยมต้น", en: "Junior High" },
+    { key: "senior", thai: "ระดับมัธยมปลาย", en: "Senior High" },
+    { key: "other", thai: "คอร์สอื่น ๆ", en: "General" },
+];
+
+type GradeKey = "primary" | "junior" | "senior" | "other";
+
+interface ThemePrefs {
+    vivid: boolean;
+    cardful: boolean;
+    style: string;
+    palette: string;
+    base: string;
+    arrange: string;
+    size: number;
+    space: number;
+    opacity: number;
+}
+
+const DEFAULT_PREFS: ThemePrefs = {
+    vivid: true,
+    cardful: true,
+    style: "dotpop",
+    palette: "classic",
+    base: "lemon",
+    arrange: "checker",
+    size: 2,
+    space: 38,
+    opacity: 0.8,
+};
+
+const PREFS_KEY = "mc-theme-prefs-v1";
+
+// §3 — offset table per arrangement (fraction of dotSpace)
+function dotOffsets(arrange: string, n: number): number[][] {
+    if (arrange === "diag") return Array.from({ length: n }, (_, i) => [i / n, i / n]);
+    if (arrange === "rows") return Array.from({ length: n }, (_, i) => [i / n, 0]);
+    if (arrange === "columns") return Array.from({ length: n }, (_, i) => [0, i / n]);
+    const base = [[0, 0], [0.5, 0.5], [0.25, 0.75], [0.75, 0.25], [0.25, 0.25], [0.75, 0.75]];
+    return Array.from({ length: n }, (_, i) => base[i % base.length]);
+}
+
+// shared decorative layers
+const VEIL = "linear-gradient(180deg, rgba(255,255,255,.92) 0, rgba(255,255,255,.5) 230px, rgba(255,255,255,0) 520px)";
+const SOFT = "radial-gradient(640px 420px at 0% 0%, rgba(45,212,191,.14), transparent 58%), radial-gradient(700px 460px at 100% 4%, rgba(56,189,248,.12), transparent 55%)";
+
+// §3 — compose the Dot Pop background string (top → bottom)
+function buildDotPop(p: ThemePrefs): string {
+    const colors = DOT_PALETTES[p.palette] || DOT_PALETTES.classic;
+    const offs = dotOffsets(p.arrange, colors.length);
+    const dots = colors
+        .map(([r, g, b], i) => {
+            const [ox, oy] = offs[i];
+            return `radial-gradient(rgba(${r},${g},${b},${p.opacity}) ${p.size}px, transparent ${(p.size + 0.4).toFixed(1)}px) ${(ox * p.space).toFixed(2)}px ${(oy * p.space).toFixed(2)}px / ${p.space}px ${p.space}px`;
+        })
+        .join(", ");
+    const baseVal = DOT_BASES[p.base] || DOT_BASES.lemon;
+    return `${VEIL}, ${dots}, ${SOFT}, ${baseVal}`;
+}
+
+// §3 — alternative backgrounds (switchable from the Tweak panel)
+function buildBg(p: ThemePrefs): string {
+    const baseVal = DOT_BASES[p.base] || DOT_BASES.lemon;
+    switch (p.style) {
+        case "plain":
+            return `${VEIL}, ${SOFT}, ${baseVal}`;
+        case "graph": {
+            const s = p.space;
+            const lines = `repeating-linear-gradient(0deg, transparent 0 ${s - 1}px, rgba(47,109,181,.10) ${s - 1}px ${s}px), repeating-linear-gradient(90deg, transparent 0 ${s - 1}px, rgba(47,109,181,.10) ${s - 1}px ${s}px)`;
+            return `${VEIL}, ${lines}, ${SOFT}, ${baseVal}`;
+        }
+        case "notebook": {
+            const s = p.space;
+            const lines = `repeating-linear-gradient(0deg, transparent 0 ${s - 1}px, rgba(47,109,181,.13) ${s - 1}px ${s}px)`;
+            return `${VEIL}, ${lines}, ${SOFT}, ${baseVal}`;
+        }
+        case "dots": {
+            const [r, g, b] = (DOT_PALETTES[p.palette] || DOT_PALETTES.classic)[0];
+            const d = `radial-gradient(rgba(${r},${g},${b},${p.opacity}) ${p.size}px, transparent ${(p.size + 0.4).toFixed(1)}px) 0 0 / ${p.space}px ${p.space}px`;
+            return `${VEIL}, ${d}, ${SOFT}, ${baseVal}`;
+        }
+        case "aurora": {
+            const a = "radial-gradient(900px 600px at 8% -4%, rgba(45,212,191,.30), transparent 60%), radial-gradient(900px 620px at 96% 6%, rgba(56,189,248,.28), transparent 60%), radial-gradient(820px 620px at 50% 108%, rgba(168,85,247,.16), transparent 62%)";
+            return `${VEIL}, ${a}, ${baseVal}`;
+        }
+        case "dotpop":
+        default:
+            return buildDotPop(p);
+    }
+}
+
+// tint a hex toward white (cover backgrounds) without color-mix dependency
+function tint(hex: string, whitePct: number): string {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    const w = whitePct / 100;
+    const mix = (c: number) => Math.round(c * (1 - w) + 255 * w);
+    return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
+
+function shade(hex: string, towardHex: string, pct: number): string {
+    const a = hex.replace("#", "");
+    const b = towardHex.replace("#", "");
+    const t = pct / 100;
+    const mix = (i: number) => {
+        const ca = parseInt(a.slice(i, i + 2), 16);
+        const cb = parseInt(b.slice(i, i + 2), 16);
+        return Math.round(ca * (1 - t) + cb * t);
+    };
+    return `rgb(${mix(0)}, ${mix(2)}, ${mix(4)})`;
+}
+
+// Helpers (data — unchanged from the original page)
 const formatDate = (date: any) => {
     if (!date) return "-";
     try {
         const d = date.toDate ? date.toDate() : new Date(date.seconds ? date.seconds * 1000 : date);
         if (isNaN(d.getTime())) return "-";
-        return d.toLocaleDateString("th-TH", { day: 'numeric', month: 'short', year: '2-digit' });
+        return d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
     } catch (e) {
         return "-";
     }
-};
-
-const getProgressColor = (percent: number) => {
-    if (percent === 100) return "bg-gradient-to-r from-yellow-400 to-amber-500";
-    if (percent >= 80) return "bg-gradient-to-r from-emerald-400 to-green-500";
-    if (percent >= 20) return "bg-gradient-to-r from-sky-400 to-indigo-500";
-    if (percent > 0) return "bg-gradient-to-r from-rose-500 to-orange-500";
-    return "bg-slate-300 dark:bg-slate-600"; // 0%
 };
 
 const getDaysRemaining = (expiryDate: any) => {
@@ -37,7 +179,6 @@ const getDaysRemaining = (expiryDate: any) => {
         const now = new Date();
         const expiry = expiryDate.toDate ? expiryDate.toDate() : new Date(expiryDate.seconds ? expiryDate.seconds * 1000 : expiryDate);
         if (isNaN(expiry.getTime())) return null;
-
         const diffTime = expiry.getTime() - now.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays;
@@ -54,10 +195,10 @@ interface Course {
     category?: string;
     status?: string; // from enrollment
     expiryDate?: any;
-    startedAt?: any; // Added
+    startedAt?: any;
     totalLessons?: number;
     isAdminView?: boolean;
-    isExamBank?: boolean; // Added flag for Exam Bank
+    isExamBank?: boolean;
 }
 
 interface Progress {
@@ -65,9 +206,6 @@ interface Progress {
     total: number;
     percent: number;
 }
-
-// Module-level guard to prevent multiple fetches during remounts
-
 
 interface UserCoupon {
     code: string;
@@ -81,13 +219,38 @@ export default function MyCoursesPage() {
     const { user, userProfile, loading: authLoading } = useUserAuth();
     const [courses, setCourses] = useState<Course[]>([]);
     const [progressMap, setProgressMap] = useState<Record<string, Progress>>({});
-    const [lastSession, setLastSession] = useState<any>(null); // ✅ Smart Resume State
+    const [lastSession, setLastSession] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [userCoupons, setUserCoupons] = useState<UserCoupon[]>([]);
     const [reviewedCourseIds, setReviewedCourseIds] = useState<Set<string>>(new Set());
     const [reviewModal, setReviewModal] = useState<{ courseId: string; courseName: string } | null>(null);
 
+    // ── Theme preferences (vivid / cardful / Dot Pop params) ──
+    const [prefs, setPrefs] = useState<ThemePrefs>(DEFAULT_PREFS);
+    const [tweakOpen, setTweakOpen] = useState(false);
 
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(PREFS_KEY);
+            if (raw) setPrefs({ ...DEFAULT_PREFS, ...JSON.parse(raw) });
+        } catch {
+            /* ignore */
+        }
+    }, []);
+
+    const updatePrefs = (patch: Partial<ThemePrefs>) => {
+        setPrefs((prev) => {
+            const next = { ...prev, ...patch };
+            try {
+                localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+            } catch {
+                /* ignore */
+            }
+            return next;
+        });
+    };
+
+    const bgString = useMemo(() => buildBg(prefs), [prefs]);
 
     useEffect(() => {
         if (authLoading) return;
@@ -104,48 +267,43 @@ export default function MyCoursesPage() {
             setLoading(true);
             try {
                 // 1. Fetch Static Courses Data (Catalog)
-                // Cached for 5 min — shared with parent-dashboard, learn/[id]
                 const allCoursesData = await getCachedData("all-courses", async () => {
                     const coursesSnap = await getDocs(collection(db, "courses"));
-                    return coursesSnap.docs.map(d => ({ id: d.id, ...d.data() } as Course));
+                    return coursesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Course));
                 });
 
-                // 2. Setup Real-time Listeners
                 const uid = user.uid;
 
                 // --- Listener A: Enrollments ---
                 const enrollQuery = query(collection(db, "enrollments"), where("userId", "==", uid));
                 unsubscribeEnrollments = onSnapshot(enrollQuery, (enrollSnap: QuerySnapshot<DocumentData>) => {
                     const enrollments = enrollSnap.docs.map((d: any) => ({ id: d.id, ...d.data() } as any));
-                    const enrolledCourseIds = new Set(enrollments.map(e => e.courseId));
+                    const enrolledCourseIds = new Set(enrollments.map((e) => e.courseId));
                     const isAdmin = user?.email === "kruheemschool@gmail.com";
 
                     let myCourses: Course[];
 
                     if (isAdmin) {
-                        myCourses = allCoursesData.map(c => {
-                            const enroll = enrollments.find(e => e.courseId === c.id);
+                        myCourses = allCoursesData.map((c) => {
+                            const enroll = enrollments.find((e) => e.courseId === c.id);
                             return {
                                 ...c,
-                                status: enroll?.status || 'approved',
+                                status: enroll?.status || "approved",
                                 expiryDate: enroll?.expiryDate,
                                 startedAt: enroll?.createdAt,
                                 isAdminView: true,
-                                isExamBank: c.title.includes("คลังข้อสอบ")
+                                isExamBank: c.title.includes("คลังข้อสอบ"),
                             };
                         });
                     } else {
                         myCourses = allCoursesData
-                            .filter(c => enrolledCourseIds.has(c.id))
-                            .map(c => {
-                                // Fix: Handle duplicate enrollments by finding the *best* one
-                                const courseEnrollments = enrollments.filter(e => e.courseId === c.id);
+                            .filter((c) => enrolledCourseIds.has(c.id))
+                            .map((c) => {
+                                const courseEnrollments = enrollments.filter((e) => e.courseId === c.id);
 
                                 courseEnrollments.sort((a, b) => {
-                                    // 1. Priority to Approved
-                                    if (a.status === 'approved' && b.status !== 'approved') return -1;
-                                    if (b.status === 'approved' && a.status !== 'approved') return 1;
-                                    // 2. Priority to Latest Date
+                                    if (a.status === "approved" && b.status !== "approved") return -1;
+                                    if (b.status === "approved" && a.status !== "approved") return 1;
                                     return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
                                 });
 
@@ -165,25 +323,12 @@ export default function MyCoursesPage() {
                     }
 
                     setCourses(myCourses);
-
-                    // Trigger video count fetch & progress calculation only when courses change
-                    // Optimization: We could wrap this in a separate effect or function, but keep it here for simplicity of access to 'myCourses'
-                    // The new useEffect below will handle this based on 'courses' state.
                     setLoading(false);
                 });
 
                 // --- Listener B: Progress ---
                 unsubscribeProgress = onSnapshot(collection(db, "users", uid, "progress"), (snap: QuerySnapshot<DocumentData>) => {
-                    // We need the latest 'courses' to calculate percentages correctly. 
-                    // Since 'courses' state might update, we'll store raw progress data and effect will combine it, 
-                    // OR we just trigger a recalculation.
-                    // For simplicity in this structure, let's just save the raw docs and let a separate function handle the mapping if we want to be pure.
-                    // HOWEVER, correctly linking 'progress' to 'courses' requires knowing video totals.
-                    // Let's rely on the helper function `updateProgressMap` to re-run.
-                    // A bit tricky with closures. 
-                    // Better approach: Store raw progress in state, and have a useEffect([courses, rawProgress]) calculate the final map.
-                    // But to minimize rewrite, let's just put the data in state.
-                    const rawProgress = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    const rawProgress = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
                     setRawProgressData(rawProgress);
                 });
 
@@ -193,7 +338,6 @@ export default function MyCoursesPage() {
                     states.sort((a: any, b: any) => (b.lastUpdated?.seconds || 0) - (a.lastUpdated?.seconds || 0));
                     if (states.length > 0) setLastSession(states[0]);
                 });
-
             } catch (err) {
                 console.error("Setup listeners error:", err);
                 setLoading(false);
@@ -207,7 +351,6 @@ export default function MyCoursesPage() {
             if (unsubscribeProgress) unsubscribeProgress();
             if (unsubscribeStates) unsubscribeStates();
         };
-
     }, [user?.uid, authLoading]);
 
     // Fetch user coupons & reviewed courses
@@ -215,16 +358,14 @@ export default function MyCoursesPage() {
         if (!user) return;
         const fetchCouponsAndReviews = async () => {
             try {
-                // Fetch coupons
                 const couponQ = query(collection(db, "coupons"), where("userId", "==", user.uid));
                 const couponSnap = await getDocs(couponQ);
-                const coupons = couponSnap.docs.map(d => d.data() as UserCoupon);
+                const coupons = couponSnap.docs.map((d) => d.data() as UserCoupon);
                 setUserCoupons(coupons);
 
-                // Fetch reviewed course IDs
                 const reviewQ = query(collection(db, "reviews"), where("userId", "==", user.uid));
                 const reviewSnap = await getDocs(reviewQ);
-                const ids = new Set(reviewSnap.docs.map(d => d.data().courseId).filter(Boolean) as string[]);
+                const ids = new Set(reviewSnap.docs.map((d) => d.data().courseId).filter(Boolean) as string[]);
                 setReviewedCourseIds(ids);
             } catch (err) {
                 console.error("Error fetching coupons/reviews:", err);
@@ -235,37 +376,37 @@ export default function MyCoursesPage() {
 
     // Helper State for Progress Calculation
     const [rawProgressData, setRawProgressData] = useState<any[]>([]);
-    const videoCountCacheRef = useRef<Record<string, { videoIds: string[], total: number }>>({});
-    const cachedCourseIdsRef = useRef<string>('');
+    const videoCountCacheRef = useRef<Record<string, { videoIds: string[]; total: number }>>({});
+    const cachedCourseIdsRef = useRef<string>("");
 
-    // Effect to fetch video counts ONLY when courses change (not on every progress update)
+    // Fetch video counts ONLY when courses change
     useEffect(() => {
         if (courses.length === 0) return;
-        const courseIds = courses.map(c => c.id).sort().join(',');
-        if (courseIds === cachedCourseIdsRef.current) return; // Already fetched for these courses
+        const courseIds = courses.map((c) => c.id).sort().join(",");
+        if (courseIds === cachedCourseIdsRef.current) return;
 
         const fetchVideoCounts = async () => {
-            const videoCountMap: Record<string, { videoIds: string[], total: number }> = {};
-            await Promise.all(courses.map(async (course) => {
-                if (course.isAdminView) return;
-                
-                if (course.isExamBank) {
-                    // For Exam Bank, fetch the number of exams (cached)
-                    const examsData = await getCachedData("all-exams-ids", async () => {
-                        const examsSnap = await getDocs(collection(db, "exams"));
-                        return examsSnap.docs.map(d => ({ id: d.id }));
-                    });
-                    videoCountMap[course.id] = { videoIds: examsData.map(e => e.id), total: examsData.length };
-                } else {
-                    // For normal courses, fetch video lessons (cached per-course)
-                    const lessonDocs = await getCachedData(`lessons-${course.id}`, async () => {
-                        const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
-                        return lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    });
-                    const videoLessons = lessonDocs.filter((l: any) => l.type === 'video' && !l.isHidden);
-                    videoCountMap[course.id] = { videoIds: videoLessons.map((l: any) => l.id), total: videoLessons.length };
-                }
-            }));
+            const videoCountMap: Record<string, { videoIds: string[]; total: number }> = {};
+            await Promise.all(
+                courses.map(async (course) => {
+                    if (course.isAdminView) return;
+
+                    if (course.isExamBank) {
+                        const examsData = await getCachedData("all-exams-ids", async () => {
+                            const examsSnap = await getDocs(collection(db, "exams"));
+                            return examsSnap.docs.map((d) => ({ id: d.id }));
+                        });
+                        videoCountMap[course.id] = { videoIds: examsData.map((e) => e.id), total: examsData.length };
+                    } else {
+                        const lessonDocs = await getCachedData(`lessons-${course.id}`, async () => {
+                            const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
+                            return lessonsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+                        });
+                        const videoLessons = lessonDocs.filter((l: any) => l.type === "video" && !l.isHidden);
+                        videoCountMap[course.id] = { videoIds: videoLessons.map((l: any) => l.id), total: videoLessons.length };
+                    }
+                })
+            );
             videoCountCacheRef.current = videoCountMap;
             cachedCourseIdsRef.current = courseIds;
         };
@@ -273,23 +414,23 @@ export default function MyCoursesPage() {
         fetchVideoCounts();
     }, [courses]);
 
-    // Effect to calculate progress map (runs when courses, progress, or cache updates)
+    // Calculate progress map (runs when courses, progress, or cache updates)
     useEffect(() => {
         if (courses.length === 0 || Object.keys(videoCountCacheRef.current).length === 0) return;
 
         const pMap: Record<string, Progress> = {};
         const cache = videoCountCacheRef.current;
 
-        courses.forEach(c => {
+        courses.forEach((c) => {
             const courseVideoData = cache[c.id] || { videoIds: [], total: 0 };
             pMap[c.id] = { completed: 0, total: courseVideoData.total, percent: 0 };
         });
 
-        rawProgressData.forEach(data => {
+        rawProgressData.forEach((data) => {
             const cId = data.id;
             const completedIds: string[] = data.completed || [];
             const courseVideoData = cache[cId] || { videoIds: [], total: 0 };
-            const completedVideoCount = completedIds.filter(id => courseVideoData.videoIds.includes(id)).length;
+            const completedVideoCount = completedIds.filter((id) => courseVideoData.videoIds.includes(id)).length;
             const total = courseVideoData.total;
             let percent = 0;
             if (total > 0) percent = Math.round((completedVideoCount / total) * 100);
@@ -299,148 +440,106 @@ export default function MyCoursesPage() {
         setProgressMap(pMap);
     }, [courses, rawProgressData]);
 
+    // §7.2 — average progress over approved & non-expired courses only
+    const avgProgress = useMemo(() => {
+        const active = courses.filter((c) => c.status === "approved" && (getDaysRemaining(c.expiryDate) ?? 1) > 0);
+        if (active.length === 0) return 0;
+        const sum = active.reduce((s, c) => s + (progressMap[c.id]?.percent || 0), 0);
+        return Math.round(sum / active.length);
+    }, [courses, progressMap]);
+
+    const isAdmin = user?.email === "kruheemschool@gmail.com";
+    const { vivid, cardful } = prefs;
+
     if (authLoading || loading) {
         return (
-            <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans pb-20">
+            <div className="mc-theme">
+                <div className="mc-bg-layer" style={{ background: bgString }} aria-hidden />
                 <Navbar />
-                <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-                    <p className="text-slate-500">กำลังโหลดข้อมูล...</p>
+                <div className="mc-content flex flex-col items-center justify-center" style={{ minHeight: "70vh" }}>
+                    <div className="h-12 w-12 rounded-full border-[3px] border-teal-200 border-t-teal-500 animate-spin mb-4" />
+                    <p className="text-sm" style={{ color: "#5A6B7C" }}>กำลังโหลดข้อมูล...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans pb-20 transition-colors">
+        <div className="mc-theme">
+            <div className="mc-bg-layer" style={{ background: bgString }} aria-hidden />
             <Navbar />
-            <main className="container mx-auto px-4 py-8 pt-24 max-w-5xl">
 
-                {/* Back Button */}
+            <main className="mc-content container mx-auto px-4 pb-24" style={{ paddingTop: "6.5rem", maxWidth: "64rem" }}>
+                {/* Back link */}
                 <div className="mb-4">
-                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors group">
+                    <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold transition-colors group" style={{ color: "#5A6B7C" }}>
                         <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
                         กลับหน้าแรก
                     </Link>
                 </div>
 
-                {/* Header Section */}
-                <div className="mb-8 flex items-center gap-4">
-                    <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100">คอร์สเรียนของฉัน</h1>
-                    {user?.email === "kruheemschool@gmail.com" && (
-                        <span className="bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1 rounded-full border border-rose-200 animate-pulse">
-                            👁️ Admin View (See All)
+                {/* §7.1 — Hero */}
+                <header className="mb-8 mc-rise">
+                    <div className="flex items-center gap-2.5 mb-3">
+                        <span className="h-0.5 w-7 rounded-full" style={{ background: "#14B8A6" }} />
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "#0D9488" }}>
+                            พื้นที่การเรียนของฉัน
                         </span>
-                    )}
-                </div>
-
-                <ProfileHeader
-                    profile={userProfile || user}
-                    coursesCount={courses.length}
-                    avgProgress={(() => {
-                        const list = Object.values(progressMap);
-                        if (list.length === 0) return 0;
-                        return Math.round(list.reduce((s, p) => s + (p?.percent || 0), 0) / list.length);
-                    })()}
-                />
-
-                <div className="h-8"></div>
-
-                {/* 🎫 Coupon Section — show ALL coupons (unused + used history) */}
-                {userCoupons.length > 0 && (
-                    <CouponBanner coupons={userCoupons} />
-                )}
-
-                <div className="h-8"></div>
-
-                {/* ✅ Resume Learning Compass (Visual Card) */}
-                {lastSession && (
-                    <div className="mb-12 w-full animate-in slide-in-from-top-4 duration-700 delay-200">
-                        {(() => {
-                            const resumeCourse = courses.find(c => c.id === lastSession.courseId);
-                            // If course not found in list yet (loading or stale), fallback gracefully or just show icon
-                            // But usually it should be there.
-
-                            return (
-                                <Link href={resumeCourse?.isExamBank ? `/exam` : `/learn/${lastSession.courseId}?lessonId=${lastSession.lessonId}&t=${lastSession.timestamp}`} prefetch={false}>
-                                    <div className="group relative w-full bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 md:p-8 border border-slate-100 dark:border-slate-800 shadow-lg hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-500 overflow-hidden cursor-pointer">
-
-                                        {/* Background Decoration */}
-                                        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/10 dark:to-purple-900/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none group-hover:scale-110 transition-transform duration-700"></div>
-
-                                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-
-                                            {/* Course Cover Image (Hero) */}
-                                            <div className="w-full md:w-64 aspect-video rounded-2xl overflow-hidden shadow-md relative group-hover:shadow-lg transition-all duration-500 shrink-0 border border-slate-100 dark:border-slate-700">
-                                                {resumeCourse?.image ? (
-                                                    /* eslint-disable-next-line @next/next/no-img-element */
-                                                    <img src={resumeCourse.image} alt={resumeCourse.title} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" loading="lazy" />
-                                                ) : (
-                                                    <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-5xl">📚</div>
-                                                )}
-
-                                                {/* Play Button Overlay */}
-                                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[1px]">
-                                                    <div className="w-14 h-14 bg-white/90 rounded-full flex items-center justify-center shadow-lg backdrop-blur-md transform scale-50 group-hover:scale-100 transition-all duration-300">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-indigo-600 pl-1"><path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" /></svg>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Info Content */}
-                                            <div className="flex-1 min-w-0 text-center md:text-left space-y-3">
-                                                <div className="flex items-center justify-center md:justify-start gap-3 mb-1">
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-xs font-bold uppercase tracking-wider">
-                                                        <span className="relative flex h-2 w-2">
-                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                                                        </span>
-                                                        Resume History
-                                                    </span>
-                                                    <span className="text-slate-400 text-xs font-bold">•</span>
-                                                    <span className="text-slate-500 dark:text-slate-400 text-xs font-bold font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                                                        {Math.floor(lastSession.timestamp / 60)}:{String(lastSession.timestamp % 60).padStart(2, '0')}
-                                                    </span>
-                                                </div>
-
-                                                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 leading-relaxed group-hover:text-indigo-600 transition-colors line-clamp-2">
-                                                    {lastSession.lessonTitle}
-                                                </h2>
-
-                                                <div className="flex items-center justify-center md:justify-start gap-2 text-slate-500 dark:text-slate-400 font-medium text-sm">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0"></span>
-                                                    <span className="line-clamp-1">{lastSession.courseTitle || resumeCourse?.title}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* CTA Arrow */}
-                                            <div className="hidden md:flex items-center justify-center pr-4">
-                                                <div className="w-16 h-16 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-300 group-hover:bg-indigo-600 group-hover:border-indigo-600 group-hover:text-white transition-all duration-300 shadow-sm group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-indigo-200">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-                                                </div>
-                                            </div>
-
-                                        </div>
-                                    </div>
-                                </Link>
-                            );
-                        })()}
+                        {isAdmin && (
+                            <span className="ml-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full" style={{ background: "#FCE7E2", color: "#B4533F", border: "1px solid #F3C9BF" }}>
+                                👁️ Admin View
+                            </span>
+                        )}
                     </div>
+                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: "#1A2A3C" }}>
+                        คอร์สเรียน
+                        <span style={vivid ? gradTextStyle : { color: "#2F6DB5" }}>ของฉัน</span>
+                    </h1>
+                </header>
+
+                {/* §7.2 — Profile */}
+                <ProfileHeader profile={userProfile || user} coursesCount={courses.length} avgProgress={avgProgress} vivid={vivid} cardful={cardful} />
+
+                <div className="h-7" />
+
+                {/* §7.3 — Resume */}
+                {lastSession && (() => {
+                    const resumeCourse = courses.find((c) => c.id === lastSession.courseId);
+                    return <ResumeCard session={lastSession} course={resumeCourse} vivid={vivid} cardful={cardful} />;
+                })()}
+
+                {/* §7.4 — Coupons */}
+                {userCoupons.length > 0 && (
+                    <>
+                        <div className="h-7" />
+                        <CouponBanner coupons={userCoupons} cardful={cardful} />
+                    </>
                 )}
 
+                <div className="h-9" />
+
+                {/* §7.5 — Courses by grade level */}
                 <CourseList
                     courses={courses}
                     progressMap={progressMap}
                     reviewedCourseIds={reviewedCourseIds}
                     onReview={(courseId, courseName) => setReviewModal({ courseId, courseName })}
+                    vivid={vivid}
+                    cardful={cardful}
                 />
             </main>
-            <Footer />
+
+            <div className="mc-content">
+                <Footer />
+            </div>
+
+            {/* Tweak panel (vivid / cardful / Dot Pop params) */}
+            <TweakPanel open={tweakOpen} onToggle={() => setTweakOpen((v) => !v)} prefs={prefs} update={updatePrefs} onReset={() => updatePrefs(DEFAULT_PREFS)} />
 
             {/* Review Modal */}
             {reviewModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setReviewModal(null)}>
-                    <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setReviewModal(null)}>
+                    <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <button
                             onClick={() => setReviewModal(null)}
                             className="absolute top-4 right-4 z-10 w-8 h-8 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-white shadow-sm transition"
@@ -451,16 +550,15 @@ export default function MyCoursesPage() {
                             courseId={reviewModal.courseId}
                             courseName={reviewModal.courseName}
                             onReviewSubmitted={() => {
-                                // Refresh coupons and reviews
                                 if (user) {
                                     const fetchUpdated = async () => {
                                         const couponQ = query(collection(db, "coupons"), where("userId", "==", user.uid));
                                         const couponSnap = await getDocs(couponQ);
-                                        setUserCoupons(couponSnap.docs.map(d => d.data() as UserCoupon));
+                                        setUserCoupons(couponSnap.docs.map((d) => d.data() as UserCoupon));
 
                                         const reviewQ = query(collection(db, "reviews"), where("userId", "==", user.uid));
                                         const reviewSnap = await getDocs(reviewQ);
-                                        setReviewedCourseIds(new Set(reviewSnap.docs.map(d => d.data().courseId).filter(Boolean) as string[]));
+                                        setReviewedCourseIds(new Set(reviewSnap.docs.map((d) => d.data().courseId).filter(Boolean) as string[]));
                                     };
                                     fetchUpdated();
                                 }
@@ -473,129 +571,111 @@ export default function MyCoursesPage() {
     );
 }
 
-// --- Sub-components (Pure UI) ---
+// gradient ink used by vivid headings (§4)
+const gradTextStyle: React.CSSProperties = {
+    backgroundImage: "linear-gradient(90deg, #0D9488, #0EA5E9 55%, #22C55E)",
+    WebkitBackgroundClip: "text",
+    backgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    color: "transparent",
+};
 
+const tealSky = "linear-gradient(135deg, #0D9488, #0EA5E9)";
+
+// ============================================================
+// §7.2 — Profile card
+// ============================================================
 function ProfileHeader({
     profile,
     coursesCount = 0,
     avgProgress = 0,
+    vivid,
+    cardful,
 }: {
     profile: any;
     coursesCount?: number;
     avgProgress?: number;
+    vivid: boolean;
+    cardful: boolean;
 }) {
     const { user } = useUserAuth();
     if (!profile) return null;
 
-    // Time-based greeting (Thai)
     const hour = new Date().getHours();
-    const greeting =
-        hour < 12 ? "อรุณสวัสดิ์" : hour < 17 ? "สวัสดียามบ่าย" : "สวัสดียามค่ำ";
-
+    const greeting = hour < 12 ? "อรุณสวัสดิ์" : hour < 17 ? "สวัสดียามบ่าย" : "สวัสดียามค่ำ";
     const displayName = profile.displayName || "นักเรียน";
+    const statusLabel = coursesCount === 0 ? "—" : avgProgress >= 80 ? "เซียน" : avgProgress >= 30 ? "กำลังลุย" : "เริ่มต้น";
 
-    const statusLabel =
-        coursesCount === 0 ? "—" :
-        avgProgress >= 80 ? "เซียน" :
-        avgProgress >= 30 ? "กำลังลุย" : "เริ่มต้น";
+    const cardStyle: React.CSSProperties = cardful
+        ? { background: "linear-gradient(180deg, #FFFEF9, #FFF8E6)", border: "1px solid #EFDCA4", boxShadow: "0 22px 54px -34px rgba(31,78,136,.30)" }
+        : { background: "#fff", border: "1px solid #E4EAF0", boxShadow: "0 22px 54px -34px rgba(31,78,136,.30)" };
+    const divider = cardful ? "#F2E5BC" : "#EEF2F6";
 
     return (
-        <section className="animate-in fade-in slide-in-from-top-2 duration-500">
-            {/* ============ MINIMAL CARD ============ */}
-            <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
-
-                {/* ---- Header: Avatar + Identity + Edit ---- */}
-                <div className="flex items-center gap-5 px-6 sm:px-8 pt-7 pb-6">
-                    {/* Avatar — clean, no gradient frame */}
+        <section className="mc-rise">
+            <div className="rounded-2xl overflow-hidden" style={cardStyle}>
+                {/* Header: avatar + identity + edit */}
+                <div className="flex items-center gap-4 sm:gap-5 px-5 sm:px-7 pt-6 pb-5">
                     <div className="relative shrink-0">
-                        <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-2xl bg-slate-50 dark:bg-slate-800/60 ring-1 ring-slate-200/80 dark:ring-slate-700/60 overflow-hidden flex items-center justify-center">
-                            {profile.avatar || profile.photoURL ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img
-                                    src={profile.avatar || profile.photoURL}
-                                    alt={displayName}
-                                    className="w-full h-full object-contain"
-                                    loading="lazy"
-                                />
-                            ) : (
-                                <span className="text-2xl font-semibold text-slate-400">
-                                    {displayName[0]}
-                                </span>
-                            )}
+                        <div className="rounded-[18px] p-[2px]" style={{ background: vivid ? tealSky : "#E4EAF0" }}>
+                            <div className="w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-2xl bg-white overflow-hidden flex items-center justify-center">
+                                {profile.avatar || profile.photoURL ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img src={profile.avatar || profile.photoURL} alt={displayName} className="w-full h-full object-contain" loading="lazy" />
+                                ) : (
+                                    <span className="text-2xl font-semibold mc-kanit" style={vivid ? gradTextStyle : { color: "#2F6DB5" }}>
+                                        {displayName[0]}
+                                    </span>
+                                )}
+                            </div>
                         </div>
-                        {/* hairline live dot */}
-                        <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" aria-label="online" />
+                        <span className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white" aria-label="online" />
                     </div>
 
-                    {/* Name + caption */}
                     <div className="flex-1 min-w-0">
-                        <p className="text-[10.5px] uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500 font-medium mb-1">
+                        <p className="text-[10.5px] uppercase tracking-[0.16em] font-medium mb-1" style={{ color: "#9AA8B5" }}>
                             {greeting} · นักเรียนของ KruHeem
                         </p>
-                        <h2 className="text-[22px] sm:text-2xl font-bold text-slate-900 dark:text-slate-50 leading-tight tracking-tight truncate">
+                        <h2 className="text-[22px] sm:text-2xl font-bold leading-tight tracking-tight truncate mc-kanit" style={{ color: "#1A2A3C" }}>
                             {displayName}
                         </h2>
                         {profile.caption && (
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 truncate">
+                            <p className="text-sm mt-1 truncate" style={{ color: "#5A6B7C" }}>
                                 {profile.caption}
                             </p>
                         )}
                     </div>
 
-                    {/* Edit — icon-only ghost button */}
                     <Link
                         href="/profile"
                         prefetch={false}
                         aria-label="แก้ไขโปรไฟล์"
-                        className="hidden sm:inline-flex shrink-0 items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+                        className="hidden sm:inline-flex shrink-0 items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg transition-colors hover:bg-white/70"
+                        style={{ color: "#5A6B7C" }}
                     >
                         <Settings size={14} strokeWidth={2} />
                         <span>แก้ไข</span>
                     </Link>
                 </div>
 
-                {/* ---- Stats Row — Swiss-style numbers ---- */}
-                <div className="grid grid-cols-3 border-t border-slate-100 dark:border-slate-800/80 divide-x divide-slate-100 dark:divide-slate-800/80">
-                    <Stat
-                        value={coursesCount > 0 ? `${coursesCount}` : "—"}
-                        label="คอร์ส"
-                    />
-                    <Stat
-                        value={coursesCount > 0 ? `${avgProgress}` : "—"}
-                        suffix={coursesCount > 0 ? "%" : ""}
-                        label="ความคืบหน้า"
-                    />
-                    <Stat
-                        value={statusLabel}
-                        label="สถานะ"
-                        muted
-                    />
+                {/* Stats — 3 coloured numbers (§5) */}
+                <div className="grid grid-cols-3" style={{ borderTop: `1px solid ${divider}` }}>
+                    <Stat value={coursesCount > 0 ? `${coursesCount}` : "—"} label="คอร์ส" color={cardful ? "#0D9488" : "#1A2A3C"} divider={divider} first />
+                    <Stat value={coursesCount > 0 ? `${avgProgress}` : "—"} suffix={coursesCount > 0 ? "%" : ""} label="ความคืบหน้า" color={cardful ? "#0284C7" : "#1A2A3C"} divider={divider} />
+                    <Stat value={statusLabel} label="สถานะ" color={cardful ? "#D97706" : "#5A6B7C"} divider={divider} />
                 </div>
 
-                {/* ---- Action Strip ---- */}
+                {/* Action strip */}
                 {user && (
-                    <div className="grid grid-cols-2 border-t border-slate-100 dark:border-slate-800/80 divide-x divide-slate-100 dark:divide-slate-800/80">
-                        <ActionLink
-                            href="/guide"
-                            icon={<BookOpen size={15} strokeWidth={1.75} />}
-                            label="คู่มือใช้งาน"
-                            badge="ใหม่"
-                        />
-                        <ActionLink
-                            href={`/parent-dashboard/${user.uid}`}
-                            icon={<BarChart3 size={15} strokeWidth={1.75} />}
-                            label="ติดตามผลการเรียน"
-                        />
+                    <div className="grid grid-cols-2" style={{ borderTop: `1px solid ${divider}` }}>
+                        <ActionLink href="/guide" icon={<BookOpen size={15} strokeWidth={1.75} />} label="คู่มือใช้งาน" badge="ใหม่" divider={divider} first />
+                        <ActionLink href={`/parent-dashboard/${user.uid}`} icon={<BarChart3 size={15} strokeWidth={1.75} />} label="ติดตามผลการเรียน" divider={divider} />
                     </div>
                 )}
 
-                {/* ---- Mobile Edit ---- */}
-                <div className="sm:hidden border-t border-slate-100 dark:border-slate-800/80">
-                    <Link
-                        href="/profile"
-                        prefetch={false}
-                        className="flex items-center justify-center gap-2 px-5 py-3.5 text-xs font-medium text-slate-600 dark:text-slate-300 active:bg-slate-50 dark:active:bg-slate-800/60 transition-colors"
-                    >
+                {/* Mobile edit */}
+                <div className="sm:hidden" style={{ borderTop: `1px solid ${divider}` }}>
+                    <Link href="/profile" prefetch={false} className="flex items-center justify-center gap-2 px-5 py-3.5 text-xs font-medium active:bg-white/70 transition-colors" style={{ color: "#5A6B7C" }}>
                         <Settings size={13} strokeWidth={2} />
                         <span>แก้ไขโปรไฟล์</span>
                     </Link>
@@ -605,168 +685,217 @@ function ProfileHeader({
     );
 }
 
-function Stat({
-    value,
-    suffix,
-    label,
-    muted,
-}: {
-    value: string;
-    suffix?: string;
-    label: string;
-    muted?: boolean;
-}) {
+function Stat({ value, suffix, label, color, divider, first }: { value: string; suffix?: string; label: string; color: string; divider: string; first?: boolean }) {
     return (
-        <div className="px-5 sm:px-6 py-4 sm:py-5">
-            <div className={`text-2xl sm:text-[26px] font-semibold tracking-tight tabular-nums leading-none ${muted ? "text-slate-700 dark:text-slate-200" : "text-slate-900 dark:text-slate-50"}`}>
+        <div className="px-4 sm:px-6 py-4 sm:py-5" style={first ? undefined : { borderLeft: `1px solid ${divider}` }}>
+            <div className="text-2xl sm:text-[26px] font-semibold tracking-tight tabular-nums leading-none mc-kanit" style={{ color }}>
                 {value}
-                {suffix && (
-                    <span className="text-base font-normal text-slate-400 dark:text-slate-500 ml-0.5">
-                        {suffix}
-                    </span>
-                )}
+                {suffix && <span className="text-base font-normal ml-0.5" style={{ color: "#9AA8B5" }}>{suffix}</span>}
             </div>
-            <div className="mt-1.5 text-[11px] uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 font-medium">
+            <div className="mt-1.5 text-[11px] uppercase tracking-[0.12em] font-medium" style={{ color: "#9AA8B5" }}>
                 {label}
             </div>
         </div>
     );
 }
 
-function ActionLink({
-    href,
-    icon,
-    label,
-    badge,
-}: {
-    href: string;
-    icon: React.ReactNode;
-    label: string;
-    badge?: string;
-}) {
+function ActionLink({ href, icon, label, badge, divider, first }: { href: string; icon: React.ReactNode; label: string; badge?: string; divider: string; first?: boolean }) {
     return (
-        <Link
-            href={href}
-            prefetch={false}
-            className="group flex items-center justify-between gap-3 px-5 sm:px-6 py-4 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-        >
+        <Link href={href} prefetch={false} className="group flex items-center justify-between gap-3 px-5 sm:px-6 py-4 transition-colors hover:bg-white/60" style={first ? undefined : { borderLeft: `1px solid ${divider}` }}>
             <div className="flex items-center gap-3 min-w-0">
-                <span className="text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
+                <span style={{ color: "#7C8B98" }} className="group-hover:text-slate-700 transition-colors">
                     {icon}
                 </span>
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+                <span className="text-sm font-medium truncate" style={{ color: "#3F505F" }}>
                     {label}
                 </span>
                 {badge && (
-                    <span className="text-[9.5px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 rounded-full px-1.5 py-0.5 leading-none">
+                    <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full leading-none" style={{ color: "#B4533F", border: "1px solid #F3C9BF" }}>
                         {badge}
                     </span>
                 )}
             </div>
-            <span className="text-slate-300 dark:text-slate-600 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-hover:translate-x-0.5 transition-all text-sm">
-                →
-            </span>
+            <span className="text-sm transition-all group-hover:translate-x-0.5" style={{ color: "#C2CDD8" }}>→</span>
         </Link>
     );
 }
 
-// --- Sorting & Categorization Helpers ---
+// ============================================================
+// §7.3 — Resume card
+// ============================================================
+function ResumeCard({ session, course, vivid, cardful }: { session: any; course?: Course; vivid: boolean; cardful: boolean }) {
+    const href = course?.isExamBank ? "/exam" : `/learn/${session.courseId}?lessonId=${session.lessonId}&t=${session.timestamp}`;
+    const cardStyle: React.CSSProperties = cardful
+        ? { background: "linear-gradient(115deg, #EFF8FF, #FFFFFF 62%)", border: "1px solid #B9DDF5" }
+        : { background: "#fff", border: "1px solid #E4EAF0" };
+    const coverFallback = "linear-gradient(135deg, #BFE3FA, #D6F3EC)";
+    const mm = Math.floor(session.timestamp / 60);
+    const ss = String(session.timestamp % 60).padStart(2, "0");
 
-const getCourseCategory = (title: string): 'primary' | 'junior' | 'senior' | 'other' => {
+    return (
+        <Link href={href} prefetch={false} className="block mc-rise">
+            <div
+                className="group relative w-full rounded-2xl p-5 md:p-6 transition-all duration-300 overflow-hidden cursor-pointer hover:-translate-y-0.5"
+                style={{ ...cardStyle, boxShadow: "0 22px 54px -34px rgba(31,78,136,.30)" }}
+            >
+                <div className="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-7">
+                    {/* Cover */}
+                    <div className="w-full md:w-60 aspect-video rounded-xl overflow-hidden relative shrink-0" style={{ background: coverFallback, border: "1px solid #C7E3F4" }}>
+                        {course?.image ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={course.image} alt={course.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-4xl">📚</div>
+                        )}
+                        <div className="absolute inset-0 bg-black/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg transform scale-75 group-hover:scale-100 transition-all duration-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 pl-0.5" style={{ color: "#0EA5E9" }}>
+                                    <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0 text-center md:text-left">
+                        <div className="flex items-center justify-center md:justify-start gap-2.5 mb-2">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: "#E0F2FE", color: "#0369A1" }}>
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#38BDF8" }} />
+                                    <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#0EA5E9" }} />
+                                </span>
+                                เรียนต่อจากครั้งล่าสุด
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold font-mono px-2 py-0.5 rounded-md" style={{ background: "#EFF6FB", color: "#5A6B7C" }}>
+                                <Clock size={11} /> {mm}:{ss}
+                            </span>
+                        </div>
+
+                        <h2 className="text-xl md:text-2xl font-bold leading-snug line-clamp-2 mc-kanit transition-colors group-hover:text-sky-700" style={{ color: "#1A2A3C" }}>
+                            {session.lessonTitle}
+                        </h2>
+
+                        <div className="flex items-center justify-center md:justify-start gap-2 mt-2 text-sm font-medium" style={{ color: "#5A6B7C" }}>
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#B9C6D2" }} />
+                            <span className="line-clamp-1">{session.courseTitle || course?.title}</span>
+                        </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="hidden md:flex items-center justify-center pr-2">
+                        <div
+                            className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110"
+                            style={{ background: vivid ? tealSky : "#2F6DB5", color: "#fff", boxShadow: "0 10px 24px -10px rgba(14,165,233,.55)" }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M5 12h14" />
+                                <path d="m12 5 7 7-7 7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Link>
+    );
+}
+
+// ============================================================
+// Sorting & categorisation helpers (data — unchanged)
+// ============================================================
+const getCourseCategory = (title: string): GradeKey => {
     const t = title.toLowerCase();
-    if (t.match(/ป\.|ประถม|gifted|สอบเข้า ม\.1/)) return 'primary';
-    if (t.match(/ม\.1|ม\.2|ม\.3|เตรียมอุดม|mwit|สอบเข้า ม\.4/)) return 'junior';
-    if (t.match(/ม\.4|ม\.5|ม\.6|a-level|tgat|tpat|cal|แคล/)) return 'senior';
-    return 'other';
+    if (t.match(/ป\.|ประถม|gifted|สอบเข้า ม\.1/)) return "primary";
+    if (t.match(/ม\.1|ม\.2|ม\.3|เตรียมอุดม|mwit|สอบเข้า ม\.4/)) return "junior";
+    if (t.match(/ม\.4|ม\.5|ม\.6|a-level|tgat|tpat|cal|แคล/)) return "senior";
+    return "other";
 };
 
 const getCourseWeight = (title: string): number => {
     const t = title.toLowerCase();
-    // Primary
-    if (t.includes('ป.1')) return 11;
-    if (t.includes('ป.2')) return 12;
-    if (t.includes('ป.3')) return 13;
-    if (t.includes('ป.4')) return 14;
-    if (t.includes('ป.5')) return 15;
-    if (t.includes('ป.6')) return 16;
+    if (t.includes("ป.1")) return 11;
+    if (t.includes("ป.2")) return 12;
+    if (t.includes("ป.3")) return 13;
+    if (t.includes("ป.4")) return 14;
+    if (t.includes("ป.5")) return 15;
+    if (t.includes("ป.6")) return 16;
     if (t.match(/gifted|สอบเข้า ม\.1/)) return 19;
-
-    // Junior
-    if (t.includes('ม.1')) return 21;
-    if (t.includes('ม.2')) return 22;
-    if (t.includes('ม.3')) return 23;
+    if (t.includes("ม.1")) return 21;
+    if (t.includes("ม.2")) return 22;
+    if (t.includes("ม.3")) return 23;
     if (t.match(/เตรียมอุดม|mwit|สอบเข้า ม\.4/)) return 29;
-
-    // Senior
-    if (t.includes('ม.4')) return 41;
-    if (t.includes('ม.5')) return 42;
-    if (t.includes('ม.6')) return 43;
+    if (t.includes("ม.4")) return 41;
+    if (t.includes("ม.5")) return 42;
+    if (t.includes("ม.6")) return 43;
     if (t.match(/a-level|tgat|tpat|net|entrance/)) return 49;
-
-    return 99; // Misc
+    return 99;
 };
 
-function CourseList({ courses, progressMap, reviewedCourseIds, onReview }: { courses: Course[], progressMap: Record<string, Progress>, reviewedCourseIds: Set<string>, onReview: (courseId: string, courseName: string) => void }) {
-    if (courses.length === 0) return (
-        <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400">
-            <div className="text-6xl mb-4">🎒</div>
-            <p className="text-lg font-medium mb-6">คุณยังไม่ได้ลงทะเบียนคอร์สเรียน</p>
-            <Link href="/" className="bg-indigo-600 text-white px-8 py-3 rounded-full font-bold hover:bg-indigo-700 transition shadow-lg">
-                ดูคอร์สทั้งหมด
-            </Link>
-        </div>
-    );
-
-    // Group & Sort Courses
-    const grouped = {
-        primary: [] as Course[],
-        junior: [] as Course[],
-        senior: [] as Course[],
-        other: [] as Course[]
-    };
-
-    courses.forEach(c => {
-        const cat = getCourseCategory(c.title);
-        grouped[cat].push(c);
-    });
-
-    // Sort function
-    const sorter = (a: Course, b: Course) => getCourseWeight(a.title) - getCourseWeight(b.title);
-
-    Object.values(grouped).forEach(list => list.sort(sorter));
-
-    const renderSection = (title: string, icon: string, list: Course[], colorClass: string) => {
-        if (list.length === 0) return null;
+// ============================================================
+// §6 / §7.5 — Course list grouped by grade level
+// ============================================================
+function CourseList({
+    courses,
+    progressMap,
+    reviewedCourseIds,
+    onReview,
+    vivid,
+    cardful,
+}: {
+    courses: Course[];
+    progressMap: Record<string, Progress>;
+    reviewedCourseIds: Set<string>;
+    onReview: (courseId: string, courseName: string) => void;
+    vivid: boolean;
+    cardful: boolean;
+}) {
+    if (courses.length === 0)
         return (
-            <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className={`flex items-center gap-3 mb-6 pb-2 border-b-2 ${colorClass} border-opacity-20`}>
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${colorClass.replace('border-', 'bg-').replace('-500', '-100')} ${colorClass.replace('border-', 'text-').replace('-500', '-600')}`}>
-                        {icon}
-                    </div>
-                    <h2 className="text-xl font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide">{title}</h2>
-                    <span className="text-xs font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400">
-                        {list.length} คอร์ส
-                    </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {list.map(course => (
-                        <CourseCard key={course.id} course={course} progress={progressMap[course.id]} isReviewed={reviewedCourseIds.has(course.id)} onReview={onReview} />
-                    ))}
-                </div>
+            <div className="text-center py-16 rounded-2xl mc-rise" style={{ background: "rgba(255,255,255,.7)", border: "2px dashed #D0DAE4", color: "#5A6B7C" }}>
+                <div className="text-6xl mb-4">🎒</div>
+                <p className="text-lg font-medium mb-6">ยังไม่ได้ลงทะเบียนคอร์สเรียน</p>
+                <Link href="/" className="inline-block text-white px-8 py-3 rounded-full font-bold transition shadow-lg" style={{ background: tealSky }}>
+                    ดูคอร์สทั้งหมด
+                </Link>
             </div>
         );
-    };
+
+    const grouped: Record<GradeKey, Course[]> = { primary: [], junior: [], senior: [], other: [] };
+    courses.forEach((c) => grouped[getCourseCategory(c.title)].push(c));
+    const sorter = (a: Course, b: Course) => getCourseWeight(a.title) - getCourseWeight(b.title);
+    (Object.values(grouped) as Course[][]).forEach((list) => list.sort(sorter));
 
     return (
         <div>
-            {renderSection("ระดับประถมศึกษา (Primary)", "🌱", grouped.primary, "border-emerald-500")}
-            {renderSection("ระดับมัธยมต้น (Junior High)", "🌿", grouped.junior, "border-cyan-500")}
-            {renderSection("ระดับมัธยมปลาย (Senior High)", "🌳", grouped.senior, "border-indigo-500")}
-            {renderSection("คอร์สอื่นๆ (General)", "📚", grouped.other, "border-slate-400")}
+            {GRADE_META.map(({ key, thai, en }) => {
+                const list = grouped[key];
+                if (list.length === 0) return null;
+                const sec = SEC[key];
+                return (
+                    <section key={key} className="mb-10 mc-rise" style={{ ["--sec" as any]: sec }}>
+                        {/* §6 — section header: short line + Thai name + EN · n คอร์ส */}
+                        <div className="flex items-center gap-3 mb-5">
+                            <span className="h-1 w-8 rounded-full shrink-0" style={{ background: sec }} />
+                            <h2 className="text-lg sm:text-xl font-bold mc-kanit" style={{ color: "#1A2A3C", whiteSpace: "nowrap" }}>
+                                {thai}{" "}
+                                <span className="font-medium text-sm" style={{ color: "#7C8B98" }}>
+                                    {en} · {list.length} คอร์ส
+                                </span>
+                            </h2>
+                            <span className="flex-1 h-px" style={{ background: "linear-gradient(90deg, #E4EAF0, transparent)" }} />
+                        </div>
 
-            {/* Refund Policy Notice */}
-            <div className="mt-10 pt-5 border-t border-slate-100 dark:border-slate-800/50">
-                <p className="text-[11px] text-slate-400 dark:text-slate-600 text-center leading-relaxed max-w-2xl mx-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {list.map((course) => (
+                                <CourseCard key={course.id} course={course} progress={progressMap[course.id]} isReviewed={reviewedCourseIds.has(course.id)} onReview={onReview} sec={sec} vivid={vivid} cardful={cardful} />
+                            ))}
+                        </div>
+                    </section>
+                );
+            })}
+
+            {/* §7.6 — Refund policy */}
+            <div className="mt-10 pt-5" style={{ borderTop: "1px solid #E4EAF0" }}>
+                <p className="text-[11px] text-center leading-relaxed max-w-2xl mx-auto" style={{ color: "#9AA8B5" }}>
                     นโยบายการคืนเงิน — หากไม่พึงพอใจในคอร์สเรียน สามารถแจ้งขอคืนเงินได้ภายใน 3 วันนับตั้งแต่วันที่ได้รับการอนุมัติ โดยติดต่อผ่านระบบแชทในเว็บไซต์ หรือช่องทางที่ระบุไว้ในหน้าติดต่อเรา ทั้งนี้ขอสงวนสิทธิ์ในการพิจารณาเป็นรายกรณี
                 </p>
             </div>
@@ -774,33 +903,83 @@ function CourseList({ courses, progressMap, reviewedCourseIds, onReview }: { cou
     );
 }
 
-function CourseCard({ course, progress, isReviewed, onReview }: { course: Course, progress?: Progress, isReviewed: boolean, onReview: (courseId: string, courseName: string) => void }) {
+// ============================================================
+// §7.5 — Course card (all states)
+// ============================================================
+function CourseCard({
+    course,
+    progress,
+    isReviewed,
+    onReview,
+    sec,
+    vivid,
+    cardful,
+}: {
+    course: Course;
+    progress?: Progress;
+    isReviewed: boolean;
+    onReview: (courseId: string, courseName: string) => void;
+    sec: string;
+    vivid: boolean;
+    cardful: boolean;
+}) {
     const daysRemaining = getDaysRemaining(course.expiryDate);
     const isExpired = daysRemaining !== null && daysRemaining <= 0;
+    const isApproved = course.status === "approved";
+    const pct = progress?.percent ?? 0;
+    const done = pct === 100;
 
-    // Status Logic
-    const isApproved = course.status === 'approved';
+    const cardStyle: React.CSSProperties = {
+        background: "#fff",
+        border: "1px solid #E4EAF0",
+        borderTop: cardful ? `4px solid ${sec}` : "1px solid #E4EAF0",
+        boxShadow: "0 10px 24px -18px rgba(31,78,136,.28)",
+        opacity: isExpired ? 0.78 : 1,
+    };
+    const coverBg = cardful ? tint(sec, 87) : "#F4F8FB";
+
+    // progress fill: 100% always green; else sec (cardful) / teal-sky (vivid) / accent
+    const fill = done
+        ? "linear-gradient(90deg, #22C55E, #16A34A)"
+        : cardful
+        ? `linear-gradient(90deg, ${sec}, ${shade(sec, "#1F4E88", 28)})`
+        : vivid
+        ? tealSky
+        : "#2F6DB5";
+
+    const ctaBg = isExpired
+        ? "#EEF2F6"
+        : cardful
+        ? `linear-gradient(135deg, ${sec}, ${shade(sec, "#1F4E88", 38)})`
+        : vivid
+        ? tealSky
+        : "#2F6DB5";
 
     return (
-        <div className={`bg-white dark:bg-slate-900 rounded-[1.5rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group ${isExpired ? 'opacity-75 grayscale-[0.5]' : ''}`}>
-            <div className="aspect-video bg-slate-100 dark:bg-slate-800 rounded-2xl mb-4 overflow-hidden relative">
+        <div className="rounded-2xl p-4 flex flex-col transition-all duration-300 hover:-translate-y-1 group" style={cardStyle}>
+            {/* Cover */}
+            <div className="aspect-video rounded-xl mb-4 overflow-hidden relative" style={{ background: coverBg }}>
                 {course.image ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={course.image} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                    <img src={course.image} alt={course.title} className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${isExpired ? "grayscale-[.4]" : ""}`} loading="lazy" />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl text-slate-300">📘</div>
+                    <div className="w-full h-full flex items-center justify-center text-4xl" style={{ color: tint(sec, 35) }}>📘</div>
                 )}
 
-                {/* Status Overlays */}
+                {/* Pending overlay (§7.5) */}
                 {!isApproved && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="text-white text-xs font-bold px-2 py-1 bg-black/50 rounded-lg backdrop-blur-sm">
-                            {course.status === 'pending' ? 'รอตรวจสอบ' : course.status}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 backdrop-blur-[2px]" style={{ background: "rgba(26,42,60,.62)" }}>
+                        <Clock size={22} className="text-white mb-1.5" />
+                        <span className="text-white text-sm font-bold mc-kanit">
+                            {course.status === "pending" ? "รอตรวจสอบสลิป" : course.status}
                         </span>
+                        {course.status === "pending" && (
+                            <span className="text-white/80 text-[11px] mt-1 leading-snug">ทีมงานกำลังตรวจสอบสลิป<br />อนุมัติภายใน 24 ชม.</span>
+                        )}
                     </div>
                 )}
 
-                {/* Expiry Badge */}
+                {/* Expiry badge */}
                 {isApproved && daysRemaining !== null && (
                     <div className="absolute top-2 right-2">
                         <ValidityBadge days={daysRemaining} />
@@ -808,113 +987,114 @@ function CourseCard({ course, progress, isReviewed, onReview }: { course: Course
                 )}
             </div>
 
-            <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200 mb-2 line-clamp-2 h-14">{course.title}</h3>
+            {/* Title */}
+            <h3 className="font-semibold text-[17px] leading-snug mb-2 line-clamp-2 mc-kanit" style={{ color: "#1A2A3C", minHeight: "2.8rem" }}>
+                {course.title}
+            </h3>
 
-            {/* Course Period Info */}
+            {/* Dates */}
             {isApproved && (
-                <div className="mb-3 text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 py-1.5 px-3 rounded-lg border border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                <div className="mb-3 text-[11px] py-1.5 px-3 rounded-lg flex justify-between items-center gap-2" style={{ background: "#F7FAFC", border: "1px solid #EAF0F5", color: "#5A6B7C" }}>
                     <span>
-                        <span className="font-semibold text-slate-400">เริ่ม:</span> {formatDate(course.startedAt)}
+                        <span style={{ color: "#9AA8B5" }}>เริ่ม </span>
+                        {formatDate(course.startedAt)}
                     </span>
+                    <span style={{ color: "#D0DAE4" }}>·</span>
                     <span>
-                        <span className="font-semibold text-slate-400">หมดอายุ:</span> {formatDate(course.expiryDate)}
+                        <span style={{ color: "#9AA8B5" }}>หมดอายุ </span>
+                        {formatDate(course.expiryDate)}
                     </span>
                 </div>
             )}
 
+            {/* Progress */}
             {progress && isApproved && (
-                <div className="mb-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-inner">
+                <div className="mb-4 p-3.5 rounded-xl" style={{ background: "#F7FAFC", border: "1px solid #EAF0F5" }}>
                     <div className="flex justify-between items-end mb-2">
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                            {course.isExamBank ? 'ทดสอบแล้ว ' : 'เรียนไปแล้ว '}
-                            <span className="text-indigo-600 dark:text-indigo-400 text-sm">{progress.completed}</span> / {progress.total} {course.isExamBank ? 'ชุด' : 'คลิป'}
+                        <span className="text-xs font-semibold" style={{ color: "#5A6B7C" }}>
+                            {course.isExamBank ? "ทดสอบแล้ว " : "เรียนแล้ว "}
+                            <span className="text-sm font-bold" style={{ color: done ? "#16A34A" : sec }}>{progress.completed}</span>
+                            <span style={{ color: "#9AA8B5" }}> / {progress.total} {course.isExamBank ? "ชุด" : "คลิป"}</span>
                         </span>
-                        {progress.percent === 100 && (
-                            <span className="text-amber-500 animate-bounce">👑</span>
-                        )}
+                        <span className="text-xs font-bold" style={{ color: done ? "#16A34A" : pct === 0 ? "#9AA8B5" : sec }}>
+                            {done ? "✓ จบคอร์ส" : `${pct}%`}
+                        </span>
                     </div>
 
-                    <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner p-[2px]">
-                        <div
-                            className={`h-full rounded-full transition-all duration-1000 ease-out shadow-sm relative overflow-hidden group/bar ${getProgressColor(progress.percent)}`}
-                            style={{ width: `${progress.percent === 0 ? 5 : progress.percent}%`, opacity: progress.percent === 0 ? 0.5 : 1 }}
-                        >
-                            {/* Shine Effect */}
-                            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-white/30 to-transparent"></div>
-                            {progress.percent > 0 && (
-                                <div className="absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent group-hover/bar:animate-[shimmer_1.5s_infinite]"></div>
+                    <div className="h-2.5 rounded-full overflow-hidden relative" style={{ background: "#E6EDF3" }}>
+                        <div className="h-full rounded-full relative overflow-hidden transition-[width] duration-1000 ease-out" style={{ width: `${pct === 0 ? 4 : pct}%`, background: fill, opacity: pct === 0 ? 0.55 : 1 }}>
+                            {pct > 0 && (
+                                <span className="absolute inset-y-0 w-1/3 opacity-0 group-hover:opacity-100" style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)", animation: "mc-sweep 1.4s ease-in-out infinite" }} />
                             )}
                         </div>
                     </div>
-
-                    <div className="flex justify-between items-center mt-1">
-                        <span className="text-[10px] font-bold text-slate-400">ความคืบหน้า</span>
-                        <span className={`text-xs font-black ${progress.percent === 100 ? 'text-amber-500' :
-                            progress.percent >= 80 ? 'text-emerald-500' :
-                                progress.percent === 0 ? 'text-slate-400' :
-                                    'text-indigo-600'
-                            }`}>
-                            {progress.percent}%
-                        </span>
-                    </div>
                 </div>
             )}
 
-            <div className="mt-auto pt-2">
+            {/* CTA */}
+            <div className="mt-auto pt-1">
                 {isApproved ? (
                     <Link
-                        href={isExpired ? '#' : (course.isExamBank ? '/exam' : `/learn/${course.id}`)}
+                        href={isExpired ? "#" : course.isExamBank ? "/exam" : `/learn/${course.id}`}
                         prefetch={false}
                         onClick={(e) => isExpired && e.preventDefault()}
-                        className={`block w-full py-3 font-bold rounded-xl text-center transition shadow-md ${isExpired
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none'
-                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 dark:shadow-indigo-900/20'
-                            }`}
+                        className="block w-full py-3 font-bold rounded-xl text-center transition-transform hover:-translate-y-0.5"
+                        style={{
+                            background: ctaBg,
+                            color: isExpired ? "#9AA8B5" : "#fff",
+                            cursor: isExpired ? "not-allowed" : "pointer",
+                            boxShadow: isExpired ? "none" : "0 10px 22px -12px rgba(31,78,136,.5)",
+                        }}
                     >
-                        {isExpired ? 'หมดอายุ' : (course.isExamBank ? 'ทำข้อสอบเลย' : (progress && progress.percent > 0 ? 'เรียนต่อ' : 'เริ่มเรียน'))}
+                        {isExpired ? "หมดอายุ" : course.isExamBank ? "ทำข้อสอบเลย" : pct > 0 ? "เรียนต่อ" : "เริ่มเรียน"}
                     </Link>
                 ) : (
-                    <button disabled className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 font-bold rounded-xl cursor-not-allowed">
-                        {course.status === 'pending' ? 'รออนุมัติ' : 'ไม่สามารถเข้าเรียนได้'}
+                    <button disabled className="w-full py-3 font-bold rounded-xl cursor-not-allowed flex items-center justify-center gap-2" style={{ background: "#EEF2F6", color: "#9AA8B5" }}>
+                        <Lock size={14} /> {course.status === "pending" ? "รออนุมัติ" : "เข้าเรียนไม่ได้"}
                     </button>
                 )}
 
-                {/* Review Button — show when approved, not expired, not yet reviewed */}
+                {/* Review CTA (§7.5) */}
                 {isApproved && !isExpired && !isReviewed && (
                     <button
                         onClick={() => onReview(course.id, course.title)}
-                        className="w-full mt-2 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 font-bold text-sm rounded-xl hover:from-amber-100 hover:to-orange-100 hover:shadow-md transition-all flex items-center justify-center gap-2"
+                        className="w-full mt-2 py-2.5 font-bold text-sm rounded-xl transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                        style={{ background: "linear-gradient(90deg, #FFF7E6, #FFF1F0)", border: "1px solid #FBD9A8", color: "#B45309" }}
                     >
                         <Star size={14} fill="currentColor" />
-                        รีวิวเพื่อรับส่วนลด 100 บาท
+                        ★ รีวิวคอร์สนี้ รับส่วนลด ฿100
                     </button>
                 )}
 
-                {/* Already reviewed badge */}
                 {isReviewed && isApproved && (
-                    <div className="w-full mt-2 py-2 text-center text-xs font-bold text-emerald-500 dark:text-emerald-400 flex items-center justify-center gap-1">
-                        <CheckCircle size={12} /> รีวิวแล้ว — ขอบคุณ!
+                    <div className="w-full mt-2 py-2 text-center text-xs font-bold flex items-center justify-center gap-1" style={{ color: "#16A34A" }}>
+                        <CheckCircle size={12} /> ✓ รีวิวแล้ว — ขอบคุณ!
                     </div>
                 )}
             </div>
         </div>
-    )
+    );
 }
 
 function ValidityBadge({ days }: { days: number }) {
-    if (days <= 0) {
-        return <span className="text-[10px] font-bold px-2 py-1 bg-rose-500 text-white rounded-md shadow-sm">หมดอายุ</span>;
-    }
-    if (days <= 7) {
-        return <span className="text-[10px] font-bold px-2 py-1 bg-rose-500 text-white rounded-md shadow-sm animate-pulse">เหลือ {days} วัน</span>;
-    }
-    if (days <= 30) {
-        return <span className="text-[10px] font-bold px-2 py-1 bg-amber-500 text-white rounded-md shadow-sm">เหลือ {days} วัน</span>;
-    }
-    return <span className="text-[10px] font-bold px-2 py-1 bg-emerald-500 text-white rounded-md shadow-sm">เหลือ {days} วัน</span>;
+    if (days <= 0) return <Badge text="หมดอายุ" bg="#B4533F" pulse />;
+    if (days <= 7) return <Badge text={`เหลือ ${days} วัน`} bg="#B4533F" pulse />;
+    if (days <= 30) return <Badge text={`เหลือ ${days} วัน`} bg="#D97706" />;
+    return <Badge text={`เหลือ ${days} วัน`} bg="rgba(26,42,60,.62)" />;
 }
 
-function CouponBanner({ coupons }: { coupons: UserCoupon[] }) {
+function Badge({ text, bg, pulse }: { text: string; bg: string; pulse?: boolean }) {
+    return (
+        <span className={`text-[10px] font-bold px-2 py-1 rounded-md text-white shadow-sm backdrop-blur-sm ${pulse ? "animate-pulse" : ""}`} style={{ background: bg }}>
+            {text}
+        </span>
+    );
+}
+
+// ============================================================
+// §7.4 — Coupons
+// ============================================================
+function CouponBanner({ coupons, cardful }: { coupons: UserCoupon[]; cardful: boolean }) {
     const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
     const handleCopy = (code: string) => {
@@ -923,25 +1103,25 @@ function CouponBanner({ coupons }: { coupons: UserCoupon[] }) {
         setTimeout(() => setCopiedCode(null), 2000);
     };
 
-    const unusedCoupons = coupons.filter(c => !c.isUsed);
-    const usedCoupons = coupons.filter(c => c.isUsed);
+    const unusedCoupons = coupons.filter((c) => !c.isUsed);
+    const usedCoupons = coupons.filter((c) => c.isUsed);
 
     return (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 shadow-sm animate-in slide-in-from-top-4 duration-500">
+        <div className="rounded-2xl p-5 sm:p-6 mc-rise" style={{ background: "#fff", border: "1px solid #E4EAF0", boxShadow: "0 22px 54px -34px rgba(31,78,136,.30)" }}>
             <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
-                    <Gift size={20} className="text-amber-600 dark:text-amber-400" />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#FEF3C7" }}>
+                    <Gift size={20} style={{ color: "#D97706" }} />
                 </div>
                 <div>
-                    <h3 className="font-black text-slate-800 dark:text-slate-100">คูปองของฉัน</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">โค้ดส่วนลดของคุณ ดูย้อนหลังได้เสมอ</p>
+                    <h3 className="font-bold mc-kanit" style={{ color: "#1A2A3C" }}>คูปองของฉัน</h3>
+                    <p className="text-xs" style={{ color: "#7C8B98" }}>โค้ดส่วนลดของคุณ ดูย้อนหลังได้เสมอ</p>
                 </div>
             </div>
 
-            {/* Unused Coupons — ready to use */}
+            {/* Ready to use */}
             {unusedCoupons.length > 0 && (
                 <div className="mb-4">
-                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mb-2 flex items-center gap-1">
+                    <p className="text-xs font-bold mb-2 flex items-center gap-1" style={{ color: "#0F9D6C" }}>
                         <CheckCircle size={12} /> พร้อมใช้ ({unusedCoupons.length})
                     </p>
                     <div className="space-y-2">
@@ -949,14 +1129,15 @@ function CouponBanner({ coupons }: { coupons: UserCoupon[] }) {
                             <button
                                 key={`unused-${i}`}
                                 onClick={() => handleCopy(coupon.code)}
-                                className="w-full flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-3 hover:shadow-md transition-all group"
+                                className="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-all hover:shadow-md group"
+                                style={{ background: cardful ? "#E9FBF2" : "#fff", border: `1px solid ${cardful ? "#5FD9A9" : "#E4EAF0"}` }}
                             >
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <span className="text-lg shrink-0">🎫</span>
-                                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 tracking-wider truncate">{coupon.code}</span>
-                                    <span className="text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full shrink-0">ลด {coupon.discountAmount} บาท</span>
+                                    <span className="text-lg shrink-0">🎟️</span>
+                                    <span className="font-mono font-bold tracking-wider truncate" style={{ color: "#0B7A55" }}>{coupon.code}</span>
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: "#CBF3E2", color: "#0B7A55" }}>ลด ฿{coupon.discountAmount}</span>
                                 </div>
-                                <div className={`flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full transition-all shrink-0 ${copiedCode === coupon.code ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-slate-800 text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-600'}`}>
+                                <div className="flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full transition-all shrink-0" style={copiedCode === coupon.code ? { background: "#10B981", color: "#fff" } : { background: "#fff", color: "#7C8B98", border: "1px solid #D6EFE2" }}>
                                     {copiedCode === coupon.code ? (
                                         <><CheckCircle size={12} /> คัดลอกแล้ว</>
                                     ) : (
@@ -969,27 +1150,158 @@ function CouponBanner({ coupons }: { coupons: UserCoupon[] }) {
                 </div>
             )}
 
-            {/* Used Coupons — history */}
+            {/* Used history */}
             {usedCoupons.length > 0 && (
                 <div>
-                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-2">ใช้แล้ว ({usedCoupons.length})</p>
+                    <p className="text-xs font-bold mb-2" style={{ color: "#9AA8B5" }}>ใช้แล้ว ({usedCoupons.length})</p>
                     <div className="space-y-2">
                         {usedCoupons.map((coupon, i) => (
-                            <div
-                                key={`used-${i}`}
-                                className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 opacity-60"
-                            >
+                            <div key={`used-${i}`} className="w-full flex items-center justify-between rounded-xl px-4 py-3 opacity-60" style={{ background: "#F7FAFC", border: "1px solid #EAF0F5" }}>
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <span className="text-lg shrink-0 grayscale">🎫</span>
-                                    <span className="font-mono font-bold text-slate-400 dark:text-slate-500 tracking-wider line-through truncate">{coupon.code}</span>
-                                    <span className="text-xs font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full shrink-0">ลด {coupon.discountAmount} บาท</span>
+                                    <span className="text-lg shrink-0 grayscale">🎟️</span>
+                                    <span className="font-mono font-bold tracking-wider line-through truncate" style={{ color: "#9AA8B5" }}>{coupon.code}</span>
+                                    <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{ background: "#EEF2F6", color: "#9AA8B5" }}>ลด ฿{coupon.discountAmount}</span>
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full shrink-0">ใช้แล้ว</span>
+                                <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0" style={{ background: "#EEF2F6", color: "#9AA8B5" }}>ใช้แล้ว</span>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+// ============================================================
+// §4/§5 — Tweak panel (vivid / cardful / Dot Pop params)
+// ============================================================
+const STYLE_OPTIONS = [
+    { key: "dotpop", label: "Dot Pop" },
+    { key: "dots", label: "จุดเดี่ยว" },
+    { key: "graph", label: "กราฟ" },
+    { key: "notebook", label: "สมุด" },
+    { key: "aurora", label: "ออโรรา" },
+    { key: "plain", label: "เรียบ" },
+];
+const PALETTE_OPTIONS = ["classic", "cool", "warm", "rainbow", "mono"];
+const BASE_OPTIONS = ["lemon", "white", "mint", "sky", "pink", "lavender", "rainbow"];
+const BASE_SWATCH: Record<string, string> = { ...DOT_BASES };
+
+function TweakPanel({ open, onToggle, prefs, update, onReset }: { open: boolean; onToggle: () => void; prefs: ThemePrefs; update: (p: Partial<ThemePrefs>) => void; onReset: () => void }) {
+    return (
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-3">
+            {open && (
+                <div className="w-[290px] max-h-[76vh] overflow-y-auto rounded-2xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-200" style={{ background: "#fff", border: "1px solid #E4EAF0", boxShadow: "0 30px 60px -20px rgba(31,78,136,.4)" }}>
+                    <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-bold text-sm flex items-center gap-1.5 mc-kanit" style={{ color: "#1A2A3C" }}>
+                            <Sparkles size={15} style={{ color: "#0EA5E9" }} /> ปรับแต่งธีม
+                        </h4>
+                        <button onClick={onReset} className="text-[11px] font-semibold flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-50" style={{ color: "#7C8B98" }}>
+                            <RotateCcw size={11} /> รีเซ็ต
+                        </button>
+                    </div>
+
+                    {/* Toggles */}
+                    <Toggle label="โหมดสีสด (Vivid)" on={prefs.vivid} onClick={() => update({ vivid: !prefs.vivid })} />
+                    <Toggle label="การ์ดมีสี (Cardful)" on={prefs.cardful} onClick={() => update({ cardful: !prefs.cardful })} />
+
+                    <Divider />
+
+                    <FieldLabel>พื้นหลัง</FieldLabel>
+                    <ChipRow options={STYLE_OPTIONS.map((s) => ({ key: s.key, label: s.label }))} value={prefs.style} onPick={(k) => update({ style: k })} />
+
+                    <FieldLabel>สีพื้น</FieldLabel>
+                    <div className="flex flex-wrap gap-1.5 mb-1">
+                        {BASE_OPTIONS.map((b) => (
+                            <button
+                                key={b}
+                                onClick={() => update({ base: b })}
+                                title={b}
+                                className="w-7 h-7 rounded-lg transition-transform hover:scale-110"
+                                style={{ background: BASE_SWATCH[b], border: prefs.base === b ? "2px solid #0EA5E9" : "1px solid #D0DAE4", boxShadow: prefs.base === b ? "0 0 0 2px #BAE6FD" : "none" }}
+                            />
+                        ))}
+                    </div>
+
+                    <FieldLabel>ชุดสีจุด</FieldLabel>
+                    <div className="flex flex-wrap gap-1.5 mb-1">
+                        {PALETTE_OPTIONS.map((p) => (
+                            <button key={p} onClick={() => update({ palette: p })} className="px-2 py-1 rounded-lg flex items-center gap-1" style={{ border: prefs.palette === p ? "2px solid #0EA5E9" : "1px solid #D0DAE4", background: prefs.palette === p ? "#F0F9FF" : "#fff" }}>
+                                <span className="flex gap-0.5">
+                                    {(DOT_PALETTES[p] || []).slice(0, 4).map(([r, g, b], i) => (
+                                        <span key={i} className="w-2 h-2 rounded-full" style={{ background: `rgb(${r},${g},${b})` }} />
+                                    ))}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <Divider />
+
+                    <Slider label="ขนาดจุด" value={prefs.size} min={1} max={4.5} step={0.5} onChange={(v) => update({ size: v })} suffix="px" />
+                    <Slider label="ระยะห่าง" value={prefs.space} min={20} max={64} step={2} onChange={(v) => update({ space: v })} suffix="px" />
+                    <Slider label="ความเข้ม" value={prefs.opacity} min={0.2} max={1} step={0.05} onChange={(v) => update({ opacity: v })} />
+                </div>
+            )}
+
+            <button
+                onClick={onToggle}
+                aria-label="ปรับแต่งธีม"
+                className="w-12 h-12 rounded-full flex items-center justify-center text-white transition-transform hover:scale-105 active:scale-95"
+                style={{ background: tealSky, boxShadow: "0 14px 30px -10px rgba(14,165,233,.6)" }}
+            >
+                {open ? <X size={20} /> : <SlidersHorizontal size={20} />}
+            </button>
+        </div>
+    );
+}
+
+function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+    return (
+        <button onClick={onClick} className="w-full flex items-center justify-between py-2 group">
+            <span className="text-[13px] font-medium" style={{ color: "#3F505F" }}>{label}</span>
+            <span className="w-10 h-6 rounded-full p-0.5 transition-colors flex" style={{ background: on ? "#0EA5E9" : "#D0DAE4", justifyContent: on ? "flex-end" : "flex-start" }}>
+                <span className="w-5 h-5 rounded-full bg-white shadow-sm flex items-center justify-center">
+                    {on && <Check size={11} style={{ color: "#0EA5E9" }} />}
+                </span>
+            </span>
+        </button>
+    );
+}
+
+function Divider() {
+    return <div className="my-3 h-px" style={{ background: "#EEF2F6" }} />;
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+    return <p className="text-[11px] font-semibold uppercase tracking-wide mb-1.5 mt-1" style={{ color: "#9AA8B5" }}>{children}</p>;
+}
+
+function ChipRow({ options, value, onPick }: { options: { key: string; label: string }[]; value: string; onPick: (k: string) => void }) {
+    return (
+        <div className="flex flex-wrap gap-1.5 mb-1">
+            {options.map((o) => (
+                <button
+                    key={o.key}
+                    onClick={() => onPick(o.key)}
+                    className="px-2.5 py-1 rounded-lg text-[12px] font-semibold transition-colors"
+                    style={value === o.key ? { background: "#0EA5E9", color: "#fff" } : { background: "#F4F8FB", color: "#5A6B7C", border: "1px solid #E4EAF0" }}
+                >
+                    {o.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function Slider({ label, value, min, max, step, onChange, suffix }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; suffix?: string }) {
+    return (
+        <div className="mb-2.5">
+            <div className="flex justify-between items-center mb-1">
+                <span className="text-[12px] font-medium" style={{ color: "#5A6B7C" }}>{label}</span>
+                <span className="text-[11px] font-bold tabular-nums" style={{ color: "#0EA5E9" }}>{value}{suffix}</span>
+            </div>
+            <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="w-full accent-sky-500" style={{ accentColor: "#0EA5E9" }} />
         </div>
     );
 }

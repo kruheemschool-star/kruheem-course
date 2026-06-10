@@ -578,3 +578,59 @@ h6 {
         box-shadow: 0 0 0 8px rgba(20, 184, 166, 0), 0 4px 12px 0 rgba(20, 184, 166, 0.25);
     }
 }
+
+/* ============================================================
+   "Dot Pop" theme — SCOPED to the /my-courses page only.
+   Light-only by design (the spec defines no dark palette), same
+   approach as .graph-theme. The multi-colour dot background is
+   composed in JS and injected via inline style on .mc-bg-layer.
+   The vivid / cardful treatments are React-driven inline styles,
+   so they need no global classes here.
+   ============================================================ */
+.mc-theme {
+    color: #1A2A3C;
+    font-family: var(--font-sarabun), var(--font-ibm-loop), sans-serif;
+    min-height: 100vh;
+}
+
+.mc-theme :is(h1, h2, h3, .mc-kanit) {
+    font-family: var(--font-kanit), var(--font-mitr), sans-serif;
+}
+
+/* fixed, viewport-anchored background plate — sits behind page
+   content (z-10) but below the fixed Navbar (z-50). The white
+   veil + lemon base are baked into the injected background string,
+   so the veil always stays under the Navbar regardless of scroll. */
+.mc-bg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.mc-theme .mc-content {
+    position: relative;
+    z-index: 10;
+}
+
+/* gentle staggered entrance for the themed cards */
+@keyframes mc-rise {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.mc-rise { animation: mc-rise .6s cubic-bezier(.2, .7, .2, 1) both; }
+
+/* shimmer sweep used by the progress bars */
+@keyframes mc-sweep {
+    0%   { transform: translateX(-120%); }
+    100% { transform: translateX(220%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mc-theme *,
+    .mc-theme *::before,
+    .mc-theme *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
