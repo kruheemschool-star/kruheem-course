@@ -44,6 +44,31 @@ export interface FsDoc {
 }
 
 /**
+ * fetch() with a hard timeout. Server-side reads on the homepage critical path
+ * must never hang forever: the homepage server component awaits getActivePromotion
+ * (→ getDocument) BEFORE rendering anything, so an unbounded fetch that stalls
+ * leaves the `/` RSC response hanging and makes navigation (e.g. clicking the
+ * logo) appear stuck on the current page. On timeout the request aborts and
+ * throws, which callers already treat as "no data" (getActivePromotion catches
+ * it and returns null → the page renders without the promo). Cache hits resolve
+ * before any network call, so the timeout only bounds the slow/revalidation path.
+ */
+async function fetchFs(url: string, revalidate: number, label: string, timeoutMs = 8000): Promise<Response> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+        return await fetch(url, { next: { revalidate }, signal: ctrl.signal });
+    } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") {
+            throw new Error(`Firestore REST ${label}: timed out after ${timeoutMs}ms`);
+        }
+        throw e;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/**
  * List a Firestore collection via REST, projecting only `fields` server-side.
  * Returns decoded plain objects shaped { id, ...fields }. Follows pagination.
  */
@@ -72,9 +97,7 @@ export async function listCollection(
         for (const f of fields) params.append("mask.fieldPaths", f);
         if (pageToken) params.set("pageToken", pageToken);
 
-        const res = await fetch(`${base}?${params.toString()}`, {
-            next: { revalidate: opts.revalidate ?? 300 },
-        });
+        const res = await fetchFs(`${base}?${params.toString()}`, opts.revalidate ?? 300, collectionId);
         if (!res.ok) {
             throw new Error(`Firestore REST ${collectionId}: HTTP ${res.status}`);
         }
@@ -113,7 +136,7 @@ export async function getDocument(
     }
 
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}?key=${apiKey}`;
-    const res = await fetch(url, { next: { revalidate: opts.revalidate ?? 300 } });
+    const res = await fetchFs(url, opts.revalidate ?? 300, path);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Firestore REST ${path}: HTTP ${res.status}`);
 
