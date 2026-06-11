@@ -2,69 +2,71 @@
 import { useState } from "react";
 import type { CurriculumData } from "../types";
 
-const DEFAULT_COLORS = [
-    { bg: "bg-blue-100/70", icon: "text-blue-500" },
-    { bg: "bg-indigo-100/70", icon: "text-indigo-500" },
-    { bg: "bg-emerald-100/70", icon: "text-emerald-500" },
-    { bg: "bg-purple-100/70", icon: "text-purple-500" },
-    { bg: "bg-rose-100/70", icon: "text-rose-500" },
-    { bg: "bg-amber-100/70", icon: "text-amber-500" },
-];
-
 export default function CurriculumSection({ data }: { data: CurriculumData }) {
     const [openIndex, setOpenIndex] = useState<number | null>(null);
 
     return (
-        <section className="max-w-4xl mx-auto px-6 py-16">
-            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2.5rem] shadow-lg p-8 md:p-12 border border-white/50 dark:border-slate-800/60">
-                <h2 className="text-4xl font-bold text-center text-slate-800 dark:text-white mb-4">{data.title}</h2>
-                {data.subtitle && <p className="text-center text-lg text-slate-500 dark:text-slate-400 mb-12">{data.subtitle}</p>}
+        <section className="kh-sec">
+            <div className="kh-sec-head">
+                <h2 className="kh-h2">{data.title}</h2>
+                {data.subtitle && <p className="kh-sub mt-3">{data.subtitle}</p>}
+            </div>
 
-                <div className="space-y-4">
-                    {data.chapters.map((ch, i) => {
-                        const color = DEFAULT_COLORS[i % DEFAULT_COLORS.length];
-                        const isHexBg = ch.color?.startsWith("#");
-                        const isHexIcon = ch.iconColor?.startsWith("#");
-                        const bgClass = isHexBg ? "" : (ch.color || color.bg);
-                        const iconClass = isHexIcon ? "" : (ch.iconColor || color.icon);
-
-                        return (
-                            <div key={ch.id} className={`rounded-2xl overflow-hidden transition-all duration-300 ${bgClass}`} style={isHexBg ? { backgroundColor: ch.color } : undefined}>
-                                <button
-                                    onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                                    className="w-full p-5 flex items-center justify-between text-left"
+            <div className="max-w-[820px] mx-auto space-y-3.5">
+                {data.chapters.map((ch, i) => {
+                    const isOpen = openIndex === i;
+                    return (
+                        <div key={ch.id} className={`kh-accItem ${isOpen ? "open" : ""}`}>
+                            <button
+                                type="button"
+                                className="kh-accHead"
+                                onClick={() => setOpenIndex(openIndex === i ? null : i)}
+                            >
+                                <span
+                                    className="kh-num w-11 h-11 flex-shrink-0 rounded-xl grid place-items-center text-lg font-bold transition-colors duration-300"
+                                    style={
+                                        isOpen
+                                            ? { background: "var(--kh-p)", color: "var(--kh-onD)" }
+                                            : { background: "var(--kh-pT)", color: "var(--kh-pText)" }
+                                    }
                                 >
-                                    <div className="flex items-center gap-5">
-                                        <div className={`w-12 h-12 bg-white shadow-sm rounded-2xl flex items-center justify-center font-bold text-xl ${iconClass}`} style={isHexIcon ? { color: ch.iconColor } : undefined}>
-                                            {i + 1}
-                                        </div>
-                                        <div>
-                                            <h3 className="font-bold text-xl text-slate-800 dark:text-white">{ch.title}</h3>
-                                            {ch.desc && <p className="text-slate-600 dark:text-slate-300 text-base">{ch.desc}</p>}
-                                        </div>
-                                    </div>
-                                    <svg
-                                        className={`w-6 h-6 text-slate-500 dark:text-slate-400 transition-transform duration-300 flex-shrink-0 ${openIndex === i ? "rotate-180" : ""}`}
-                                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${openIndex === i ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-                                    <div className="overflow-hidden">
-                                        <div className="px-5 pb-5 pt-0 sm:pl-[5.5rem]">
-                                            <ul className="list-disc text-slate-700 dark:text-slate-200 space-y-3 text-lg">
-                                                {ch.content.map((item, j) => (
-                                                    <li key={j}>{item}</li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
+                                    {i + 1}
+                                </span>
+                                <span className="flex-1 min-w-0">
+                                    <span className="kh-h3 block">{ch.title}</span>
+                                    {ch.desc && (
+                                        <span className="block text-sm mt-0.5" style={{ color: "var(--kh-mut)" }}>
+                                            {ch.desc}
+                                        </span>
+                                    )}
+                                </span>
+                                <span className="kh-accPlus">+</span>
+                            </button>
+                            <div className="kh-accBody">
+                                <div className="kh-accInner">
+                                    <ul className="px-5 pb-5 pt-1 sm:pl-[78px] sm:pr-14 space-y-2.5">
+                                        {ch.content.map((item, j) => (
+                                            <li
+                                                key={j}
+                                                className="flex items-start gap-2.5 leading-relaxed"
+                                                style={{ color: "var(--kh-body)" }}
+                                            >
+                                                <span
+                                                    className="flex-shrink-0 mt-0.5 text-[15px] font-bold"
+                                                    style={{ color: "var(--kh-p)" }}
+                                                    aria-hidden="true"
+                                                >
+                                                    ✓
+                                                </span>
+                                                <span>{item}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             </div>
-                        );
-                    })}
-                </div>
+                        </div>
+                    );
+                })}
             </div>
         </section>
     );

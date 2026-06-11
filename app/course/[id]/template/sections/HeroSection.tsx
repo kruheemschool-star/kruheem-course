@@ -21,7 +21,7 @@ function renderHeadline(text: string) {
             <span
                 key={i}
                 style={{
-                    background: "linear-gradient(180deg,#fb923c 0%, #ef4444 100%)",
+                    background: "linear-gradient(135deg, var(--kh-cta1) 0%, var(--kh-acc) 100%)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                     backgroundClip: "text",
@@ -36,12 +36,6 @@ function renderHeadline(text: string) {
 }
 
 export default function HeroSection({ data, ctx }: Props) {
-    // ---- Theme / background ----
-    const bgFrom = data.bgColorFrom || "#fffaf2";
-    const bgTo = data.bgColorTo || "#fef3e0";
-    const titleColor = data.titleColor || "#13132a";
-    const subtitleColor = data.subtitleColor || "#4a4a5e";
-
     // Default to the rich course card — the standard cover for this template.
     // Courses can still opt into a plain image cover via coverType: "image".
     const coverType = data.coverType || "courseCard";
@@ -68,185 +62,154 @@ export default function HeroSection({ data, ctx }: Props) {
         ];
 
     return (
-        <header
-            className="relative pt-32 pb-20 overflow-hidden"
-            style={{
-                background: `
-                    radial-gradient(60% 80% at 100% 0%, rgba(251,146,60,.22), transparent 60%),
-                    radial-gradient(50% 70% at 0% 100%, rgba(254,215,170,.45), transparent 60%),
-                    linear-gradient(180deg, ${bgFrom} 0%, ${bgTo} 100%)`,
-            }}
-        >
-            <div className="max-w-7xl mx-auto px-6 md:px-10 flex flex-col lg:flex-row gap-12 lg:gap-8 items-center lg:items-start relative z-10">
+        <header className="kh-sec relative" style={{ paddingTop: "clamp(112px, 13vw, 136px)" }}>
+            <div className="grid lg:grid-cols-2 gap-10 items-start">
                 {/* ============ LEFT COLUMN ============ */}
-                <div className="w-full lg:flex-1 lg:max-w-[640px] text-center lg:text-left">
+                <div className="w-full text-center lg:text-left">
                     {/* Tag badge */}
                     {data.badgeText && (
-                        <div
-                            className="inline-flex items-center gap-2.5 pl-3.5 pr-4 py-2 rounded-full text-[13.5px] font-semibold"
-                            style={{
-                                background: data.badgeBgColor || "rgba(255,255,255,.7)",
-                                border: "1px solid rgba(20,20,30,.06)",
-                                color: data.badgeTextColor || "#1a1a2e",
-                                boxShadow: "0 1px 2px rgba(20,20,40,.04)",
-                            }}
-                        >
-                            <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
+                        <span className="kh-eyebrow">
+                            <span
+                                className="w-2 h-2 rounded-full"
+                                style={{ background: "var(--kh-good)" }}
+                            />
                             {data.badgeText}
-                        </div>
+                        </span>
                     )}
 
                     {/* Headline */}
-                    <h1
-                        className="whitespace-pre-line font-extrabold text-[40px] leading-[1.08] sm:text-5xl md:text-6xl lg:text-[72px] mt-6"
-                        style={{ color: titleColor, letterSpacing: "-1.5px" }}
-                    >
-                        {renderHeadline(data.title)}
-                    </h1>
+                    <h1 className="kh-h1 whitespace-pre-line mt-5">{renderHeadline(data.title)}</h1>
 
                     {/* Subhead */}
                     {data.subtitle && (
-                        <p
-                            className="whitespace-pre-line text-[17px] md:text-[19px] leading-[1.55] mt-6 max-w-[520px] mx-auto lg:mx-0"
-                            style={{ color: subtitleColor }}
-                        >
+                        <p className="kh-sub whitespace-pre-line mt-5 max-w-[520px] mx-auto lg:mx-0">
                             {data.subtitle}
                         </p>
                     )}
 
                     {/* CTA cluster */}
-                    <div className="mt-8 flex flex-col gap-3.5 max-w-[460px] mx-auto lg:mx-0">
+                    <div className="mt-8 flex flex-col gap-4 max-w-[460px] mx-auto lg:mx-0">
                         {/* Price-savings row */}
                         {(regularPriceText || savingsText) && (
                             <div className="flex items-center justify-center lg:justify-start gap-2.5 flex-wrap">
                                 {regularPriceText && (
                                     <span
-                                        className="text-sm line-through"
-                                        style={{ color: "#9a8a78", textDecorationColor: "rgba(154,138,120,.55)" }}
+                                        className="kh-num text-sm line-through"
+                                        style={{ color: "var(--kh-mut)" }}
                                     >
                                         {regularPriceText}
                                     </span>
                                 )}
                                 {savingsText && (
                                     <span
-                                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-bold"
+                                        className="kh-kanit inline-flex items-center px-3 py-1 rounded-full text-xs font-bold"
                                         style={{
-                                            background: "#dcfce7",
-                                            color: "#15803d",
-                                            border: "1px solid #bbf7d0",
-                                            letterSpacing: ".3px",
+                                            background: "var(--kh-good)",
+                                            color: "var(--kh-onD)",
+                                            boxShadow: "var(--kh-shadow-sm)",
                                         }}
                                     >
-                                        <span className="text-[10px]">●</span>
                                         {savingsText}
                                     </span>
                                 )}
                             </div>
                         )}
 
-                        {/* Primary CTA — dark ink + warm price chip */}
-                        <button
-                            onClick={ctx.onCTAClick}
-                            className="relative overflow-hidden flex items-center justify-between gap-3.5 pl-7 pr-2.5 py-2.5 rounded-[18px] text-white font-bold text-[17px] transition-all hover:scale-[1.02] active:scale-95"
-                            style={{
-                                background: "linear-gradient(180deg,#1f1b34 0%, #0f0d1f 100%)",
-                                boxShadow:
-                                    "0 18px 30px -12px rgba(15,13,31,.45), 0 0 0 1px rgba(251,146,60,.18), inset 0 1px 0 rgba(255,255,255,.06)",
-                            }}
-                        >
-                            <span
-                                className="absolute inset-0 pointer-events-none"
-                                style={{
-                                    background:
-                                        "radial-gradient(80% 120% at 0% 100%, rgba(251,146,60,.22), transparent 55%)",
-                                }}
-                            />
-                            <span className="relative inline-flex items-center gap-3">
+                        {/* CTA row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-center lg:justify-start gap-3">
+                            <button onClick={ctx.onCTAClick} className="kh-cta-btn w-full sm:w-auto">
                                 <span>{data.ctaText || "สมัครเลย ล็อกราคาพิเศษ"}</span>
                                 <span
-                                    className="w-[22px] h-[22px] rounded-full grid place-items-center text-xs"
-                                    style={{ background: "rgba(251,146,60,.18)", color: "#fb923c" }}
-                                >
-                                    →
-                                </span>
-                            </span>
-                            <span
-                                className="relative px-4 py-2.5 rounded-xl text-[17px] font-extrabold"
-                                style={{
-                                    background: "linear-gradient(160deg,#fb923c 0%, #f97316 40%, #dc2626 100%)",
-                                    letterSpacing: "-.3px",
-                                    boxShadow:
-                                        "0 6px 14px -4px rgba(220,40,40,.55), inset 0 1px 0 rgba(255,255,255,.3)",
-                                }}
-                            >
-                                {ctaPriceText}
-                            </span>
-                        </button>
+                                    aria-hidden="true"
+                                    className="w-px h-5 opacity-40"
+                                    style={{ background: "currentColor" }}
+                                />
+                                <span className="kh-num text-[1.1em] font-extrabold">{ctaPriceText}</span>
+                            </button>
 
-                        {/* Secondary CTA — scroll to curriculum */}
-                        <a
-                            href="#section-curriculum"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                smoothScrollToId("section-curriculum");
-                            }}
-                            className="inline-flex items-center gap-3 pl-3 pr-[18px] py-3 rounded-[14px] font-semibold text-[15px] w-fit mx-auto lg:mx-0 hover:bg-white/60 transition-colors"
-                            style={{ border: "1px solid rgba(20,20,40,.08)", color: "#13132a" }}
-                        >
-                            <span
-                                className="w-8 h-8 rounded-full grid place-items-center text-white text-[11px]"
-                                style={{
-                                    background: "linear-gradient(160deg,#fb923c,#dc2626)",
-                                    boxShadow: "0 4px 10px -3px rgba(220,40,40,.5)",
+                            {/* Secondary CTA — scroll to curriculum */}
+                            <a
+                                href="#section-curriculum"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    smoothScrollToId("section-curriculum");
                                 }}
+                                className="kh-ghost-btn w-full sm:w-auto"
                             >
-                                ▶
-                            </span>
-                            {secondaryCtaText}{" "}
-                            {secondaryCtaMeta && (
-                                <span className="font-medium" style={{ color: "#9a9aa8" }}>
-                                    {secondaryCtaMeta}
+                                <span
+                                    aria-hidden="true"
+                                    className="w-7 h-7 rounded-full grid place-items-center text-[10px] shrink-0"
+                                    style={{ background: "var(--kh-pT)", color: "var(--kh-pText)" }}
+                                >
+                                    ▶
                                 </span>
-                            )}
-                        </a>
+                                {secondaryCtaText}
+                                {secondaryCtaMeta && (
+                                    <span className="font-medium" style={{ color: "var(--kh-mut)" }}>
+                                        {secondaryCtaMeta}
+                                    </span>
+                                )}
+                            </a>
+                        </div>
 
                         {/* Trust chips */}
                         {trustChips.length > 0 && (
-                            <div className="flex gap-2.5 mt-1 flex-wrap justify-center lg:justify-start">
+                            <div className="flex gap-2.5 flex-wrap justify-center lg:justify-start">
                                 {trustChips.map((chip, i) => (
-                                    <div
+                                    <span
                                         key={i}
-                                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[13px]"
-                                        style={{
-                                            background: "rgba(255,255,255,.55)",
-                                            border: "1px solid rgba(20,20,40,.04)",
-                                            color: "#4a4a5e",
-                                        }}
+                                        className="kh-chip"
+                                        style={
+                                            chip.tone === "green"
+                                                ? {
+                                                      background: "var(--kh-goodBg)",
+                                                      color: "var(--kh-goodText)",
+                                                      borderColor: "var(--kh-goodBg)",
+                                                  }
+                                                : {
+                                                      background: "var(--kh-ctaT)",
+                                                      color: "var(--kh-ctaDeep)",
+                                                      borderColor: "var(--kh-ctaT)",
+                                                  }
+                                        }
                                     >
-                                        <span
-                                            className="w-[22px] h-[22px] rounded-full grid place-items-center text-[11px]"
-                                            style={
-                                                chip.tone === "green"
-                                                    ? { background: "rgba(34,197,94,.14)", color: "#15803d" }
-                                                    : { background: "rgba(245,158,11,.14)", color: "#b45309" }
-                                            }
-                                        >
-                                            {chip.icon}
-                                        </span>
+                                        <span aria-hidden="true">{chip.icon}</span>
                                         {chip.text}
-                                        {chip.boldText && (
-                                            <b style={{ color: "#13132a" }}>&nbsp;{chip.boldText}&nbsp;</b>
-                                        )}
+                                        {chip.boldText && <b className="kh-num">&nbsp;{chip.boldText}&nbsp;</b>}
                                         {chip.suffix}
-                                    </div>
+                                    </span>
                                 ))}
                             </div>
                         )}
+
+                        {/* Price-per-day note */}
+                        {data.pricePerDayText && (
+                            <p className="text-xs" style={{ color: "var(--kh-mut)" }}>
+                                {data.pricePerDayText}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Mascot greeter */}
+                    <div className="mt-9 flex items-end justify-center lg:justify-start gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src="/assets/kruheem_avatar.png"
+                            alt="ครูฮีม"
+                            loading="lazy"
+                            className="w-20 md:w-24 h-auto"
+                        />
+                        <span
+                            className="kh-chip mb-3"
+                            style={{ borderRadius: "16px 16px 16px 4px", boxShadow: "var(--kh-shadow-sm)" }}
+                        >
+                            ครูฮีมรอสอนน้องอยู่นะ 👋
+                        </span>
                     </div>
                 </div>
 
                 {/* ============ RIGHT COLUMN ============ */}
-                <div className="w-full lg:flex-1 flex justify-center lg:justify-end">
+                <div className="w-full flex justify-center lg:justify-end">
                     {showRichCard ? (
                         <CourseCard data={data} courseId={ctx.courseId} courseTitle={ctx.courseTitle} previewVideoId={ctx.previewVideoId} totalStudents={ctx.totalStudents} />
                     ) : (
@@ -254,10 +217,10 @@ export default function HeroSection({ data, ctx }: Props) {
                         (data.imageUrl || ctx.courseImage) && (
                             <div className="w-full max-w-[540px]">
                                 <div
-                                    className="relative rounded-[2.5rem] p-3 bg-white/30 backdrop-blur-xl border border-white/50 shadow-2xl"
-                                    style={{ boxShadow: "0 30px 60px -20px rgba(99,102,241,.2)" }}
+                                    className="kh-card p-3"
+                                    style={{ borderRadius: 26, boxShadow: "var(--kh-shadow)" }}
                                 >
-                                    <div className="relative rounded-[2rem] overflow-hidden shadow-inner">
+                                    <div className="relative overflow-hidden" style={{ borderRadius: 18 }}>
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                             src={data.imageUrl || ctx.courseImage}

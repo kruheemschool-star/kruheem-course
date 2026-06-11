@@ -47,49 +47,59 @@ export default function ExitIntentPopup({ config, onCTAClick, courseId }: Props)
 
     return (
         <div
-            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+            className="fixed inset-0 z-[100] backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+            style={{ background: "rgba(15,23,42,.55)" }}
             onClick={() => setOpen(false)}
         >
             <div
-                className="bg-white rounded-[2rem] max-w-lg w-full p-8 md:p-10 text-center shadow-2xl relative animate-in zoom-in-95 duration-300"
+                className="kh-card max-w-md w-full p-7 text-center relative animate-in zoom-in-95 duration-300"
+                style={{ borderRadius: 24, boxShadow: "var(--kh-shadow)" }}
                 onClick={(e) => e.stopPropagation()}
             >
                 <button
                     onClick={() => setOpen(false)}
-                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xl leading-none"
+                    className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-xl leading-none transition-opacity hover:opacity-70"
+                    style={{ background: "var(--kh-tint)", color: "var(--kh-mut)" }}
                 >
                     ×
                 </button>
 
                 <div className="text-6xl mb-4">✋</div>
 
-                <h3 className="text-3xl font-black text-slate-800 mb-3">
-                    {config.title || "เดี๋ยวก่อน!"}
-                </h3>
-
-                <p className="text-lg text-slate-600 leading-relaxed mb-6">
-                    {config.desc || "อย่าพลาดโอกาสดีๆ วันนี้เท่านั้น!"}
-                </p>
-
                 {config.discountText && (
-                    <div className="inline-block px-5 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white font-black rounded-full text-lg mb-6 shadow-lg">
+                    <div
+                        className="kh-kanit inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-base mb-4"
+                        style={{ background: "var(--kh-urgBg)", color: "var(--kh-urgText)" }}
+                    >
                         🎁 {config.discountText}
                     </div>
                 )}
+
+                <h3
+                    className="kh-kanit font-extrabold mb-3"
+                    style={{ fontSize: "clamp(22px, 3vw, 28px)", lineHeight: 1.3, color: "var(--kh-ink)" }}
+                >
+                    {config.title || "เดี๋ยวก่อน!"}
+                </h3>
+
+                <p className="leading-relaxed mb-6" style={{ fontSize: 16, color: "var(--kh-mut)" }}>
+                    {config.desc || "อย่าพลาดโอกาสดีๆ วันนี้เท่านั้น!"}
+                </p>
 
                 <button
                     onClick={() => {
                         setOpen(false);
                         onCTAClick();
                     }}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-xl shadow-lg hover:scale-105 active:scale-95 transition-all"
+                    className="kh-cta-btn w-full"
                 >
                     {config.ctaText || "สนใจเลย!"}
                 </button>
 
                 <button
                     onClick={() => setOpen(false)}
-                    className="mt-3 text-sm text-slate-400 hover:text-slate-600"
+                    className="mt-3 text-sm transition-opacity hover:opacity-70"
+                    style={{ color: "var(--kh-mut)" }}
                 >
                     ไม่สนใจ ขอบคุณ
                 </button>

@@ -13,52 +13,90 @@ export default function CTASection({ data, ctx }: { data: CTAData; ctx: SectionC
             : undefined;
 
     return (
-        <section className="max-w-3xl mx-auto px-6 py-24 text-center">
-            {/* Eyebrow */}
-            {data.urgencyText && (
-                <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 mb-5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                    {data.urgencyText}
+        <section className="kh-sec">
+            <div className="kh-dark p-7 sm:p-10 md:p-14">
+                <div className="flex flex-col md:flex-row items-center gap-7 md:gap-10">
+                    {/* Mascot */}
+                    <img
+                        src="/assets/kruheem_avatar.png"
+                        alt="ครูฮีม"
+                        className="w-24 md:w-32 h-auto flex-shrink-0"
+                        loading="lazy"
+                    />
+
+                    <div className="flex-1 text-center md:text-left">
+                        {/* Urgency chip */}
+                        {data.urgencyText && (
+                            <div
+                                className="kh-kanit inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-semibold mb-4"
+                                style={{ background: "var(--kh-urgBg)", color: "var(--kh-urgText)" }}
+                            >
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--kh-urg)" }} />
+                                {data.urgencyText}
+                            </div>
+                        )}
+
+                        {/* Headline */}
+                        <h2
+                            className="kh-kanit font-extrabold leading-[1.25]"
+                            style={{ fontSize: "clamp(26px, 4vw, 40px)", color: "var(--kh-onD)", letterSpacing: "-0.4px" }}
+                        >
+                            {data.title}
+                        </h2>
+
+                        {/* Subhead */}
+                        {data.subtitle && (
+                            <p className="mt-3 text-base md:text-lg leading-relaxed" style={{ color: "var(--kh-onDmut)" }}>
+                                {data.subtitle}
+                            </p>
+                        )}
+
+                        {/* Price line */}
+                        {priceText && (
+                            <p className="mt-5">
+                                <span className="text-sm" style={{ color: "var(--kh-onDmut)" }}>เริ่มต้น </span>
+                                <span
+                                    className="kh-num font-extrabold align-middle mx-1"
+                                    style={{
+                                        fontSize: "clamp(28px, 3.6vw, 40px)",
+                                        background: "linear-gradient(135deg, var(--kh-cta1), var(--kh-cta2))",
+                                        WebkitBackgroundClip: "text",
+                                        backgroundClip: "text",
+                                        WebkitTextFillColor: "transparent",
+                                        color: "transparent",
+                                    }}
+                                >
+                                    {priceText}
+                                </span>
+                                {fullPriceText && (
+                                    <span className="line-through ml-1.5 text-sm" style={{ color: "var(--kh-onDmut)" }}>{fullPriceText}</span>
+                                )}
+                                {data.priceText && (
+                                    <span className="text-sm" style={{ color: "var(--kh-onDmut)" }}> · {data.priceText}</span>
+                                )}
+                            </p>
+                        )}
+
+                        {/* Actions */}
+                        <div className="mt-7 flex items-center justify-center md:justify-start gap-3 sm:gap-4 flex-wrap">
+                            <button
+                                onClick={ctx.onCTAClick}
+                                className="kh-cta-btn w-full sm:w-auto"
+                                style={{ padding: "16px 34px", fontSize: "clamp(17px, 2vw, 20px)" }}
+                            >
+                                {data.ctaText}
+                            </button>
+                            <button
+                                onClick={() => smoothScrollToId("section-curriculum")}
+                                className="kh-ghost-btn w-full sm:w-auto"
+                            >
+                                เรียนรู้เพิ่มเติม
+                                <span className="text-lg leading-none">›</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            )}
-
-            {/* Headline */}
-            <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-slate-900 leading-[1.12]">
-                {data.title}
-            </h2>
-
-            {/* Subhead */}
-            {data.subtitle && (
-                <p className="mt-5 text-lg md:text-xl text-slate-500 leading-relaxed max-w-2xl mx-auto">
-                    {data.subtitle}
-                </p>
-            )}
-
-            {/* Actions */}
-            <div className="mt-9 flex items-center justify-center gap-6 flex-wrap">
-                <button
-                    onClick={ctx.onCTAClick}
-                    className="inline-flex items-center px-8 py-3.5 rounded-full bg-blue-600 text-white font-semibold text-[17px] shadow-sm hover:bg-blue-700 active:scale-95 transition-all"
-                >
-                    {data.ctaText}
-                </button>
-                <button
-                    onClick={() => smoothScrollToId("section-curriculum")}
-                    className="inline-flex items-center gap-1 text-blue-600 font-semibold text-[17px] hover:underline"
-                >
-                    เรียนรู้เพิ่มเติม
-                    <span className="text-lg leading-none">›</span>
-                </button>
             </div>
-
-            {/* Price line */}
-            {priceText && (
-                <p className="mt-8 text-sm text-slate-400">
-                    เริ่มต้น <span className="font-semibold text-slate-600">{priceText}</span>
-                    {fullPriceText && <span className="line-through ml-1.5">{fullPriceText}</span>}
-                    {data.priceText && <span> · {data.priceText}</span>}
-                </p>
-            )}
         </section>
     );
 }

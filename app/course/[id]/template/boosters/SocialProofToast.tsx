@@ -43,21 +43,32 @@ export default function SocialProofToast({ config }: Props) {
         <div
             className={`fixed bottom-24 left-4 md:left-6 z-30 transition-all duration-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}
         >
-            <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 flex items-center gap-3 max-w-[320px]">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {currentMsg.name.charAt(0)}
-                </div>
+            <div
+                className="kh-card p-3.5 flex items-start gap-3 max-w-[320px]"
+                style={{ borderRadius: 16, boxShadow: "var(--kh-shadow)" }}
+            >
+                {/* live pulse dot */}
+                <span className="relative mt-1.5 flex h-2.5 w-2.5 flex-shrink-0" aria-hidden="true">
+                    <span
+                        className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+                        style={{ background: "var(--kh-good)" }}
+                    />
+                    <span
+                        className="relative inline-flex h-2.5 w-2.5 rounded-full"
+                        style={{ background: "var(--kh-good)" }}
+                    />
+                </span>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-800 truncate">
+                    <p className="kh-kanit truncate" style={{ fontSize: 14, fontWeight: 600, color: "var(--kh-ink)" }}>
                         {currentMsg.name}
                         {currentMsg.location && (
-                            <span className="font-normal text-slate-500"> ({currentMsg.location})</span>
+                            <span style={{ fontWeight: 400, color: "var(--kh-mut)" }}> ({currentMsg.location})</span>
                         )}
                     </p>
-                    <p className="text-xs text-slate-600">
+                    <p style={{ fontSize: 12.5, color: "var(--kh-mut)" }}>
                         {currentMsg.action || "เพิ่งสมัครเรียน"}
                     </p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="mt-0.5" style={{ fontSize: 12.5, color: "var(--kh-mut)" }}>
                         ⏱️ {currentMsg.timeAgo || "ไม่กี่นาทีที่แล้ว"}
                     </p>
                 </div>

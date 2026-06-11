@@ -405,8 +405,10 @@ export interface BoostersConfig {
 export interface SalesPageConfig {
     enabled: boolean;
     theme?: {
-        primaryColor?: string; // tailwind class e.g. "indigo"
-        backgroundColor?: string;
+        /** kh-* palette id (mint/ocean/sakura/…) chosen by admin per course. See KH_THEMES in khTheme.ts. */
+        id?: string;
+        primaryColor?: string; // legacy (unused by the kh-* system)
+        backgroundColor?: string; // legacy (unused)
     };
     sections: Section[];
     boosters?: BoostersConfig;

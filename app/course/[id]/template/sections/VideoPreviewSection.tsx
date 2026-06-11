@@ -1,7 +1,7 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import type { VideoPreviewData, VideoPreviewItem } from "../types";
-import { ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { Play } from "lucide-react";
 
 /* ─── Helpers ─── */
 function extractYouTubeId(url: string): string | null {
@@ -17,7 +17,7 @@ function extractYouTubeId(url: string): string | null {
     return null;
 }
 
-/* ─── Single video slide ─── */
+/* ─── Single video tile (thumbnail → click → inline iframe) ─── */
 function VideoSlide({ video, isActive }: { video: VideoPreviewItem; isActive: boolean }) {
     const [playing, setPlaying] = useState(false);
     const videoId = extractYouTubeId(video.youtubeUrl);
@@ -27,8 +27,11 @@ function VideoSlide({ video, isActive }: { video: VideoPreviewItem; isActive: bo
 
     if (!videoId) {
         return (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
-                <div className="text-center text-slate-500">
+            <div
+                className="absolute inset-0 flex items-center justify-center"
+                style={{ background: "linear-gradient(135deg, var(--kh-d1), var(--kh-d3))" }}
+            >
+                <div className="text-center" style={{ color: "var(--kh-onDmut)" }}>
                     <Play size={40} className="mx-auto mb-3 opacity-40" />
                     <p className="text-sm font-medium">ยังไม่ได้ตั้ง URL วิดีโอ</p>
                 </div>
@@ -65,245 +68,81 @@ function VideoSlide({ video, isActive }: { video: VideoPreviewItem; isActive: bo
                     e.currentTarget.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
                 }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-black/20 group-hover/play:from-black/40 group-hover/play:via-transparent group-hover/play:to-black/10 transition-all duration-500" />
-            <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-20 h-20 md:w-24 md:h-24 bg-white/95 backdrop-blur-md rounded-full flex items-center justify-center shadow-2xl shadow-black/30 group-hover/play:scale-110 group-hover/play:bg-white transition-all duration-300">
-                    <Play className="text-red-600 ml-1.5" size={36} fill="currentColor" />
-                </div>
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 px-6 pb-5">
-                <p className="text-white font-bold text-base md:text-lg drop-shadow-lg truncate">{video.title}</p>
-                {video.description && (
-                    <p className="text-white/70 text-sm mt-0.5 line-clamp-1 drop-shadow">{video.description}</p>
-                )}
-            </div>
-        </button>
-    );
-}
-
-/* ─── MacBook Frame ─── */
-function MacBookFrame({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="relative mx-auto" style={{ maxWidth: 860 }}>
-            {/* ── Screen lid ── */}
+            {/* Theme-dark scrim for legibility */}
             <div
-                className="relative rounded-t-[1rem] md:rounded-t-[1.2rem] overflow-hidden"
-                style={{
-                    background: "linear-gradient(180deg, #1d1d1f 0%, #0d0d0f 100%)",
-                    padding: "8px 8px 0 8px",
-                }}
+                className="absolute inset-0 opacity-50 group-hover/play:opacity-30 transition-opacity duration-500"
+                style={{ background: "linear-gradient(to top, var(--kh-d1), transparent 60%)" }}
+            />
+            {/* Free-sample chip */}
+            <span
+                className="kh-chip absolute top-3 left-3"
+                style={{ background: "var(--kh-goodBg)", color: "var(--kh-goodText)", borderColor: "transparent" }}
             >
-                {/* Notch / Camera */}
-                <div className="relative flex justify-center" style={{ marginBottom: "-1px" }}>
-                    <div
-                        className="relative z-20 flex items-center justify-center"
-                        style={{
-                            width: 80,
-                            height: 16,
-                            background: "#0d0d0f",
-                            borderRadius: "0 0 10px 10px",
-                        }}
-                    >
-                        <div className="w-[5px] h-[5px] rounded-full bg-[#1e1e20] border border-[#2a2a2c] shadow-inner" />
-                    </div>
-                </div>
-
-                {/* Screen */}
-                <div
-                    className="relative w-full bg-black overflow-hidden"
-                    style={{ aspectRatio: "16 / 10", borderRadius: "2px" }}
+                ฟรี
+            </span>
+            {/* Play badge */}
+            <span className="absolute inset-0 flex items-center justify-center">
+                <span
+                    className="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center transition-transform duration-300 group-hover/play:scale-110"
+                    style={{ background: "var(--kh-p)", color: "var(--kh-onD)", boxShadow: "var(--kh-shadow-sm)" }}
                 >
-                    {children}
-
-                    {/* Glass reflection */}
-                    <div
-                        className="absolute inset-0 pointer-events-none z-10"
-                        style={{
-                            background: "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 35%, transparent 65%, rgba(255,255,255,0.02) 100%)",
-                        }}
-                    />
-                </div>
-            </div>
-
-            {/* ── Bottom chin / hinge ── */}
-            <div
-                className="relative mx-auto"
-                style={{
-                    width: "100%",
-                    height: 14,
-                    background: "linear-gradient(180deg, #2a2a2c 0%, #3a3a3c 40%, #4a4a4c 100%)",
-                    borderRadius: "0 0 2px 2px",
-                }}
-            />
-            {/* Base / keyboard deck */}
-            <div
-                className="relative mx-auto"
-                style={{
-                    width: "108%",
-                    marginLeft: "-4%",
-                    height: 10,
-                    background: "linear-gradient(180deg, #c0c0c2 0%, #d4d4d6 50%, #b8b8ba 100%)",
-                    borderRadius: "0 0 8px 8px",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1)",
-                }}
-            >
-                {/* Trackpad indent hint */}
-                <div
-                    className="absolute top-0 left-1/2 -translate-x-1/2"
-                    style={{
-                        width: 60,
-                        height: 4,
-                        background: "linear-gradient(180deg, #a8a8aa, #b8b8ba)",
-                        borderRadius: "0 0 4px 4px",
-                    }}
-                />
-            </div>
-
-            {/* Shadow under laptop */}
-            <div
-                className="absolute -bottom-3 left-1/2 -translate-x-1/2 -z-10"
-                style={{
-                    width: "90%",
-                    height: 20,
-                    background: "radial-gradient(ellipse, rgba(0,0,0,0.18) 0%, transparent 70%)",
-                    filter: "blur(6px)",
-                }}
-            />
-        </div>
+                    <Play className="ml-1" size={26} fill="currentColor" />
+                </span>
+            </span>
+        </button>
     );
 }
 
 /* ─── Main Section ─── */
 export default function VideoPreviewSection({ data }: { data: VideoPreviewData }) {
     const validVideos = data.videos?.filter((v) => v.title || v.youtubeUrl) || [];
-    const [current, setCurrent] = useState(0);
-    const touchStartX = useRef(0);
-    const touchDeltaX = useRef(0);
 
     if (validVideos.length === 0) return null;
 
-    const count = validVideos.length;
-    const hasPrev = current > 0;
-    const hasNext = current < count - 1;
-
-    const goTo = (idx: number) => setCurrent(Math.max(0, Math.min(count - 1, idx)));
-    const prev = () => goTo(current - 1);
-    const next = () => goTo(current + 1);
-
-    const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; touchDeltaX.current = 0; };
-    const onTouchMove = (e: React.TouchEvent) => { touchDeltaX.current = e.touches[0].clientX - touchStartX.current; };
-    const onTouchEnd = () => {
-        if (touchDeltaX.current > 50 && hasPrev) prev();
-        else if (touchDeltaX.current < -50 && hasNext) next();
-    };
+    // Keep the grid balanced for small counts.
+    const gridClass =
+        validVideos.length === 1
+            ? "max-w-md mx-auto"
+            : validVideos.length === 2
+                ? "sm:grid-cols-2 max-w-3xl mx-auto"
+                : "sm:grid-cols-2 md:grid-cols-3";
 
     return (
-        <section className="w-full py-16 md:py-24 bg-gradient-to-b from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 overflow-hidden">
+        <section className="kh-sec">
             {/* Header */}
-            <div className="text-center mb-12 md:mb-16 px-4">
-                <h2 className="text-3xl md:text-5xl font-extrabold text-slate-800 dark:text-white mb-4 tracking-tight">
+            <div className="kh-sec-head">
+                <h2 className="kh-h2">
                     {data.title || "ตัวอย่างคอร์สเรียน"}{" "}
-                    <span className="text-indigo-600 dark:text-indigo-400">🎬</span>
+                    <span aria-hidden="true">🎬</span>
                 </h2>
-                {data.subtitle && (
-                    <p className="text-slate-500 dark:text-slate-400 text-lg md:text-xl max-w-2xl mx-auto">{data.subtitle}</p>
-                )}
-                <div className="w-24 h-1.5 bg-indigo-600 dark:bg-indigo-400 mx-auto rounded-full opacity-20 mt-5" />
+                {data.subtitle && <p className="kh-sub mt-3">{data.subtitle}</p>}
             </div>
 
-            {/* MacBook + Carousel */}
-            <div className="max-w-4xl mx-auto px-4 md:px-8">
-                <div className="relative group">
-                    <MacBookFrame>
-                        {/* Slides */}
+            {/* Video card grid */}
+            <div className={`grid gap-6 ${gridClass}`}>
+                {validVideos.map((video, i) => (
+                    <div key={i} className="kh-card kh-lift overflow-hidden flex flex-col">
+                        {/* Thumbnail / player area */}
                         <div
-                            className="absolute inset-0 flex transition-transform duration-500 ease-out"
-                            style={{
-                                width: `${count * 100}%`,
-                                transform: `translateX(-${(current * 100) / count}%)`,
-                            }}
-                            onTouchStart={onTouchStart}
-                            onTouchMove={onTouchMove}
-                            onTouchEnd={onTouchEnd}
+                            className="relative w-full aspect-video overflow-hidden"
+                            style={{ background: "var(--kh-d1)" }}
                         >
-                            {validVideos.map((video, i) => (
-                                <div key={i} className="relative h-full" style={{ width: `${100 / count}%` }}>
-                                    <VideoSlide video={video} isActive={i === current} />
-                                </div>
-                            ))}
+                            <VideoSlide video={video} isActive />
                         </div>
-                    </MacBookFrame>
 
-                    {/* Navigation arrows */}
-                    {count > 1 && (
-                        <>
-                            <button
-                                type="button"
-                                onClick={prev}
-                                disabled={!hasPrev}
-                                className={`absolute left-0 md:-left-6 top-[45%] -translate-y-1/2 z-20 w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
-                                    hasPrev
-                                        ? "bg-white dark:bg-slate-900 shadow-lg shadow-slate-200/60 dark:shadow-slate-950/60 hover:shadow-xl hover:scale-110 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-800"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed border border-slate-100 dark:border-slate-800"
-                                }`}
-                                aria-label="Previous video"
-                            >
-                                <ChevronLeft size={22} />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={next}
-                                disabled={!hasNext}
-                                className={`absolute right-0 md:-right-6 top-[45%] -translate-y-1/2 z-20 w-11 h-11 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
-                                    hasNext
-                                        ? "bg-white dark:bg-slate-900 shadow-lg shadow-slate-200/60 dark:shadow-slate-950/60 hover:shadow-xl hover:scale-110 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 border border-slate-200 dark:border-slate-800"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed border border-slate-100 dark:border-slate-800"
-                                }`}
-                                aria-label="Next video"
-                            >
-                                <ChevronRight size={22} />
-                            </button>
-                        </>
-                    )}
-                </div>
-
-                {/* Title + dots below MacBook */}
-                <div className="text-center mt-8 md:mt-10">
-                    <div className="min-h-[3.5rem]">
-                        <h3 className="font-bold text-slate-800 dark:text-white text-lg md:text-xl transition-all duration-300">
-                            {validVideos[current]?.title}
-                        </h3>
-                        {validVideos[current]?.description && (
-                            <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mt-1.5 max-w-lg mx-auto leading-relaxed">
-                                {validVideos[current].description}
-                            </p>
-                        )}
+                        {/* Body */}
+                        <div className="flex flex-col flex-1 p-5">
+                            <h3 className="kh-h3 line-clamp-2" style={{ fontSize: 17 }}>
+                                {video.title}
+                            </h3>
+                            {video.description && (
+                                <p className="mt-1.5 text-sm leading-relaxed line-clamp-2" style={{ color: "var(--kh-mut)" }}>
+                                    {video.description}
+                                </p>
+                            )}
+                        </div>
                     </div>
-
-                    {count > 1 && (
-                        <div className="flex justify-center items-center gap-2 mt-5">
-                            {validVideos.map((v, i) => (
-                                <button
-                                    key={i}
-                                    type="button"
-                                    onClick={() => goTo(i)}
-                                    className={`rounded-full transition-all duration-300 ${
-                                        i === current
-                                            ? "w-8 h-2.5 bg-indigo-600 dark:bg-indigo-400"
-                                            : "w-2.5 h-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-                                    }`}
-                                    aria-label={`Go to video ${i + 1}: ${v.title}`}
-                                />
-                            ))}
-                        </div>
-                    )}
-
-                    {count > 1 && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-3">
-                            {current + 1} / {count}
-                        </p>
-                    )}
-                </div>
+                ))}
             </div>
         </section>
     );

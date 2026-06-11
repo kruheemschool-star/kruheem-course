@@ -8,6 +8,7 @@ import type {
     HeroTrustChip,
 } from "@/app/course/[id]/template/types";
 import CourseCard from "@/app/course/[id]/template/sections/CourseCard";
+import { buildThemeVars, getKhTheme } from "@/app/course/[id]/template/khTheme";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getCountFromServer } from "firebase/firestore";
 import {
@@ -25,6 +26,8 @@ interface Props {
     /** Current course id — enables the "pull real lessons" button. */
     courseId?: string;
     courseTitle?: string;
+    /** kh-* palette id chosen for this course — keeps the live preview on the right colors. */
+    themeId?: string;
 }
 
 type Tab = "content" | "cta" | "card" | "preview" | "chapters" | "colors";
@@ -38,7 +41,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
     { id: "colors", label: "สี", icon: "🎨" },
 ];
 
-export default function HeroEditorForm({ value, onChange, courseId, courseTitle }: Props) {
+export default function HeroEditorForm({ value, onChange, courseId, courseTitle, themeId }: Props) {
     const [tab, setTab] = useState<Tab>("content");
     const [pulling, setPulling] = useState(false);
     // Live total registrations (all courses) so the {students} token previews correctly.
@@ -466,7 +469,12 @@ export default function HeroEditorForm({ value, onChange, courseId, courseTitle 
                         👁️ ตัวอย่างสด
                         <span className="font-normal text-slate-400">(อัปเดตทันทีตามที่แก้)</span>
                     </p>
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-4 flex justify-center max-h-[70vh] overflow-y-auto">
+                    {/* The card reads --kh-* design tokens (normally provided by KhThemeChrome
+                        on the sales page); inject this course's chosen palette so the preview matches. */}
+                    <div
+                        className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-4 flex justify-center max-h-[70vh] overflow-y-auto"
+                        style={buildThemeVars(getKhTheme(themeId)) as React.CSSProperties}
+                    >
                         {isCard ? (
                             <CourseCard data={value} courseTitle="คอร์สตัวอย่าง" interactive={false} totalStudents={totalStudents} />
                         ) : value.imageUrl ? (

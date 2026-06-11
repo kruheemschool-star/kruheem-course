@@ -7,6 +7,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useUserAuth } from "@/context/AuthContext";
 import type { Section, SectionType, SalesPageConfig, BoostersConfig } from "@/app/course/[id]/template/types";
 import { SECTION_META, createDefaultSection } from "@/app/course/[id]/template/defaults";
+import { KH_THEMES, KH_DEFAULT_THEME_ID } from "@/app/course/[id]/template/khTheme";
 import { buildSampleSalesPage } from "@/app/admin/debug/seed-salespage/[courseId]/sampleData";
 import { getSectionForm, hasFormEditor } from "@/components/admin/forms/registry";
 
@@ -66,6 +67,9 @@ export default function SalesPageAdmin() {
     };
 
     const toggleEnabled = () => saveConfig({ ...config, enabled: !config.enabled });
+
+    const setTheme = (themeId: string) =>
+        saveConfig({ ...config, theme: { ...config.theme, id: themeId } }, "🎨 เปลี่ยนชุดสีแล้ว");
 
     const toggleSection = (idx: number) => {
         const sections = [...config.sections];
@@ -254,6 +258,48 @@ export default function SalesPageAdmin() {
                             {config.enabled ? "ปิดใช้งาน" : "เปิดใช้งาน"}
                         </button>
                     </div>
+                </div>
+
+                {/* Theme picker — per-course palette (saved to salesPage.theme.id) */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+                    <div className="mb-4">
+                        <h2 className="text-xl font-bold text-slate-800">🎨 ชุดสีของหน้านี้</h2>
+                        <p className="text-sm text-slate-500">
+                            เลือกโทนสีของเซลล์เพจคอร์สนี้ — แต่ละคอร์สมีสีเป็นของตัวเองได้ (ผู้เข้าชมเปลี่ยนเองไม่ได้)
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {KH_THEMES.map((t) => {
+                            const active = (config.theme?.id || KH_DEFAULT_THEME_ID) === t.id;
+                            return (
+                                <button
+                                    key={t.id}
+                                    onClick={() => setTheme(t.id)}
+                                    disabled={saving}
+                                    className={`relative flex items-center gap-3 p-3 rounded-xl border-2 text-left transition disabled:opacity-50 ${active ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200" : "border-slate-200 bg-white hover:border-slate-300"}`}
+                                >
+                                    <span className="flex -space-x-1 flex-shrink-0">
+                                        {[t.p, t.s, t.cta1, t.acc].map((c, i) => (
+                                            <span
+                                                key={i}
+                                                className="w-5 h-5 rounded-full border-2 border-white shadow-sm"
+                                                style={{ background: c }}
+                                            />
+                                        ))}
+                                    </span>
+                                    <span className="flex-1 min-w-0 text-sm font-bold text-slate-800 truncate">
+                                        {t.emoji} {t.label}
+                                    </span>
+                                    {active && (
+                                        <span className="absolute top-1.5 right-2 text-indigo-600 text-sm font-bold">✓</span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-4">
+                        💡 กดเลือกแล้วบันทึกอัตโนมัติ — กด <span className="font-bold">👁️ ดูหน้าจริง</span> ด้านบนเพื่อดูผลทันที
+                    </p>
                 </div>
 
                 {/* Sections list */}
@@ -532,6 +578,7 @@ export default function SalesPageAdmin() {
                                         }}
                                         courseId={courseId}
                                         courseTitle={course?.title}
+                                        themeId={config.theme?.id}
                                     />
                                 );
                             }

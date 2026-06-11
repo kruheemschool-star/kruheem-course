@@ -122,59 +122,73 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
 
     return (
         <div
-            className="w-full max-w-[540px] rounded-[28px] bg-white overflow-hidden"
-            style={{
-                border: "1px solid rgba(20,20,40,.04)",
-                boxShadow:
-                    "0 30px 60px -20px rgba(180,80,30,.28), 0 8px 20px -8px rgba(20,20,40,.08)",
-            }}
+            className="kh-card w-full max-w-[540px] overflow-hidden"
+            style={{ borderRadius: 26, boxShadow: "var(--kh-shadow)" }}
         >
             {/* --- Cover header --- */}
             <div
-                className="relative overflow-hidden px-[22px] py-3.5 text-white"
+                className="relative overflow-hidden px-[22px] py-3.5"
                 style={{
-                    background:
-                        data.cardColorFrom || data.cardColorTo
-                            ? `linear-gradient(135deg, ${data.cardColorFrom || "#fb923c"} 0%, ${data.cardColorTo || "#ef4444"} 100%)`
-                            : "linear-gradient(135deg,#fb923c 0%, #f97316 45%, #ef4444 100%)",
-                    color: data.cardTextColor || "#fff",
+                    background: "linear-gradient(135deg, var(--kh-p) 0%, var(--kh-p2) 100%)",
+                    color: "var(--kh-onD)",
                 }}
             >
                 <div
                     className="absolute rounded-full"
-                    style={{ right: -30, top: -30, width: 110, height: 110, background: "rgba(255,255,255,.14)" }}
+                    style={{ right: -30, top: -30, width: 110, height: 110, background: "var(--kh-onDline)" }}
                 />
                 <div
                     className="absolute rounded-full"
-                    style={{ right: 50, bottom: -40, width: 70, height: 70, background: "rgba(255,255,255,.08)" }}
+                    style={{ right: 50, bottom: -40, width: 70, height: 70, background: "var(--kh-onDline)", opacity: 0.5 }}
                 />
-                <div className="relative flex justify-between items-center">
-                    <div>
+                <div className="relative flex justify-between items-center gap-3">
+                    <div className="min-w-0">
                         <div
-                            className="inline-flex items-center gap-1.5 text-[10px] font-bold opacity-90"
-                            style={{ letterSpacing: "1.2px" }}
+                            className="inline-flex items-center gap-1.5 text-[10px] font-bold"
+                            style={{ letterSpacing: "1.2px", color: "var(--kh-onDmut)" }}
                         >
                             <span
                                 className="w-1.5 h-1.5 rounded-full"
-                                style={{ background: "#86efac", boxShadow: "0 0 0 3px rgba(134,239,172,.25)" }}
+                                style={{ background: "var(--kh-good)", boxShadow: "0 0 0 3px var(--kh-onDline)" }}
                             />
                             {data.cardLiveLabel || "LIVE · UPDATED 2026"}
                         </div>
-                        <div className="text-[30px] font-extrabold mt-1 leading-[1.05]" style={{ letterSpacing: "-1px" }}>
-                            {cardMainText}
-                            {data.cardSubText ? ` ${data.cardSubText}` : ""}
+                        <div
+                            className="kh-kanit text-[26px] sm:text-[30px] font-extrabold mt-1 leading-[1.1] flex items-center flex-wrap gap-x-2.5 gap-y-1"
+                            style={{ letterSpacing: "-0.5px" }}
+                        >
+                            <span className="min-w-0">{cardMainText}</span>
+                            {data.cardSubText && (
+                                <span
+                                    className="kh-kanit text-[12px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm"
+                                    style={{ background: "var(--kh-onDline)", border: "1px solid var(--kh-onDline)" }}
+                                >
+                                    {data.cardSubText}
+                                </span>
+                            )}
                         </div>
+                        {data.cardBadgeText && (
+                            <span
+                                className="kh-kanit inline-flex mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold"
+                                style={{ background: "var(--kh-acc)", color: "var(--kh-onD)" }}
+                            >
+                                {data.cardBadgeText}
+                            </span>
+                        )}
                     </div>
-                    <div className="text-right">
-                        <div className="text-[9.5px] font-bold opacity-80" style={{ letterSpacing: "1.6px" }}>
+                    <div className="text-right shrink-0">
+                        <div
+                            className="text-[9.5px] font-bold"
+                            style={{ letterSpacing: "1.6px", color: "var(--kh-onDmut)" }}
+                        >
                             {data.cardVolLabel || "KRUHEEM · VOL.04"}
                         </div>
                         <div className="mt-1.5 inline-flex gap-1.5">
                             {cardTags.map((t) => (
                                 <span
                                     key={t}
-                                    className="px-2 py-0.5 rounded-md text-[11px] font-bold"
-                                    style={{ background: "rgba(0,0,0,.22)", border: "1px solid rgba(255,255,255,.12)" }}
+                                    className="kh-chip"
+                                    style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px" }}
                                 >
                                     {t}
                                 </span>
@@ -188,10 +202,10 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
             <div className="px-[22px] pt-4">
                 <div
                     className="flex justify-between items-center text-[11.5px] font-bold mb-2.5"
-                    style={{ letterSpacing: "1px", color: "#9a9aa8" }}
+                    style={{ letterSpacing: "1px", color: "var(--kh-mut)" }}
                 >
-                    <span className="inline-flex items-center gap-1.5" style={{ color: "#15803d" }}>
-                        <span className="w-[7px] h-[7px] rounded-full bg-[#22c55e]" />
+                    <span className="inline-flex items-center gap-1.5" style={{ color: "var(--kh-goodText)" }}>
+                        <span className="w-[7px] h-[7px] rounded-full" style={{ background: "var(--kh-good)" }} />
                         {data.preview?.label || "คลิปตัวอย่างฟรี"}
                     </span>
                     <span>{data.preview?.epLabel || "EP.01 · 13:42"}</span>
@@ -200,11 +214,12 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                 {hasRealVideo ? (
                     /* ---- Real YouTube embed ---- */
                     <div
-                        className="relative rounded-[13px] overflow-hidden"
+                        className="relative overflow-hidden"
                         style={{
                             aspectRatio: "16 / 9",
-                            boxShadow: "0 8px 20px -8px rgba(180,80,30,.4)",
-                            background: "#000",
+                            borderRadius: 14,
+                            boxShadow: "var(--kh-shadow-sm)",
+                            background: "var(--kh-d1)",
                         }}
                     >
                         {!videoPlaying ? (
@@ -218,10 +233,16 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                                 />
                                 {/* status chip */}
                                 <div
-                                    className="absolute left-3 top-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold text-white z-10"
-                                    style={{ background: "rgba(0,0,0,.55)", border: "1px solid rgba(255,255,255,.2)" }}
+                                    className="kh-chip absolute left-3 top-3 z-10"
+                                    style={{
+                                        background: "var(--kh-goodBg)",
+                                        color: "var(--kh-goodText)",
+                                        borderColor: "var(--kh-goodBg)",
+                                        fontSize: 11,
+                                        padding: "4px 10px",
+                                    }}
                                 >
-                                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#22c55e" }} />
+                                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--kh-good)" }} />
                                     {data.preview?.freeChipText || "ดูฟรี · ไม่ต้องสมัคร"}
                                 </div>
                                 {/* play button overlay */}
@@ -232,9 +253,9 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                                     <div
                                         className="w-[62px] h-[62px] rounded-full grid place-items-center text-[22px]"
                                         style={{
-                                            background: "rgba(255,255,255,.96)",
-                                            color: "#dc2626",
-                                            boxShadow: "0 10px 24px -6px rgba(220,40,40,.5)",
+                                            background: "var(--kh-card)",
+                                            color: "var(--kh-p)",
+                                            boxShadow: "var(--kh-shadow)",
                                         }}
                                     >
                                         ▶
@@ -242,13 +263,16 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                                 </div>
                                 {/* bottom info bar */}
                                 <div
-                                    className="absolute left-0 right-0 bottom-0 px-3.5 pt-3 pb-2.5 text-white z-10"
-                                    style={{ background: "linear-gradient(180deg, transparent, rgba(0,0,0,.6))" }}
+                                    className="absolute left-0 right-0 bottom-0 px-3.5 pt-3 pb-2.5 z-10"
+                                    style={{
+                                        background: "linear-gradient(180deg, transparent, rgba(0,0,0,.6))",
+                                        color: "var(--kh-onD)",
+                                    }}
                                 >
                                     <div className="text-sm font-bold">
                                         {data.preview?.chapterTitle || "บทที่ 01 · จำนวนและการดำเนินการ"}
                                     </div>
-                                    <div className="text-[10.5px] opacity-80 mt-0.5">
+                                    <div className="text-[10.5px] mt-0.5" style={{ color: "var(--kh-onDmut)" }}>
                                         {data.preview?.totalTime || "13:42"}
                                     </div>
                                 </div>
@@ -267,20 +291,26 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                     /* ---- Simulated player (no real video available) ---- */
                     <div
                         onClick={() => interactive && setPlaying((p) => !p)}
-                        className="relative rounded-[13px] overflow-hidden cursor-pointer"
+                        className="relative overflow-hidden cursor-pointer"
                         style={{
                             aspectRatio: "16 / 9",
+                            borderRadius: 14,
                             background: playing
-                                ? "linear-gradient(135deg,#1a1430,#3b1f4d 60%,#7c2d12)"
-                                : "linear-gradient(135deg,#fb923c 0%, #f97316 40%, #dc2626 100%)",
+                                ? "linear-gradient(135deg, var(--kh-d1), var(--kh-d2) 60%, var(--kh-d3))"
+                                : "linear-gradient(135deg, var(--kh-p) 0%, var(--kh-p2) 100%)",
                             transition: "background .3s",
-                            boxShadow: "0 8px 20px -8px rgba(180,80,30,.4)",
+                            boxShadow: "var(--kh-shadow-sm)",
                         }}
                     >
                         {/* decorative equations */}
                         <div
-                            className="absolute inset-0 overflow-hidden text-white"
-                            style={{ fontFamily: "Georgia, serif", opacity: playing ? 0.25 : 0.16, transition: "opacity .3s" }}
+                            className="absolute inset-0 overflow-hidden"
+                            style={{
+                                fontFamily: "Georgia, serif",
+                                color: playing ? "var(--kh-onDmut)" : "var(--kh-pLine)",
+                                opacity: playing ? 0.35 : 0.8,
+                                transition: "opacity .3s, color .3s",
+                            }}
                         >
                             {equations[0] && <div className="absolute" style={{ left: 16, top: 14, fontSize: 26 }}>{equations[0]}</div>}
                             {equations[1] && <div className="absolute" style={{ right: 14, top: 50, fontSize: 20 }}>{equations[1]}</div>}
@@ -288,12 +318,18 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                         </div>
                         {/* status chip */}
                         <div
-                            className="absolute left-3 top-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold text-white"
-                            style={{ background: "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.2)" }}
+                            className="kh-chip absolute left-3 top-3"
+                            style={{
+                                background: "var(--kh-goodBg)",
+                                color: "var(--kh-goodText)",
+                                borderColor: "var(--kh-goodBg)",
+                                fontSize: 11,
+                                padding: "4px 10px",
+                            }}
                         >
                             <span
-                                className="w-1.5 h-1.5 rounded-full"
-                                style={{ background: playing ? "#ef4444" : "#22c55e" }}
+                                className={`w-1.5 h-1.5 rounded-full${playing ? " a3-pulse" : ""}`}
+                                style={{ background: "var(--kh-good)" }}
                             />
                             {playing
                                 ? data.preview?.playingChipText || "กำลังเล่น"
@@ -304,9 +340,9 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                             <div
                                 className="w-[62px] h-[62px] rounded-full grid place-items-center text-[22px]"
                                 style={{
-                                    background: "rgba(255,255,255,.96)",
-                                    color: "#dc2626",
-                                    boxShadow: "0 10px 24px -6px rgba(220,40,40,.5)",
+                                    background: "var(--kh-card)",
+                                    color: "var(--kh-p)",
+                                    boxShadow: "var(--kh-shadow)",
                                     opacity: playing ? 0 : 1,
                                     transform: playing ? "scale(.85)" : "scale(1)",
                                     transition: "transform .2s, opacity .2s",
@@ -317,21 +353,27 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                         </div>
                         {/* bottom control bar */}
                         <div
-                            className="absolute left-0 right-0 bottom-0 px-3.5 pt-3 pb-2.5 text-white"
-                            style={{ background: "linear-gradient(180deg, transparent, rgba(0,0,0,.55))" }}
+                            className="absolute left-0 right-0 bottom-0 px-3.5 pt-3 pb-2.5"
+                            style={{
+                                background: "linear-gradient(180deg, transparent, rgba(0,0,0,.55))",
+                                color: "var(--kh-onD)",
+                            }}
                         >
                             <div className="text-sm font-bold">
                                 {data.preview?.chapterTitle || "บทที่ 01 · จำนวนและการดำเนินการ"}
                             </div>
                             <div className="flex items-center gap-2 mt-2">
-                                <span className="text-[10.5px] font-mono">{fmt(progress)}</span>
-                                <div className="flex-1 h-[3px] rounded-sm overflow-hidden" style={{ background: "rgba(255,255,255,.25)" }}>
+                                <span className="kh-num text-[10.5px]">{fmt(progress)}</span>
+                                <div
+                                    className="flex-1 h-[3px] rounded-sm overflow-hidden"
+                                    style={{ background: "var(--kh-onDline)" }}
+                                >
                                     <div
                                         className="h-full rounded-sm"
-                                        style={{ width: `${progress}%`, background: "#fb923c", transition: "width .08s linear" }}
+                                        style={{ width: `${progress}%`, background: "var(--kh-cta1)", transition: "width .08s linear" }}
                                     />
                                 </div>
-                                <span className="text-[10.5px] font-mono opacity-80">
+                                <span className="kh-num text-[10.5px]" style={{ color: "var(--kh-onDmut)" }}>
                                     {data.preview?.totalTime || "13:42"}
                                 </span>
                             </div>
@@ -344,11 +386,11 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
             <div className="px-[22px] pt-3.5">
                 <div
                     className="flex justify-between items-center text-[11.5px] font-bold mb-1.5"
-                    style={{ letterSpacing: "1px", color: "#9a9aa8" }}
+                    style={{ letterSpacing: "1px", color: "var(--kh-mut)" }}
                 >
                     <span>{data.chaptersTitle || `สารบัญทั้งหมด · ${chapters.length} บท`}</span>
-                    <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: "#dc2626" }}>
-                        <span className="w-1.5 h-1.5 rounded-full a3-pulse" style={{ background: "#dc2626" }} />
+                    <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: "var(--kh-urgText)" }}>
+                        <span className="w-1.5 h-1.5 rounded-full a3-pulse" style={{ background: "var(--kh-urg)" }} />
                         {data.chaptersScrollLabel || "เลื่อนต่อเนื่อง"}
                     </span>
                 </div>
@@ -373,43 +415,42 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                             <div
                                 key={i}
                                 className="flex items-center gap-3 px-2.5 py-2.5"
-                                style={{ borderBottom: "1px dashed #f0e7d8" }}
+                                style={{ borderBottom: "1px dashed var(--kh-line)" }}
                             >
                                 <div
-                                    className="w-8 h-8 rounded-lg grid place-items-center font-bold text-xs shrink-0"
-                                    style={{
-                                        background: isFree
-                                            ? "linear-gradient(160deg,#dcfce7,#bbf7d0)"
-                                            : "linear-gradient(160deg,#f5f5f0,#ecece5)",
-                                        color: isFree ? "#15803d" : "#9a9aa8",
-                                    }}
+                                    className="kh-num w-8 h-8 rounded-lg grid place-items-center font-bold text-xs shrink-0"
+                                    style={
+                                        isFree
+                                            ? { background: "var(--kh-goodBg)", color: "var(--kh-goodText)" }
+                                            : { background: "var(--kh-tint)", color: "var(--kh-mut)" }
+                                    }
                                 >
                                     {String(realIdx + 1).padStart(2, "0")}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <div
                                         className="text-[13.5px] font-semibold truncate"
-                                        style={{ color: isFree ? "#13132a" : "#5a5a6e" }}
+                                        style={{ color: isFree ? "var(--kh-ink)" : "var(--kh-body)" }}
                                     >
                                         {c.title}
                                     </div>
                                     {c.desc && (
-                                        <div className="text-[11px] mt-px" style={{ color: "#9a9aa8" }}>
+                                        <div className="text-[11px] mt-px" style={{ color: "var(--kh-mut)" }}>
                                             {c.desc}
                                         </div>
                                     )}
                                 </div>
                                 {isFree ? (
                                     <span
-                                        className="px-2 py-0.5 rounded-md text-[10px] font-bold"
-                                        style={{ background: "#dcfce7", color: "#15803d", border: "1px solid #bbf7d0", letterSpacing: ".5px" }}
+                                        className="kh-kanit px-2 py-0.5 rounded-md text-[10px] font-bold"
+                                        style={{ background: "var(--kh-goodBg)", color: "var(--kh-goodText)", letterSpacing: ".5px" }}
                                     >
                                         ฟรี
                                     </span>
                                 ) : (
                                     <span
                                         className="w-[22px] h-[22px] rounded-md grid place-items-center text-[11px]"
-                                        style={{ background: "#f5f3ee", color: "#a39888", border: "1px solid #ebe5d6" }}
+                                        style={{ background: "var(--kh-tint)", color: "var(--kh-mut)", border: "1px solid var(--kh-line)" }}
                                     >
                                         🔒
                                     </span>
@@ -422,13 +463,13 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
 
             {/* --- Footer stat strip --- */}
             <div
-                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-3 px-[22px] pt-3 pb-[18px] mt-2"
-                style={{ borderTop: "1px solid #f5f0e4" }}
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-3 px-[22px] pt-3.5 pb-[18px] mt-2"
+                style={{ background: "var(--kh-tint)", borderTop: "1px solid var(--kh-line)" }}
             >
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: "#7a7a8a" }}>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: "var(--kh-mut)" }}>
                     {stats.map((s, i) => (
                         <span key={i}>
-                            <b className="text-sm" style={{ color: "#13132a" }}>
+                            <b className="kh-num text-sm" style={{ color: "var(--kh-pText)" }}>
                                 {s.value}
                             </b>
                             {s.label ? ` ${s.label}` : ""}
@@ -439,23 +480,15 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                     <a
                         href={curriculumHref}
                         onClick={scrollToCurriculum}
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold"
-                        style={{
-                            background: "linear-gradient(180deg,#fef3e0,#fde2c0)",
-                            color: "#9a3412",
-                            border: "1px solid #fbd7a8",
-                        }}
+                        className="kh-kanit text-xs font-bold underline underline-offset-4"
+                        style={{ color: "var(--kh-pText)", textDecorationColor: "var(--kh-pLine)" }}
                     >
                         {data.cardViewAllText || "ดูทั้งหมด →"}
                     </a>
                 ) : (
                     <span
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold"
-                        style={{
-                            background: "linear-gradient(180deg,#fef3e0,#fde2c0)",
-                            color: "#9a3412",
-                            border: "1px solid #fbd7a8",
-                        }}
+                        className="kh-kanit text-xs font-bold underline underline-offset-4"
+                        style={{ color: "var(--kh-pText)", textDecorationColor: "var(--kh-pLine)" }}
                     >
                         {data.cardViewAllText || "ดูทั้งหมด →"}
                     </span>
@@ -494,6 +527,29 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                     .a3-pulse {
                         animation: none;
                     }
+                }
+                /* Self-contained fallback for the shared .kh-* classes so the card
+                   also renders correctly in the admin live-preview, which mounts
+                   outside KhThemeChrome. Values mirror KhThemeChrome exactly. */
+                .kh-card {
+                    background: var(--kh-card);
+                    border: 1px solid var(--kh-line);
+                }
+                .kh-chip {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 13.5px;
+                    font-weight: 600;
+                    background: var(--kh-card);
+                    border: 1px solid var(--kh-line);
+                    color: var(--kh-body);
+                    padding: 7px 13px;
+                    border-radius: 999px;
+                }
+                .kh-kanit,
+                .kh-num {
+                    font-family: var(--font-kanit), var(--font-mitr), sans-serif;
                 }
             `}</style>
         </div>

@@ -25,13 +25,28 @@ function calcTimeLeft(endDate: string): TimeLeft {
 function Cell({ value, label }: { value: number; label: string }) {
     return (
         <div className="flex flex-col items-center">
-            <div className="bg-white/20 backdrop-blur-md border border-white/30 rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 md:px-6 md:py-4 min-w-[56px] sm:min-w-[72px] md:min-w-[96px] shadow-lg">
-                <span className="text-2xl sm:text-3xl md:text-5xl font-black text-white tabular-nums">
+            <div className="kh-card flex items-center justify-center min-w-[60px] sm:min-w-[76px] md:min-w-[96px] px-2 py-2.5 sm:px-3 sm:py-3 md:py-4">
+                <span
+                    className="kh-num font-extrabold tabular-nums leading-none"
+                    style={{ fontSize: "clamp(26px, 4vw, 40px)", color: "var(--kh-urgText)" }}
+                >
                     {String(value).padStart(2, "0")}
                 </span>
             </div>
-            <span className="text-xs md:text-sm font-bold text-white/80 mt-2 uppercase tracking-wider">{label}</span>
+            <span className="kh-kanit text-xs md:text-sm font-medium mt-2" style={{ color: "var(--kh-mut)" }}>{label}</span>
         </div>
+    );
+}
+
+function Colon() {
+    return (
+        <span
+            className="kh-num font-bold pb-6"
+            style={{ fontSize: "clamp(22px, 3.4vw, 34px)", color: "var(--kh-urg)" }}
+            aria-hidden="true"
+        >
+            :
+        </span>
     );
 }
 
@@ -46,12 +61,13 @@ export default function CountdownSection({ data }: { data: CountdownData }) {
     }, [data.endDate]);
 
     const isBanner = data.style === "banner";
+    const hasHead = Boolean(data.title || data.subtitle);
 
     if (timeLeft.expired) {
         return (
             <section className="max-w-4xl mx-auto px-6 py-8">
-                <div className="bg-slate-100 rounded-2xl p-6 text-center border border-slate-200">
-                    <p className="text-slate-600 font-bold">
+                <div className="kh-card p-6 text-center">
+                    <p className="kh-kanit font-semibold" style={{ color: "var(--kh-body)" }}>
                         ⏱️ {data.expiredMessage || "โปรโมชั่นหมดแล้ว"}
                     </p>
                 </div>
@@ -62,29 +78,43 @@ export default function CountdownSection({ data }: { data: CountdownData }) {
     return (
         <section className={isBanner ? "w-full" : "max-w-4xl mx-auto px-6 py-8"}>
             <div
-                className={`relative overflow-hidden bg-gradient-to-br from-red-500 via-rose-500 to-orange-500 ${isBanner ? "px-6 py-8" : "rounded-[2rem] p-8 md:p-10 shadow-2xl shadow-rose-200/40"}`}
+                className={isBanner ? "px-5 py-8 sm:px-6" : "rounded-[24px] p-6 sm:p-8 md:p-10"}
+                style={
+                    isBanner
+                        ? {
+                            background: "var(--kh-urgBg)",
+                            borderTop: "1px solid var(--kh-urg)",
+                            borderBottom: "1px solid var(--kh-urg)",
+                        }
+                        : {
+                            background: "var(--kh-urgBg)",
+                            border: "1px solid var(--kh-urg)",
+                            boxShadow: "var(--kh-shadow-sm)",
+                        }
+                }
             >
-                {/* Decorative */}
-                <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl bg-yellow-300/30 translate-x-1/2 -translate-y-1/2"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full blur-3xl bg-pink-300/30 -translate-x-1/2 translate-y-1/2"></div>
-
-                <div className="relative z-10 text-center">
+                <div className="text-center">
                     {data.title && (
-                        <h2 className="text-2xl md:text-3xl font-black text-white mb-2 drop-shadow-sm">
+                        <h2
+                            className="kh-kanit font-bold"
+                            style={{ fontSize: "clamp(22px, 3vw, 30px)", color: "var(--kh-urgText)" }}
+                        >
                             {data.title}
                         </h2>
                     )}
                     {data.subtitle && (
-                        <p className="text-white/90 mb-6 text-base md:text-lg">{data.subtitle}</p>
+                        <p className="text-sm md:text-base mt-1.5 opacity-80" style={{ color: "var(--kh-urgText)" }}>
+                            {data.subtitle}
+                        </p>
                     )}
 
-                    <div className="flex items-center justify-center gap-2 md:gap-4 flex-wrap">
+                    <div className={`flex items-center justify-center gap-2 sm:gap-3 md:gap-4 flex-wrap ${hasHead ? "mt-6" : ""}`}>
                         <Cell value={timeLeft.days} label="วัน" />
-                        <span className="text-3xl md:text-5xl font-black text-white/50">:</span>
+                        <Colon />
                         <Cell value={timeLeft.hours} label="ชั่วโมง" />
-                        <span className="text-3xl md:text-5xl font-black text-white/50">:</span>
+                        <Colon />
                         <Cell value={timeLeft.minutes} label="นาที" />
-                        <span className="text-3xl md:text-5xl font-black text-white/50">:</span>
+                        <Colon />
                         <Cell value={timeLeft.seconds} label="วินาที" />
                     </div>
                 </div>

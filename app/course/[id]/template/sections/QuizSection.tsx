@@ -52,90 +52,104 @@ export default function QuizSection({ data, ctx }: { data: QuizData; ctx: Sectio
     const progress = finished ? 100 : Math.round((current / total) * 100);
 
     return (
-        <section className="w-full py-16 md:py-24 bg-gradient-to-b from-indigo-50/40 via-white to-white dark:from-slate-950 dark:via-slate-950 dark:to-slate-950">
-            <div className="max-w-2xl mx-auto px-4 md:px-6">
-                {/* Header */}
-                <div className="text-center mb-8 md:mb-10">
-                    <h2 className="text-3xl md:text-4xl font-extrabold text-slate-800 dark:text-white tracking-tight">
-                        {data.title || "แบบทดสอบประเมินความพร้อม"} <span className="text-indigo-600 dark:text-indigo-400">🧭</span>
-                    </h2>
-                    {data.subtitle && (
-                        <p className="mt-3 text-slate-500 dark:text-slate-400 text-base md:text-lg max-w-xl mx-auto">{data.subtitle}</p>
-                    )}
-                </div>
+        <section className="kh-sec">
+            {/* Header */}
+            <div className="kh-sec-head">
+                <h2 className="kh-h2">
+                    {data.title || "แบบทดสอบประเมินความพร้อม"} <span>🧭</span>
+                </h2>
+                {data.subtitle && <p className="kh-sub mt-3 max-w-xl mx-auto">{data.subtitle}</p>}
+            </div>
 
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-lg shadow-slate-200/50 dark:shadow-none p-6 md:p-10">
-                    {/* ── Intro ── */}
-                    {!started && !finished && (
-                        <div className="text-center py-6">
-                            <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25">
-                                <ClipboardCheck size={40} />
-                            </div>
-                            <p className="mt-6 text-slate-600 dark:text-slate-300 font-medium">
-                                {total} ข้อ · ใช้เวลาไม่ถึง 1 นาที · รู้ผลทันที
-                            </p>
+            <div className="kh-card mx-auto w-full max-w-[680px] p-6 md:p-10">
+                {/* ── Intro ── */}
+                {!started && !finished && (
+                    <div className="text-center py-6">
+                        <div
+                            className="w-20 h-20 mx-auto rounded-2xl flex items-center justify-center"
+                            style={{
+                                background: "linear-gradient(135deg, var(--kh-p), var(--kh-p2))",
+                                color: "var(--kh-onD)",
+                                boxShadow: "var(--kh-shadow-sm)",
+                            }}
+                        >
+                            <ClipboardCheck size={40} />
+                        </div>
+                        <p className="mt-6 font-medium" style={{ color: "var(--kh-body)" }}>
+                            {total} ข้อ · ใช้เวลาไม่ถึง 1 นาที · รู้ผลทันที
+                        </p>
+                        <button
+                            onClick={() => setStarted(true)}
+                            className="kh-kanit mt-6 inline-block px-10 py-4 rounded-2xl font-bold text-lg transition-transform hover:scale-[1.03] active:scale-95"
+                            style={{
+                                background: "linear-gradient(135deg, var(--kh-p), var(--kh-p2))",
+                                color: "var(--kh-onD)",
+                                boxShadow: "var(--kh-shadow-sm)",
+                            }}
+                        >
+                            {data.startButtonText || "เริ่มทำแบบทดสอบ"}
+                        </button>
+                    </div>
+                )}
+
+                {/* ── Question ── */}
+                {started && !finished && (
+                    <div>
+                        {/* Progress */}
+                        <div className="flex items-center justify-between mb-2 text-sm font-semibold" style={{ color: "var(--kh-mut)" }}>
                             <button
-                                onClick={() => setStarted(true)}
-                                className="mt-6 inline-block px-10 py-4 rounded-2xl font-bold text-lg text-white bg-gradient-to-r from-indigo-600 to-blue-600 shadow-xl shadow-indigo-500/25 hover:scale-105 active:scale-95 transition-transform"
+                                onClick={back}
+                                disabled={current === 0}
+                                className="flex items-center gap-1 hover:opacity-70 disabled:opacity-0 transition"
                             >
-                                {data.startButtonText || "เริ่มทำแบบทดสอบ"}
+                                <ChevronLeft size={16} /> ย้อนกลับ
                             </button>
+                            <span className="kh-num">ข้อ {current + 1} / {total}</span>
                         </div>
-                    )}
-
-                    {/* ── Question ── */}
-                    {started && !finished && (
-                        <div>
-                            {/* Progress */}
-                            <div className="flex items-center justify-between mb-2 text-sm font-bold text-slate-400">
-                                <button
-                                    onClick={back}
-                                    disabled={current === 0}
-                                    className="flex items-center gap-1 hover:text-indigo-600 disabled:opacity-0 transition"
-                                >
-                                    <ChevronLeft size={16} /> ย้อนกลับ
-                                </button>
-                                <span>ข้อ {current + 1} / {total}</span>
-                            </div>
-                            <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-7">
-                                <div
-                                    className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full transition-all duration-300"
-                                    style={{ width: `${Math.max(progress, 6)}%` }}
-                                />
-                            </div>
-
-                            {/* Question */}
-                            <h3 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white text-center leading-snug mb-6 min-h-[3.5rem]">
-                                {questions[current].question}
-                            </h3>
-
-                            {/* Options */}
-                            <div className="space-y-3">
-                                {(questions[current].options || [])
-                                    .filter((o) => o.text?.trim())
-                                    .map((opt, i) => (
-                                        <button
-                                            key={i}
-                                            onClick={() => choose(opt.score || 0)}
-                                            className="group w-full flex items-center gap-3 text-left px-5 py-4 rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 transition-all active:scale-[0.99]"
-                                        >
-                                            <span className="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-slate-600 group-hover:border-indigo-500 flex-shrink-0 transition-colors" />
-                                            <span className="font-medium text-slate-700 dark:text-slate-200">{opt.text}</span>
-                                        </button>
-                                    ))}
-                            </div>
+                        <div className="h-2 w-full rounded-full overflow-hidden mb-7" style={{ background: "var(--kh-pT)" }}>
+                            <div
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{ width: `${Math.max(progress, 6)}%`, background: "var(--kh-p)" }}
+                            />
                         </div>
-                    )}
 
-                    {/* ── Result ── */}
-                    {finished && (
-                        <div className="text-center py-4">
+                        {/* Question */}
+                        <h3 className="kh-h3 text-center mb-6 min-h-[3.5rem]">
+                            {questions[current].question}
+                        </h3>
+
+                        {/* Options */}
+                        <div className="space-y-3">
+                            {(questions[current].options || [])
+                                .filter((o) => o.text?.trim())
+                                .map((opt, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => choose(opt.score || 0)}
+                                        className="group kh-card w-full flex items-center gap-3 text-left px-5 py-4 transition-all active:scale-[0.99] hover:border-[color:var(--kh-p)] hover:bg-[color:var(--kh-tint)]"
+                                    >
+                                        <span className="w-6 h-6 rounded-full border-2 border-[color:var(--kh-line)] group-hover:border-[color:var(--kh-p)] flex-shrink-0 transition-colors" />
+                                        <span className="font-medium" style={{ color: "var(--kh-body)" }}>{opt.text}</span>
+                                    </button>
+                                ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Result ── */}
+                {finished && (
+                    <div className="text-center py-2">
+                        <div className="kh-tintbox p-6 md:p-8">
                             {result ? (
                                 <>
                                     <div className="text-6xl mb-3">{result.emoji || "🎯"}</div>
-                                    <h3 className="text-2xl md:text-3xl font-extrabold text-slate-800 dark:text-white">{result.title}</h3>
+                                    <h3 className="kh-kanit text-2xl md:text-3xl font-extrabold" style={{ color: "var(--kh-ink)" }}>
+                                        {result.title}
+                                    </h3>
                                     {result.desc && (
-                                        <p className="mt-3 text-slate-600 dark:text-slate-300 leading-relaxed max-w-lg mx-auto">{result.desc}</p>
+                                        <p className="mt-3 leading-relaxed max-w-lg mx-auto" style={{ color: "var(--kh-body)" }}>
+                                            {result.desc}
+                                        </p>
                                     )}
 
                                     {result.ctaText?.trim() && (
@@ -144,35 +158,31 @@ export default function QuizSection({ data, ctx }: { data: QuizData; ctx: Sectio
                                                 href={result.ctaUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="mt-7 inline-block px-10 py-4 rounded-2xl font-bold text-lg text-white bg-gradient-to-r from-indigo-600 to-blue-600 shadow-xl shadow-indigo-500/25 hover:scale-105 active:scale-95 transition-transform"
+                                                className="kh-cta-btn mt-7"
                                             >
                                                 {result.ctaText}
                                             </a>
                                         ) : (
-                                            <button
-                                                onClick={() => ctx.onCTAClick()}
-                                                className="mt-7 inline-block px-10 py-4 rounded-2xl font-bold text-lg text-white bg-gradient-to-r from-indigo-600 to-blue-600 shadow-xl shadow-indigo-500/25 hover:scale-105 active:scale-95 transition-transform"
-                                            >
+                                            <button onClick={() => ctx.onCTAClick()} className="kh-cta-btn mt-7">
                                                 {result.ctaText}
                                             </button>
                                         )
                                     )}
                                 </>
                             ) : (
-                                <h3 className="text-2xl font-bold text-slate-800 dark:text-white">ทำแบบทดสอบเสร็จแล้ว 🎉</h3>
+                                <h3 className="kh-kanit text-2xl font-bold" style={{ color: "var(--kh-ink)" }}>
+                                    ทำแบบทดสอบเสร็จแล้ว 🎉
+                                </h3>
                             )}
-
-                            <div className="mt-6">
-                                <button
-                                    onClick={reset}
-                                    className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-indigo-600 transition"
-                                >
-                                    <RotateCcw size={15} /> {data.retakeButtonText || "ทำใหม่อีกครั้ง"}
-                                </button>
-                            </div>
                         </div>
-                    )}
-                </div>
+
+                        <div className="mt-6">
+                            <button onClick={reset} className="kh-ghost-btn text-sm">
+                                <RotateCcw size={15} /> {data.retakeButtonText || "ทำใหม่อีกครั้ง"}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </section>
     );

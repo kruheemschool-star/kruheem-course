@@ -5,59 +5,80 @@ export default function TestimonialSection({ data }: { data: TestimonialData }) 
     if (!data.stories || data.stories.length === 0) return null;
 
     return (
-        <section className="max-w-6xl mx-auto px-6 py-16">
-            <div className="text-center mb-12">
-                <h2 className="text-4xl md:text-5xl font-bold text-slate-800 dark:text-white mb-4">
-                    {data.title || "เรื่องจริงจากนักเรียน 💪"}
-                </h2>
-                {data.subtitle && <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">{data.subtitle}</p>}
+        <section className="kh-sec">
+            <div className="kh-sec-head">
+                <h2 className="kh-h2">{data.title || "เรื่องจริงจากนักเรียน 💪"}</h2>
+                {data.subtitle && <p className="kh-sub mt-3">{data.subtitle}</p>}
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid gap-6 md:grid-cols-3">
                 {data.stories.map((story, i) => (
-                    <div
-                        key={i}
-                        className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-md hover:shadow-xl transition-all"
-                    >
+                    <div key={i} className="kh-card kh-lift p-6 flex flex-col">
+                        {/* Student */}
                         <div className="flex items-center gap-4 mb-4">
                             {story.imageUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                     src={story.imageUrl}
                                     alt={story.name}
-                                    className="w-14 h-14 rounded-full object-cover border-2 border-indigo-100 dark:border-indigo-900/60"
+                                    className="w-14 h-14 rounded-full object-cover border-2 shrink-0"
+                                    style={{ borderColor: "var(--kh-pLine)" }}
                                     loading="lazy"
                                 />
                             ) : (
-                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center text-white font-bold text-xl">
+                                <div
+                                    className="kh-kanit w-14 h-14 rounded-full border-2 flex items-center justify-center font-bold text-xl shrink-0"
+                                    style={{
+                                        background: "linear-gradient(135deg, var(--kh-p), var(--kh-p2))",
+                                        color: "var(--kh-onD)",
+                                        borderColor: "var(--kh-pLine)",
+                                    }}
+                                >
                                     {story.name.charAt(0)}
                                 </div>
                             )}
-                            <div>
-                                <h3 className="font-bold text-slate-800 dark:text-white">{story.name}</h3>
-                                {story.role && <p className="text-sm text-slate-500 dark:text-slate-400">{story.role}</p>}
+                            <div className="min-w-0">
+                                <h3 className="kh-kanit font-semibold" style={{ color: "var(--kh-ink)" }}>{story.name}</h3>
+                                {story.role && <p className="text-sm" style={{ color: "var(--kh-mut)" }}>{story.role}</p>}
                             </div>
                         </div>
 
+                        {/* Score transformation */}
                         {(story.beforeScore || story.afterScore) && (
-                            <div className="flex items-center gap-3 mb-4 p-3 bg-gradient-to-r from-red-50 to-emerald-50 dark:from-red-950/30 dark:to-emerald-950/30 rounded-2xl">
+                            <div className="flex items-center justify-center flex-wrap gap-2.5 mb-4">
                                 {story.beforeScore && (
-                                    <div className="flex-1 text-center">
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">ก่อน</p>
-                                        <p className="font-bold text-red-500 dark:text-red-400 text-lg">{story.beforeScore}</p>
-                                    </div>
+                                    <span
+                                        className="kh-chip"
+                                        style={{ background: "var(--kh-urgBg)", color: "var(--kh-urgText)", borderColor: "transparent" }}
+                                    >
+                                        ก่อน
+                                        <span className="kh-num font-bold text-[15px]">{story.beforeScore}</span>
+                                    </span>
                                 )}
-                                <span className="text-slate-400 dark:text-slate-500 text-xl">→</span>
+                                <span aria-hidden="true" className="text-lg" style={{ color: "var(--kh-mut)" }}>→</span>
                                 {story.afterScore && (
-                                    <div className="flex-1 text-center">
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">หลัง</p>
-                                        <p className="font-bold text-emerald-600 dark:text-emerald-400 text-lg">{story.afterScore}</p>
-                                    </div>
+                                    <span
+                                        className="kh-chip"
+                                        style={{ background: "var(--kh-goodBg)", color: "var(--kh-goodText)", borderColor: "transparent" }}
+                                    >
+                                        หลัง
+                                        <span className="kh-num font-bold text-[15px]">{story.afterScore}</span>
+                                    </span>
                                 )}
                             </div>
                         )}
 
-                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed italic">&ldquo;{story.quote}&rdquo;</p>
+                        {/* Quote */}
+                        <div className="relative mt-1">
+                            <span
+                                aria-hidden="true"
+                                className="kh-kanit absolute -top-2 -left-1 text-5xl leading-none select-none"
+                                style={{ color: "var(--kh-pLine)" }}
+                            >
+                                “
+                            </span>
+                            <p className="relative pl-7 leading-relaxed" style={{ color: "var(--kh-body)" }}>{story.quote}</p>
+                        </div>
                     </div>
                 ))}
             </div>

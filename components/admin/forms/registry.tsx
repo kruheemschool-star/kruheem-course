@@ -29,6 +29,8 @@ interface FormProps {
     onChange: (next: any) => void;
     courseId?: string;
     courseTitle?: string;
+    /** kh-* palette id for this course — used by HeroEditorForm's live preview. */
+    themeId?: string;
 }
 
 /**

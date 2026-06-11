@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, limit, where, getDocs } from "firebase/firestore";
 import { getCachedData } from "@/lib/dataCache";
@@ -18,15 +18,15 @@ interface LiveReview {
     createdAt?: { seconds: number } | null;
 }
 
-// Gradient palette for fallback avatars
+// Gradient palette for fallback avatars (theme-token pairs)
 const AVATAR_GRADIENTS = [
-    "from-violet-400 to-purple-500",
-    "from-sky-400 to-blue-500",
-    "from-emerald-400 to-teal-500",
-    "from-amber-400 to-orange-500",
-    "from-rose-400 to-pink-500",
-    "from-indigo-400 to-blue-500",
-    "from-teal-400 to-cyan-500",
+    "linear-gradient(135deg, var(--kh-p), var(--kh-p2))",
+    "linear-gradient(135deg, var(--kh-s), var(--kh-p2))",
+    "linear-gradient(135deg, var(--kh-acc), var(--kh-p))",
+    "linear-gradient(135deg, var(--kh-cta1), var(--kh-cta2))",
+    "linear-gradient(135deg, var(--kh-p2), var(--kh-s))",
+    "linear-gradient(135deg, var(--kh-p), var(--kh-acc))",
+    "linear-gradient(135deg, var(--kh-s), var(--kh-acc))",
 ];
 function getAvatarGradient(name: string) {
     let hash = 0;
@@ -38,7 +38,7 @@ function getAvatarGradient(name: string) {
 function LiveAvatar({ photo, name }: { photo?: string; name: string }) {
     const [error, setError] = useState(false);
     if (!photo || error) {
-        return <span className="text-white font-bold text-base">{name?.[0]?.toUpperCase() || "?"}</span>;
+        return <span className="font-bold text-base" style={{ color: "var(--kh-onD)" }}>{name?.[0]?.toUpperCase() || "?"}</span>;
     }
     if (photo.startsWith("http") || photo.startsWith("/")) {
         return (
@@ -51,74 +51,42 @@ function LiveAvatar({ photo, name }: { photo?: string; name: string }) {
 
 function LiveReviewCard({ review }: { review: LiveReview }) {
     return (
-        <div className="flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-100 dark:border-slate-800 p-6 relative hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <Quote className="absolute top-4 right-4 text-slate-100 dark:text-slate-800" size={28} fill="currentColor" />
+        <div className="kh-card kh-lift flex-shrink-0 w-[280px] sm:w-[320px] md:w-[360px] p-6 relative">
+            <Quote className="absolute top-4 right-4" size={28} fill="currentColor" style={{ color: "var(--kh-pT2)" }} />
             <div className="flex items-center gap-3 mb-3">
-                <div className={`w-11 h-11 rounded-full overflow-hidden border-2 border-white dark:border-slate-800 shadow-sm flex items-center justify-center shrink-0 bg-gradient-to-br ${getAvatarGradient(review.userName)}`}>
+                <div
+                    className="w-11 h-11 rounded-full overflow-hidden border-2 shadow-sm flex items-center justify-center shrink-0"
+                    style={{ background: getAvatarGradient(review.userName), borderColor: "var(--kh-card)" }}
+                >
                     <LiveAvatar photo={review.userPhoto} name={review.userName} />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate">{review.userName}</h4>
+                    <h4 className="kh-kanit font-semibold text-sm truncate" style={{ color: "var(--kh-ink)" }}>{review.userName}</h4>
                     <div className="flex gap-0.5 mt-0.5">
                         {[1, 2, 3, 4, 5].map((i) => (
-                            <Star key={i} size={12} className={i <= review.rating ? "text-amber-400" : "text-slate-200 dark:text-slate-700"} fill={i <= review.rating ? "currentColor" : "none"} />
+                            <Star
+                                key={i}
+                                size={12}
+                                style={{ color: i <= review.rating ? "var(--kh-cta1)" : "var(--kh-line)" }}
+                                fill={i <= review.rating ? "currentColor" : "none"}
+                            />
                         ))}
                     </div>
                 </div>
             </div>
             {review.courseName && (
-                <div className="mb-2 inline-block text-[11px] font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md truncate max-w-full">
-                    📖 {review.courseName}
-                </div>
+                <span
+                    className="kh-chip mb-2 max-w-full"
+                    style={{ background: "var(--kh-pT)", color: "var(--kh-pText)", borderColor: "var(--kh-pLine)", fontSize: 12 }}
+                >
+                    <span className="truncate">📖 {review.courseName}</span>
+                </span>
             )}
-            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-5">
+            <p className="text-sm leading-relaxed line-clamp-5" style={{ color: "var(--kh-body)" }}>
                 &ldquo;{review.comment}&rdquo;
             </p>
         </div>
     );
-}
-
-/* ─── Smooth marquee hook ─── */
-function useSmoothMarquee(baseSpeed: number) {
-    const trackRef = useRef<HTMLDivElement>(null);
-    const offsetRef = useRef(0);
-    const currentSpeedRef = useRef(baseSpeed);
-    const targetSpeedRef = useRef(baseSpeed);
-    const rafRef = useRef<number>(0);
-    const lastTimeRef = useRef<number>(0);
-
-    const animate = useCallback((now: number) => {
-        if (!trackRef.current) { rafRef.current = requestAnimationFrame(animate); return; }
-        if (!lastTimeRef.current) lastTimeRef.current = now;
-        const dt = (now - lastTimeRef.current) / 1000; // seconds
-        lastTimeRef.current = now;
-
-        // Smoothly interpolate current speed toward target
-        const lerpFactor = 1 - Math.pow(0.03, dt); // ~0.97 per second easing
-        currentSpeedRef.current += (targetSpeedRef.current - currentSpeedRef.current) * lerpFactor;
-
-        // Advance offset
-        offsetRef.current -= currentSpeedRef.current * dt;
-
-        // Get total scrollable width (half because content is duplicated)
-        const totalWidth = trackRef.current.scrollWidth / 2;
-        if (totalWidth > 0 && Math.abs(offsetRef.current) >= totalWidth) {
-            offsetRef.current += totalWidth;
-        }
-
-        trackRef.current.style.transform = `translateX(${offsetRef.current}px)`;
-        rafRef.current = requestAnimationFrame(animate);
-    }, []);
-
-    useEffect(() => {
-        rafRef.current = requestAnimationFrame(animate);
-        return () => cancelAnimationFrame(rafRef.current);
-    }, [animate]);
-
-    const onMouseEnter = useCallback(() => { targetSpeedRef.current = 0; }, []);
-    const onMouseLeave = useCallback(() => { targetSpeedRef.current = baseSpeed; }, [baseSpeed]);
-
-    return { trackRef, onMouseEnter, onMouseLeave };
 }
 
 export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?: SectionContext }) {
@@ -132,10 +100,12 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
     const liveScope = data.liveScope || "all";
     const scopedCourseId = liveScope === "course" ? ctx?.courseId : null;
 
-    // Speed in px/s — tuned to roughly match the old CSS animation durations
+    // Marquee duration scales with item count to keep speed steady
+    // (live cards drift a touch faster, matching the old px/s tuning).
     const isLive = source === "live";
-    const baseSpeed = isLive ? 60 : 40; // live cards scroll faster
-    const { trackRef, onMouseEnter, onMouseLeave } = useSmoothMarquee(baseSpeed);
+    const marqueeDur = isLive
+        ? Math.max(22, liveReviews.length * 6)
+        : Math.max(22, (data.images?.length || 0) * 8);
 
     useEffect(() => {
         if (source !== "live") return;
@@ -166,38 +136,46 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
     if (source === "live" && !loadingLive && liveReviews.length === 0) return null;
 
     return (
-        <section className="w-full py-16 overflow-hidden bg-white dark:bg-slate-950">
-            <div className="text-center mb-12 px-4">
-                <h2 className="text-3xl md:text-4xl font-extrabold text-slate-800 dark:text-white mb-4 tracking-tight">
-                    {data.title || "อย่าเชื่อแค่คำพูด..."} <span className="text-indigo-600 dark:text-indigo-400">แต่จงเชื่อ &ldquo;ผลลัพธ์&rdquo;</span>
+        <section className="w-full overflow-hidden" style={{ padding: "clamp(52px, 7vw, 92px) 0" }}>
+            <div className="kh-sec-head px-5">
+                <h2 className="kh-h2">
+                    {data.title || "อย่าเชื่อแค่คำพูด..."}{" "}
+                    <span style={{ color: "var(--kh-pText)" }}>แต่จงเชื่อ &ldquo;ผลลัพธ์&rdquo;</span>
                 </h2>
-                {data.subtitle && <p className="text-slate-500 dark:text-slate-400 text-lg">{data.subtitle}</p>}
-                <div className="w-24 h-1.5 bg-indigo-600 dark:bg-indigo-400 mx-auto rounded-full opacity-20 mt-4"></div>
+                {data.subtitle && <p className="kh-sub mt-3">{data.subtitle}</p>}
             </div>
 
-            <div
-                className="relative w-full overflow-hidden"
-                onMouseEnter={onMouseEnter}
-                onMouseLeave={onMouseLeave}
-            >
-                <div className="absolute left-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-r from-white dark:from-slate-950 to-transparent z-10 pointer-events-none"></div>
-                <div className="absolute right-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-l from-white dark:from-slate-950 to-transparent z-10 pointer-events-none"></div>
+            <div className="relative w-full overflow-hidden">
+                <div
+                    className="absolute left-0 top-0 bottom-0 w-16 md:w-40 z-10 pointer-events-none"
+                    style={{ background: "linear-gradient(to right, var(--kh-paper), transparent)" }}
+                />
+                <div
+                    className="absolute right-0 top-0 bottom-0 w-16 md:w-40 z-10 pointer-events-none"
+                    style={{ background: "linear-gradient(to left, var(--kh-paper), transparent)" }}
+                />
 
                 {source === "live" ? (
-                    <div ref={trackRef} className="flex gap-5 py-4 will-change-transform" style={{ width: "max-content" }}>
+                    <div
+                        className="kh-marquee flex gap-5 py-4 will-change-transform"
+                        style={{ width: "max-content", "--kh-marquee-dur": `${marqueeDur}s` } as CSSProperties}
+                    >
                         {[...liveReviews, ...liveReviews].map((r, i) => (
                             <LiveReviewCard key={`${r.id}-${i}`} review={r} />
                         ))}
                     </div>
                 ) : (
-                    <div ref={trackRef} className="flex gap-6 will-change-transform" style={{ width: "max-content" }}>
+                    <div
+                        className="kh-marquee flex gap-6 py-4 will-change-transform"
+                        style={{ width: "max-content", "--kh-marquee-dur": `${marqueeDur}s` } as CSSProperties}
+                    >
                         {[...data.images, ...data.images].map((img, i) => (
                             <div
                                 key={i}
-                                className="flex-shrink-0 w-[240px] sm:w-[280px] md:w-[350px] transition-transform duration-300 hover:scale-105 cursor-pointer"
+                                className="flex-shrink-0 w-[240px] sm:w-[280px] md:w-[350px] cursor-pointer"
                                 onClick={() => setSelectedImage(img)}
                             >
-                                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-800 overflow-hidden h-full">
+                                <div className="kh-card kh-lift overflow-hidden h-full">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                         src={img}
@@ -217,13 +195,15 @@ export default function ReviewsSection({ data, ctx }: { data: ReviewsData; ctx?:
 
             {selectedImage && (
                 <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
+                    className="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-xl p-4"
                     onClick={() => setSelectedImage(null)}
                 >
+                    <div className="absolute inset-0 opacity-90" style={{ background: "var(--kh-d1)" }} aria-hidden="true" />
                     <div className="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center">
                         <button
                             onClick={() => setSelectedImage(null)}
-                            className="absolute -top-12 right-0 md:-right-12 w-10 h-10 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white z-50 border border-white/30"
+                            className="absolute -top-12 right-0 md:-right-12 w-10 h-10 rounded-full flex items-center justify-center z-50 border transition-all hover:brightness-150"
+                            style={{ background: "var(--kh-onDline)", borderColor: "var(--kh-onDline)", color: "var(--kh-onD)" }}
                         >
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />

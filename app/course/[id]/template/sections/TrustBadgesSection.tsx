@@ -65,14 +65,21 @@ function StatCard({ stat, index, onVisible, started }: { stat: TrustBadgeStat; i
     return (
         <div
             ref={ref}
-            className="flex-1 min-w-[140px] max-w-[240px] bg-white dark:bg-slate-900 rounded-2xl p-4 md:p-5 border border-slate-100 dark:border-slate-800 shadow-sm text-center hover:shadow-lg transition-all"
-            style={{ transitionDelay: `${index * 50}ms` }}
+            className={`flex-1 basis-[42%] sm:basis-0 min-w-[130px] max-w-[260px] px-3 sm:px-5 text-center ${index > 0 ? "sm:border-l" : ""}`}
+            style={{ borderColor: "var(--kh-line)" }}
         >
-            <div className="text-3xl mb-2">{stat.icon}</div>
-            <div className="text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 mb-1 tabular-nums">
+            <div className="kh-tintbox mx-auto mb-3 grid h-12 w-12 place-items-center text-2xl">
+                {stat.icon}
+            </div>
+            <div
+                className="kh-num mb-1.5 font-extrabold leading-none tabular-nums"
+                style={{ color: "var(--kh-pText)", fontSize: "clamp(28px, 3.4vw, 36px)" }}
+            >
                 <AnimatedNumber value={stat.number} started={started} />
             </div>
-            <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-snug">{stat.label}</div>
+            <div className="text-[13px] sm:text-sm font-medium leading-snug" style={{ color: "var(--kh-mut)" }}>
+                {stat.label}
+            </div>
         </div>
     );
 }
@@ -88,21 +95,25 @@ export default function TrustBadgesSection({ data, ctx }: { data: TrustBadgesDat
     }));
 
     return (
-        <section className="max-w-6xl mx-auto px-6 py-12">
+        <section className="kh-sec">
             {data.title && (
-                <h2 className="text-3xl font-bold text-center text-slate-800 dark:text-white mb-10">{data.title}</h2>
+                <div className="kh-sec-head">
+                    <h2 className="kh-h2">{data.title}</h2>
+                </div>
             )}
 
-            <div className="flex flex-wrap justify-center gap-3 md:gap-4">
-                {stats.map((stat, i) => (
-                    <StatCard
-                        key={i}
-                        stat={stat}
-                        index={i}
-                        onVisible={() => setStarted(true)}
-                        started={started}
-                    />
-                ))}
+            <div className="kh-card px-3 py-8 sm:px-6 md:px-10 md:py-10">
+                <div className="flex flex-wrap justify-center gap-y-8">
+                    {stats.map((stat, i) => (
+                        <StatCard
+                            key={i}
+                            stat={stat}
+                            index={i}
+                            onVisible={() => setStarted(true)}
+                            started={started}
+                        />
+                    ))}
+                </div>
             </div>
         </section>
     );

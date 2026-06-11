@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SalesPageConfig, SectionContext } from "./types";
 import { renderSection } from "./sectionRegistry";
+import KhThemeChrome from "./KhThemeChrome";
 import StickyCTA from "./boosters/StickyCTA";
 import SocialProofToast from "./boosters/SocialProofToast";
 import ExitIntentPopup from "./boosters/ExitIntentPopup";
@@ -117,7 +118,7 @@ export default function TemplatePage({
     const boosters = config.boosters;
 
     return (
-        <div className="min-h-screen bg-[#F8F9FD] bg-dot-pattern font-sans text-slate-800">
+        <KhThemeChrome themeId={config.theme?.id}>
             <Navbar />
             <main className="pb-24">
                 {visibleSections.map((section) => (
@@ -136,6 +137,6 @@ export default function TemplatePage({
             {boosters?.exitIntent?.enabled && (
                 <ExitIntentPopup config={boosters.exitIntent} onCTAClick={handleCTAClick} courseId={courseId} />
             )}
-        </div>
+        </KhThemeChrome>
     );
 }

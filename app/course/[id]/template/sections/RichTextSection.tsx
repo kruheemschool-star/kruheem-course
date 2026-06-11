@@ -45,6 +45,38 @@ function boxBackground(bg: RichTextData["bg"], color: string, k: number): CSSPro
     }
 }
 
+/* Theme-bound typography for the admin-authored HTML (scoped to .kh-rtx).
+   Admin inline styles inside the content still win over these defaults. */
+const RTX_CSS = `
+.kh-rtx { color: var(--kh-body); font-size: 16px; line-height: 1.85; overflow-wrap: break-word; }
+.kh-rtx > :first-child { margin-top: 0; }
+.kh-rtx > :last-child { margin-bottom: 0; }
+.kh-rtx p { margin: 0.9em 0; }
+.kh-rtx h1, .kh-rtx h2, .kh-rtx h3, .kh-rtx h4, .kh-rtx h5, .kh-rtx h6 {
+    font-family: var(--font-kanit), var(--font-mitr), sans-serif;
+    color: var(--kh-ink); font-weight: 700; line-height: 1.4;
+    margin: 1.5em 0 0.6em;
+}
+.kh-rtx h1 { font-size: 1.7em; }
+.kh-rtx h2 { font-size: 1.45em; }
+.kh-rtx h3 { font-size: 1.2em; }
+.kh-rtx h4 { font-size: 1.05em; }
+.kh-rtx strong, .kh-rtx b { color: var(--kh-ink); font-weight: 700; }
+.kh-rtx a { color: var(--kh-pText); text-decoration: underline; text-underline-offset: 3px; }
+.kh-rtx ul, .kh-rtx ol { margin: 0.9em 0; padding-left: 1.5em; }
+.kh-rtx ul { list-style: disc; }
+.kh-rtx ol { list-style: decimal; }
+.kh-rtx li { margin: 0.35em 0; }
+.kh-rtx li::marker { color: var(--kh-p); }
+.kh-rtx blockquote { border-left: 3px solid var(--kh-pLine); padding-left: 1em; margin: 1.2em 0; color: var(--kh-mut); }
+.kh-rtx hr { border: 0; border-top: 1px solid var(--kh-line); margin: 2em 0; }
+.kh-rtx img { max-width: 100%; height: auto; border-radius: 12px; }
+.kh-rtx code { background: var(--kh-tint); color: var(--kh-pText); padding: 2px 6px; border-radius: 6px; font-size: 0.9em; }
+.kh-rtx table { width: 100%; border-collapse: collapse; margin: 1.2em 0; }
+.kh-rtx th, .kh-rtx td { border: 1px solid var(--kh-line); padding: 8px 12px; text-align: left; }
+.kh-rtx th { color: var(--kh-ink); background: var(--kh-tint); font-weight: 600; }
+`;
+
 export default function RichTextSection({ data }: { data: RichTextData }) {
     const html = (data.html || "").trim();
     if (!html || html === "<p></p>") return null;
@@ -53,21 +85,17 @@ export default function RichTextSection({ data }: { data: RichTextData }) {
     const intensity = Math.max(1, Math.min(5, data.bgIntensity ?? 2));
     const boxStyle: CSSProperties = {
         ...boxBackground(data.bg, color, intensity),
-        ...(data.framed ? { borderColor: color } : {}),
+        ...(data.framed ? { borderColor: color, boxShadow: "var(--kh-shadow-sm)" } : {}),
     };
 
     return (
-        <section className="w-full py-12 md:py-16">
-            <div className="max-w-3xl mx-auto px-4 md:px-6">
-                <div
-                    className={`rounded-3xl px-6 py-8 md:px-10 md:py-10 ${data.framed ? "border-2 shadow-sm" : ""}`}
-                    style={boxStyle}
-                >
-                    <div
-                        className="prose prose-slate dark:prose-invert max-w-none prose-headings:font-bold prose-headings:text-slate-800 dark:prose-headings:text-white prose-p:text-slate-600 dark:prose-p:text-slate-300 prose-strong:text-slate-800 dark:prose-strong:text-white prose-a:text-indigo-600 dark:prose-a:text-indigo-400"
-                        dangerouslySetInnerHTML={{ __html: html }}
-                    />
-                </div>
+        <section className="kh-sec" style={{ maxWidth: 820 }}>
+            <style>{RTX_CSS}</style>
+            <div
+                className={`rounded-3xl px-6 py-8 md:px-10 md:py-10 ${data.framed ? "border-2" : ""}`}
+                style={boxStyle}
+            >
+                <div className="kh-rtx max-w-none" dangerouslySetInnerHTML={{ __html: html }} />
             </div>
         </section>
     );

@@ -3,53 +3,67 @@ import type { PainPointData } from "../types";
 
 export default function PainPointSection({ data }: { data: PainPointData }) {
     return (
-        <section className="max-w-5xl mx-auto px-6 py-16">
-            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white/50 dark:border-slate-800/60 p-8 md:p-12 text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-64 h-64 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 bg-rose-200/40 dark:bg-rose-700/20"></div>
-                <div className="absolute bottom-0 right-0 w-64 h-64 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 bg-indigo-200/40 dark:bg-indigo-700/20"></div>
+        <section className="kh-sec">
+            <div className="kh-sec-head">
+                <h2 className="kh-h2">{data.title}</h2>
+                {data.subtitle && <p className="kh-sub mt-3">{data.subtitle}</p>}
+            </div>
 
-                <h2 className="text-4xl md:text-5xl font-black text-slate-800 dark:text-white leading-relaxed mb-6 relative z-10">
-                    {data.title}
-                </h2>
-                {data.subtitle && (
-                    <p className="text-xl text-slate-600 dark:text-slate-300 mb-12 font-medium relative z-10">{data.subtitle}</p>
-                )}
+            <div className="grid items-start gap-6 md:grid-cols-2 md:gap-8">
+                {/* Problems */}
+                <div>
+                    <h3 className="kh-h3 mb-4 flex items-center gap-2">
+                        <span className="text-2xl sm:text-3xl">{data.problemIcon || "🔓"}</span>
+                        {data.problemTitle || "ปัญหาที่เจอ"}
+                    </h3>
+                    <ul className="space-y-3">
+                        {data.problems.map((item, i) => (
+                            <li
+                                key={i}
+                                className="flex items-start gap-3 rounded-2xl p-4 sm:p-5"
+                                style={{ background: "var(--kh-urgBg)" }}
+                            >
+                                <span className="flex-shrink-0 text-xl font-bold leading-7" style={{ color: "var(--kh-urgText)" }}>
+                                    {item.icon}
+                                </span>
+                                <span className="text-[15px] font-medium leading-relaxed sm:text-base" style={{ color: "var(--kh-urgText)" }}>
+                                    {item.text}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
 
-                <div className="text-left grid md:grid-cols-2 gap-10 items-start relative z-10">
-                    {/* Problems */}
-                    <div className="bg-white/60 dark:bg-slate-900/60 rounded-3xl p-6 border border-white/60 dark:border-slate-800/60 shadow-sm">
-                        <h3 className="font-bold text-2xl text-slate-700 dark:text-slate-100 mb-6 flex items-center gap-2">
-                            <span className="text-3xl">{data.problemIcon || "🔓"}</span>
-                            {data.problemTitle || "ปัญหาที่เจอ"}
-                        </h3>
-                        <ul className="space-y-5">
-                            {data.problems.map((item, i) => (
-                                <li key={i} className="flex items-start gap-3">
-                                    <span className="text-2xl flex-shrink-0">{item.icon}</span>
-                                    <span className="text-lg text-slate-600 dark:text-slate-300">{item.text}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    {/* Solutions */}
-                    <div className="bg-indigo-50/50 dark:bg-indigo-950/30 rounded-3xl p-6 border border-indigo-200/60 dark:border-indigo-900/50 shadow-sm">
-                        <h3 className="font-bold text-2xl text-slate-700 dark:text-slate-100 mb-6 flex items-center gap-2">
-                            <span className="text-3xl">{data.solutionIcon || "💡"}</span>
-                            {data.solutionTitle || "สิ่งที่จะได้รับ"}
-                        </h3>
-                        {data.solutionDesc && (
-                            <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 font-medium">{data.solutionDesc}</p>
-                        )}
-                        <ul className="space-y-4">
-                            {data.solutions.map((item, i) => (
-                                <li key={i} className="flex items-start gap-3">
-                                    <span className="text-2xl text-green-600 dark:text-green-400 font-bold">{item.icon}</span>
-                                    <span className="text-lg text-slate-700 dark:text-slate-200">{item.text}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                {/* Solutions */}
+                <div className="kh-dark p-6 sm:p-8">
+                    <h3 className="kh-kanit flex items-center gap-2 text-xl font-bold sm:text-2xl" style={{ color: "var(--kh-onD)" }}>
+                        <span className="text-2xl sm:text-3xl">{data.solutionIcon || "💡"}</span>
+                        {data.solutionTitle || "สิ่งที่จะได้รับ"}
+                    </h3>
+                    {data.solutionDesc && (
+                        <p className="mt-3 text-[15px] leading-relaxed sm:text-base" style={{ color: "var(--kh-onDmut)" }}>
+                            {data.solutionDesc}
+                        </p>
+                    )}
+                    <ul className="mt-4">
+                        {data.solutions.map((item, i) => (
+                            <li
+                                key={i}
+                                className="flex items-start gap-3 border-b py-3.5 last:border-0 last:pb-0"
+                                style={{ borderColor: "var(--kh-onDline)" }}
+                            >
+                                <span
+                                    className="grid h-7 w-7 flex-shrink-0 place-items-center rounded-full text-sm font-bold leading-none"
+                                    style={{ background: "var(--kh-good)", color: "var(--kh-onD)" }}
+                                >
+                                    {item.icon}
+                                </span>
+                                <span className="text-[15px] leading-relaxed sm:text-base" style={{ color: "var(--kh-onD)" }}>
+                                    {item.text}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             </div>
         </section>

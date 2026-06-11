@@ -7,75 +7,92 @@ export default function PriceStackSection({ data, ctx }: { data: PriceStackData;
     const savingsPercent = Math.round((savings / data.regularPrice) * 100);
 
     return (
-        <section className="max-w-4xl mx-auto px-6 py-16">
-            <div className="text-center mb-10">
-                <h2 className="text-4xl md:text-5xl font-bold text-slate-800 dark:text-white mb-4">
-                    {data.title || "คุ้มทุกบาท ทุกสตางค์ 💰"}
-                </h2>
-                {data.subtitle && <p className="text-lg text-slate-500 dark:text-slate-400">{data.subtitle}</p>}
+        <section className="kh-sec">
+            <div className="kh-sec-head">
+                <div className="mb-4">
+                    <span className="kh-eyebrow">💎 ข้อเสนอพิเศษ</span>
+                </div>
+                <h2 className="kh-h2">{data.title || "คุ้มทุกบาท ทุกสตางค์ 💰"}</h2>
+                {data.subtitle && <p className="kh-sub mt-3">{data.subtitle}</p>}
             </div>
 
-            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/40 rounded-[2rem] p-8 md:p-10 border-2 border-indigo-100 dark:border-indigo-900/50 shadow-xl">
-                {/* Value Stack */}
-                <div className="space-y-3 mb-8">
+            {/* The drama panel */}
+            <div className="kh-dark mx-auto w-full max-w-[640px] p-8 md:p-10">
+                {/* Value stack — receipt rows */}
+                <div className="mb-6">
                     {data.items.map((item, i) => (
                         <div
                             key={i}
-                            className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800"
+                            className="flex items-center gap-3 py-3.5 border-b last:border-b-0"
+                            style={{ borderColor: "var(--kh-onDline)" }}
                         >
-                            <div className="flex items-center gap-3">
-                                <span className="text-emerald-500 dark:text-emerald-400 text-xl">✓</span>
-                                <span className="text-slate-700 dark:text-slate-200 font-medium">{item.name}</span>
-                            </div>
-                            <span className="text-slate-500 dark:text-slate-400 font-semibold">
+                            <span className="text-lg leading-none" style={{ color: "var(--kh-good)" }}>✓</span>
+                            <span className="font-medium" style={{ color: "var(--kh-onD)" }}>{item.name}</span>
+                            <span
+                                aria-hidden="true"
+                                className="flex-1 mx-1 border-b border-dashed"
+                                style={{ borderColor: "var(--kh-onDline)" }}
+                            />
+                            <span className="kh-num font-semibold whitespace-nowrap" style={{ color: "var(--kh-onD)" }}>
                                 {item.value.toLocaleString("th-TH")} ฿
                             </span>
                         </div>
                     ))}
                 </div>
 
-                {/* Total value */}
-                <div className="border-t-2 border-dashed border-indigo-200 dark:border-indigo-800/60 pt-6 mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-lg text-slate-500 dark:text-slate-400 line-through">มูลค่ารวม</span>
-                        <span className="text-2xl text-slate-400 dark:text-slate-500 line-through font-bold">
+                {/* Totals */}
+                <div className="pt-5" style={{ borderTop: "1px solid var(--kh-onDline)" }}>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                        <span style={{ color: "var(--kh-onDmut)" }}>มูลค่ารวม</span>
+                        <span className="kh-num text-xl md:text-2xl font-bold line-through" style={{ color: "var(--kh-onDmut)" }}>
                             {totalValue.toLocaleString("th-TH")} ฿
                         </span>
                     </div>
 
                     {data.regularPrice !== data.finalPrice && (
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-lg text-slate-500 dark:text-slate-400">ราคาปกติ</span>
-                            <span className="text-xl text-slate-500 dark:text-slate-400 line-through">
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                            <span style={{ color: "var(--kh-onDmut)" }}>ราคาปกติ</span>
+                            <span className="kh-num text-lg font-semibold line-through" style={{ color: "var(--kh-onDmut)" }}>
                                 {data.regularPrice.toLocaleString("th-TH")} ฿
                             </span>
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between">
-                        <span className="text-xl font-bold text-slate-800 dark:text-white">ราคาพิเศษวันนี้</span>
-                        <div className="text-right">
-                            <span className="text-4xl md:text-5xl font-black bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-indigo-400 dark:to-blue-400 bg-clip-text text-transparent">
-                                {data.finalPrice.toLocaleString("th-TH")} ฿
-                            </span>
-                        </div>
-                    </div>
+                    {/* Special price */}
+                    <div className="text-center mt-6">
+                        <p className="kh-kanit text-sm font-semibold tracking-wide" style={{ color: "var(--kh-onDmut)" }}>
+                            ราคาพิเศษวันนี้
+                        </p>
+                        <p
+                            className="kh-num font-extrabold leading-tight mt-1"
+                            style={{
+                                fontSize: "clamp(44px, 7vw, 64px)",
+                                background: "linear-gradient(135deg, var(--kh-cta1), var(--kh-cta2))",
+                                WebkitBackgroundClip: "text",
+                                backgroundClip: "text",
+                                WebkitTextFillColor: "transparent",
+                                color: "transparent",
+                            }}
+                        >
+                            {data.finalPrice.toLocaleString("th-TH")} ฿
+                        </p>
 
-                    {savings > 0 && (
-                        <div className="mt-3 inline-flex items-center gap-2 bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-300 px-4 py-2 rounded-full text-sm font-bold">
-                            🔥 ประหยัด {savings.toLocaleString("th-TH")} ฿ ({savingsPercent}%)
-                        </div>
-                    )}
+                        {savings > 0 && (
+                            <div
+                                className="kh-kanit mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold"
+                                style={{ background: "var(--kh-good)", color: "var(--kh-onD)" }}
+                            >
+                                🔥 ประหยัด {savings.toLocaleString("th-TH")} ฿ ({savingsPercent}%)
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {data.discountNote && (
-                    <p className="text-center text-sm text-slate-500 dark:text-slate-400 mb-6">{data.discountNote}</p>
+                    <p className="text-center text-sm mt-5" style={{ color: "var(--kh-onDmut)" }}>{data.discountNote}</p>
                 )}
 
-                <button
-                    onClick={ctx.onCTAClick}
-                    className="w-full py-5 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all"
-                >
+                <button onClick={ctx.onCTAClick} className="kh-cta-btn w-full mt-6" style={{ padding: "17px 30px" }}>
                     {data.ctaText || "สมัครเรียนเลย"}
                 </button>
             </div>

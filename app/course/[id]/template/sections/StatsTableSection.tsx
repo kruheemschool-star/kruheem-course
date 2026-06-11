@@ -6,30 +6,56 @@ export default function StatsTableSection({ data }: { data: StatsTableData }) {
     if (!data.rows || data.rows.length === 0) return null;
 
     return (
-        <section className="max-w-3xl mx-auto px-6 py-12">
+        <section className="kh-sec">
             {data.title && (
-                <h2 className="text-3xl font-bold text-center text-slate-800 dark:text-white mb-10">{data.title}</h2>
+                <div className="kh-sec-head">
+                    <h2 className="kh-h2">{data.title}</h2>
+                </div>
             )}
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="kh-card max-w-[760px] mx-auto overflow-hidden">
                 <table className="w-full text-left">
                     <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-                            <th className="px-6 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-2/5">
+                        <tr
+                            style={{
+                                background: "var(--kh-tint)",
+                                borderBottom: "1px solid var(--kh-pLine)",
+                            }}
+                        >
+                            <th
+                                className="kh-kanit px-5 sm:px-7 py-4 text-[13px] sm:text-sm font-semibold tracking-wide w-2/5"
+                                style={{ color: "var(--kh-pText)" }}
+                            >
                                 {data.leftHeader}
                             </th>
-                            <th className="px-6 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <th
+                                className="kh-kanit px-5 sm:px-7 py-4 text-[13px] sm:text-sm font-semibold tracking-wide"
+                                style={{ color: "var(--kh-pText)" }}
+                            >
                                 {data.rightHeader}
                             </th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white dark:bg-slate-950">
+                    <tbody>
                         {data.rows.map((row, i) => (
-                            <tr key={i} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/60 dark:hover:bg-slate-900/60 transition-colors">
-                                <td className="px-6 py-4 text-xl md:text-2xl font-black text-slate-900 dark:text-white align-top whitespace-nowrap">
+                            <tr
+                                key={i}
+                                className="border-b last:border-0"
+                                style={{
+                                    borderColor: "var(--kh-line)",
+                                    background: i % 2 === 1 ? "var(--kh-paper)" : "var(--kh-card)",
+                                }}
+                            >
+                                <td
+                                    className="kh-num px-5 sm:px-7 py-4 text-xl md:text-2xl font-extrabold align-top whitespace-nowrap"
+                                    style={{ color: "var(--kh-pText)" }}
+                                >
                                     {row.left}
                                 </td>
-                                <td className="px-6 py-4 text-slate-600 dark:text-slate-300 leading-relaxed align-middle">
+                                <td
+                                    className="px-5 sm:px-7 py-4 leading-relaxed align-middle"
+                                    style={{ color: "var(--kh-body)" }}
+                                >
                                     {row.right}
                                 </td>
                             </tr>
