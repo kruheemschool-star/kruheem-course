@@ -430,6 +430,7 @@ export default function PaymentPage() {
   };
 
   const filteredCourses = courses
+    .filter(c => !c.salesPage?.previewOnly) // "ปิดการขายชั่วคราว" — not yet released, can't be bought
     .filter(c => (c.category || "อื่นๆ") === selectedCategory)
     .sort((a, b) => {
       // Use custom order for ประถม category
@@ -774,7 +775,19 @@ export default function PaymentPage() {
 
             {/* ── Sticky order summary ── */}
             <aside className="lg:sticky lg:top-6">
-              <div className="gp-card p-5">
+              {/* Pastel-mint order summary (light-only graph theme → scoped var overrides;
+                  --card is left white so the coupon input still stands out on the mint card) */}
+              <div
+                className="gp-card p-5"
+                style={{
+                  background: "#DEF5EC",
+                  ["--line" as string]: "#BFE8D6",
+                  ["--line-2" as string]: "#ADE0CA",
+                  ["--accent" as string]: "#0D9488",
+                  ["--accent-deep" as string]: "#0F766E",
+                  ["--accent-soft" as string]: "#CDEFE2",
+                }}
+              >
                 <h3 className="font-medium text-lg text-[color:var(--ink)] mb-3">สรุปคำสั่งซื้อ</h3>
 
                 {selectedCourses.length === 0 ? (

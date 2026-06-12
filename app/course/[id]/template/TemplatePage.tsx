@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
@@ -38,8 +39,15 @@ export default function TemplatePage({
     totalStudents,
 }: Props) {
     const router = useRouter();
+    const [previewNotice, setPreviewNotice] = useState(false);
 
     const handleCTAClick = async () => {
+        // "ปิดการขายชั่วคราว": course not yet released — show a notice, don't go to checkout.
+        if (config.previewOnly) {
+            setPreviewNotice(true);
+            setTimeout(() => setPreviewNotice(false), 4500);
+            return;
+        }
         if (user) {
             router.push("/payment");
         } else {
@@ -136,6 +144,19 @@ export default function TemplatePage({
             )}
             {boosters?.exitIntent?.enabled && (
                 <ExitIntentPopup config={boosters.exitIntent} onCTAClick={handleCTAClick} courseId={courseId} />
+            )}
+
+            {/* "ปิดการขายชั่วคราว" notice — shown when a preview-only course's CTA is tapped */}
+            {previewNotice && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] w-[92vw] max-w-md px-2">
+                    <div className="flex items-center gap-3 rounded-2xl bg-slate-900 text-white px-5 py-3.5 shadow-2xl">
+                        <span className="text-xl shrink-0">🔜</span>
+                        <p className="text-sm font-medium leading-snug">
+                            คอร์สนี้กำลังจะเปิด <b>เร็ว ๆ นี้</b> — ยังไม่เปิดจำหน่าย<br />
+                            ติดตามได้ทาง LINE <b>@kruheemschool</b> ครับ
+                        </p>
+                    </div>
+                </div>
             )}
         </KhThemeChrome>
     );

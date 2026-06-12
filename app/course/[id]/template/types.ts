@@ -404,6 +404,10 @@ export interface BoostersConfig {
 
 export interface SalesPageConfig {
     enabled: boolean;
+    /** "ปิดการขายชั่วคราว": show the page (curriculum preview) but block checkout.
+     *  CTAs show a "เปิดเร็ว ๆ นี้" notice instead of going to /payment, and the
+     *  course is hidden from the /payment selection. Used for not-yet-released courses. */
+    previewOnly?: boolean;
     theme?: {
         /** kh-* palette id (mint/ocean/sakura/…) chosen by admin per course. See KH_THEMES in khTheme.ts. */
         id?: string;
