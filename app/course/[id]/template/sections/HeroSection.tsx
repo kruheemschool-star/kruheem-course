@@ -190,22 +190,6 @@ export default function HeroSection({ data, ctx }: Props) {
                         )}
                     </div>
 
-                    {/* Mascot greeter */}
-                    <div className="mt-9 flex items-end justify-center lg:justify-start gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                            src="/assets/kruheem_avatar.png"
-                            alt="ครูฮีม"
-                            loading="lazy"
-                            className="w-20 md:w-24 h-auto"
-                        />
-                        <span
-                            className="kh-chip mb-3"
-                            style={{ borderRadius: "16px 16px 16px 4px", boxShadow: "var(--kh-shadow-sm)" }}
-                        >
-                            ครูฮีมรอสอนน้องอยู่นะ 👋
-                        </span>
-                    </div>
                 </div>
 
                 {/* ============ RIGHT COLUMN ============ */}
