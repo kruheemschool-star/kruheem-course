@@ -173,6 +173,9 @@ export interface TestimonialData {
     title?: string;
     subtitle?: string;
     stories: TestimonialStory[];
+    /** Pull REAL reviews from the site (/api/home-reviews) and show them as a
+     *  slow left-scrolling marquee, instead of the hand-written `stories`. */
+    useRealReviews?: boolean;
 }
 
 export interface TrustBadgeStat {

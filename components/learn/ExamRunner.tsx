@@ -9,6 +9,8 @@ import {
     getPaceStatus,
     getProficiencyLevel,
     percentileFromBuckets,
+    isFillQuestion,
+    isFillCorrect,
 } from "@/lib/exam-utils";
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
@@ -116,7 +118,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     const [isFocused, setIsFocused] = useState(false);
     const [mode, setMode] = useState<Mode | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [answers, setAnswers] = useState<Record<number, number>>({});
+    // MCQ answers are option indices (number); fill-in answers are typed text (string).
+    const [answers, setAnswers] = useState<Record<number, number | string>>({});
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [score, setScore] = useState(0);
     const [revealed, setRevealed] = useState<Record<number, boolean>>({});
@@ -322,9 +325,26 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isSubmitted]);
 
+    // Unified correctness check: fill-in compares typed text against accepted
+    // answers (forgiving), MCQ compares the chosen option index.
+    const isAnswerCorrect = (q: any, ans: number | string | undefined) => {
+        if (isFillQuestion(q)) return isFillCorrect(typeof ans === 'string' ? ans : (ans == null ? '' : String(ans)), q.answers);
+        return ans === getCorrectIndex(q);
+    };
+
     const handleSelect = (idx: number) => {
         if (isSubmitted || revealed[currentIndex]) return;
         setAnswers({ ...answers, [currentIndex]: idx });
+    };
+
+    const handleTextChange = (value: string) => {
+        if (isSubmitted || revealed[currentIndex]) return;
+        setAnswers((prev) => {
+            const next = { ...prev };
+            if (value === '') delete next[currentIndex];
+            else next[currentIndex] = value;
+            return next;
+        });
     };
 
     const toggleReveal = () => setRevealed((prev) => ({ ...prev, [currentIndex]: true }));
@@ -334,7 +354,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         if (!force && !confirm("ยืนยันส่งคำตอบหรือไม่?")) return;
         commitQuestionTime();
         let s = 0;
-        questions.forEach((q, i) => { if (answers[i] === getCorrectIndex(q)) s++; });
+        questions.forEach((q, i) => { if (isAnswerCorrect(q, answers[i])) s++; });
         setScore(s);
         setFinalDuration(elapsedNow());
         setIsSubmitted(true);
@@ -408,7 +428,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
             idx,
             seconds: qTimes.current[idx] ?? 0,
             answered: answers[idx] !== undefined,
-            isCorrect: answers[idx] === getCorrectIndex(q),
+            isCorrect: isAnswerCorrect(q, answers[idx]),
         }));
         const timed = perQ.filter((p) => p.answered && p.seconds > 0);
         const hasTiming = timed.length > 0;
@@ -428,13 +448,13 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
             !p.answered || getCombinedVerdict(p.seconds, paceTarget, p.isCorrect, p.answered).shouldReview
         );
         const maxSec = Math.max(paceTarget, ...perQ.map((p) => p.seconds), 1);
-        const wrongQs = questions.filter((q, i) => answers[i] === undefined || answers[i] !== getCorrectIndex(q));
+        const wrongQs = questions.filter((q, i) => answers[i] === undefined || !isAnswerCorrect(q, answers[i]));
 
         // Phase 4.3: sub-topic weak analysis — active ONLY when questions carry
         // a tag/tags/topic field. A tag is "weak" with >=2 attempts and >=40% wrong.
         const tagStats: Record<string, { wrong: number; total: number }> = {};
         questions.forEach((q, i) => {
-            const correct = answers[i] !== undefined && answers[i] === getCorrectIndex(q);
+            const correct = answers[i] !== undefined && isAnswerCorrect(q, answers[i]);
             const tags: string[] = Array.isArray(q.tags) ? q.tags.filter(Boolean)
                 : (typeof q.tag === 'string' && q.tag.trim()) ? [q.tag.trim()]
                     : (typeof q.topic === 'string' && q.topic.trim()) ? [q.topic.trim()] : [];
@@ -659,11 +679,15 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                         </div>
                     </div>
                     <QuestionCard
-                        question={{ id: reviewingIndex, question: q.question, options: q.options, correctIndex: getCorrectIndex(q), explanation: q.explanation, image: q.image, svg: q.svg }}
+                        question={isFillQuestion(q)
+                            ? { id: reviewingIndex, type: 'fill', question: q.question, answers: q.answers, explanation: q.explanation, image: q.image, svg: q.svg }
+                            : { id: reviewingIndex, question: q.question, options: q.options, correctIndex: getCorrectIndex(q), explanation: q.explanation, image: q.image, svg: q.svg }}
                         questionNumber={reviewingIndex + 1}
                         totalQuestions={total}
-                        selectedOption={answers[reviewingIndex] ?? null}
+                        selectedOption={typeof answers[reviewingIndex] === 'number' ? (answers[reviewingIndex] as number) : null}
+                        textAnswer={typeof answers[reviewingIndex] === 'string' ? (answers[reviewingIndex] as string) : ''}
                         onSelectOption={() => { }}
+                        onChangeText={() => { }}
                         isSubmitted={true}
                     />
                 </div>
@@ -718,7 +742,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                     <div className="grid grid-cols-5 md:grid-cols-10 xl:grid-cols-[repeat(15,minmax(0,1fr))] gap-2">
                         {questions.map((_, idx) => {
                             const isCurrent = idx === currentIndex;
-                            const isDone = answers[idx] !== undefined;
+                            const isDone = answers[idx] !== undefined && answers[idx] !== '';
                             let btnStyle = "bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-600 hover:text-slate-600 dark:hover:text-slate-300 border border-transparent";
                             if (isCurrent) btnStyle = "bg-yellow-400 text-yellow-900 font-black shadow-lg shadow-yellow-200 dark:shadow-yellow-900/30 scale-110 z-10 ring-2 ring-white dark:ring-slate-800";
                             else if (isDone) btnStyle = "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 font-bold border-indigo-100 dark:border-indigo-700";
@@ -732,11 +756,15 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                 {/* 📝 Question */}
                 <div ref={questionCardRef} className="scroll-mt-4">
                     <QuestionCard
-                        question={{ id: currentIndex, question: currentQ.question, options: currentQ.options, correctIndex: getCorrectIndex(currentQ), explanation: currentQ.explanation, image: currentQ.image, svg: currentQ.svg }}
+                        question={isFillQuestion(currentQ)
+                            ? { id: currentIndex, type: 'fill', question: currentQ.question, answers: currentQ.answers, explanation: currentQ.explanation, image: currentQ.image, svg: currentQ.svg }
+                            : { id: currentIndex, question: currentQ.question, options: currentQ.options, correctIndex: getCorrectIndex(currentQ), explanation: currentQ.explanation, image: currentQ.image, svg: currentQ.svg }}
                         questionNumber={currentIndex + 1}
                         totalQuestions={total}
-                        selectedOption={answers[currentIndex] ?? null}
+                        selectedOption={typeof answers[currentIndex] === 'number' ? (answers[currentIndex] as number) : null}
+                        textAnswer={typeof answers[currentIndex] === 'string' ? (answers[currentIndex] as string) : ''}
                         onSelectOption={handleSelect}
+                        onChangeText={handleTextChange}
                         isSubmitted={revealed[currentIndex]}
                     />
                 </div>

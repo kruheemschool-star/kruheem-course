@@ -222,9 +222,10 @@ const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, 
                                                     : lesson.type === 'text' ? 'bg-pink-100 text-pink-600'
                                                         : lesson.type === 'exercise' ? 'bg-emerald-100 text-emerald-600'
                                                             : lesson.type === 'html' ? 'bg-cyan-100 text-cyan-600'
+                                                                : lesson.type === 'practice' ? 'bg-rose-100 text-rose-600'
                                                                 : lesson.type === 'flashcard' ? 'bg-yellow-100 text-yellow-600'
                                                                     : 'bg-blue-100 text-blue-600'}`}>
-                                                {lesson.type === 'quiz' ? <QuizIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : lesson.type === 'flashcard' ? <FlashcardIcon /> : <VideoIcon />}
+                                                {lesson.type === 'quiz' ? <QuizIcon /> : lesson.type === 'text' ? <TextIcon /> : lesson.type === 'exercise' ? <ExerciseIcon /> : lesson.type === 'practice' ? <ExerciseIcon /> : lesson.type === 'html' ? <HtmlIcon /> : lesson.type === 'flashcard' ? <FlashcardIcon /> : <VideoIcon />}
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="font-semibold text-slate-700 truncate text-sm md:text-base">{lesson.title}</p>
@@ -396,8 +397,8 @@ export default function ManageLessonsPage() {
         }
     }, [activeTab, fetchStudents]);
 
-    // ✅ เพิ่ม Type 'exercise', 'html', 'flashcard'
-    const [addType, setAddType] = useState<'header' | 'video' | 'text' | 'quiz' | 'exercise' | 'html' | 'flashcard'>('header');
+    // ✅ เพิ่ม Type 'exercise', 'html', 'flashcard', 'practice'
+    const [addType, setAddType] = useState<'header' | 'video' | 'text' | 'quiz' | 'exercise' | 'html' | 'flashcard' | 'practice'>('header');
 
     // Form State
     const [lessonTitle, setLessonTitle] = useState("");
@@ -461,8 +462,10 @@ export default function ManageLessonsPage() {
     const [isAddingQuestion, setIsAddingQuestion] = useState(false);
 
     // Sync LessonContent -> ExamQuestions (On Load / Mode Switch)
+    // ครอบคลุมทั้ง 'html' (ตะลุยโจทย์) และ 'practice' (แบบฝึกหัด inline) — ใช้ editor เดียวกัน
     useEffect(() => {
-        if (addType === 'html' && lessonContent) {
+        const isQuestionType = addType === 'html' || addType === 'practice';
+        if (isQuestionType && lessonContent) {
             try {
                 // Prevent Infinite Loop: Check if content matches current state
                 const currentStr = JSON.stringify(examQuestions, null, 2);
@@ -476,7 +479,7 @@ export default function ManageLessonsPage() {
                 // If invalid JSON, maybe force Raw Mode or just keep empty
                 if (lessonContent.trim()) setIsRawMode(true);
             }
-        } else if (addType === 'html' && !lessonContent) {
+        } else if (isQuestionType && !lessonContent) {
             if (examQuestions.length > 0) setExamQuestions([]);
         }
     }, [addType, lessonContent, examQuestions]);
@@ -635,16 +638,20 @@ export default function ManageLessonsPage() {
             // ========== Phase 5: Process and Save ==========
             const newItems = Array.isArray(parsed) ? parsed : [parsed];
 
-            // Validate basic structure
+            // Validate basic structure — รองรับทั้งตัวเลือก (MCQ) และเติมคำ (fill-in)
             const validItems = newItems.filter(item => {
                 if (!item.question) return false;
+                // เติมคำ: type:'fill' หรือมี answers (รายการคำตอบที่ยอมรับ)
+                const isFill = item.type === 'fill' || (Array.isArray(item.answers) && item.answers.length > 0);
+                if (isFill) return true;
+                // ตัวเลือก: ต้องมี options อย่างน้อย 2 ตัว
                 if (!item.options || !Array.isArray(item.options)) return false;
-                if (item.options.length < 2) return false; // At least 2 options
+                if (item.options.length < 2) return false;
                 return true;
             });
 
             if (validItems.length === 0) {
-                showToast("❌ ไม่พบข้อสอบที่ถูกต้อง\nต้องมี field: question และ options (อย่างน้อย 2 ตัวเลือก)", "error");
+                showToast("❌ ไม่พบข้อสอบที่ถูกต้อง\nตัวเลือก: ต้องมี question + options (อย่างน้อย 2)\nเติมคำ: ต้องมี question + answers หรือ type:\"fill\"", "error");
                 return;
             }
 
@@ -1089,6 +1096,10 @@ export default function ManageLessonsPage() {
             setHtmlCode(lesson.htmlCode || "");
             setLessonContent(lesson.content || "");
             setIsFree(lesson.isFree || false);
+        } else if (lesson.type === 'practice') {
+            // โหลด JSON คำถามจาก content เข้า editor (sync effect จะ parse → examQuestions)
+            setLessonContent(lesson.content || "");
+            setIsFree(lesson.isFree || false);
         } else if (lesson.type === 'flashcard') {
             const data = lesson.flashcardData || [];
             syncFlashcardEditor(data);
@@ -1238,6 +1249,10 @@ export default function ManageLessonsPage() {
                 dataToSave.correctAnswer = correctAnswer;
             } else if (addType === 'html') {
                 dataToSave.htmlCode = htmlCode;
+                dataToSave.content = lessonContent;
+                dataToSave.isFree = isFree;
+            } else if (addType === 'practice') {
+                // แบบฝึกหัด/แนวข้อสอบ (inline) — เก็บ JSON คำถามไว้ใน content เหมือน html
                 dataToSave.content = lessonContent;
                 dataToSave.isFree = isFree;
             } else if (addType === 'flashcard') {
@@ -1548,6 +1563,8 @@ export default function ManageLessonsPage() {
                                     <button type="button" onClick={() => setAddType('exercise')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'exercise' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><ExerciseIcon /> <span className="hidden sm:inline">แบบฝึกหัด</span></button>
                                     {/* ✅ ปุ่ม HTML ใหม่ -> เปลี่ยนเป็น Exam System */}
                                     <button type="button" onClick={() => setAddType('html')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'html' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><Blocks size={18} /> <span className="hidden sm:inline">ข้อสอบ (Exam)</span></button>
+
+                                    <button type="button" onClick={() => setAddType('practice')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'practice' ? 'bg-rose-500 text-white shadow-lg shadow-rose-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><FileJson size={18} /> <span className="hidden sm:inline">แบบฝึกหัด/แนวข้อสอบ</span></button>
                                     {/* ✅ ปุ่ม Flashcard ใหม่ */}
                                     <button type="button" onClick={() => setAddType('flashcard')} disabled={!!editId && addType === 'header'} className={`py-3 px-2 rounded-2xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-1 ${addType === 'flashcard' ? 'bg-yellow-500 text-white shadow-lg shadow-yellow-200 scale-105' : 'text-slate-400 hover:bg-white'} ${!!editId && addType === 'header' ? 'opacity-30 cursor-not-allowed' : ''}`}><FlashcardIcon /> <span className="hidden sm:inline">Flashcard</span></button>
                                 </div>
@@ -1573,7 +1590,7 @@ export default function ManageLessonsPage() {
                                         </div>
                                     )}
 
-                                    <input type="text" placeholder={addType === 'quiz' ? "ตั้งคำถาม..." : addType === 'exercise' ? "ชื่อแบบฝึกหัดทบทวน..." : addType === 'html' ? "ชื่อหัวข้อ (เช่น แบบฝึกหัด, สรุปเนื้อหา)..." : "ชื่อ/หัวข้อ..."} className="w-full p-5 border-2 rounded-2xl outline-none transition font-bold text-lg shadow-sm" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} />
+                                    <input type="text" placeholder={addType === 'quiz' ? "ตั้งคำถาม..." : addType === 'exercise' ? "ชื่อแบบฝึกหัดทบทวน..." : addType === 'practice' ? "ชื่อแบบฝึกหัด เช่น แบบฝึกหัดค่าประจำหลัก..." : addType === 'html' ? "ชื่อหัวข้อ (เช่น แบบฝึกหัด, สรุปเนื้อหา)..." : "ชื่อ/หัวข้อ..."} className="w-full p-5 border-2 rounded-2xl outline-none transition font-bold text-lg shadow-sm" value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} />
 
                                     {addType === 'video' && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
@@ -2012,7 +2029,7 @@ export default function ManageLessonsPage() {
                                         </div>
                                     )}
 
-                                    {addType === 'html' && (
+                                    {(addType === 'html' || addType === 'practice') && (
                                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
                                             {/* Toolbar */}
                                             <div className="flex justify-between items-center mb-2">
@@ -2041,9 +2058,9 @@ export default function ManageLessonsPage() {
                                             {/* Add Question Panel */}
                                             {isAddingQuestion && !isRawMode && (
                                                 <div className="bg-cyan-50 p-4 rounded-2xl border-2 border-cyan-200 shadow-sm animate-in slide-in-from-top-2">
-                                                    <label className="block text-xs font-bold text-cyan-700 mb-2">💡 วางโค้ด JSON ของข้อสอบ (ข้อเดียวหรือหลายข้อพร้อมกัน):</label>
+                                                    <label className="block text-xs font-bold text-cyan-700 mb-2">💡 วางโค้ด JSON ของข้อสอบ (ตัวเลือก / เติมคำ — ข้อเดียวหรือหลายข้อพร้อมกัน):</label>
                                                     <textarea
-                                                        placeholder={`// ข้อเดียว:\n{\n  "question": "...",\n  "options": ["...", "...", "...", "..."],\n  "answer": "1. ...",\n  "solution": "..."\n}\n\n// หลายข้อ:\n[\n  { "question": "...", "options": [...], "answer": "1. ..." },\n  { "question": "...", "options": [...], "answer": "2. ..." }\n]\n\n// หมายเหตุ: answer ใช้ตัวเลข 1-4 เท่านั้น`}
+                                                        placeholder={`// ตัวเลือก (MCQ):\n{\n  "question": "...",\n  "options": ["...", "...", "...", "..."],\n  "answer": "1. ...",\n  "solution": "..."\n}\n\n// เติมคำ (fill-in) — พิมพ์ตอบ:\n{\n  "type": "fill",\n  "question": "หลักล้านมีค่าประจำหลักเท่าใด",\n  "answers": ["1000000", "1,000,000"],\n  "explanation": "..."\n}\n\n// ผสมหลายข้อในชุดเดียวกันได้ → [ {...}, {...} ]\n// MCQ: answer ใช้ตัวเลข 1-4 · เติมคำ: ใส่คำตอบที่ยอมรับได้หลายแบบใน answers`}
                                                         className="w-full p-4 bg-white border-2 border-cyan-100 rounded-xl outline-none min-h-[200px] font-mono text-xs text-slate-600 mb-3"
                                                         value={newQuestionJson}
                                                         onChange={(e) => setNewQuestionJson(e.target.value)}
@@ -2239,7 +2256,7 @@ export default function ManageLessonsPage() {
                                         </div>
                                     )}
 
-                                    <button type="submit" disabled={submitting} className={`w-full py-4 rounded-2xl font-black text-white shadow-lg hover:shadow-xl transition text-lg tracking-wide mt-2 ${submitting ? 'bg-slate-400 cursor-not-allowed' : addType === 'exercise' ? 'bg-emerald-500 hover:bg-emerald-600' : addType === 'html' ? 'bg-cyan-500 hover:bg-cyan-600' : addType === 'flashcard' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
+                                    <button type="submit" disabled={submitting} className={`w-full py-4 rounded-2xl font-black text-white shadow-lg hover:shadow-xl transition text-lg tracking-wide mt-2 ${submitting ? 'bg-slate-400 cursor-not-allowed' : addType === 'exercise' ? 'bg-emerald-500 hover:bg-emerald-600' : addType === 'html' ? 'bg-cyan-500 hover:bg-cyan-600' : addType === 'practice' ? 'bg-rose-500 hover:bg-rose-600' : addType === 'flashcard' ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-indigo-500 hover:bg-indigo-600'}`}>
                                         {submitting ? '⏳ กำลังบันทึก...' : editId ? '💾 บันทึกการแก้ไข' : '+ เพิ่มลงในบทเรียน'}
                                     </button>
                                 </form>

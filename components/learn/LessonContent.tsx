@@ -310,6 +310,32 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                             )}
                         </div>
                     </div>
+                ) : activeLesson?.type === 'practice' ? (
+                    // แบบฝึกหัด/แนวข้อสอบ (inline episode) — รันด้วย ExamRunner เหมือน html
+                    // แต่แสดงในบท (ไม่ถูกดูดเข้า "ตะลุยโจทย์") และเคารพสิทธิ์ดูฟรี/ลงทะเบียน
+                    !canWatchCurrent ? (
+                        <div className="w-full min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 text-center animate-in fade-in zoom-in duration-500">
+                            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-12 h-12 text-red-500"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">เนื้อหานี้ถูกล็อก</h2>
+                            <p className="text-gray-500 dark:text-gray-400">กรุณาลงทะเบียนคอร์สเพื่อทำแบบฝึกหัดนี้</p>
+                        </div>
+                    ) : (
+                        (() => {
+                            const practiceQuestions = tryParseQuestions(activeLesson.content || "");
+                            if (practiceQuestions) {
+                                return <ExamRunner key={activeLesson.id} questions={practiceQuestions} onComplete={() => markAsComplete(activeLesson.id)} onNext={() => handleNextLesson()} lessonId={activeLesson.id} lessonTitle={activeLesson.title} />;
+                            }
+                            return (
+                                <div className="w-full min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 text-center">
+                                    <div className="text-5xl mb-3">📝</div>
+                                    <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-1">{activeLesson.title}</h2>
+                                    <p className="text-slate-400 dark:text-slate-500">ยังไม่มีข้อสอบในแบบฝึกหัดนี้</p>
+                                </div>
+                            );
+                        })()
+                    )
                 ) : activeLesson?.type === 'html' ? (
                     !isEnrolled && !isAdmin ? (
                         <div className="w-full min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 text-center animate-in fade-in zoom-in duration-500">

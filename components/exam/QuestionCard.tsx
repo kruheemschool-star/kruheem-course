@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { ExamQuestion } from '@/types/exam';
+import { isFillQuestion, isFillCorrect } from '@/lib/exam-utils';
 import MathRenderer from './MathRenderer';
 import { CheckCircle2, XCircle, HelpCircle, ZoomIn, X, ImageIcon, Bookmark } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,6 +17,9 @@ interface QuestionCardProps {
     showAnswerChecking?: boolean; // ถ้า true จะแสดงสีเขียว/แดง ถูก/ผิด
     isQuestionSaved?: boolean;
     onToggleSaveQuestion?: () => void;
+    // เติมคำ (fill-in): ค่าที่ผู้เรียนพิมพ์ + callback เมื่อพิมพ์
+    textAnswer?: string;
+    onChangeText?: (value: string) => void;
 }
 
 // Convert Thai letter references (ก ข ค ง) to numbers (1 2 3 4) in explanation text
@@ -239,6 +243,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     showAnswerChecking = false,
     isQuestionSaved = false,
     onToggleSaveQuestion,
+    textAnswer,
+    onChangeText,
 }) => {
     // 🛡️ Defensive guard: a corrupt/empty record (e.g. `{ correctIndex: 0,
     // options: [] }`) must not crash the whole route. ExamSystem already
@@ -257,10 +263,16 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     const questionText = typeof question.question === 'string'
         ? question.question.replace(/\n{3,}/g, '\n\n')
         : (question.question ?? '');
+    const isFill = isFillQuestion(question);
     const safeOptions = Array.isArray(question.options) ? question.options : [];
-    const hasAnswered = selectedOption !== null;
-    const isCorrect = hasAnswered && selectedOption === question.correctIndex;
-    const correctIndex = question.correctIndex;
+    const acceptedAnswers = Array.isArray(question.answers) ? question.answers : [];
+    const hasAnswered = isFill
+        ? typeof textAnswer === 'string' && textAnswer.trim() !== ''
+        : selectedOption !== null;
+    const isCorrect = isFill
+        ? isFillCorrect(textAnswer, acceptedAnswers)
+        : hasAnswered && selectedOption === question.correctIndex;
+    const correctIndex = question.correctIndex ?? 0;
 
     return (
         <div className="w-full max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl shadow-stone-200/50 dark:shadow-slate-900/50 overflow-hidden border border-stone-100 dark:border-slate-700 transition-all duration-300">
@@ -346,8 +358,46 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     </div>
                 )}
 
-                {/* Content Area: Options or Subjective */}
-                {safeOptions.length > 0 ? (
+                {/* Content Area: Fill-in / Options / Subjective */}
+                {isFill ? (
+                    /* Fill-in (เติมคำ) — graded text input */
+                    <div className="space-y-3">
+                        <label className="block text-sm font-bold text-stone-500 dark:text-slate-400 uppercase tracking-wider">
+                            ✍️ พิมพ์คำตอบ
+                        </label>
+                        <input
+                            type="text"
+                            value={textAnswer ?? ''}
+                            onChange={(e) => onChangeText?.(e.target.value)}
+                            disabled={isSubmitted}
+                            placeholder="พิมพ์คำตอบที่นี่..."
+                            className={`w-full p-4 md:p-5 rounded-2xl border-2 outline-none transition-all text-lg font-medium bg-white dark:bg-slate-700/50 text-stone-700 dark:text-slate-200 disabled:opacity-100 ${
+                                isSubmitted
+                                    ? (isCorrect
+                                        ? 'border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-900/30'
+                                        : 'border-rose-300 dark:border-rose-600 bg-rose-50 dark:bg-rose-900/30')
+                                    : 'border-stone-200 dark:border-slate-600 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 dark:focus:ring-amber-900'
+                            }`}
+                        />
+                        {isSubmitted && (
+                            <div className={`rounded-2xl p-4 border flex flex-col gap-1.5 ${
+                                isCorrect
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700'
+                                    : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-700'
+                            }`}>
+                                <div className={`flex items-center gap-2 font-bold ${isCorrect ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
+                                    {isCorrect ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                                    {isCorrect ? 'ตอบถูก!' : hasAnswered ? 'ตอบยังไม่ถูก' : 'ไม่ได้ตอบ'}
+                                </div>
+                                {!isCorrect && acceptedAnswers.length > 0 && (
+                                    <div className="text-sm text-stone-600 dark:text-slate-300">
+                                        คำตอบที่ยอมรับ: <span className="font-bold text-emerald-700 dark:text-emerald-400">{acceptedAnswers.join('  /  ')}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ) : safeOptions.length > 0 ? (
                     /* Multiple Choice Grid */
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {safeOptions.map((option, index) => {

@@ -527,7 +527,7 @@ function CoursePlayer() {
                             <span>รับใบประกาศนียบัตร</span>
                         </button>
 
-                        {user && canWatchCurrent && !isHeaderMode && !(activeLesson?.type === 'html' && (activeLesson.htmlCode?.trim().startsWith('[') || activeLesson.htmlCode?.trim().startsWith('{'))) && (
+                        {user && canWatchCurrent && !isHeaderMode && activeLesson?.type !== 'practice' && !(activeLesson?.type === 'html' && (activeLesson.htmlCode?.trim().startsWith('[') || activeLesson.htmlCode?.trim().startsWith('{'))) && (
                             <button
                                 onClick={handleNextLesson}
                                 className="flex items-center justify-center gap-2 h-10 px-6 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 hover:border-emerald-300 rounded-full font-bold text-sm transition-all shadow-sm group"

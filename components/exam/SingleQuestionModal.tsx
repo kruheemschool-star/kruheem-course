@@ -37,7 +37,7 @@ export default function SingleQuestionModal({
         return () => window.removeEventListener("keydown", onKey);
     }, [onClose]);
 
-    const correctIndex = question.correctIndex;
+    const correctIndex = question.correctIndex ?? 0;
     const hasAnswered = selectedOption !== null;
     const isCorrect = hasAnswered && selectedOption === correctIndex;
 

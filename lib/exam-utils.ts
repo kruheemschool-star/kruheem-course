@@ -88,6 +88,34 @@ export const isValidExamQuestion = (q: any): boolean => {
 export const getValidQuestionCount = (questions: any): number =>
     Array.isArray(questions) ? questions.filter(isValidExamQuestion).length : 0;
 
+// ── Fill-in (เติมคำ) support ──────────────────────────────────────────────
+// A question is "fill-in" when it explicitly sets type:'fill', OR it carries an
+// accepted-answers list and has no multiple-choice options. Everything else is MCQ.
+export const isFillQuestion = (q: any): boolean =>
+    !!q && typeof q === 'object' && (
+        q.type === 'fill' ||
+        (Array.isArray(q.answers) && q.answers.length > 0 && !(Array.isArray(q.options) && q.options.length > 0))
+    );
+
+// Normalize a typed answer for forgiving comparison: trim, lowercase, convert
+// Thai digits (๐-๙) → Arabic (0-9), and drop spaces / commas / currency that a
+// student might add (e.g. "1,000,000 บาท" === "1000000").
+export const normalizeFillAnswer = (s: any): string => {
+    if (s == null) return '';
+    let t = String(s).trim().toLowerCase();
+    t = t.replace(/[๐-๙]/g, (d) => String(d.charCodeAt(0) - 0x0e50)); // ๐-๙ → 0-9
+    t = t.replace(/\s+/g, '').replace(/,/g, '').replace(/฿/g, '').replace(/บาท/g, '');
+    return t;
+};
+
+// True when the typed answer matches ANY accepted answer after normalization.
+export const isFillCorrect = (userText: any, acceptedAnswers: any): boolean => {
+    if (!Array.isArray(acceptedAnswers) || acceptedAnswers.length === 0) return false;
+    const u = normalizeFillAnswer(userText);
+    if (!u) return false;
+    return acceptedAnswers.some((a) => normalizeFillAnswer(a) === u);
+};
+
 // Sanitize exam data: per-question bounds checking + explanation cross-check
 // CRITICAL: explanation answer ALWAYS wins over any stored field
 //
@@ -108,6 +136,18 @@ export const sanitizeExamData = (examData: ExamQuestion[]): ExamQuestion[] => {
             const safeQuestion = typeof q.question === 'string'
                 ? q.question
                 : (q.question == null ? '' : String(q.question));
+
+            // Fill-in (เติมคำ): no options/index to bounds-check — keep the
+            // accepted-answers list intact and leave the rest untouched.
+            if (isFillQuestion(q)) {
+                return {
+                    ...q,
+                    type: 'fill',
+                    question: safeQuestion,
+                    answers: Array.isArray(q.answers) ? q.answers.map((a: any) => (typeof a === 'string' ? a : String(a ?? ''))) : [],
+                };
+            }
+
             const safeOptions = Array.isArray(q.options)
                 ? q.options.map((o: any) => (typeof o === 'string' ? o : (o == null ? '' : String(o))))
                 : [];
@@ -141,6 +181,21 @@ export const sanitizeExamData = (examData: ExamQuestion[]): ExamQuestion[] => {
 
 // Transform external exam format to internal format (used in admin import)
 export const transformExamQuestion = (q: any) => {
+    // Fill-in (เติมคำ): no options / no correct index — preserve the accepted
+    // answers list verbatim and skip all the MCQ answer-resolution below.
+    if (isFillQuestion(q)) {
+        return {
+            type: 'fill' as const,
+            question: q.question || "",
+            image: q.image,
+            svg: q.svg,
+            answers: Array.isArray(q.answers) ? q.answers.map((a: any) => String(a)) : [],
+            explanation: q.solution || q.explanation || "",
+            tags: Array.isArray(q.tags) ? q.tags : (q.space ? [q.space] : []),
+            suggestedTags: [],
+        };
+    }
+
     let answerIndex = q.answerIndex ?? q.correctIndex ?? 0;
     if (q.answer && typeof q.answer === 'string') {
         // Try number format first: "1. ...", "2. ..."
@@ -211,6 +266,7 @@ export const transformExamQuestion = (q: any) => {
     }
 
     return {
+        type: 'choice' as const,
         question: q.question || "",
         image: q.image,
         svg: q.svg,

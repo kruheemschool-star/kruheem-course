@@ -3,9 +3,12 @@ export interface ExamQuestion {
     question: string; // รองรับ LaTeX ในรูปแบบ \( ... \) หรือ $ ... $
     image?: string; // URL ของรูปประกอบโจทย์ (Optional)
     svg?: string; // Inline SVG code สำหรับรูปภาพที่สร้างด้วย SVG (Optional)
-    options: string[]; // 4 ตัวเลือก
-    correctIndex: number; // 0-3 (Legacy field, may be incorrect)
-    answerIndex?: number; // 0-3 (Preferred field if available)
+    // ชนิดคำถาม: 'choice' = ตัวเลือก (ค่าเริ่มต้น), 'fill' = เติมคำ (พิมพ์ตอบ)
+    type?: 'choice' | 'fill';
+    options?: string[]; // ตัวเลือก (เฉพาะ MCQ) — เติมคำไม่มี
+    correctIndex?: number; // 0-based index ของตัวเลือกที่ถูก (เฉพาะ MCQ)
+    answerIndex?: number; // 0-based (Preferred field if available)
+    answers?: string[]; // คำตอบที่ยอมรับได้ (เฉพาะเติมคำ) — เทียบแบบไม่สนช่องว่าง/จุลภาค/ตัวพิมพ์
     explanation: string; // เฉลยละเอียด รองรับ LaTeX
     tags?: string[]; // คำค้นหา / หัวข้อเรื่อง
 }

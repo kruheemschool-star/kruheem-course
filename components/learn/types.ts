@@ -1,7 +1,7 @@
 export interface Lesson {
     id: string;
     title: string;
-    type: 'video' | 'header' | 'quiz' | 'text' | 'exercise' | 'html' | 'flashcard';
+    type: 'video' | 'header' | 'quiz' | 'text' | 'exercise' | 'html' | 'flashcard' | 'practice';
     videoId?: string;
     content?: string;
     htmlCode?: string;
