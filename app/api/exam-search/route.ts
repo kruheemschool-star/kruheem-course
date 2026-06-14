@@ -1,36 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
+import { listCollection } from "@/lib/firestoreRest";
 
-// ISR: Cache for 5 minutes to reduce Function Invocations
-export const revalidate = 300;
+// Dynamic: the read below is uncacheable (multi-MB, see below) and must always
+// reflect the latest admin edits (e.g. an exam just flipped to "free").
+export const dynamic = "force-dynamic";
 
+// Reads via the Firestore REST API (see lib/firestoreRest). The Firebase
+// *client* SDK was resolving with an EMPTY/partial snapshot for the `exams`
+// collection inside this route handler on Vercel (it was returning only a
+// handful of stale docs), which got frozen into the ISR cache — so admin
+// changes like flipping an exam to "free" never showed up in search results.
+//
+// This read includes the full `questions` arrays (needed for matching question
+// text), so the raw response is multi-MB — past Next.js's 2MB fetch-cache
+// limit. We therefore read with `noStore` (no fetch caching) instead of fighting
+// that limit. It's fine: ExamListClient only calls this route lazily the first
+// time a user actually types in the search box, not on every page view.
 // API Route for lazy loading exam questions for search
 export async function GET(request: NextRequest) {
     try {
-        const q = query(collection(db, "exams"));
-        const snapshot = await getDocs(q);
+        const docs = await listCollection(
+            "exams",
+            [
+                "title", "description", "level", "themeColor", "coverImage",
+                "tags", "category", "isFree", "order", "createdAt", "questions",
+                "hidden",
+            ],
+            { noStore: true }
+        );
 
-        if (snapshot.empty) {
+        if (docs.length === 0) {
             return NextResponse.json({ exams: [] });
         }
 
-        const examsRaw = snapshot.docs
-            .filter(doc => !doc.data().hidden) // Hide exams marked as hidden
-            .map(doc => {
-            const data = doc.data();
-
+        const examsRaw = docs
+            .filter((d) => !d.hidden) // Hide exams marked as hidden
+            .map((d) => {
             // Parse questions
             let questions: any[] = [];
-            if (data.questions) {
-                if (typeof data.questions === 'string') {
+            if (d.questions) {
+                if (typeof d.questions === 'string') {
                     try {
-                        questions = JSON.parse(data.questions);
+                        questions = JSON.parse(d.questions);
                     } catch (e) {
                         questions = [];
                     }
-                } else if (Array.isArray(data.questions)) {
-                    questions = data.questions;
+                } else if (Array.isArray(d.questions)) {
+                    questions = d.questions;
                 }
             }
 
@@ -41,17 +57,18 @@ export async function GET(request: NextRequest) {
             // category/isFree added so the in-search category filter + free
             // badge in ExamListClient work (they were silently broken).
             return {
-                id: doc.id,
-                title: data.title || "",
-                description: data.description || "",
-                level: data.level || "",
-                themeColor: data.themeColor || "",
-                coverImage: data.coverImage || "",
-                tags: data.tags || [],
-                category: data.category || "General",
-                isFree: data.isFree || false,
-                order: data.order ?? Number.MAX_SAFE_INTEGER,
-                createdAt: data.createdAt?.toDate?.().getTime() || 0,
+                id: d.id,
+                title: (d.title as string) || "",
+                description: (d.description as string) || "",
+                level: (d.level as string) || "",
+                themeColor: (d.themeColor as string) || "",
+                coverImage: (d.coverImage as string) || "",
+                tags: (d.tags as string[]) || [],
+                category: (d.category as string) || "General",
+                isFree: (d.isFree as boolean) || false,
+                order: (d.order as number | undefined) ?? Number.MAX_SAFE_INTEGER,
+                // REST returns timestamps as ISO 8601 strings already.
+                createdAt: d.createdAt ? new Date(d.createdAt as string).getTime() : 0,
                 questions: questions.map((q: any, idx: number) => ({
                     index: idx + 1,
                     question: q.question || "",

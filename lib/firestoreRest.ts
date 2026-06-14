@@ -53,11 +53,24 @@ export interface FsDoc {
  * it and returns null → the page renders without the promo). Cache hits resolve
  * before any network call, so the timeout only bounds the slow/revalidation path.
  */
-async function fetchFs(url: string, revalidate: number, label: string, timeoutMs = 8000): Promise<Response> {
+async function fetchFs(
+    url: string,
+    revalidate: number,
+    label: string,
+    timeoutMs = 8000,
+    noStore = false,
+): Promise<Response> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-        return await fetch(url, { next: { revalidate }, signal: ctrl.signal });
+        // `noStore` bypasses Next.js's fetch data cache. Use it for responses
+        // larger than the 2MB cache limit (e.g. reading exams *with* their full
+        // `questions` arrays): Next can't cache those and logs a noisy
+        // "items over 2MB can not be cached" error on every revalidation.
+        const init: RequestInit = noStore
+            ? { cache: "no-store", signal: ctrl.signal }
+            : { next: { revalidate }, signal: ctrl.signal };
+        return await fetch(url, init);
     } catch (e) {
         if (e instanceof Error && e.name === "AbortError") {
             throw new Error(`Firestore REST ${label}: timed out after ${timeoutMs}ms`);
@@ -75,7 +88,7 @@ async function fetchFs(url: string, revalidate: number, label: string, timeoutMs
 export async function listCollection(
     collectionId: string,
     fields: string[],
-    opts: { pageSize?: number; revalidate?: number } = {}
+    opts: { pageSize?: number; revalidate?: number; noStore?: boolean } = {}
 ): Promise<FsDoc[]> {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -97,7 +110,7 @@ export async function listCollection(
         for (const f of fields) params.append("mask.fieldPaths", f);
         if (pageToken) params.set("pageToken", pageToken);
 
-        const res = await fetchFs(`${base}?${params.toString()}`, opts.revalidate ?? 300, collectionId);
+        const res = await fetchFs(`${base}?${params.toString()}`, opts.revalidate ?? 300, collectionId, 8000, opts.noStore ?? false);
         if (!res.ok) {
             throw new Error(`Firestore REST ${collectionId}: HTTP ${res.status}`);
         }

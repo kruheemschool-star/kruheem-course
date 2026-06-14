@@ -1,12 +1,10 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { listCollection, getDocument } from "@/lib/firestoreRest";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Target, Award, ArrowRight } from "lucide-react";
 import ExamListClient from "@/components/exam/ExamListClient";
-import { doc, getDoc } from "firebase/firestore";
 
 // SEO Metadata
 export const metadata: Metadata = {
@@ -19,13 +17,15 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 // 1. Fetch Data on Server (Metadata only - fast load)
+// Reads via the Firestore REST API (see lib/firestoreRest). The Firebase
+// *client* SDK was resolving with an EMPTY/partial snapshot for the `exams`
+// collection inside this server component on Vercel, which got frozen into the
+// ISR cache — so admin changes like flipping an exam to "free" (isFree) never
+// reflected on the public page. The REST read is reliable in every runtime.
 async function getEnrollmentCount() {
     try {
-        const snap = await getDoc(doc(db, "public_stats", "enrollments"));
-        if (snap.exists()) {
-            return snap.data().count || 0;
-        }
-        return 0;
+        const doc = await getDocument("public_stats/enrollments", { revalidate: 300 });
+        return (doc?.count as number | undefined) ?? 0;
     } catch (error) {
         console.error("Error fetching public enrollment count:", error);
         return 0;
@@ -34,63 +34,58 @@ async function getEnrollmentCount() {
 
 async function getExams() {
     try {
-        const q = query(collection(db, "exams"));
-        const snapshot = await getDocs(q);
+        // Project ONLY the small metadata fields — never `questions`. Each exam's
+        // questions array is 250KB–900KB; pulling it for all 43 exams produces a
+        // multi-MB response that blows past Next.js's 2MB fetch-cache limit (so it
+        // can't be cached and refetches on every request). The per-exam count is
+        // stored separately in the `questionCount` field, so we read that instead.
+        const docs = await listCollection(
+            "exams",
+            [
+                "title", "description", "level", "category", "difficulty",
+                "themeColor", "coverImage", "tags", "isFree", "questionCount",
+                "order", "createdAt", "updatedAt", "hidden",
+            ],
+            { revalidate: 300 }
+        );
 
-        if (!snapshot.empty) {
-            const examList = snapshot.docs
-                .filter(doc => !doc.data().hidden) // Hide exams marked as hidden
-                .map(doc => {
-                const data = doc.data();
-
-                // Count questions without sending full data
-                let questionCount = 0;
-                if (data.questions) {
-                    if (typeof data.questions === 'string') {
-                        try {
-                            const parsed = JSON.parse(data.questions);
-                            questionCount = Array.isArray(parsed) ? parsed.length : 0;
-                        } catch (e) {
-                            questionCount = 0;
-                        }
-                    } else if (Array.isArray(data.questions)) {
-                        questionCount = data.questions.length;
-                    }
-                }
+        const examList = docs
+            .filter((d) => !d.hidden) // Hide exams marked as hidden
+            .map((d) => {
+                const questionCount = (d.questionCount as number | undefined) ?? 0;
 
                 return {
-                    id: doc.id,
-                    title: data.title || "",
-                    description: data.description || "",
-                    level: data.level || "",
-                    category: data.category || "General",
-                    difficulty: data.difficulty || "Medium",
-                    themeColor: data.themeColor || "Blue",
-                    coverImage: data.coverImage || "",
-                    tags: data.tags || [],
-                    isFree: data.isFree || false,
+                    id: d.id,
+                    title: (d.title as string) || "",
+                    description: (d.description as string) || "",
+                    level: (d.level as string) || "",
+                    category: (d.category as string) || "General",
+                    difficulty: (d.difficulty as string) || "Medium",
+                    themeColor: (d.themeColor as string) || "Blue",
+                    coverImage: (d.coverImage as string) || "",
+                    tags: (d.tags as string[]) || [],
+                    isFree: (d.isFree as boolean) || false,
                     questionCount, // Only send count, not full questions
-                    order: data.order ?? Number.MAX_SAFE_INTEGER,
-                    createdAt: data.createdAt?.toDate?.().toISOString() || null,
-                    updatedAt: data.updatedAt?.toDate?.().toISOString() || null,
+                    order: (d.order as number | undefined) ?? Number.MAX_SAFE_INTEGER,
+                    // REST returns timestamps as ISO 8601 strings already.
+                    createdAt: (d.createdAt as string) || null,
+                    updatedAt: (d.updatedAt as string) || null,
                 };
             });
 
-            // Sort by order field, fallback to createdAt ascending
-            examList.sort((a, b) => {
-                const orderA = a.order;
-                const orderB = b.order;
-                if (orderA !== orderB) return orderA - orderB;
+        // Sort by order field, fallback to createdAt ascending
+        examList.sort((a, b) => {
+            const orderA = a.order;
+            const orderB = b.order;
+            if (orderA !== orderB) return orderA - orderB;
 
-                // Fallback to createdAt ascending
-                const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                return timeA - timeB;
-            });
+            // Fallback to createdAt ascending
+            const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return timeA - timeB;
+        });
 
-            return examList;
-        }
-        return [];
+        return examList;
     } catch (error) {
         console.error("Error fetching exams:", error);
         return [];
