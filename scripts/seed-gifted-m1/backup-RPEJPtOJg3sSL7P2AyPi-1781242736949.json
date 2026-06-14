@@ -1,0 +1,59 @@
+{
+  "enabled": false,
+  "sections": [
+    {
+      "id": "hero-1776403250677",
+      "order": 1,
+      "enabled": true,
+      "type": "hero",
+      "data": {
+        "badgeText": "คอร์สยอดนิยม",
+        "title": "คอร์สของคุณ",
+        "subtitle": "คำอธิบายสั้นๆ",
+        "ctaText": "สมัครเรียนทันที",
+        "ctaPriceText": "฿2,900",
+        "secondaryCtaText": "ทดลองเรียน",
+        "pricePerDayText": "เฉลี่ยวันละ 7.95 บาท",
+        "blobColors": [
+          "bg-indigo-200/40",
+          "bg-rose-200/40"
+        ]
+      }
+    },
+    {
+      "id": "painPoint-1776403765517",
+      "order": 2,
+      "enabled": true,
+      "type": "painPoint",
+      "data": {
+        "title": "ปัญหาเหล่านี้... เป็นกันอยู่ไหม?",
+        "subtitle": "ถ้าใช่ คอร์สนี้สำหรับคุณ",
+        "problemTitle": "ปัญหาที่พบบ่อย",
+        "problemIcon": "😰",
+        "problems": [
+          {
+            "icon": "😵",
+            "text": "ปัญหาข้อที่ 1"
+          },
+          {
+            "icon": "📉",
+            "text": "ปัญหาข้อที่ 2"
+          }
+        ],
+        "solutionTitle": "สิ่งที่จะเปลี่ยนไป",
+        "solutionIcon": "✨",
+        "solutionDesc": "คำอธิบายสั้นๆ",
+        "solutions": [
+          {
+            "icon": "✅",
+            "text": "ประโยชน์ข้อที่ 1"
+          },
+          {
+            "icon": "✅",
+            "text": "ประโยชน์ข้อที่ 2"
+          }
+        ]
+      }
+    }
+  ]
+}

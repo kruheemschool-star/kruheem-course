@@ -1,0 +1,506 @@
+{
+  "sections": [
+    {
+      "type": "hero",
+      "data": {
+        "ctaText": "สมัครเรียนทันที",
+        "badgeText": "คอร์สยอดนิยม",
+        "title": "ม.4 เทอม 2 \n(เพิ่มเติม)",
+        "blob2Color": "#f5ee29",
+        "blobColors": [
+          "bg-indigo-200/40",
+          "bg-rose-200/40"
+        ],
+        "subtitle": "เปลี่ยนการเรียนคณิตศาสตร์ให้สนุก เข้าใจง่าย และทำคะแนนได้จริง",
+        "secondaryCtaText": "ทดลองเรียน",
+        "ctaPriceText": "฿1,900",
+        "pricePerDayText": "เฉลี่ยวันละ 5.21 บาทเท่านั้น",
+        "bgColorFrom": "#5dddfd",
+        "bgColorTo": "#ffffff"
+      },
+      "id": "hero-1",
+      "order": 1,
+      "enabled": true
+    },
+    {
+      "id": "pain-4",
+      "data": {
+        "problems": [
+          {
+            "text": "เรียนในห้องไม่เข้าใจ ครูสอนเร็วเกินไป",
+            "icon": "😵"
+          },
+          {
+            "text": "พื้นฐานไม่แน่น ทำให้เรียนเรื่องใหม่ไม่รู้เรื่อง",
+            "icon": "📉"
+          },
+          {
+            "icon": "📝",
+            "text": "โจทย์ปัญหาทำไม่ได้ ตีความไม่ออก"
+          },
+          {
+            "text": "ขาดความมั่นใจเวลาเข้าห้องสอบ",
+            "icon": "😔"
+          }
+        ],
+        "solutionDesc": "คอร์สนี้จะเปลี่ยน \"ความกลัว\" ให้กลายเป็น \"ความสนุก\"",
+        "solutionTitle": "สิ่งที่จะเปลี่ยนไป",
+        "subtitle": "ถ้าคำตอบคือ \"ใช่\" คอร์สนี้ออกแบบมาเพื่อคุณโดยเฉพาะ",
+        "solutions": [
+          {
+            "text": "เข้าใจเนื้อหาแบบเห็นภาพ ไม่ต้องท่องจำ",
+            "icon": "✅"
+          },
+          {
+            "text": "ปูพื้นฐานให้แน่น ก่อนไปขั้นถัดไป",
+            "icon": "✅"
+          },
+          {
+            "text": "มีเทคนิคแก้โจทย์ที่ใช้ได้จริง",
+            "icon": "✅"
+          },
+          {
+            "text": "ได้เรียนซ้ำได้ไม่จำกัด 5 ปีเต็ม",
+            "icon": "✅"
+          }
+        ],
+        "title": "ปัญหาเหล่านี้... เป็นกันอยู่ไหม? 🤔",
+        "solutionIcon": "✨",
+        "problemTitle": "ปัญหาที่พบบ่อย",
+        "problemIcon": "😰"
+      },
+      "type": "painPoint",
+      "enabled": true,
+      "order": 4
+    },
+    {
+      "enabled": true,
+      "order": 5,
+      "id": "solution-5",
+      "data": {
+        "title": "สิ่งที่น้องๆ จะได้รับ 🎁",
+        "items": [
+          {
+            "icon": "🎬",
+            "desc": "เนื้อหาชัดเจน ย่อยง่าย พร้อมเทคนิคพิเศษ",
+            "title": "วิดีโอคุณภาพสูง"
+          },
+          {
+            "desc": "PDF สรุปเนื้อหา + โจทย์แบบฝึกหัดหลายร้อยข้อ",
+            "title": "เอกสารครบถ้วน",
+            "icon": "📚"
+          },
+          {
+            "icon": "💬",
+            "title": "ถามครูได้ตลอด",
+            "desc": "ติดตรงไหน ถามผ่าน LINE ได้ทันที"
+          },
+          {
+            "icon": "⏱️",
+            "desc": "ทบทวนได้ไม่จำกัดจนกว่าจะชำนาญ",
+            "title": "เรียนได้ 5 ปี"
+          },
+          {
+            "title": "เรียนทุกที่",
+            "desc": "ใช้ได้ทั้งมือถือ แท็บเล็ต และคอมพิวเตอร์",
+            "icon": "📱"
+          },
+          {
+            "icon": "🎯",
+            "desc": "เน้นสิ่งที่ออกสอบจริง ไม่เสียเวลา",
+            "title": "ตรงประเด็น"
+          }
+        ],
+        "subtitle": "ทุกอย่างที่จำเป็นสำหรับความสำเร็จ — ครบในคอร์สเดียว"
+      },
+      "type": "solution"
+    },
+    {
+      "order": 6,
+      "enabled": true,
+      "type": "curriculum",
+      "data": {
+        "title": "เนื้อหาในคอร์สนี้ 📚",
+        "subtitle": "หลักสูตรครอบคลุมตามมาตรฐาน สสวท. ปรับปรุงล่าสุด",
+        "chapters": [
+          {
+            "title": "บทที่ 1 ความสัมพันธ์และฟังก์ชัน",
+            "desc": "กระดูกสันหลังของคณิต ม.ปลาย! ต่อยอดความรู้จากเรื่องเซตและจำนวนจริง เพื่อเป็นสะพานเชื่อมไปปราบด่านบอสอย่างแคลคูลัสและตรีโกณมิติ ถ้าปล่อยเบลอบทนี้ แคลคูลัสจะกลายเป็นฝันร้ายทันที เพราะหนูๆ จะมองกราฟไม่ออก และทำโจทย์ประยุกต์ข้ามบทไม่ได้เลย",
+            "id": 1,
+            "content": [
+              "นิยามและสมบัติของความสัมพันธ์ โดเมน และเรนจ์",
+              "หลักการตรวจสอบและการจำแนกประเภทของฟังก์ชัน",
+              "พีชคณิตของฟังก์ชันและการดำเนินการพื้นฐาน",
+              "ฟังก์ชันประกอบ (Composite Function) และการหาค่า",
+              "ฟังก์ชันผกผัน (Inverse Function) และทฤษฎีบทที่เกี่ยวข้อง",
+              "การประยุกต์ใช้ฟังก์ชันในการแก้ปัญหาโจทย์ระดับสูง"
+            ],
+            "color": "#d7a7a7"
+          },
+          {
+            "id": 2,
+            "content": [
+              "ทฤษฎีบทเลขยกกำลังที่มีเลขชี้กำลังเป็นจำนวนตรรกยะ",
+              "สมบัติและลักษณะกราฟของฟังก์ชันเอกซ์โพเนนเชียล",
+              "นิยามและทฤษฎีบทที่สำคัญของฟังก์ชันลอการิทึม",
+              "การหาค่าลอการิทึมสามัญและลอการิทึมธรรมชาติ",
+              "กระบวนการแก้สมการและอสมการเอกซ์โพเนนเชียล",
+              "กระบวนการแก้สมการและอสมการลอการิทึม"
+            ],
+            "title": "บทที่ 2 ฟังก์ชันเอกซ์โพเนนเชียล และลอการิทึม",
+            "desc": "อัปเกรดเลขยกกำลัง ม.ต้น ผสมเข้ากับฟังก์ชันให้กลายเป็นอาวุธหนัก! ถ้าหนูๆ ไม่แม่นกฎของ Log จะไม่ได้พังแค่วิชาคณิต แต่คะแนนจะร่วงลามไปถึงวิชาฟิสิกส์ (เรื่องครึ่งชีวิต) และเคมี (เรื่องค่า pH) กลายเป็นโดนหักคะแนนทิ้งรวดเดียวถึงสามวิชา",
+            "color": "#6eca6d"
+          },
+          {
+            "desc": "จับสมการมาแต่งงานกับรูปวาด! ต่อยอดจากเส้นตรงพื้นฐาน สู่การวาดกราฟวงกลม วงรี และพาราโบลา บทนี้คือแว่นตาช่วยแปลงสมการยาวๆ ให้เป็นภาพ ถ้ามองกราฟไม่ออก จะไปหาพื้นที่ใต้กราฟในแคลคูลัสไม่ได้ และต้องเสียเวลานั่งทดเลขหน้ามืด ทั้งที่แค่วาดรูปก็เจอคำตอบแล้ว",
+            "title": "บทที่ 3 เรขาคณิตวิเคราะห์",
+            "id": 3,
+            "content": [
+              "ระบบพิกัดฉาก ระยะทางระหว่างจุด และจุดกึ่งกลาง",
+              "ความชันของเส้นตรง เส้นขนาน และเส้นตั้งฉาก",
+              "การสร้างสมการเส้นตรงและการหาระยะห่างระหว่างเส้นและจุด",
+              "สมการและส่วนประกอบของเรขาคณิตวิเคราะห์: วงกลมและพาราโบลา",
+              "สมการและส่วนประกอบของเรขาคณิตวิเคราะห์: วงรีและไฮเพอร์โบลา",
+              "การเลื่อนขนานแกนพิกัดและการประยุกต์ภาคตัดกรวย"
+            ],
+            "color": "#bfd56c"
+          }
+        ]
+      },
+      "id": "curriculum-6"
+    },
+    {
+      "data": {
+        "stories": [
+          {
+            "beforeScore": "45 คะแนน",
+            "name": "น้องเอ",
+            "quote": "ตอนแรกกลัวคณิตมาก แต่พอเรียนคอร์สนี้ครบทุกบท รู้สึกว่าเข้าใจเยอะขึ้น ข้อสอบที่เคยทำไม่ได้ก็ทำได้แล้ว!",
+            "afterScore": "85 คะแนน",
+            "role": "ม.3 โรงเรียนสาธิตฯ"
+          },
+          {
+            "beforeScore": "เกรด 2",
+            "name": "น้องบี",
+            "quote": "ครูสอนสนุกมาก อธิบายเข้าใจง่าย มีเทคนิคคิดลัดเยอะเลย เพื่อนในห้องก็มาถามว่าเรียนที่ไหนมา",
+            "afterScore": "เกรด 4",
+            "role": "ม.2 โรงเรียนเตรียมฯ"
+          },
+          {
+            "role": "ผู้ปกครอง",
+            "name": "คุณแม่ของน้องซี",
+            "quote": "ตั้งแต่ลูกมาเรียนคอร์สนี้ เขาเปลี่ยนไปเยอะ จากที่เคยบ่นว่าไม่ชอบคณิต ตอนนี้ชอบทำโจทย์ที่บ้านเอง"
+          }
+        ],
+        "title": "เรื่องจริงจากนักเรียน 💪",
+        "subtitle": "ไม่ใช่แค่คะแนนที่เปลี่ยน — แต่ชีวิตการเรียนก็เปลี่ยน"
+      },
+      "id": "testimonial-7",
+      "type": "testimonial",
+      "enabled": false,
+      "order": 7
+    },
+    {
+      "type": "reviews",
+      "data": {
+        "images": [
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review1.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review2.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review3.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review4.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review5.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review6.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review7.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review8.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review9.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review10.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review11.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review12.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review13.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review14.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review15.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review16.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review17.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review18.jpg",
+          "https://storage.googleapis.com/kruheem-course-45088.firebasestorage.app/static/reviews/review19.jpg"
+        ],
+        "title": "อย่าเชื่อแค่คำพูด...",
+        "source": "live",
+        "subtitle": "ดูรีวิวจริงจากผู้เรียนนับพัน"
+      },
+      "id": "reviews-8",
+      "order": 8,
+      "enabled": true
+    },
+    {
+      "type": "comparison",
+      "id": "comparison-9",
+      "data": {
+        "subtitle": "เปรียบเทียบให้เห็นภาพชัด",
+        "columns": [
+          {
+            "features": [
+              {
+                "included": true,
+                "text": "ประหยัดเงิน"
+              },
+              {
+                "text": "เรียนได้ตามจังหวะ",
+                "included": true
+              },
+              {
+                "text": "มีครูคอยตอบคำถาม",
+                "included": false
+              },
+              {
+                "included": false,
+                "text": "มีเทคนิคคิดลัด"
+              },
+              {
+                "included": false,
+                "text": "เอกสารครบถ้วน"
+              },
+              {
+                "included": false,
+                "text": "ประหยัดเวลา"
+              }
+            ],
+            "title": "เรียนเอง"
+          },
+          {
+            "highlight": true,
+            "features": [
+              {
+                "included": true,
+                "text": "ราคาคุ้มค่า จ่ายครั้งเดียว"
+              },
+              {
+                "included": true,
+                "text": "เรียนซ้ำได้ 5 ปี"
+              },
+              {
+                "included": true,
+                "text": "ถามครูได้ตลอด"
+              },
+              {
+                "included": true,
+                "text": "เทคนิคคิดลัดเพียบ"
+              },
+              {
+                "included": true,
+                "text": "เอกสาร PDF ครบ"
+              },
+              {
+                "included": true,
+                "text": "ประหยัดเวลามาก"
+              }
+            ],
+            "title": "ครูฮีม ✨"
+          },
+          {
+            "title": "ที่อื่น",
+            "features": [
+              {
+                "included": false,
+                "text": "ราคาสูง"
+              },
+              {
+                "text": "เรียนได้จำกัดเวลา",
+                "included": false
+              },
+              {
+                "included": true,
+                "text": "ถามได้บางครั้ง"
+              },
+              {
+                "text": "มีเทคนิคพื้นฐาน",
+                "included": true
+              },
+              {
+                "text": "เอกสารบางส่วน",
+                "included": true
+              },
+              {
+                "text": "ใช้เวลาปานกลาง",
+                "included": true
+              }
+            ]
+          }
+        ],
+        "title": "ทำไมต้องเลือกคอร์สของครูฮีม?"
+      },
+      "order": 9,
+      "enabled": true
+    },
+    {
+      "order": 10,
+      "enabled": true,
+      "type": "priceStack",
+      "id": "pricestack-10",
+      "data": {
+        "regularPrice": 4900,
+        "title": "คุ้มทุกบาท ทุกสตางค์ 💰",
+        "subtitle": "มูลค่ารวมของสิ่งที่จะได้รับจากคอร์สนี้",
+        "ctaText": "สมัครเรียนเลย",
+        "discountNote": "* โปรโมชั่นเปิดคอร์ส ราคานี้มีเวลาจำกัด",
+        "finalPrice": 1900,
+        "items": [
+          {
+            "value": 3000,
+            "name": "วิดีโอบทเรียนคุณภาพสูง"
+          },
+          {
+            "name": "เอกสาร PDF สรุปเนื้อหา",
+            "value": 500
+          },
+          {
+            "name": "แบบฝึกหัด 400+ ข้อ",
+            "value": 800
+          },
+          {
+            "value": 2000,
+            "name": "สิทธิ์ถามครูผ่าน LINE"
+          },
+          {
+            "name": "สิทธิ์เรียนซ้ำ 5 ปี",
+            "value": 1500
+          },
+          {
+            "name": "ข้อสอบจำลองพร้อมเฉลย",
+            "value": 500
+          }
+        ]
+      }
+    },
+    {
+      "enabled": true,
+      "order": 11,
+      "data": {
+        "desc": "เรามั่นใจในคุณภาพคอร์ส ถ้าเรียนแล้วรู้สึกว่าไม่ตรงตามที่คาดหวัง แจ้งเราภายใน 3 วัน เราคืนเงินเต็มจำนวน",
+        "features": [
+          "รับประกันคืนเงินภายใน 3 วัน",
+          "ไม่มีคำถามยุ่งยาก",
+          "ขอคืนผ่าน LINE ได้ทันที"
+        ],
+        "title": "เรียนแล้วไม่พอใจ ยินดีคืนเงิน 100%",
+        "badgeText": "รับประกันคุณภาพ"
+      },
+      "id": "guarantee-11",
+      "type": "guarantee"
+    },
+    {
+      "type": "faq",
+      "id": "faq-12",
+      "data": {
+        "subtitle": "คำถามที่พบบ่อย — อ่านให้จบ แล้วจะตัดสินใจได้ง่ายขึ้น",
+        "title": "🔥 ถามตรง-ตอบเคลียร์!",
+        "faqs": [
+          {
+            "a": "ทันแน่นอน! คอร์สเริ่มจากพื้นฐานให้ใหม่ ไม่ต้องกลัวตามไม่ทัน",
+            "q": "1️⃣ พื้นฐานไม่แน่น จะเรียนทันไหม?"
+          },
+          {
+            "q": "2️⃣ เรียนแล้วจะงงไหม ถามใครได้?",
+            "a": "มีช่อง LINE สำหรับนักเรียนโดยเฉพาะ ถามได้ทุกคำถาม ครูตอบเองทุกข้อ"
+          },
+          {
+            "a": "เรียนได้ 5 ปีเต็ม ทบทวนซ้ำได้ไม่จำกัด จนกว่าจะเข้าใจ",
+            "q": "3️⃣ เรียนได้นานแค่ไหน?"
+          },
+          {
+            "a": "แค่มีมือถือ แท็บเล็ต หรือคอมพิวเตอร์ + อินเทอร์เน็ต ก็เรียนได้ทันที",
+            "q": "4️⃣ ต้องใช้อุปกรณ์อะไรบ้าง?"
+          },
+          {
+            "a": "ใช่! โอนเงินแล้วระบบจะเปิดสิทธิ์ให้เข้าเรียนภายใน 5 นาที",
+            "q": "5️⃣ สมัครแล้วเข้าเรียนได้เลยไหม?"
+          }
+        ]
+      },
+      "order": 12,
+      "enabled": true
+    },
+    {
+      "id": "cta-13",
+      "data": {
+        "priceText": "฿1,900",
+        "urgencyText": "🔥 โปรโมชั่นพิเศษ — เวลาจำกัด",
+        "ctaText": "สมัครเรียนเลย",
+        "subtitle": "สมัครเรียนวันนี้ เริ่มเรียนได้ทันทีภายใน 5 นาที",
+        "title": "พร้อมเปลี่ยนอนาคตการเรียนแล้วหรือยัง?"
+      },
+      "type": "cta",
+      "enabled": true,
+      "order": 13
+    },
+    {
+      "enabled": false,
+      "order": 14,
+      "id": "videoPreview-1777733525046",
+      "data": {
+        "videos": [
+          {
+            "youtubeUrl": "https://youtu.be/7bciA6AGzsA?si=cx_Hc-NnsJqmf8md",
+            "description": "",
+            "title": "บทเรียนตัวอย่าง"
+          },
+          {
+            "title": "วิดีโอใหม่",
+            "description": "",
+            "youtubeUrl": "https://youtu.be/vS1F1vFUUD8?si=9VHF5UOYKOvpl8-z"
+          }
+        ],
+        "title": "ตัวอย่างคอร์สเรียน",
+        "subtitle": "ลองชมบรรยากาศการสอนจริง"
+      },
+      "type": "videoPreview"
+    }
+  ],
+  "boosters": {
+    "exitIntent": {
+      "discountText": "ลดเพิ่ม 500 บาท เฉพาะวันนี้",
+      "title": "เดี๋ยวก่อน! 🛑",
+      "ctaText": "สนใจเลย!",
+      "desc": "อย่าพลาดโอกาสนี้ — เรียนได้ 5 ปีเต็ม + มีครูตอบคำถามตลอด",
+      "enabled": false
+    },
+    "socialProof": {
+      "enabled": false,
+      "intervalSeconds": 15,
+      "displaySeconds": 5,
+      "messages": [
+        {
+          "action": "เพิ่งสมัครคอร์สนี้",
+          "name": "คุณสมชาย",
+          "timeAgo": "3 นาทีที่แล้ว",
+          "location": "กรุงเทพฯ"
+        },
+        {
+          "timeAgo": "8 นาทีที่แล้ว",
+          "location": "เชียงใหม่",
+          "action": "เพิ่งสมัครคอร์สนี้",
+          "name": "คุณสมหญิง"
+        },
+        {
+          "timeAgo": "15 นาทีที่แล้ว",
+          "location": "ภูเก็ต",
+          "action": "เพิ่งสมัครคอร์สนี้",
+          "name": "น้องเอ"
+        },
+        {
+          "location": "ขอนแก่น",
+          "timeAgo": "22 นาทีที่แล้ว",
+          "name": "น้องบี",
+          "action": "เพิ่งสมัครคอร์สนี้"
+        }
+      ]
+    },
+    "stickyCTA": {
+      "enabled": true,
+      "priceText": "฿1,900",
+      "ctaText": "สมัครเรียน",
+      "showAfterScrollPx": 600
+    }
+  },
+  "enabled": true
+}
