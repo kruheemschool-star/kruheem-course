@@ -1,6 +1,27 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { adminAuth } from "@/lib/firebase-admin";
+import { ADMIN_EMAILS } from "@/lib/constants";
+
+// Admin-only guard. This is a destructive maintenance endpoint (it can rewrite
+// exam answer keys), so it must never be public. Fails closed: no/invalid token
+// — or missing Admin SDK creds — returns 401. Returns null when the caller is a
+// verified admin and the handler may proceed.
+async function requireAdmin(request: NextRequest): Promise<NextResponse | null> {
+    const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    try {
+        const decoded = await adminAuth.verifyIdToken(token);
+        const email = (decoded.email || "").toLowerCase();
+        if (!ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email)) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+        return null;
+    } catch {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+}
 
 // Extract stated correct answer from explanation text (returns 0-based index or null)
 function extractAnswerFromExplanation(explanation: string): number | null {
@@ -48,7 +69,9 @@ function extractAnswerFromExplanation(explanation: string): number | null {
     return null;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     try {
         const snapshot = await getDocs(collection(db, "exams"));
         const results: any[] = [];
@@ -103,7 +126,9 @@ export async function POST() {
 }
 
 // GET for easy browser testing
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     // Scan only, don't fix
     try {
         const snapshot = await getDocs(collection(db, "exams"));
