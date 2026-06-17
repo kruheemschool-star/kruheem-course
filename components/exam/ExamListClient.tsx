@@ -918,9 +918,6 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                                         {/* Content */}
                                         <div className="absolute bottom-0 left-0 right-0 p-6 z-20 flex flex-col justify-end h-full">
                                             <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 delay-75 mb-auto pt-16 opacity-0 group-hover:opacity-100 flex gap-2 items-center flex-wrap">
-                                                <span className="text-xs font-black px-3 py-1 rounded-full bg-white text-slate-900 uppercase tracking-widest shadow-lg">
-                                                    {exam.level}
-                                                </span>
                                                 <span className={`text-xs font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg ${exam.isFree ? 'bg-teal-500 text-white' : 'bg-slate-800 text-slate-300 border border-slate-600'}`}>
                                                     {exam.isFree ? '🔓 ดูฟรี' : '🔒 สมาชิก'}
                                                 </span>
@@ -928,9 +925,6 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
 
                                             <div className="transform translate-y-2 group-hover:translate-y-0 transition-all duration-500">
                                                 <div className="mb-3 opacity-100 group-hover:opacity-0 transition-opacity duration-300 absolute -top-8 left-0 flex gap-2 items-center flex-wrap">
-                                                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider border border-slate-600 px-2 py-0.5 rounded">
-                                                        {exam.level}
-                                                    </span>
                                                     <span className={`text-xs font-bold uppercase tracking-wider border px-2 py-0.5 rounded ${exam.isFree ? 'text-teal-300 border-teal-600/50 bg-teal-900/30' : 'text-slate-400 border-slate-700 bg-slate-800/50'}`}>
                                                         {exam.isFree ? '🔓 ดูฟรี' : '🔒 สมาชิก'}
                                                     </span>

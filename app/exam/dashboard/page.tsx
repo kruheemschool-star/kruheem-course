@@ -733,7 +733,6 @@ export default function ExamDashboardPage() {
                                                 <div className="font-bold text-slate-700 dark:text-slate-200 truncate text-sm">{r.examTitle}</div>
                                                 <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
                                                     {r.category && <span>{r.category}</span>}
-                                                    {r.level && <span>{r.level}</span>}
                                                     {dateStr && <span>{dateStr}</span>}
                                                 </div>
                                             </div>

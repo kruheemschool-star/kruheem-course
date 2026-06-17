@@ -235,9 +235,6 @@ export default async function ExamRoomPage(props: Props) {
                         {exam.category && (
                             <span className="bg-slate-100 px-2 py-1 rounded text-xs">{exam.category}</span>
                         )}
-                        {exam.level && (
-                            <span className="bg-slate-100 px-2 py-1 rounded text-xs">{exam.level}</span>
-                        )}
                         <span className="bg-slate-100 px-2 py-1 rounded text-xs">จำนวน {getValidQuestionCount(exam.questions)} ข้อ</span>
                     </div>
                 </div>

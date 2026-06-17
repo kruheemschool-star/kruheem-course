@@ -71,7 +71,6 @@ function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onTogg
                         </option>
                     ))}
                 </select>
-                <div className="text-xs text-slate-400 mt-1">{exam.level}</div>
             </td>
             <td className="p-6 text-center">
                 <span className={`text-xs font-bold px-2 py-1 rounded ${exam.difficulty === 'Easy' ? 'text-green-500 bg-green-50' :
