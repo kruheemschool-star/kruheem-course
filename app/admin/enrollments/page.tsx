@@ -5,6 +5,7 @@ import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, 
 import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
+import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Building2, Calendar, Hash, Phone, Mail, CheckCircle2, Clock, Inbox, ZoomIn } from "lucide-react";
 
 export default function AdminEnrollmentsPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
@@ -47,6 +48,18 @@ export default function AdminEnrollmentsPage() {
     }, []);
 
     const [selectedDurations, setSelectedDurations] = useState<Record<string, string>>({});
+
+    // Presentational only: which slip row is highlighted in the master list
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+
+    // Presentational only: keep the highlighted slip valid after reloads
+    useEffect(() => {
+        if (enrollments.length === 0) {
+            setSelectedId(null);
+        } else if (!enrollments.some((e) => e.id === selectedId)) {
+            setSelectedId(enrollments[0].id);
+        }
+    }, [enrollments, selectedId]);
 
     // State สำหรับ Modal ยืนยัน
     const [confirmApproveId, setConfirmApproveId] = useState<string | null>(null);
@@ -152,191 +165,260 @@ export default function AdminEnrollmentsPage() {
         }, true);
     };
 
+    const selected = enrollments.find((e) => e.id === selectedId) || null;
+
     return (
 
-        <div className="min-h-screen bg-[#F8F9FD] font-sans text-slate-800 p-8">
-            <div className="max-w-5xl mx-auto">
+        <div className="space-y-6">
 
-                <Link href="/admin" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 mb-6 font-bold transition">
-                    ← กลับหน้า Dashboard
-                </Link>
-
-                <div className="flex items-center justify-between gap-3 mb-8 flex-wrap">
-                    <div className="flex items-center gap-3">
-                        <span className="text-3xl">💰</span>
-                        <h1 className="text-3xl font-black text-slate-800">ตรวจสอบการชำระเงิน <span className="text-base bg-orange-100 text-orange-600 px-3 py-1 rounded-full ml-2 align-middle">{enrollments.length} รายการ</span></h1>
-                    </div>
-                    <Link href="/admin/students/add" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition shadow-md shadow-indigo-200">
-                        <span className="text-lg">➕</span> เพิ่มนักเรียนเอง
-                    </Link>
+            {/* Toolbar */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <span className="kh-eyebrow">รอตรวจสอบ</span>
+                    <span className="kh-pill kh-pill-warn">{enrollments.length} รายการ</span>
                 </div>
-
-                {loading ? (
-                    <div className="p-10 text-center text-slate-400">กำลังโหลดรายการ...</div>
-                ) : (
-                    <div className="space-y-6">
-                        {enrollments.map((item) => (
-                            <div key={item.id} className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 flex flex-col md:flex-row gap-8 animate-in fade-in slide-in-from-bottom-4">
-
-                                {/* 1. ส่วนแสดงสลิป (ซ้าย) */}
-                                <div className="w-full md:w-1/3 space-y-2">
-                                    {((item.slipUrls && item.slipUrls.length > 0 ? item.slipUrls : [item.slipUrl]) as string[]).filter(Boolean).map((url: string, i: number) => (
-                                        <a key={i} href={url} target="_blank" rel="noreferrer" className="block bg-slate-100 rounded-3xl overflow-hidden border-4 border-white shadow-sm relative group cursor-pointer">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={url} alt={`Slip ${i + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white font-bold">🔍 คลิกเพื่อดูรูปใหญ่</div>
-                                            {item.slipUrls && item.slipUrls.length > 1 && <span className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full font-bold">{i + 1}/{item.slipUrls.length}</span>}
-                                        </a>
-                                    ))}
-                                </div>
-
-                                {/* 2. ข้อมูลการสมัคร (ขวา) */}
-                                <div className="flex-1 flex flex-col justify-center">
-                                    <div>
-                                        <h2 className="text-2xl font-black text-indigo-900 mb-1">{item.courseTitle}</h2>
-
-                                        {/* Price Display */}
-                                        <div className="mb-4">
-                                            {item.discountAmount > 0 ? (
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm text-slate-400 line-through font-bold">฿{item.price?.toLocaleString()}</span>
-                                                    <span className="text-3xl font-black text-emerald-600">฿{item.finalPrice?.toLocaleString()}</span>
-                                                </div>
-                                            ) : (
-                                                <div className="text-3xl font-black text-slate-800">฿{item.price?.toLocaleString()}</div>
-                                            )}
-                                        </div>
-                                        <span className="inline-block bg-yellow-100 text-yellow-700 px-3 py-1 rounded-lg text-xs font-bold mb-6">⏳ รอตรวจสอบสลิป</span>
-                                    </div>
-
-                                    {/* ข้อมูลผู้เรียน Grid */}
-                                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 mb-6">
-                                        <div className="grid grid-cols-2 gap-y-4 gap-x-8">
-                                            <div>
-                                                <p className="text-xs text-slate-400 font-bold uppercase">ชื่อผู้เรียน</p>
-                                                {/* ✅ ดึง userName จาก Enrollment โดยตรง */}
-                                                <p className="font-bold text-slate-800 text-lg">{item.userName || "ไม่ระบุชื่อ"}</p>
-                                                <p className="text-xs text-slate-400">{item.userEmail}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-slate-400 font-bold uppercase">เบอร์โทรศัพท์</p>
-                                                {/* ✅ ดึง userTel */}
-                                                <p className="font-bold text-slate-800 text-lg">{item.userTel || "-"}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-slate-400 font-bold uppercase">LINE ID</p>
-                                                {/* ✅ ดึง lineId */}
-                                                <div className="flex items-center gap-1 font-bold text-green-600">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M1.5 4.5a3 3 0 013-3h1.372c.86 0 1.61.586 1.819 1.42l1.105 4.423a1.875 1.875 0 01-.694 1.955l-1.293.97c-.135.101-.164.249-.126.352a11.285 11.285 0 006.697 6.697c.103.038.25.009.352-.126l.97-1.293a1.875 1.875 0 011.955-.694l4.423 1.105c.834.209 1.42.959 1.42 1.82V19.5a3 3 0 01-3 3h-2.25C8.552 22.5 1.5 15.448 1.5 4.5V4.5z" /></svg>
-                                                    {item.lineId || "-"}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-slate-400 font-bold uppercase">วันที่แจ้งโอน</p>
-                                                <p className="font-bold text-slate-700">{item.formattedDate}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col gap-3">
-                                        {/* Coupon Display Section */}
-                                        {item.couponCode && (
-                                            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex justify-between items-center mb-2">
-                                                <div>
-                                                    <div className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                                                        <span className="text-lg">🎟️</span> ใช้คูปองส่วนลด
-                                                    </div>
-                                                    <div className="font-black text-emerald-800 text-lg">{item.couponCode}</div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-xs text-emerald-500 font-bold">ส่วนลด</div>
-                                                    <div className="font-black text-emerald-600">-฿{item.discountAmount?.toLocaleString()}</div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div className="flex gap-3">
-                                            <button
-                                                onClick={() => handleDelete(item.id)}
-                                                className="flex-1 py-3 rounded-xl border-2 border-rose-100 text-rose-500 font-bold hover:bg-rose-50 transition flex items-center justify-center gap-2"
-                                            >
-                                                ✕ ปฏิเสธ
-                                            </button>
-
-                                            {/* 💬 Message Button */}
-                                            <button
-                                                onClick={async () => {
-                                                    if (!item.userId) return alert("ไม่พบข้อมูล User ID");
-                                                    try {
-                                                        // Ensure chat exists
-                                                        await setDoc(doc(db, "chats", item.userId), {
-                                                            userId: item.userId,
-                                                            userName: item.userName || "Student",
-                                                            userEmail: item.userEmail,
-                                                            userTel: item.userTel || "",
-                                                            lineId: item.lineId || "",
-                                                            lastUpdated: serverTimestamp(),
-                                                            // Preserve existing fields if any, but ensure these are set
-                                                        }, { merge: true });
-
-                                                        // Redirect using window.location to force refresh if needed, or router
-                                                        window.location.href = `/admin/chat?chatId=${item.userId}`;
-                                                    } catch (err) {
-                                                        console.error(err);
-                                                        alert("เกิดข้อผิดพลาดในการเปิดแชท");
-                                                    }
-                                                }}
-                                                className="flex-1 py-3 rounded-xl border-2 border-indigo-100 text-indigo-600 font-bold hover:bg-indigo-50 transition flex items-center justify-center gap-2"
-                                            >
-                                                💬 ทักแชท
-                                            </button>
-
-                                            <button
-                                                onClick={() => setConfirmApproveId(item.id)}
-                                                className="flex-[2] py-3 rounded-xl bg-[#00C853] hover:bg-[#00b54b] text-white font-bold shadow-lg shadow-green-200 transition flex items-center justify-center gap-2 transform hover:-translate-y-1"
-                                            >
-                                                ✅ อนุมัติ (5 ปี)
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-
-                        {enrollments.length === 0 && (
-                            <div className="text-center py-20 text-slate-400 italic bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-                                ไม่มีรายการแจ้งโอนใหม่
-                            </div>
-                        )}
-                    </div>
-                )}
+                <Link href="/admin/students/add" className="kh-btn">
+                    <UserPlus size={16} /> เพิ่มนักเรียนเอง
+                </Link>
             </div>
+
+            {loading ? (
+                <div className="kh-card p-10 text-center" style={{ color: "var(--ink-3)" }}>กำลังโหลดรายการ...</div>
+            ) : enrollments.length === 0 ? (
+                <div className="kh-card p-16 flex flex-col items-center justify-center text-center gap-3" style={{ color: "var(--ink-3)" }}>
+                    <Inbox size={40} style={{ color: "var(--ink-3)" }} />
+                    <p className="font-bold kh-ink2">ไม่มีรายการแจ้งโอนใหม่</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">
+
+                    {/* ===== LEFT: master list of pending slips ===== */}
+                    <div className="kh-card p-3 space-y-2">
+                        {enrollments.map((item) => {
+                            const isActive = item.id === selectedId;
+                            const initial = (item.userName || "?").trim().charAt(0).toUpperCase();
+                            const amount = item.discountAmount > 0 ? item.finalPrice : item.price;
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => setSelectedId(item.id)}
+                                    className="w-full text-left rounded-xl px-3 py-3 flex items-center gap-3 transition"
+                                    style={{
+                                        background: isActive ? "var(--accent-soft)" : "transparent",
+                                        borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+                                    }}
+                                >
+                                    <span className="kh-avatar w-10 h-10 text-sm flex-shrink-0">{initial}</span>
+                                    <span className="flex-1 min-w-0">
+                                        <span className="block font-bold kh-ink truncate">{item.userName || "ไม่ระบุชื่อ"}</span>
+                                        <span className="block text-xs kh-ink3 truncate">{item.courseTitle}</span>
+                                    </span>
+                                    <span className="font-black text-sm flex-shrink-0" style={{ color: "var(--good)" }}>฿{amount?.toLocaleString()}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* ===== RIGHT: detail panel ===== */}
+                    {selected && (() => {
+                        const item = selected;
+                        const amount = item.discountAmount > 0 ? item.finalPrice : item.price;
+                        const slipUrls = ((item.slipUrls && item.slipUrls.length > 0 ? item.slipUrls : [item.slipUrl]) as string[]).filter(Boolean);
+                        return (
+                            <div className="space-y-4">
+
+                                {/* Header */}
+                                <div className="kh-card p-5 flex items-center gap-4 flex-wrap">
+                                    <span className="kh-avatar w-12 h-12 text-lg flex-shrink-0">{(item.userName || "?").trim().charAt(0).toUpperCase()}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-lg font-black kh-ink truncate">{item.userName || "ไม่ระบุชื่อ"}</div>
+                                        <div className="text-sm kh-ink3 truncate">{item.courseTitle}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        {item.discountAmount > 0 && (
+                                            <div className="text-xs line-through font-bold kh-ink3">฿{item.price?.toLocaleString()}</div>
+                                        )}
+                                        <div className="text-2xl font-black" style={{ color: "var(--good)" }}>฿{amount?.toLocaleString()}</div>
+                                    </div>
+                                    <span className="kh-pill kh-pill-warn"><Clock size={13} /> รอตรวจสอบ</span>
+                                </div>
+
+                                {/* Transfer slip — deep teal/green card */}
+                                <div
+                                    className="rounded-2xl p-5"
+                                    style={{
+                                        background: "linear-gradient(135deg, #0B3D36, #0D5448 55%, #0F6356)",
+                                        color: "#D6F5EE",
+                                        border: "1px solid rgba(94,234,212,0.18)",
+                                        boxShadow: "0 14px 30px -16px rgba(11,61,54,0.7)",
+                                    }}
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <span className="inline-flex items-center gap-2 text-xs font-bold tracking-wide" style={{ color: "#A7F3E5" }}>
+                                            <ArrowDownLeft size={15} /> สลิปการโอนเงิน
+                                        </span>
+                                        <span className="text-xs" style={{ color: "#8FD8CB" }}>{item.paymentMethod || "โอนผ่านธนาคาร"}</span>
+                                    </div>
+
+                                    <div className="text-3xl font-black mb-5" style={{ color: "#FFFFFF" }}>฿{amount?.toLocaleString()}</div>
+
+                                    <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-sm">
+                                        <div>
+                                            <div className="text-[11px] uppercase tracking-wide mb-0.5" style={{ color: "#7FCEC0" }}>จาก</div>
+                                            <div className="font-bold" style={{ color: "#EAFBF6" }}>{item.bankFrom || item.userName || "-"}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-[11px] uppercase tracking-wide mb-0.5 flex items-center gap-1" style={{ color: "#7FCEC0" }}><Building2 size={12} /> เข้าบัญชี</div>
+                                            <div className="font-bold" style={{ color: "#EAFBF6" }}>KruHeem SCB</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-[11px] uppercase tracking-wide mb-0.5 flex items-center gap-1" style={{ color: "#7FCEC0" }}><Calendar size={12} /> วันเวลา</div>
+                                            <div className="font-bold" style={{ color: "#EAFBF6" }}>{item.formattedDate}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-[11px] uppercase tracking-wide mb-0.5 flex items-center gap-1" style={{ color: "#7FCEC0" }}><Hash size={12} /> อ้างอิง</div>
+                                            <div className="font-bold font-mono text-xs" style={{ color: "#EAFBF6" }}>{item.ref || item.id?.slice(0, 12) || "-"}</div>
+                                        </div>
+                                    </div>
+
+                                    {slipUrls.length > 0 && (
+                                        <div className="mt-5 grid grid-cols-2 gap-2">
+                                            {slipUrls.map((url: string, i: number) => (
+                                                <a key={i} href={url} target="_blank" rel="noreferrer" className="block rounded-xl overflow-hidden relative group cursor-pointer" style={{ border: "1px solid rgba(94,234,212,0.22)", background: "rgba(255,255,255,0.05)" }}>
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={url} alt={`Slip ${i + 1}`} className="w-full h-40 object-cover transition-transform group-hover:scale-105" />
+                                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-sm font-bold gap-1" style={{ background: "rgba(0,0,0,0.35)" }}>
+                                                        <ZoomIn size={16} /> ดูรูปใหญ่
+                                                    </div>
+                                                    {slipUrls.length > 1 && <span className="absolute top-2 left-2 text-white text-[11px] px-2 py-0.5 rounded-full font-bold" style={{ background: "rgba(0,0,0,0.55)" }}>{i + 1}/{slipUrls.length}</span>}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Order detail table */}
+                                <div className="kh-card overflow-hidden">
+                                    <table className="kh-table">
+                                        <thead>
+                                            <tr>
+                                                <th>รายละเอียดคำสั่งซื้อ</th>
+                                                <th>ข้อมูล</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td className="flex items-center gap-2"><Mail size={14} style={{ color: "var(--ink-3)" }} /> อีเมล</td>
+                                                <td className="font-bold kh-ink">{item.userEmail || "-"}</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="flex items-center gap-2"><Phone size={14} style={{ color: "var(--ink-3)" }} /> เบอร์โทรศัพท์</td>
+                                                <td className="font-bold kh-ink">{item.userTel || "-"}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>LINE ID</td>
+                                                <td className="font-bold" style={{ color: "var(--good)" }}>{item.lineId || "-"}</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="flex items-center gap-2"><Calendar size={14} style={{ color: "var(--ink-3)" }} /> วันที่แจ้งโอน</td>
+                                                <td className="font-bold kh-ink">{item.formattedDate}</td>
+                                            </tr>
+                                            {item.couponCode && (
+                                                <tr>
+                                                    <td>คูปองส่วนลด</td>
+                                                    <td>
+                                                        <span className="kh-pill kh-pill-good no-dot">🎟️ {item.couponCode}</span>
+                                                        <span className="ml-2 font-black" style={{ color: "var(--good)" }}>-฿{item.discountAmount?.toLocaleString()}</span>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* ยอดตรงกัน confirm bar */}
+                                <div className="kh-card p-4 flex items-center gap-3" style={{ background: "var(--good-soft)", borderColor: "color-mix(in srgb, var(--good) 30%, transparent)" }}>
+                                    <CheckCircle2 size={20} style={{ color: "var(--good)" }} />
+                                    <div className="flex-1">
+                                        <div className="font-bold" style={{ color: "var(--good)" }}>ยอดตรงกัน</div>
+                                        <div className="text-xs kh-ink3">ยอดสลิป ฿{amount?.toLocaleString()} ตรงกับยอดคำสั่งซื้อ</div>
+                                    </div>
+                                </div>
+
+                                {/* Action buttons */}
+                                <div className="flex gap-3 flex-wrap">
+                                    <button
+                                        onClick={() => setConfirmApproveId(item.id)}
+                                        className="kh-btn flex-[2]"
+                                    >
+                                        <Check size={16} /> อนุมัติ (5 ปี)
+                                    </button>
+
+                                    <button
+                                        onClick={async () => {
+                                            if (!item.userId) return alert("ไม่พบข้อมูล User ID");
+                                            try {
+                                                // Ensure chat exists
+                                                await setDoc(doc(db, "chats", item.userId), {
+                                                    userId: item.userId,
+                                                    userName: item.userName || "Student",
+                                                    userEmail: item.userEmail,
+                                                    userTel: item.userTel || "",
+                                                    lineId: item.lineId || "",
+                                                    lastUpdated: serverTimestamp(),
+                                                    // Preserve existing fields if any, but ensure these are set
+                                                }, { merge: true });
+
+                                                // Redirect using window.location to force refresh if needed, or router
+                                                window.location.href = `/admin/chat?chatId=${item.userId}`;
+                                            } catch (err) {
+                                                console.error(err);
+                                                alert("เกิดข้อผิดพลาดในการเปิดแชท");
+                                            }
+                                        }}
+                                        className="kh-btn-ghost flex-1"
+                                    >
+                                        <MessageCircle size={16} /> ขอสลิปใหม่ / ทักแชท
+                                    </button>
+
+                                    <button
+                                        onClick={() => handleDelete(item.id)}
+                                        className="kh-btn-ghost flex-1"
+                                        style={{ color: "var(--danger)", borderColor: "color-mix(in srgb, var(--danger) 40%, transparent)" }}
+                                    >
+                                        <X size={16} /> ปฏิเสธ
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+            )}
 
             {/* Custom Modal สำหรับยืนยันการอนุมัติ */}
             {confirmApproveId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col items-center text-center">
-                        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(11,32,29,0.55)", backdropFilter: "blur(4px)" }}>
+                    <div className="kh-card p-8 max-w-md w-full animate-in fade-in zoom-in-95 duration-200 flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6" style={{ background: "var(--good-soft)", color: "var(--good)" }}>
+                            <Check size={32} strokeWidth={2.5} />
                         </div>
-                        <h3 className="text-2xl font-black text-slate-800 mb-2">ยืนยันการอนุมัติ</h3>
-                        <p className="text-slate-500 mb-8 leading-relaxed">
+                        <h3 className="text-2xl font-black kh-ink mb-2">ยืนยันการอนุมัติ</h3>
+                        <p className="kh-ink3 mb-8 leading-relaxed">
                             ผู้เรียนจะสามารถเข้าเรียนในคอร์สนี้ได้ทันทีหลังจากที่คุณกดยืนยัน (ระยะเวลาเรียน 5 ปี)
                         </p>
                         <div className="flex w-full gap-3">
                             <button
                                 onClick={() => setConfirmApproveId(null)}
-                                className="flex-1 py-3 px-4 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                                className="kh-btn-ghost flex-1"
                             >
                                 ยกเลิก
                             </button>
                             <button
                                 onClick={handleConfirmApprove}
-                                className="flex-1 py-3 px-4 rounded-xl font-bold bg-green-500 text-white hover:bg-green-600 shadow-md shadow-green-200 transition flex items-center justify-center gap-2"
+                                className="kh-btn flex-1"
                             >
-                                ยืนยัน
+                                <Check size={16} /> ยืนยัน
                             </button>
                         </div>
                     </div>

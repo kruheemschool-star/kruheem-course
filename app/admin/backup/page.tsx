@@ -3,7 +3,7 @@ import { useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 
-import Link from "next/link";
+import { Download, Database, ShieldCheck, Loader2 } from "lucide-react";
 
 export default function BackupPage() {
     const [loading, setLoading] = useState(false);
@@ -58,66 +58,80 @@ export default function BackupPage() {
     };
 
     return (
-
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-            <div className="max-w-4xl mx-auto py-12 px-6">
-                <div className="flex items-center gap-4 mb-8">
-                    <Link href="/admin" className="p-2 bg-white rounded-full shadow-sm hover:bg-slate-100 transition">
-                        ⬅️
-                    </Link>
-                    <h1 className="text-3xl font-bold">💾 สำรองข้อมูล (Backup)</h1>
+        <div className="space-y-6">
+            <div className="kh-card" style={{ padding: 28 }}>
+                <div className="flex items-start gap-4" style={{ marginBottom: 28 }}>
+                    <div
+                        className="flex items-center justify-center flex-shrink-0"
+                        style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: 14,
+                            background: "var(--accent-soft)",
+                            color: "var(--accent)",
+                        }}
+                    >
+                        <ShieldCheck size={26} strokeWidth={2} />
+                    </div>
+                    <div>
+                        <p className="kh-eyebrow">ความปลอดภัยข้อมูล</p>
+                        <h2 className="kh-ink text-xl font-bold" style={{ marginBottom: 8 }}>
+                            ระบบสำรองข้อมูลอัตโนมัติ
+                        </h2>
+                        <p className="kh-ink2 leading-relaxed">
+                            กดปุ่มด้านล่างเพื่อดาวน์โหลดข้อมูลทั้งหมดของระบบเก็บไว้ในเครื่องคอมพิวเตอร์ของคุณ
+                            ไฟล์ที่ได้จะเป็นนามสกุล <code>.json</code> ซึ่งประกอบด้วย:
+                        </p>
+                        <div className="flex flex-wrap gap-2" style={{ marginTop: 12 }}>
+                            <span className="kh-pill">ข้อมูลคอร์สเรียน และบทเรียนทั้งหมด</span>
+                            <span className="kh-pill">รายชื่อนักเรียน และข้อมูลผู้ใช้งาน</span>
+                            <span className="kh-pill">ประวัติการลงทะเบียนเรียน (Enrollments)</span>
+                            <span className="kh-pill">ประกาศแจ้งเตือนต่างๆ</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                    <div className="flex items-start gap-4 mb-8">
-                        <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                            🛡️
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-slate-800 mb-2">ระบบสำรองข้อมูลอัตโนมัติ</h2>
-                            <p className="text-slate-600 leading-relaxed">
-                                กดปุ่มด้านล่างเพื่อดาวน์โหลดข้อมูลทั้งหมดของระบบเก็บไว้ในเครื่องคอมพิวเตอร์ของคุณ
-                                ไฟล์ที่ได้จะเป็นนามสกุล <code>.json</code> ซึ่งประกอบด้วย:
-                            </p>
-                            <ul className="list-disc list-inside mt-2 text-slate-500 space-y-1 ml-2">
-                                <li>ข้อมูลคอร์สเรียน และบทเรียนทั้งหมด</li>
-                                <li>รายชื่อนักเรียน และข้อมูลผู้ใช้งาน</li>
-                                <li>ประวัติการลงทะเบียนเรียน (Enrollments)</li>
-                                <li>ประกาศแจ้งเตือนต่างๆ</li>
-                            </ul>
-                        </div>
+                <div
+                    className="flex flex-col items-center justify-center"
+                    style={{
+                        padding: 32,
+                        borderRadius: 16,
+                        background: "var(--card-2)",
+                        border: "1px dashed var(--line)",
+                    }}
+                >
+                    <div
+                        className="flex items-center justify-center"
+                        style={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: 16,
+                            background: "var(--card)",
+                            border: "1px solid var(--line)",
+                            color: "var(--accent)",
+                            marginBottom: 16,
+                        }}
+                    >
+                        <Database size={26} strokeWidth={2} />
                     </div>
-
-                    <div className="flex flex-col items-center justify-center p-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
-                        <button
-                            onClick={handleBackup}
-                            disabled={loading}
-                            className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-indigo-700 transition flex items-center gap-3 disabled:opacity-50 shadow-lg hover:shadow-indigo-200 transform hover:-translate-y-1"
-                        >
-                            {loading ? (
-                                <>
-                                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    กำลังดึงข้อมูล...
-                                </>
-                            ) : (
-                                <>
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                                    </svg>
-                                    ดาวน์โหลดไฟล์ Backup
-                                </>
-                            )}
-                        </button>
-                        <p className="mt-4 text-xs text-slate-400">
-                            *ควรทำเป็นประจำทุกสัปดาห์ หรือก่อนทำการแก้ไขข้อมูลสำคัญ
-                        </p>
-                    </div>
+                    <button onClick={handleBackup} disabled={loading} className="kh-btn">
+                        {loading ? (
+                            <>
+                                <Loader2 size={20} strokeWidth={2} className="animate-spin" />
+                                กำลังดึงข้อมูล...
+                            </>
+                        ) : (
+                            <>
+                                <Download size={20} strokeWidth={2} />
+                                ดาวน์โหลดไฟล์ Backup
+                            </>
+                        )}
+                    </button>
+                    <p className="kh-ink3 text-xs" style={{ marginTop: 16 }}>
+                        *ควรทำเป็นประจำทุกสัปดาห์ หรือก่อนทำการแก้ไขข้อมูลสำคัญ
+                    </p>
                 </div>
             </div>
         </div>
-
     );
 }

@@ -5,8 +5,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { ref, deleteObject } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import { PROMO_STATS_DOC } from "@/lib/promoTracking";
-import Link from "next/link";
-import { ArrowLeft, Upload, Save, Loader2, Trash2, Eye, EyeOff, MousePointerClick } from "lucide-react";
+import { Megaphone, Upload, Save, Loader2, Trash2, Eye, EyeOff, MousePointerClick, Clock, CalendarClock } from "lucide-react";
 import PromotionBanner, { PROMO_THEME_LIST, DEFAULT_PROMO_THEME } from "@/components/home/PromotionBanner";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -146,8 +145,8 @@ export default function AdminPromotions() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+            <div className="flex items-center justify-center py-24">
+                <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--accent)" }} />
             </div>
         );
     }
@@ -155,220 +154,246 @@ export default function AdminPromotions() {
     const draft = { enabled: true, imageUrl, title, subtitle, ctaText, ctaLink, theme, bgStyle, badgeText, endDate, showCountdown };
     const hasPreview = !!(title || subtitle || imageUrl);
 
-    return (
-        <div className="min-h-screen bg-slate-50 p-4 md:p-8">
-            <div className="max-w-3xl mx-auto">
-                <Link href="/admin" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold mb-6">
-                    <ArrowLeft size={18} /> กลับหน้าแอดมิน
-                </Link>
-                <h1 className="text-2xl md:text-3xl font-black text-slate-800 mb-1">🎁 โปรโมชันหน้าแรก</h1>
-                <p className="text-slate-500 mb-2">แบนเนอร์โปรโมชันที่แสดงเหนือส่วน Hero บนหน้าแรก — เปิด/ปิด และแก้ไขรูป/ข้อความได้ที่นี่</p>
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-6 inline-block">⏱️ หลังบันทึก การเปลี่ยนแปลงจะแสดงบนหน้าเว็บภายในประมาณ 1 นาที</p>
+    // Presentation-only status derived from existing state.
+    const today = new Date().toISOString().split("T")[0];
+    const scheduledFuture = !!startDate && startDate > today;
+    const ended = !!endDate && endDate < today;
+    let statusPill: { cls: string; label: string };
+    if (!enabled) statusPill = { cls: "kh-pill-ink", label: "ปิดอยู่" };
+    else if (ended) statusPill = { cls: "kh-pill-ink", label: "สิ้นสุด" };
+    else if (scheduledFuture) statusPill = { cls: "kh-pill-warn", label: "ตั้งเวลา" };
+    else statusPill = { cls: "kh-pill-good", label: "กำลังแสดง" };
 
-                {/* Show/Hide toggle */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-5 mb-5 flex items-center justify-between gap-4 shadow-sm">
+    return (
+        <div className="space-y-6">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="kh-eyebrow"><Megaphone size={15} strokeWidth={1.9} /> โปรโมชันหน้าแรก</div>
+                    <span className={`kh-pill ${statusPill.cls}`}>{statusPill.label}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <span className="text-xs kh-ink3">
+                        {dirty ? "● มีการแก้ไขที่ยังไม่บันทึก" : savedAt ? `บันทึกล่าสุด ${savedAt} ✓` : "ยังไม่ได้บันทึก"}
+                    </span>
+                    <button type="button" onClick={handleSave} disabled={saving} className="kh-btn">
+                        {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} strokeWidth={1.9} />} บันทึก
+                    </button>
+                </div>
+            </div>
+
+            <p className="text-sm kh-ink3 -mt-2">
+                แบนเนอร์โปรโมชันที่แสดงเหนือส่วน Hero บนหน้าแรก — เปิด/ปิด และแก้ไขรูป/ข้อความได้ที่นี่
+                <span className="inline-flex items-center gap-1 ml-2 kh-pill kh-pill-warn no-dot align-middle">
+                    <Clock size={12} strokeWidth={2} /> หลังบันทึก แสดงบนหน้าเว็บภายในประมาณ 1 นาที
+                </span>
+            </p>
+
+            {/* Show/Hide toggle + click stats */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="kh-card p-5 flex items-center justify-between gap-4">
                     <div>
-                        <div className="font-bold text-slate-800 flex items-center gap-2">
-                            {enabled ? <Eye size={18} className="text-emerald-500" /> : <EyeOff size={18} className="text-slate-400" />}
+                        <div className="font-semibold kh-ink flex items-center gap-2">
+                            {enabled
+                                ? <Eye size={18} style={{ color: "var(--good)" }} />
+                                : <EyeOff size={18} className="kh-ink3" />}
                             แสดงแบนเนอร์บนหน้าแรก
                         </div>
-                        <p className="text-sm text-slate-400 mt-0.5">
+                        <p className="text-sm kh-ink3 mt-0.5">
                             {enabled ? "กำลังแสดง — โปรโมชันจะอยู่เหนือ Hero" : "ปิดอยู่ — หน้าแรกจะขึ้น Hero ตามปกติ"}
                         </p>
                     </div>
                     <button
                         type="button"
                         onClick={() => setEnabled((v) => !v)}
-                        className={`relative w-14 h-8 rounded-full transition-colors flex-shrink-0 ${enabled ? "bg-emerald-500" : "bg-slate-300"}`}
+                        className="relative w-14 h-8 rounded-full transition-colors flex-shrink-0"
+                        style={{ background: enabled ? "var(--good)" : "var(--line-2)" }}
                         aria-label="สลับการแสดงแบนเนอร์"
                     >
                         <span className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow transition-transform ${enabled ? "translate-x-6" : ""}`}></span>
                     </button>
                 </div>
 
-                {/* Click stats */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-5 mb-5 shadow-sm flex items-center gap-8">
-                    <MousePointerClick className="text-amber-500 shrink-0" size={28} />
+                <div className="kh-card p-5 flex items-center gap-8">
+                    <MousePointerClick className="shrink-0" size={28} style={{ color: "var(--accent)" }} />
                     <div>
-                        <div className="text-xs text-slate-400 font-bold">คลิกปุ่มทั้งหมด</div>
-                        <div className="text-2xl font-black text-slate-800">{clickStats.total.toLocaleString()}</div>
+                        <div className="text-xs kh-ink3 font-medium">คลิกปุ่มทั้งหมด</div>
+                        <div className="text-2xl font-semibold kh-ink kh-num">{clickStats.total.toLocaleString()}</div>
                     </div>
                     <div>
-                        <div className="text-xs text-slate-400 font-bold">คลิกวันนี้</div>
-                        <div className="text-2xl font-black text-amber-600">{clickStats.today.toLocaleString()}</div>
+                        <div className="text-xs kh-ink3 font-medium">คลิกวันนี้</div>
+                        <div className="text-2xl font-semibold kh-num" style={{ color: "var(--accent)" }}>{clickStats.today.toLocaleString()}</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Content editor */}
+            <div className="kh-card p-5 md:p-6 space-y-5">
+                <div className="kh-eyebrow">รายละเอียดแบนเนอร์</div>
+
+                {/* Background theme (gradient) */}
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-2">สีพื้นหลัง (ไล่เฉด)</label>
+                    <div className="flex flex-wrap gap-2">
+                        {PROMO_THEME_LIST.map((th) => (
+                            <button
+                                key={th.key}
+                                type="button"
+                                onClick={() => setTheme(th.key)}
+                                className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border transition-all"
+                                style={theme === th.key
+                                    ? { borderColor: "var(--accent)", background: "var(--accent-soft)" }
+                                    : { borderColor: "var(--line)" }}
+                            >
+                                <span className={`w-6 h-6 rounded-full ring-1 ring-black/10 ${th.swatch}`}></span>
+                                <span className="text-sm font-medium kh-ink2">{th.label}</span>
+                            </button>
+                        ))}
                     </div>
                 </div>
 
-                {/* Content editor */}
-                <div className="bg-white rounded-2xl border border-slate-100 p-5 md:p-6 mb-5 shadow-sm space-y-5">
-                    <h2 className="font-bold text-slate-700">รายละเอียดแบนเนอร์</h2>
-
-                    {/* Background theme (gradient) */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-500 mb-2">สีพื้นหลัง (ไล่เฉด)</label>
-                        <div className="flex flex-wrap gap-2">
-                            {PROMO_THEME_LIST.map((th) => (
-                                <button
-                                    key={th.key}
-                                    type="button"
-                                    onClick={() => setTheme(th.key)}
-                                    className={`flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border-2 transition-all ${theme === th.key ? "border-amber-400 bg-amber-50" : "border-slate-200 hover:border-slate-300"}`}
-                                >
-                                    <span className={`w-6 h-6 rounded-full ring-1 ring-black/10 ${th.swatch}`}></span>
-                                    <span className="text-sm font-bold text-slate-600">{th.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Card background style */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-500 mb-2">สไตล์พื้นหลังการ์ด</label>
-                        <div className="flex gap-2">
-                            {([["solid", "ไล่เฉดทึบ"], ["glass", "กระจกฝ้า"]] as const).map(([val, lbl]) => (
-                                <button
-                                    key={val}
-                                    type="button"
-                                    onClick={() => setBgStyle(val)}
-                                    className={`flex-1 px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all ${bgStyle === val ? "border-amber-400 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}
-                                >
-                                    {lbl}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Image */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-500 mb-1">รูปภาพ <span className="font-normal text-slate-400">(ไม่ใส่ก็ได้)</span></label>
-                        <p className="text-xs text-slate-400 mb-2">แนะนำขนาด ~1200 × 750 px (อัตราส่วน 16:10) เพื่อให้คมชัด · JPG/PNG/WebP · สูงสุด 5MB</p>
-                        {imageUrl ? (
-                            <div className="relative inline-block">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={imageUrl} alt="ตัวอย่างรูปโปรโมชัน" className="w-full max-w-sm rounded-xl border border-slate-200 object-cover" />
-                                <button
-                                    type="button"
-                                    onClick={() => setImageUrl("")}
-                                    className="absolute top-2 right-2 bg-white/90 hover:bg-rose-50 text-rose-600 rounded-full p-2 shadow"
-                                    aria-label="ลบรูป"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        ) : (
-                            <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-8 cursor-pointer hover:border-amber-300 transition-colors text-slate-400">
-                                {uploading ? <Loader2 className="animate-spin" /> : <Upload size={24} />}
-                                <span className="text-sm font-bold">{uploading ? "กำลังอัปโหลด..." : "คลิกเพื่ออัปโหลดรูป"}</span>
-                                <span className="text-xs">JPG, PNG, WebP · สูงสุด 5MB</span>
-                                <input type="file" accept="image/*" className="hidden" onChange={handleImage} disabled={uploading} />
-                            </label>
-                        )}
-                    </div>
-
-                    {/* Title */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-500 mb-2">หัวข้อ</label>
-                        <input
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="เช่น เปิดรับสมัครรุ่นใหม่ ลดพิเศษ 50%!"
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400"
-                        />
-                    </div>
-
-                    {/* Subtitle */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-500 mb-2">คำอธิบาย</label>
-                        <textarea
-                            value={subtitle}
-                            onChange={(e) => setSubtitle(e.target.value)}
-                            rows={3}
-                            placeholder="เช่น สมัครภายในเดือนนี้ รับฟรีคอร์สติวเข้ม + เฉลยข้อสอบจริงทุกชุด"
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400 resize-none"
-                        />
-                    </div>
-
-                    {/* Badge text */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-500 mb-2">ข้อความป้าย <span className="font-normal text-slate-400">(เว้นว่าง = ไม่แสดงป้าย)</span></label>
-                        <input
-                            value={badgeText}
-                            onChange={(e) => setBadgeText(e.target.value)}
-                            placeholder="เช่น โปรโมชันพิเศษ / ด่วน! / ลดสูงสุด 50%"
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400"
-                        />
-                    </div>
-
-                    {/* CTA */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-bold text-slate-500 mb-2">ข้อความปุ่ม <span className="font-normal text-slate-400">(ไม่ใส่ก็ได้)</span></label>
-                            <input
-                                value={ctaText}
-                                onChange={(e) => setCtaText(e.target.value)}
-                                placeholder="เช่น สมัครเลย"
-                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-500 mb-2">ลิงก์ปุ่ม</label>
-                            <input
-                                value={ctaLink}
-                                onChange={(e) => setCtaLink(e.target.value)}
-                                placeholder="เช่น /payment หรือ /course/xxxx"
-                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400"
-                            />
-                        </div>
-                    </div>
-                    <p className="text-xs text-slate-400">ปุ่มจะแสดงก็ต่อเมื่อใส่ทั้ง &ldquo;ข้อความปุ่ม&rdquo; และ &ldquo;ลิงก์ปุ่ม&rdquo; · ลิงก์ที่ขึ้นต้น http จะเปิดในแท็บใหม่</p>
-
-                    {/* Schedule */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-500 mb-2">ช่วงเวลาแสดง <span className="font-normal text-slate-400">(เว้นว่าง = ไม่จำกัด)</span></label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <span className="text-xs text-slate-400">เริ่มแสดง</span>
-                                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400" />
-                            </div>
-                            <div>
-                                <span className="text-xs text-slate-400">หยุดแสดง (ถึงสิ้นวัน)</span>
-                                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-amber-400" />
-                            </div>
-                        </div>
-                        <p className="text-xs text-slate-400 mt-1.5">ตั้งวันแล้วระบบเปิด/ปิดแบนเนอร์ให้อัตโนมัติตามช่วง (ต้องเปิดสวิตช์ด้านบนด้วย)</p>
-                        <label className="flex items-center gap-2 mt-3 cursor-pointer">
-                            <input type="checkbox" checked={showCountdown} onChange={(e) => setShowCountdown(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400" />
-                            <span className="text-sm font-bold text-slate-600">แสดงนาฬิกานับถอยหลังถึงวันหมด</span>
-                        </label>
+                {/* Card background style */}
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-2">สไตล์พื้นหลังการ์ด</label>
+                    <div className="flex gap-2">
+                        {([["solid", "ไล่เฉดทึบ"], ["glass", "กระจกฝ้า"]] as const).map(([val, lbl]) => (
+                            <button
+                                key={val}
+                                type="button"
+                                onClick={() => setBgStyle(val)}
+                                className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all"
+                                style={bgStyle === val
+                                    ? { borderColor: "var(--accent)", background: "var(--accent-soft)", color: "var(--accent-ink)" }
+                                    : { borderColor: "var(--line)", color: "var(--ink-3)" }}
+                            >
+                                {lbl}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
-                {/* Live preview */}
-                <div className="mb-28">
-                    <h2 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><Eye size={16} /> ตัวอย่างที่จะแสดงจริง</h2>
-                    {hasPreview ? (
-                        <PromotionBanner promo={draft} />
+                {/* Image */}
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-1">รูปภาพ <span className="font-normal kh-ink3">(ไม่ใส่ก็ได้)</span></label>
+                    <p className="text-xs kh-ink3 mb-2">แนะนำขนาด ~1200 × 750 px (อัตราส่วน 16:10) เพื่อให้คมชัด · JPG/PNG/WebP · สูงสุด 5MB</p>
+                    {imageUrl ? (
+                        <div className="relative inline-block">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={imageUrl} alt="ตัวอย่างรูปโปรโมชัน" className="w-full max-w-sm rounded-xl object-cover" style={{ border: "1px solid var(--line)" }} />
+                            <button
+                                type="button"
+                                onClick={() => setImageUrl("")}
+                                className="absolute top-2 right-2 bg-white/90 rounded-full p-2 shadow"
+                                style={{ color: "var(--danger)" }}
+                                aria-label="ลบรูป"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
                     ) : (
-                        <div className="text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl p-10">
-                            ใส่หัวข้อ / คำอธิบาย / รูป เพื่อดูตัวอย่าง
-                        </div>
+                        <label
+                            className="flex flex-col items-center justify-center gap-2 rounded-xl p-8 cursor-pointer transition-colors kh-ink3"
+                            style={{ border: "2px dashed var(--line-2)", background: "var(--card-2)" }}
+                        >
+                            {uploading ? <Loader2 className="animate-spin" /> : <Upload size={24} />}
+                            <span className="text-sm font-medium">{uploading ? "กำลังอัปโหลด..." : "คลิกเพื่ออัปโหลดรูป"}</span>
+                            <span className="text-xs">JPG, PNG, WebP · สูงสุด 5MB</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={handleImage} disabled={uploading} />
+                        </label>
                     )}
                 </div>
 
-                {/* Sticky save bar */}
-                <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur border-t border-slate-200 p-4 z-30">
-                    <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-                        <span className="text-sm text-slate-400">{dirty ? "● มีการแก้ไขที่ยังไม่บันทึก" : savedAt ? `บันทึกล่าสุด ${savedAt} ✓` : "ยังไม่ได้บันทึก"}</span>
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-60 shadow-lg shadow-amber-200 transition-colors"
-                        >
-                            {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} บันทึก
-                        </button>
+                {/* Title */}
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-2">หัวข้อ</label>
+                    <input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="เช่น เปิดรับสมัครรุ่นใหม่ ลดพิเศษ 50%!"
+                        className="kh-input"
+                    />
+                </div>
+
+                {/* Subtitle */}
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-2">คำอธิบาย</label>
+                    <textarea
+                        value={subtitle}
+                        onChange={(e) => setSubtitle(e.target.value)}
+                        rows={3}
+                        placeholder="เช่น สมัครภายในเดือนนี้ รับฟรีคอร์สติวเข้ม + เฉลยข้อสอบจริงทุกชุด"
+                        className="kh-textarea resize-none"
+                    />
+                </div>
+
+                {/* Badge text */}
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-2">ข้อความป้าย <span className="font-normal kh-ink3">(เว้นว่าง = ไม่แสดงป้าย)</span></label>
+                    <input
+                        value={badgeText}
+                        onChange={(e) => setBadgeText(e.target.value)}
+                        placeholder="เช่น โปรโมชันพิเศษ / ด่วน! / ลดสูงสุด 50%"
+                        className="kh-input"
+                    />
+                </div>
+
+                {/* CTA */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-xs font-medium kh-ink2 mb-2">ข้อความปุ่ม <span className="font-normal kh-ink3">(ไม่ใส่ก็ได้)</span></label>
+                        <input
+                            value={ctaText}
+                            onChange={(e) => setCtaText(e.target.value)}
+                            placeholder="เช่น สมัครเลย"
+                            className="kh-input"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium kh-ink2 mb-2">ลิงก์ปุ่ม</label>
+                        <input
+                            value={ctaLink}
+                            onChange={(e) => setCtaLink(e.target.value)}
+                            placeholder="เช่น /payment หรือ /course/xxxx"
+                            className="kh-input"
+                        />
                     </div>
                 </div>
+                <p className="text-xs kh-ink3">ปุ่มจะแสดงก็ต่อเมื่อใส่ทั้ง &ldquo;ข้อความปุ่ม&rdquo; และ &ldquo;ลิงก์ปุ่ม&rdquo; · ลิงก์ที่ขึ้นต้น http จะเปิดในแท็บใหม่</p>
+
+                {/* Schedule */}
+                <div>
+                    <label className="text-xs font-medium kh-ink2 mb-2 flex items-center gap-1.5"><CalendarClock size={14} strokeWidth={1.9} /> ช่วงเวลาแสดง <span className="font-normal kh-ink3">(เว้นว่าง = ไม่จำกัด)</span></label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <span className="text-xs kh-ink3">เริ่มแสดง</span>
+                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="kh-input mt-1" />
+                        </div>
+                        <div>
+                            <span className="text-xs kh-ink3">หยุดแสดง (ถึงสิ้นวัน)</span>
+                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="kh-input mt-1" />
+                        </div>
+                    </div>
+                    <p className="text-xs kh-ink3 mt-1.5">ตั้งวันแล้วระบบเปิด/ปิดแบนเนอร์ให้อัตโนมัติตามช่วง (ต้องเปิดสวิตช์ด้านบนด้วย)</p>
+                    <label className="flex items-center gap-2 mt-3 cursor-pointer">
+                        <input type="checkbox" checked={showCountdown} onChange={(e) => setShowCountdown(e.target.checked)} className="w-4 h-4 rounded" style={{ accentColor: "var(--accent)" }} />
+                        <span className="text-sm font-medium kh-ink2">แสดงนาฬิกานับถอยหลังถึงวันหมด</span>
+                    </label>
+                </div>
+            </div>
+
+            {/* Live preview */}
+            <div className="kh-card p-5 md:p-6">
+                <div className="kh-eyebrow mb-3"><Eye size={15} strokeWidth={1.9} /> ตัวอย่างแบนเนอร์ที่กำลังแสดง</div>
+                {hasPreview ? (
+                    <PromotionBanner promo={draft} />
+                ) : (
+                    <div
+                        className="text-center kh-ink3 rounded-2xl p-10"
+                        style={{ border: "2px dashed var(--line-2)", background: "var(--card-2)" }}
+                    >
+                        ใส่หัวข้อ / คำอธิบาย / รูป เพื่อดูตัวอย่าง
+                    </div>
+                )}
             </div>
         </div>
     );

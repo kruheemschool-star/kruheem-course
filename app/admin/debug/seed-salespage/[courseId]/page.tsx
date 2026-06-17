@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useUserAuth } from "@/context/AuthContext";
@@ -9,7 +9,6 @@ import { buildSampleSalesPage } from "./sampleData";
 
 export default function SeedSalesPagePage() {
     const { courseId } = useParams();
-    const router = useRouter();
     const { isAdmin } = useUserAuth();
     const [status, setStatus] = useState<string>("");
     const [loading, setLoading] = useState(false);
@@ -19,7 +18,7 @@ export default function SeedSalesPagePage() {
 
     if (!isAdmin) {
         return (
-            <div className="min-h-screen flex items-center justify-center text-slate-600">
+            <div className="flex items-center justify-center py-20 text-slate-600">
                 Admin only
             </div>
         );
@@ -103,9 +102,8 @@ export default function SeedSalesPagePage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 py-20 px-6">
-            <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
-                <h1 className="text-2xl font-bold text-slate-800 mb-2">🧪 Seed Sample SalesPage</h1>
+        <div className="space-y-6">
+            <div className="kh-card max-w-2xl p-8">
                 <p className="text-slate-500 mb-6 text-sm">
                     เครื่องมือ dev: เพิ่ม/แก้ <code className="bg-slate-100 px-2 py-0.5 rounded">course.salesPage</code> เพื่อทดสอบ template
                 </p>
@@ -120,14 +118,14 @@ export default function SeedSalesPagePage() {
                     <button
                         onClick={handleCheck}
                         disabled={loading}
-                        className="px-4 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition disabled:opacity-50"
+                        className="kh-btn-ghost justify-center"
                     >
                         🔍 เช็คสถานะ
                     </button>
                     <button
                         onClick={handleSeed}
                         disabled={loading}
-                        className="px-4 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition disabled:opacity-50"
+                        className="kh-btn justify-center"
                     >
                         ✨ Seed ตัวอย่าง
                     </button>
@@ -161,10 +159,6 @@ export default function SeedSalesPagePage() {
                     >
                         → เปิดหน้า sales page
                     </Link>
-                    <span className="text-slate-300">|</span>
-                    <button onClick={() => router.back()} className="text-slate-500 hover:underline">
-                        กลับ
-                    </button>
                 </div>
             </div>
         </div>

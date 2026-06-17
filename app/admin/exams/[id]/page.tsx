@@ -884,21 +884,32 @@ export default function ExamEditorPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-6 font-sans">
-            <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                {/* Header */}
-                <div className="bg-slate-800 p-6 flex items-center justify-between text-white">
-                    <div className="flex items-center gap-4">
-                        <Link href="/admin/exams" className="p-2 hover:bg-slate-700 rounded-full transition-colors">
-                            <ArrowLeft size={24} />
-                        </Link>
-                        <h1 className="text-xl font-bold">แก้ไขชุดข้อสอบ</h1>
-                    </div>
-                    {loading && <span className="text-slate-400">Loading...</span>}
+        <div className="space-y-6">
+            <div className="kh-card overflow-hidden">
+                {/* Toolbar */}
+                <div className="p-4 flex items-center justify-end gap-3 border-b border-[var(--line)]">
+                    <Link href="/admin/exams" className="kh-btn-ghost">
+                        <ArrowLeft size={16} /> กลับคลังข้อสอบ
+                    </Link>
+                    <button
+                        onClick={() => handleSave()}
+                        disabled={saving}
+                        className="kh-btn"
+                    >
+                        {saving ? (
+                            <>
+                                <Loader2 className="animate-spin" size={16} /> กำลังบันทึก...
+                            </>
+                        ) : (
+                            <>
+                                <Save size={16} /> บันทึก
+                            </>
+                        )}
+                    </button>
                 </div>
 
                 {loading ? (
-                    <div className="p-12 text-center text-slate-400">กำลังโหลดข้อมูล...</div>
+                    <div className="p-12 text-center text-[var(--ink-3)]">กำลังโหลดข้อมูล...</div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
                         {/* Left Column: Exam Meta Data */}
@@ -911,7 +922,7 @@ export default function ExamEditorPage() {
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     rows={2}
-                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none resize-none"
+                                    className="kh-textarea resize-none"
                                 />
                                 <p className="text-[10px] text-slate-400 mt-1.5 ml-1">Tip: กด Enter เพื่อขึ้นบรรทัดใหม่ได้เลย (แสดงผลตามจริง)</p>
                             </div>
@@ -963,7 +974,7 @@ export default function ExamEditorPage() {
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     rows={3}
-                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                                    className="kh-textarea"
                                 />
                             </div>
 
@@ -1008,7 +1019,7 @@ export default function ExamEditorPage() {
                                         type="number"
                                         value={timeLimit}
                                         onChange={(e) => setTimeLimit(Number(e.target.value))}
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                                        className="kh-input"
                                     />
                                 </div>
                                 <div>
@@ -1016,7 +1027,7 @@ export default function ExamEditorPage() {
                                     <select
                                         value={difficulty}
                                         onChange={(e) => setDifficulty(e.target.value)}
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                                        className="kh-select"
                                     >
                                         <option value="Easy">ง่าย</option>
                                         <option value="Medium">ปานกลาง</option>
@@ -1032,7 +1043,7 @@ export default function ExamEditorPage() {
                                     min={10}
                                     value={recommendedSecondsPerQuestion}
                                     onChange={(e) => setRecommendedSecondsPerQuestion(Number(e.target.value))}
-                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                                    className="kh-input"
                                 />
                                 <p className="text-xs text-slate-400 mt-1.5">ใช้วิเคราะห์จังหวะการทำข้อสอบของนักเรียน (ค่าเริ่มต้น 90 วินาที)</p>
                             </div>
@@ -1423,13 +1434,7 @@ export default function ExamEditorPage() {
                 <button
                     onClick={() => handleSave()}
                     disabled={saving}
-                    className={`
-                        h-14 px-8 rounded-full shadow-2xl flex items-center gap-3 transition-all duration-300 transform hover:-translate-y-1 active:scale-95
-                        ${saving
-                            ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
-                            : "bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:shadow-orange-500/40 ring-4 ring-white/20"
-                        }
-                    `}
+                    className="kh-btn h-14 px-8 rounded-full shadow-2xl text-base"
                 >
                     {saving ? (
                         <>

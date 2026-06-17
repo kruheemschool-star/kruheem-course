@@ -264,90 +264,88 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
     };
 
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center text-slate-500">กำลังโหลด...</div>;
+        return <div className="kh-ink3 py-20 text-center">กำลังโหลด...</div>;
     }
 
     return (
         <AdminGuard>
-            <div className="min-h-screen bg-white font-sans pb-20">
-                <form onSubmit={handleSubmit}>
-                    {/* Header */}
-                    <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4">
-                        <div className="max-w-5xl mx-auto flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <Link href="/admin/summaries" className="p-2 rounded-full hover:bg-slate-100 transition text-slate-400">
-                                    <ArrowLeft size={24} />
-                                </Link>
-                                <h1 className="text-xl font-bold text-slate-800">✏️ แก้ไขบทสรุป</h1>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <button
-                                    type="button"
-                                    onClick={handleDelete}
-                                    className="p-2 rounded-full text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition"
-                                >
-                                    <Trash2 size={20} />
-                                </button>
-                                <select
-                                    value={status}
-                                    onChange={(e) => setStatus(e.target.value as 'draft' | 'published')}
-                                    className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 bg-white"
-                                >
-                                    <option value="draft">📝 ฉบับร่าง</option>
-                                    <option value="published">✅ เผยแพร่</option>
-                                </select>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="flex items-center gap-2 px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold transition disabled:opacity-50"
-                                >
-                                    <Save size={20} />
-                                    {isSubmitting ? "กำลังบันทึก..." : "บันทึก"}
-                                </button>
-                            </div>
+            <div className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Toolbar */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <Link href="/admin/summaries" className="kh-btn-ghost">
+                            <ArrowLeft size={16} />
+                            กลับ
+                        </Link>
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={handleDelete}
+                                className="kh-btn-ghost"
+                                style={{ color: "var(--danger)" }}
+                            >
+                                <Trash2 size={16} />
+                                ลบ
+                            </button>
+                            <select
+                                value={status}
+                                onChange={(e) => setStatus(e.target.value as 'draft' | 'published')}
+                                className="kh-select w-auto"
+                            >
+                                <option value="draft">📝 ฉบับร่าง</option>
+                                <option value="published">✅ เผยแพร่</option>
+                            </select>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="kh-btn"
+                            >
+                                <Save size={16} />
+                                {isSubmitting ? "กำลังบันทึก..." : "บันทึก"}
+                            </button>
                         </div>
-                    </header>
+                    </div>
 
-                    <main className="max-w-5xl mx-auto p-6 md:p-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Left Column */}
                         <div className="space-y-6 lg:col-span-1">
-                            <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
-                                <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">📝 รายละเอียด</h3>
+                            <div className="kh-card p-6 space-y-4">
+                                <h3 className="kh-eyebrow">📝 รายละเอียด</h3>
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-600 mb-1">ชื่อบท</label>
+                                    <label className="block text-sm font-semibold kh-ink2 mb-1.5">ชื่อบท</label>
                                     <input
                                         type="text"
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
-                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400 font-bold text-slate-800 bg-white"
+                                        className="kh-input font-semibold"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-600 mb-1">URL (Slug)</label>
-                                    <div className="flex items-center bg-white rounded-xl border border-slate-200 overflow-hidden">
-                                        <span className="px-3 text-sm text-slate-400">/summary/</span>
+                                    <label className="block text-sm font-semibold kh-ink2 mb-1.5">URL (Slug)</label>
+                                    <div className="flex items-center kh-input p-0 overflow-hidden">
+                                        <span className="px-3 text-sm kh-ink3 shrink-0">/summary/</span>
                                         <input
                                             type="text"
                                             value={slug}
                                             onChange={(e) => setSlug(e.target.value)}
-                                            className="flex-1 px-2 py-3 focus:outline-none font-mono text-sm text-slate-600"
+                                            className="flex-1 bg-transparent border-0 px-0 py-2.5 focus:outline-none font-mono text-sm kh-ink2"
                                         />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Cover Image for Homepage Slideshow */}
-                            <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
-                                <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">🖼️ รูปปกสไลด์โชว์</h3>
-                                <p className="text-xs text-slate-400">รูปนี้จะแสดงในสไลด์โชว์หน้าแรก</p>
-                                <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1">
-                                    <p className="text-xs font-bold text-slate-600">📐 อัตราส่วนที่แนะนำ: <span className="text-teal-600">15:22</span> (แนวตั้ง)</p>
-                                    <p className="text-xs text-slate-500">💾 ขนาดที่แนะนำ: <span className="font-semibold">750 × 1100 px</span> หรือ <span className="font-semibold">900 × 1320 px</span></p>
-                                    <p className="text-xs text-slate-400">📦 ขนาดไฟล์: ไม่เกิน 500 KB</p>
+                            <div className="kh-card p-6 space-y-4">
+                                <h3 className="kh-eyebrow">🖼️ รูปปกสไลด์โชว์</h3>
+                                <p className="text-xs kh-ink3">รูปนี้จะแสดงในสไลด์โชว์หน้าแรก</p>
+                                <div className="rounded-xl p-3 space-y-1" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>
+                                    <p className="text-xs font-semibold kh-ink2">📐 อัตราส่วนที่แนะนำ: <span style={{ color: "var(--accent-ink)" }}>15:22</span> (แนวตั้ง)</p>
+                                    <p className="text-xs kh-ink3">💾 ขนาดที่แนะนำ: <span className="font-semibold kh-ink2">750 × 1100 px</span> หรือ <span className="font-semibold kh-ink2">900 × 1320 px</span></p>
+                                    <p className="text-xs kh-ink3">📦 ขนาดไฟล์: ไม่เกิน 500 KB</p>
                                 </div>
 
                                 {coverImage && (
-                                    <div className="relative rounded-xl overflow-hidden border border-slate-200">
+                                    <div className="relative rounded-xl overflow-hidden" style={{ border: "1px solid var(--line)" }}>
                                         <img src={coverImage} alt="Cover" className="w-full aspect-[3/4.4] object-cover" />
                                         <button
                                             type="button"
@@ -359,14 +357,17 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                                     </div>
                                 )}
 
-                                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-white hover:bg-slate-50 transition group">
+                                <label
+                                    className="flex flex-col items-center justify-center w-full h-24 rounded-xl cursor-pointer transition group"
+                                    style={{ border: "2px dashed var(--line-2)", background: "var(--card-2)" }}
+                                >
                                     <div className="flex flex-col items-center justify-center py-3">
                                         {uploadingCover ? (
-                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-600"></div>
+                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2" style={{ borderColor: "var(--accent)" }}></div>
                                         ) : (
                                             <>
-                                                <Upload size={20} className="text-slate-400 mb-1 group-hover:text-slate-600 transition" />
-                                                <p className="text-xs text-slate-500 font-medium">{coverImage ? 'เปลี่ยนรูปปก' : 'อัปโหลดรูปปก'}</p>
+                                                <Upload size={20} className="kh-ink3 mb-1 transition" />
+                                                <p className="text-xs kh-ink2 font-medium">{coverImage ? 'เปลี่ยนรูปปก' : 'อัปโหลดรูปปก'}</p>
                                             </>
                                         )}
                                     </div>
@@ -431,16 +432,16 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                             </div>
 
                             {/* Category & Settings */}
-                            <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
-                                <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide">⚙️ ตั้งค่า</h3>
+                            <div className="kh-card p-6 space-y-4">
+                                <h3 className="kh-eyebrow">⚙️ ตั้งค่า</h3>
 
                                 {/* Category */}
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-600 mb-1">หมวดหมู่</label>
+                                    <label className="block text-sm font-semibold kh-ink2 mb-1.5">หมวดหมู่</label>
                                     <select
                                         value={category}
                                         onChange={(e) => setCategory(e.target.value)}
-                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400 text-sm bg-white font-bold"
+                                        className="kh-select font-semibold"
                                     >
                                         <option value="">-- เลือกหมวดหมู่ --</option>
                                         <option value="ม.1">ม.1</option>
@@ -455,34 +456,37 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
 
                                 {/* Reading Time */}
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-600 mb-1">เวลาอ่าน (นาที)</label>
+                                    <label className="block text-sm font-semibold kh-ink2 mb-1.5">เวลาอ่าน (นาที)</label>
                                     <input
                                         type="number"
                                         value={readingTime}
                                         onChange={(e) => setReadingTime(e.target.value)}
                                         min="1"
                                         max="60"
-                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-400 text-sm bg-white"
+                                        className="kh-input"
                                     />
                                 </div>
                             </div>
 
                             {/* Auto-detected Metadata Preview */}
                             {/* Media Upload Helper */}
-                            <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
-                                <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wide flex items-center gap-2">
-                                    <ImageIcon size={16} /> แทรกรูปภาพ
+                            <div className="kh-card p-6 space-y-4">
+                                <h3 className="kh-eyebrow">
+                                    <ImageIcon size={14} /> แทรกรูปภาพ
                                 </h3>
                                 <div>
-                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-white hover:bg-slate-50 transition group">
+                                    <label
+                                        className="flex flex-col items-center justify-center w-full h-32 rounded-xl cursor-pointer transition group"
+                                        style={{ border: "2px dashed var(--line-2)", background: "var(--card-2)" }}
+                                    >
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                             {uploadingImage ? (
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600"></div>
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: "var(--accent)" }}></div>
                                             ) : (
                                                 <>
-                                                    <Upload size={24} className="text-slate-400 mb-2 group-hover:text-slate-600 transition" />
-                                                    <p className="text-sm text-slate-500 font-medium">คลิกเพื่ออัปโหลด</p>
-                                                    <p className="text-xs text-slate-400 mt-1">จะ Copy JSON ให้ทันที</p>
+                                                    <Upload size={24} className="kh-ink3 mb-2 transition" />
+                                                    <p className="text-sm kh-ink2 font-medium">คลิกเพื่ออัปโหลด</p>
+                                                    <p className="text-xs kh-ink3 mt-1">จะ Copy JSON ให้ทันที</p>
                                                 </>
                                             )}
                                         </div>
@@ -498,12 +502,12 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                             </div>
 
                             {detectedMeta && (
-                                <div className="bg-emerald-50 rounded-2xl p-6 space-y-3 border border-emerald-100">
-                                    <h3 className="font-bold text-emerald-700 text-sm uppercase tracking-wide flex items-center gap-2">
-                                        <Info size={16} />
+                                <div className="kh-card p-6 space-y-3" style={{ background: "var(--good-soft)", borderColor: "color-mix(in srgb, var(--good) 30%, transparent)" }}>
+                                    <h3 className="kh-eyebrow" style={{ color: "var(--good)" }}>
+                                        <Info size={14} />
                                         Metadata อัตโนมัติ
                                     </h3>
-                                    <div className="text-xs text-emerald-800 space-y-2">
+                                    <div className="text-xs space-y-2" style={{ color: "var(--good)" }}>
                                         <p><strong>SEO Title:</strong> {detectedMeta.seo_title || '-'}</p>
                                         <p><strong>Description:</strong> {detectedMeta.meta_description?.slice(0, 60) || '-'}...</p>
                                         <p><strong>Keywords:</strong> {detectedMeta.focus_keywords?.slice(0, 3).join(', ') || '-'}</p>
@@ -516,42 +520,47 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                         {/* Right Column */}
                         <div className="lg:col-span-2 space-y-4">
                             {/* Editor Mode Toggle */}
-                            <div className="flex items-center justify-between gap-2">
-                                <div className="bg-slate-100 rounded-xl p-1 flex items-center gap-1">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="rounded-xl p-1 flex items-center gap-1" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>
                                     <button
                                         type="button"
                                         onClick={() => setEditorMode('blocks')}
-                                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition ${editorMode === 'blocks' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        className="kh-tab flex items-center gap-2"
+                                        data-active={editorMode === 'blocks'}
                                     >
                                         <Layers size={16} /> Blocks
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setEditorMode('visual')}
-                                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition ${editorMode === 'visual' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        className="kh-tab flex items-center gap-2"
+                                        data-active={editorMode === 'visual'}
                                     >
                                         <PenTool size={16} /> Visual
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setEditorMode('json')}
-                                        className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition ${editorMode === 'json' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        className="kh-tab flex items-center gap-2"
+                                        data-active={editorMode === 'json'}
                                     >
                                         <Code size={16} /> JSON
                                     </button>
                                 </div>
-                                <div className="bg-slate-100 rounded-xl p-1 flex items-center gap-1">
+                                <div className="rounded-xl p-1 flex items-center gap-1" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>
                                     <button
                                         type="button"
                                         onClick={() => setActiveTab('edit')}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === 'edit' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        className="kh-tab text-xs flex items-center gap-1"
+                                        data-active={activeTab === 'edit'}
                                     >
                                         Edit
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setActiveTab('preview')}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition ${activeTab === 'preview' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        className="kh-tab text-xs flex items-center gap-1"
+                                        data-active={activeTab === 'preview'}
                                     >
                                         <Eye size={14} /> Preview
                                     </button>
@@ -579,12 +588,13 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                                                 ref={jsonTextareaRef}
                                                 value={content}
                                                 onChange={(e) => setContent(e.target.value)}
-                                                className="w-full h-full p-6 text-sm font-mono bg-slate-900 text-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-slate-400 resize-none leading-relaxed"
+                                                className="kh-textarea w-full h-full p-6 font-mono resize-none leading-relaxed"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={handleAutoFixJson}
-                                                className="absolute bottom-4 right-4 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition"
+                                                className="absolute bottom-4 right-4 px-4 py-2 rounded-xl font-semibold text-sm shadow-lg flex items-center gap-2 transition"
+                                                style={{ background: "var(--warn)", color: "#fff" }}
                                             >
                                                 <Wand2 size={16} /> Auto Fix
                                             </button>
@@ -592,7 +602,7 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                                     )
                                 ) : (
                                     /* Preview */
-                                    <div className="h-[500px] overflow-y-auto p-8 bg-white rounded-2xl border border-slate-100">
+                                    <div className="kh-card h-[500px] overflow-y-auto p-8">
                                         {editorMode === 'visual' ? (
                                             <div
                                                 className="prose prose-lg max-w-none"
@@ -605,7 +615,7 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                                 )}
                             </div>
                         </div>
-                    </main>
+                    </div>
                 </form>
                 <ConfirmDialog />
             </div>

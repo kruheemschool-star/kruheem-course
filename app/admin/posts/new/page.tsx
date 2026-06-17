@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import AdminGuard from "@/components/AdminGuard";
-import Link from "next/link";
-import { ArrowLeft, Save, Image as ImageIcon, Eye, Code, Layout, Trash2, FileJson } from "lucide-react";
+import { Save, Image as ImageIcon, Eye, Code, FileJson, PenLine, Search, Check } from "lucide-react";
 import TiptapEditor from "@/components/TiptapEditor";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
@@ -114,193 +113,198 @@ export default function NewPostPage() {
 
     return (
         <AdminGuard>
-            <div className="min-h-screen bg-[#F0F7F4] font-sans pb-20">
-                <form onSubmit={handleSubmit}>
-                    {/* Header */}
-                    <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-white/20 px-6 py-4 shadow-sm flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <Link href="/admin/posts" className="p-2 rounded-full hover:bg-slate-100 transition text-slate-500">
-                                <ArrowLeft size={24} />
-                            </Link>
-                            <h1 className="text-xl font-bold text-slate-800">เขียนบทความใหม่ ✍️</h1>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 disabled:opacity-50"
-                        >
-                            <Save size={20} />
-                            {isSubmitting ? "กำลังบันทึก..." : "บันทึกบทความ"}
-                        </button>
-                    </header>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Toolbar */}
+                <div className="kh-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <span className="kh-eyebrow">
+                        <PenLine size={14} />
+                        เขียนบทความใหม่
+                    </span>
+                    <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="kh-btn whitespace-nowrap"
+                    >
+                        <Save size={18} />
+                        {isSubmitting ? "กำลังบันทึก..." : "บันทึกบทความ"}
+                    </button>
+                </div>
 
-                    <main className="max-w-7xl mx-auto p-6 md:p-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Left Column: Settings */}
-                        <div className="space-y-6 lg:col-span-1">
-                            {/* Title & Slug */}
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">หัวข้อบทความ</label>
-                                    <input
-                                        type="text"
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
-                                        placeholder="เช่น สูตรลัดพิชิตสมการ..."
-                                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 font-bold text-slate-800"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">URL (Slug)</label>
-                                    <input
-                                        type="text"
-                                        value={slug}
-                                        onChange={(e) => setSlug(e.target.value)}
-                                        placeholder="math-trick-equation-secret"
-                                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 font-mono text-sm text-slate-600"
-                                    />
-                                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column: Settings */}
+                    <div className="space-y-6 lg:col-span-1">
+                        {/* Title & Slug */}
+                        <div className="kh-card p-5 space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold kh-ink mb-1.5">หัวข้อบทความ</label>
+                                <input
+                                    type="text"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    placeholder="เช่น สูตรลัดพิชิตสมการ..."
+                                    className="kh-input font-bold"
+                                />
                             </div>
-
-                            {/* SEO Settings */}
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                <h3 className="font-bold text-slate-800 flex items-center gap-2">🔍 SEO Settings</h3>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">คำอธิบายย่อ (Description)</label>
-                                    <textarea
-                                        value={excerpt}
-                                        onChange={(e) => setExcerpt(e.target.value)}
-                                        rows={3}
-                                        placeholder="สรุปสั้นๆ ให้คนอยากคลิกอ่าน..."
-                                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm text-slate-600"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">คำค้นหา (Keywords)</label>
-                                    <input
-                                        type="text"
-                                        value={keywords}
-                                        onChange={(e) => setKeywords(e.target.value)}
-                                        placeholder="คณิตศาสตร์, สูตรลัด, ม.ปลาย (คั่นด้วย ,)"
-                                        className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm text-slate-600"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Cover Image */}
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
-                                <label className="block text-sm font-bold text-slate-700">รูปปกบทความ</label>
-
-                                {/* Aspect Ratio Info */}
-                                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1">
-                                    <p className="text-xs font-bold text-slate-600">📐 อัตราส่วนที่แนะนำ: <span className="text-teal-600">15:22</span> (แนวตั้ง)</p>
-                                    <p className="text-xs text-slate-500">💾 ขนาดที่แนะนำ: <span className="font-semibold">750 × 1100 px</span> หรือ <span className="font-semibold">900 × 1320 px</span></p>
-                                    <p className="text-xs text-slate-400">📦 ขนาดไฟล์: ไม่เกิน 500 KB</p>
-                                </div>
-
-                                {/* Image Upload */}
-                                <div className="relative group cursor-pointer border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden min-h-[200px] flex items-center justify-center bg-slate-50 hover:bg-slate-100 transition">
-                                    <input type="file" onChange={handleImageChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" accept="image/*" />
-                                    {coverImageUrl ? (
-                                        /* eslint-disable-next-line @next/next/no-img-element */
-                                        <img src={coverImageUrl} alt="Cover Preview" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="text-center text-slate-400">
-                                            <ImageIcon size={40} className="mx-auto mb-2 opacity-50" />
-                                            <span className="text-sm">คลิกเพื่ออัปโหลดรูป</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* File Size Info */}
-                                {originalSize > 0 && (
-                                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-                                        <p className="text-xs font-bold text-emerald-700 mb-1">✅ บีบอัดรูปภาพสำเร็จ</p>
-                                        <div className="flex items-center justify-between text-xs text-emerald-600">
-                                            <span>ขนาดต้นฉบับ: <span className="font-semibold">{(originalSize / 1024).toFixed(0)} KB</span></span>
-                                            <span>→</span>
-                                            <span>หลังบีบอัด: <span className="font-semibold">{(compressedSize / 1024).toFixed(0)} KB</span></span>
-                                        </div>
-                                        <p className="text-xs text-emerald-500 mt-1">ประหยัด: {((1 - compressedSize / originalSize) * 100).toFixed(0)}%</p>
-                                    </div>
-                                )}
+                            <div>
+                                <label className="block text-sm font-bold kh-ink mb-1.5">URL (Slug)</label>
+                                <input
+                                    type="text"
+                                    value={slug}
+                                    onChange={(e) => setSlug(e.target.value)}
+                                    placeholder="math-trick-equation-secret"
+                                    className="kh-input font-mono text-sm"
+                                />
                             </div>
                         </div>
 
-                        {/* Right Column: Editor */}
-                        <div className="lg:col-span-2 space-y-4">
-                            {/* Toolbar */}
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="bg-white rounded-2xl p-1.5 shadow-sm border border-slate-100 flex items-center gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => setActiveTab('edit')}
-                                        className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition ${activeTab === 'edit' ? 'bg-teal-50 text-teal-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-                                    >
-                                        <Code size={18} /> Editor
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setActiveTab('preview')}
-                                        className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition ${activeTab === 'preview' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-                                    >
-                                        <Eye size={18} /> Preview
-                                    </button>
-                                </div>
+                        {/* SEO Settings */}
+                        <div className="kh-card p-5 space-y-4">
+                            <h3 className="font-bold kh-ink flex items-center gap-2">
+                                <Search size={16} style={{ color: "var(--accent)" }} /> SEO Settings
+                            </h3>
+                            <div>
+                                <label className="block text-sm font-bold kh-ink mb-1.5">คำอธิบายย่อ (Description)</label>
+                                <textarea
+                                    value={excerpt}
+                                    onChange={(e) => setExcerpt(e.target.value)}
+                                    rows={3}
+                                    placeholder="สรุปสั้นๆ ให้คนอยากคลิกอ่าน..."
+                                    className="kh-textarea text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold kh-ink mb-1.5">คำค้นหา (Keywords)</label>
+                                <input
+                                    type="text"
+                                    value={keywords}
+                                    onChange={(e) => setKeywords(e.target.value)}
+                                    placeholder="คณิตศาสตร์, สูตรลัด, ม.ปลาย (คั่นด้วย ,)"
+                                    className="kh-input text-sm"
+                                />
+                            </div>
+                        </div>
 
-                                {/* Content Type Toggle */}
-                                <div className="bg-white rounded-2xl p-1.5 shadow-sm border border-slate-100 flex items-center gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => setContentType('html')}
-                                        className={`px-3 py-2 rounded-xl text-xs font-bold transition ${contentType === 'html' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                                    >
-                                        Rich Text (HTML)
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setContentType('json')}
-                                        className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition ${contentType === 'json' ? 'bg-amber-500 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                                    >
-                                        <FileJson size={14} /> Smart Content (JSON)
-                                    </button>
-                                </div>
+                        {/* Cover Image */}
+                        <div className="kh-card p-5 space-y-4">
+                            <label className="block text-sm font-bold kh-ink">รูปปกบทความ</label>
+
+                            {/* Aspect Ratio Info */}
+                            <div className="rounded-xl p-3 space-y-1" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>
+                                <p className="text-xs font-bold kh-ink2">อัตราส่วนที่แนะนำ: <span style={{ color: "var(--accent)" }}>15:22</span> (แนวตั้ง)</p>
+                                <p className="text-xs kh-ink2">ขนาดที่แนะนำ: <span className="font-semibold">750 × 1100 px</span> หรือ <span className="font-semibold">900 × 1320 px</span></p>
+                                <p className="text-xs kh-ink3">ขนาดไฟล์: ไม่เกิน 500 KB</p>
                             </div>
 
-                            {/* Editor/Preview Area */}
-                            <div className="min-h-[600px]">
-                                {activeTab === 'edit' ? (
-                                    contentType === 'html' ? (
-                                        <TiptapEditor content={content} onChange={setContent} />
-                                    ) : (
-                                        <SmartJsonEditor content={content} onChange={setContent} />
-                                    )
+                            {/* Image Upload */}
+                            <div
+                                className="relative group cursor-pointer rounded-2xl overflow-hidden min-h-[200px] flex items-center justify-center transition"
+                                style={{ border: "2px dashed var(--line-2)", background: "var(--card-2)" }}
+                            >
+                                <input type="file" onChange={handleImageChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" accept="image/*" />
+                                {coverImageUrl ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img src={coverImageUrl} alt="Cover Preview" className="w-full h-full object-cover" />
                                 ) : (
-                                    <div className="h-[600px] overflow-y-auto p-6 bg-slate-50/50 rounded-3xl border border-slate-200">
-                                        <div
-                                            className="w-full min-h-full bg-white/90 backdrop-blur-xl border border-white/50 shadow-sm rounded-3xl p-8"
-                                        >
-                                            {contentType === 'json' ? (
-                                                <SmartContentRenderer content={content} />
-                                            ) : (
-                                                <div
-                                                    className="prose prose-lg max-w-none text-slate-700 leading-relaxed font-medium"
-                                                    dangerouslySetInnerHTML={{ __html: content }}
-                                                />
-                                            )}
-                                        </div>
+                                    <div className="text-center kh-ink3">
+                                        <ImageIcon size={40} className="mx-auto mb-2 opacity-60" />
+                                        <span className="text-sm">คลิกเพื่ออัปโหลดรูป</span>
                                     </div>
                                 )}
                             </div>
 
-                            <p className="text-xs text-slate-400 text-center">
-                                {contentType === 'json'
-                                    ? 'Tip: ก๊อปปี้ JSON จาก AI มาวางแล้วกด Auto Fix เพื่อจัดรูปแบบอัตโนมัติ'
-                                    : 'Tip: ใช้ AI ช่วยเขียน HTML + Tailwind CSS แล้วนำมาวางได้เลย'}
-                            </p>
+                            {/* File Size Info */}
+                            {originalSize > 0 && (
+                                <div className="rounded-xl p-3" style={{ background: "var(--good-soft)", border: "1px solid color-mix(in srgb, var(--good) 30%, transparent)" }}>
+                                    <p className="text-xs font-bold mb-1 inline-flex items-center gap-1.5" style={{ color: "var(--good)" }}>
+                                        <Check size={14} /> บีบอัดรูปภาพสำเร็จ
+                                    </p>
+                                    <div className="flex items-center justify-between text-xs" style={{ color: "var(--good)" }}>
+                                        <span>ขนาดต้นฉบับ: <span className="font-semibold">{(originalSize / 1024).toFixed(0)} KB</span></span>
+                                        <span>→</span>
+                                        <span>หลังบีบอัด: <span className="font-semibold">{(compressedSize / 1024).toFixed(0)} KB</span></span>
+                                    </div>
+                                    <p className="text-xs mt-1" style={{ color: "var(--good)" }}>ประหยัด: {((1 - compressedSize / originalSize) * 100).toFixed(0)}%</p>
+                                </div>
+                            )}
                         </div>
-                    </main>
-                </form>
-            </div>
+                    </div>
+
+                    {/* Right Column: Editor */}
+                    <div className="lg:col-span-2 space-y-4">
+                        {/* Toolbar */}
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('edit')}
+                                    className="kh-tab"
+                                    data-active={activeTab === 'edit'}
+                                >
+                                    <Code size={16} /> Editor
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('preview')}
+                                    className="kh-tab"
+                                    data-active={activeTab === 'preview'}
+                                >
+                                    <Eye size={16} /> Preview
+                                </button>
+                            </div>
+
+                            {/* Content Type Toggle */}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setContentType('html')}
+                                    className="kh-tab"
+                                    data-active={contentType === 'html'}
+                                >
+                                    Rich Text (HTML)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setContentType('json')}
+                                    className="kh-tab"
+                                    data-active={contentType === 'json'}
+                                >
+                                    <FileJson size={14} /> Smart Content (JSON)
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Editor/Preview Area */}
+                        <div className="min-h-[600px]">
+                            {activeTab === 'edit' ? (
+                                contentType === 'html' ? (
+                                    <TiptapEditor content={content} onChange={setContent} />
+                                ) : (
+                                    <SmartJsonEditor content={content} onChange={setContent} />
+                                )
+                            ) : (
+                                <div className="kh-card h-[600px] overflow-y-auto p-6" style={{ background: "var(--card-2)" }}>
+                                    <div className="kh-card w-full min-h-full p-8">
+                                        {contentType === 'json' ? (
+                                            <SmartContentRenderer content={content} />
+                                        ) : (
+                                            <div
+                                                className="prose prose-lg max-w-none kh-ink2 leading-relaxed font-medium"
+                                                dangerouslySetInnerHTML={{ __html: content }}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <p className="text-xs kh-ink3 text-center">
+                            {contentType === 'json'
+                                ? 'Tip: ก๊อปปี้ JSON จาก AI มาวางแล้วกด Auto Fix เพื่อจัดรูปแบบอัตโนมัติ'
+                                : 'Tip: ใช้ AI ช่วยเขียน HTML + Tailwind CSS แล้วนำมาวางได้เลย'}
+                        </p>
+                    </div>
+                </div>
+            </form>
         </AdminGuard>
     );
 }

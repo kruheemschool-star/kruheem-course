@@ -999,3 +999,583 @@ h6 {
         transition: none !important;
     }
 }
+
+/* ============================================================
+   ADMIN PANEL THEME — ".kh-admin"
+   Scoped teal + cream "graph paper" design system for /admin.
+   Applied by app/admin/layout.tsx (wraps every admin page).
+   Dark mode via the site-wide next-themes `.dark` class on <html>.
+   Token names mirror design-spec.md §2.
+   ============================================================ */
+.kh-admin {
+    /* surfaces */
+    --paper: #F1ECDF;
+    --paper-2: #F7F3E9;
+    --card: #FFFFFF;
+    --card-2: #FAF7EF;
+    /* ink */
+    --ink: #1C2B28;
+    --ink-2: #5C6B66;
+    --ink-3: #909B95;
+    /* lines */
+    --line: #E7E0CF;
+    --line-2: #D8CFB9;
+    /* accent (teal) */
+    --accent: #0D9488;
+    --accent-2: #14B8A6;
+    --accent-ink: #0B6258;
+    --accent-soft: #E3F1ED;
+    /* semantic */
+    --good: #0E9F6E;
+    --good-soft: #E2F4EC;
+    --warn: #C2811B;
+    --warn-soft: #F8EED8;
+    --danger: #C2453B;
+    --danger-soft: #F7E2DF;
+    /* elevation */
+    --shadow: 0 22px 48px -32px rgba(20, 40, 37, .45);
+    --shadow-sm: 0 10px 26px -20px rgba(20, 40, 37, .38);
+    /* sidebar (deep green always) */
+    --side-grad: linear-gradient(180deg, #103029 0%, #0C231F 100%);
+    --side-line: #1C3D37;
+    --side-ink: #C9D6D1;
+    --side-ink-2: #7C928C;
+    --side-active-bg: rgba(20, 184, 166, .16);
+    /* graph-paper */
+    --grid: rgba(13, 148, 136, .055);
+    --grid-2: rgba(13, 148, 136, .11);
+
+    color: var(--ink);
+    background-color: var(--paper);
+    font-family: var(--font-ibm-loop), sans-serif;
+}
+
+.dark .kh-admin {
+    --paper: #0A1413;
+    --paper-2: #0E1B19;
+    --card: #11201D;
+    --card-2: #152825;
+    --ink: #E9F1EE;
+    --ink-2: #9DB0AB;
+    --ink-3: #6B7E79;
+    --line: #1E332F;
+    --line-2: #27463F;
+    --accent: #2DD4BF;
+    --accent-2: #2DD4BF;
+    --accent-ink: #5EEAD4;
+    --accent-soft: #10302B;
+    --good: #34D399;
+    --good-soft: #0F2E25;
+    --warn: #E0A33B;
+    --warn-soft: #322611;
+    --danger: #F0857A;
+    --danger-soft: #321A17;
+    --shadow: 0 22px 48px -30px rgba(0, 0, 0, .7);
+    --shadow-sm: 0 10px 26px -18px rgba(0, 0, 0, .55);
+    --side-grad: linear-gradient(180deg, #0B1A17 0%, #060D0C 100%);
+    --side-line: #16302B;
+    --side-active-bg: rgba(45, 212, 191, .14);
+    --grid: rgba(45, 212, 191, .05);
+    --grid-2: rgba(45, 212, 191, .09);
+    color-scheme: dark;
+}
+
+.kh-admin :is(h1, h2, h3, h4, .kh-display, .kh-num, .kh-brand) {
+    font-family: var(--font-mitr), sans-serif;
+}
+
+/* ---- app shell layout ---- */
+.kh-shell {
+    --kh-side-w: 248px;
+    min-height: 100vh;
+}
+
+.kh-shell.is-collapsed {
+    --kh-side-w: 76px;
+}
+
+/* sidebar */
+.kh-side {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--kh-side-w);
+    z-index: 40;
+    background: var(--side-grad);
+    border-right: 1px solid var(--side-line);
+    display: flex;
+    flex-direction: column;
+    transition: width .42s cubic-bezier(.22, 1, .36, 1);
+    overflow: hidden;
+}
+
+.kh-side-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 11px;
+    color: var(--side-ink);
+    font-size: 13.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    position: relative;
+    transition: background .18s ease, color .18s ease;
+}
+
+.kh-side-link:hover {
+    background: var(--side-line);
+    color: #fff;
+}
+
+.kh-side-link[data-active="true"] {
+    background: var(--side-active-bg);
+    color: #fff;
+    box-shadow: inset 3px 0 0 var(--accent-2);
+}
+
+.kh-side-link[data-active="true"] svg {
+    color: var(--accent-2);
+}
+
+.kh-side-group {
+    color: var(--side-ink-2);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 0 12px;
+}
+
+.is-collapsed .kh-label,
+.is-collapsed .kh-side-group,
+.is-collapsed .kh-brand-text {
+    display: none;
+}
+
+.is-collapsed .kh-side-link {
+    justify-content: center;
+    padding: 10px;
+}
+
+/* topbar */
+.kh-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 24px;
+    background: color-mix(in srgb, var(--paper) 78%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+}
+
+/* main content + graph-paper bg */
+.kh-main {
+    min-height: calc(100vh - 64px);
+    background-color: var(--paper);
+    background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+        linear-gradient(var(--grid-2) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-2) 1px, transparent 1px);
+    background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
+}
+
+.kh-container {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* content column shifts with the sidebar */
+.kh-content {
+    margin-left: var(--kh-side-w);
+    transition: margin-left .42s cubic-bezier(.22, 1, .36, 1);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.kh-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: rgba(7, 18, 16, .5);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease;
+}
+
+/* mobile: sidebar becomes an off-canvas overlay */
+@media (max-width: 1023px) {
+    .kh-side {
+        transform: translateX(-100%);
+        width: 264px;
+        box-shadow: var(--shadow);
+    }
+
+    .kh-shell.is-mobile-open .kh-side {
+        transform: translateX(0);
+    }
+
+    .kh-shell.is-mobile-open .kh-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* collapse mode is ignored on mobile (always full labels) */
+    .kh-shell.is-collapsed .kh-side .kh-label,
+    .kh-shell.is-collapsed .kh-side .kh-side-group,
+    .kh-shell.is-collapsed .kh-side .kh-brand-text {
+        display: revert;
+    }
+
+    .kh-shell.is-collapsed .kh-side-link {
+        justify-content: flex-start;
+        padding: 9px 12px;
+    }
+
+    .kh-content {
+        margin-left: 0;
+    }
+}
+
+/* ---- components ---- */
+.kh-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.kh-card-h {
+    transition: transform .25s cubic-bezier(.2, .7, .2, 1), box-shadow .25s ease, border-color .25s ease;
+}
+
+.kh-card-h:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.kh-ink {
+    color: var(--ink);
+}
+
+.kh-ink2 {
+    color: var(--ink-2);
+}
+
+.kh-ink3 {
+    color: var(--ink-3);
+}
+
+.kh-num {
+    font-variant-numeric: tabular-nums;
+}
+
+/* buttons */
+.kh-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-family: var(--font-mitr), sans-serif;
+    font-weight: 600;
+    font-size: 13.5px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-ink));
+    box-shadow: var(--shadow-sm);
+    transition: filter .15s ease, transform .15s ease;
+}
+
+.kh-btn:hover {
+    filter: brightness(1.06);
+}
+
+.kh-btn:active {
+    transform: translateY(1px);
+}
+
+.kh-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+    filter: none;
+}
+
+.kh-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 10px;
+    padding: 8px 15px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink-2);
+    background: var(--card);
+    border: 1px solid var(--line);
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+
+.kh-btn-ghost:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* pills / badges */
+.kh-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.kh-pill::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: .9;
+}
+
+.kh-pill.no-dot::before {
+    display: none;
+}
+
+.kh-pill-accent {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+}
+
+.kh-pill-good {
+    background: var(--good-soft);
+    color: var(--good);
+}
+
+.kh-pill-warn {
+    background: var(--warn-soft);
+    color: var(--warn);
+}
+
+.kh-pill-danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.kh-pill-ink {
+    background: var(--card-2);
+    color: var(--ink-2);
+}
+
+/* inputs */
+.kh-input,
+.kh-select,
+.kh-textarea {
+    width: 100%;
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--ink);
+    padding: 9px 12px;
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.kh-input::placeholder,
+.kh-textarea::placeholder {
+    color: var(--ink-3);
+}
+
+.kh-input:focus,
+.kh-select:focus,
+.kh-textarea:focus {
+    border-color: var(--accent-2);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* filter tabs */
+.kh-tab {
+    border-radius: 9px;
+    padding: 6px 13px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-2);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all .15s ease;
+}
+
+.kh-tab:hover {
+    color: var(--ink);
+    background: var(--card-2);
+}
+
+.kh-tab[data-active="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* progress bar */
+.kh-progress {
+    height: 7px;
+    border-radius: 999px;
+    background: var(--card-2);
+    overflow: hidden;
+}
+
+.kh-progress > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+/* avatar gradient tile */
+.kh-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-family: var(--font-mitr), sans-serif;
+    font-weight: 600;
+    color: #06231F;
+    background: linear-gradient(135deg, #5EEAD4, #0D9488);
+}
+
+/* table */
+.kh-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.kh-table thead th {
+    background: var(--card-2);
+    color: var(--ink-3);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 11px 14px;
+}
+
+.kh-table tbody td {
+    padding: 12px 14px;
+    border-top: 1px solid var(--line);
+    font-size: 13.5px;
+    color: var(--ink-2);
+}
+
+.kh-table tbody tr:hover {
+    background: var(--card-2);
+}
+
+/* section heading (eyebrow) */
+.kh-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--ink-3);
+    text-transform: uppercase;
+}
+
+/* live pulse dot */
+.kh-pulse {
+    position: relative;
+}
+
+.kh-pulse::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 0 0 var(--accent-2);
+    animation: kh-pulse 1.8s cubic-bezier(.4, 0, .6, 1) infinite;
+}
+
+@keyframes kh-pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent-2) 55%, transparent); }
+    70% { box-shadow: 0 0 0 9px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* page fade-out on navigation (no fade-in by design — see spec §7) */
+.kh-fade {
+    transition: opacity .16s ease;
+}
+
+.kh-fade.is-leaving {
+    opacity: 0;
+}
+
+/* ============================================================
+   THEME BRIDGE — let not-yet-migrated admin pages (still using
+   slate/white Tailwind utilities) instantly adopt the kh palette
+   AND gain dark mode, with no per-page edits. Selector specificity
+   (.kh-admin .x = 0,2,0) beats a bare utility (0,1,0). Refined away
+   page-by-page as each page is properly restyled.
+   ============================================================ */
+.kh-admin .bg-white { background-color: var(--card); }
+.kh-admin .bg-slate-50,
+.kh-admin .bg-gray-50 { background-color: var(--card-2); }
+.kh-admin .bg-slate-100,
+.kh-admin .bg-gray-100 { background-color: var(--card-2); }
+.kh-admin .hover\:bg-slate-50:hover,
+.kh-admin .hover\:bg-slate-100:hover,
+.kh-admin .hover\:bg-gray-50:hover { background-color: var(--card-2); }
+
+.kh-admin .text-slate-900,
+.kh-admin .text-slate-800,
+.kh-admin .text-gray-900,
+.kh-admin .text-gray-800 { color: var(--ink); }
+.kh-admin .text-slate-700,
+.kh-admin .text-slate-600,
+.kh-admin .text-gray-700,
+.kh-admin .text-gray-600 { color: var(--ink-2); }
+.kh-admin .text-slate-500,
+.kh-admin .text-slate-400,
+.kh-admin .text-gray-500,
+.kh-admin .text-gray-400 { color: var(--ink-3); }
+
+.kh-admin .border-slate-100,
+.kh-admin .border-slate-200,
+.kh-admin .border-slate-300,
+.kh-admin .border-gray-100,
+.kh-admin .border-gray-200 { border-color: var(--line); }
+
+.kh-admin .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.kh-admin .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--line); }
+
+/* Not-yet-migrated pages carry their own page-level sticky header
+   (`sticky top-0`). Inside the shell that would overlap the topbar, so
+   demote it to a normal scrolling header until the page is restyled.
+   Scoped to .kh-main → never touches the shell's own .kh-topbar. */
+.kh-main .sticky.top-0 { position: static; }
+
+@media (prefers-reduced-motion: reduce) {
+    .kh-side,
+    .kh-pulse::after,
+    .kh-fade {
+        animation: none !important;
+        transition: none !important;
+    }
+}

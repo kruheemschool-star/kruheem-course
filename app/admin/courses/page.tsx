@@ -7,7 +7,11 @@ import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
 
 import { useUserAuth } from "@/context/AuthContext";
-import { X, Plus, Edit2, Trash2, Save, Settings, Palette, BookOpen } from "lucide-react";
+import {
+  X, Plus, Edit2, Trash2, Save, Settings, Palette, BookOpen,
+  Library, FolderTree, BadgeCheck, Wallet, ChevronDown, Image as ImageIcon,
+  Tag, KeyRound, Users, LogOut,
+} from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function CourseManagerPage() {
@@ -323,6 +327,12 @@ export default function CourseManagerPage() {
     return { grade, term };
   };
 
+  // Extract the human-readable grade label (e.g. "ม.1", "ป.6") from a title.
+  const extractGradeLabel = (title: string) => {
+    const m = (title || "").match(/[มป]\.\d/);
+    return m ? m[0] : "ทั่วไป";
+  };
+
   // Group courses for display in the list below
   const groupedCourses = courses.reduce((acc, course) => {
     const cat = course.category || "คอร์สเรียนทั่วไป";
@@ -359,27 +369,40 @@ export default function CourseManagerPage() {
   const allCategoryKeys = Object.keys(groupedCourses);
   const finalSortedCategories = Array.from(new Set([...sortedCategoryNames, ...allCategoryKeys]));
 
+  // ---- derived stats (only from data already in the component) ----
+  const publishedCount = courses.filter((c) => c.image && c.videoId).length;
+  const catalogueValue = courses.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
+  const stats = [
+    { label: "คอร์สทั้งหมด", value: courses.length.toLocaleString(), icon: Library },
+    { label: "หมวดหมู่", value: categories.length.toLocaleString(), icon: FolderTree },
+    { label: "เผยแพร่แล้ว", value: publishedCount.toLocaleString(), icon: BadgeCheck },
+    { label: "มูลค่ารวม", value: "฿" + catalogueValue.toLocaleString(), icon: Wallet },
+  ];
+
   return (
 
-    <div className="min-h-screen bg-[#F7F6F3] p-6 md:p-10 font-sans text-stone-800 relative">
+    <div className="space-y-6">
 
       {toast && (
-        <div className={`fixed bottom-5 right-5 px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-bounce transition-all duration-500 z-50 ${toast.type === 'success' ? 'bg-white border-l-4 border-green-500 text-stone-700' : 'bg-red-50 border-l-4 border-red-500 text-red-700'}`}>
+        <div
+          className="fixed bottom-5 right-5 px-5 py-3 rounded-xl flex items-center gap-3 z-50 kh-card"
+          style={{ borderLeft: `4px solid ${toast.type === 'success' ? 'var(--good)' : 'var(--danger)'}` }}
+        >
           <span className="text-xl">{toast.type === 'success' ? '🎉' : '⚠️'}</span>
-          <p className="font-medium text-lg">{toast.msg}</p>
+          <p className="font-medium" style={{ color: toast.type === 'success' ? 'var(--ink)' : 'var(--danger)' }}>{toast.msg}</p>
         </div>
       )}
 
       {/* Category Manager Modal */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="bg-indigo-600 p-6 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Settings size={24} /> จัดการหมวดหมู่
+          <div className="kh-card w-full max-w-lg overflow-hidden">
+            <div className="flex justify-between items-center px-6 py-5" style={{ background: "linear-gradient(135deg,var(--accent),var(--accent-ink))" }}>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Settings size={20} /> จัดการหมวดหมู่
               </h3>
               <button onClick={() => setIsCategoryModalOpen(false)} className="text-white/80 hover:text-white transition">
-                <X size={24} />
+                <X size={22} />
               </button>
             </div>
             <div className="p-6">
@@ -389,20 +412,20 @@ export default function CourseManagerPage() {
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
                   placeholder="ชื่อหมวดหมู่..."
-                  className="flex-1 p-3 border-2 border-indigo-100 rounded-xl focus:border-indigo-500 outline-none transition"
+                  className="kh-input flex-1"
                 />
                 <button
                   onClick={handleSaveCategory}
                   disabled={!newCategoryName.trim()}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="kh-btn whitespace-nowrap"
                 >
-                  {editingCategory ? <Save size={18} /> : <Plus size={18} />}
+                  {editingCategory ? <Save size={16} /> : <Plus size={16} />}
                   {editingCategory ? "บันทึก" : "เพิ่ม"}
                 </button>
                 {editingCategory && (
                   <button
                     onClick={() => { setEditingCategory(null); setNewCategoryName(""); }}
-                    className="bg-gray-100 text-gray-600 px-3 py-2 rounded-xl hover:bg-gray-200 transition"
+                    className="kh-btn-ghost whitespace-nowrap"
                   >
                     ยกเลิก
                   </button>
@@ -411,19 +434,25 @@ export default function CourseManagerPage() {
 
               <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
                 {categories.map((cat) => (
-                  <div key={cat.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-indigo-200 transition group">
-                    <span className="font-medium text-gray-700">{cat.name}</span>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div
+                    key={cat.id}
+                    className="flex items-center justify-between p-3 rounded-xl group"
+                    style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}
+                  >
+                    <span className="font-medium kh-ink2">{cat.name}</span>
+                    <div className="flex gap-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => { setEditingCategory(cat); setNewCategoryName(cat.name); }}
-                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                        className="p-2 rounded-lg transition kh-ink2 hover:bg-[var(--accent-soft)]"
+                        style={{ color: "var(--accent-ink)" }}
                         title="แก้ไข"
                       >
                         <Edit2 size={16} />
                       </button>
                       <button
                         onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                        className="p-2 rounded-lg transition"
+                        style={{ color: "var(--danger)" }}
                         title="ลบ"
                       >
                         <Trash2 size={16} />
@@ -432,7 +461,7 @@ export default function CourseManagerPage() {
                   </div>
                 ))}
                 {categories.length === 0 && (
-                  <p className="text-center text-gray-400 py-4">ไม่มีหมวดหมู่</p>
+                  <p className="text-center kh-ink3 py-4">ไม่มีหมวดหมู่</p>
                 )}
               </div>
             </div>
@@ -440,328 +469,373 @@ export default function CourseManagerPage() {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
-          <div className="flex items-center gap-4">
-            <Link href="/admin" className="flex items-center px-4 py-2 text-stone-500 hover:text-stone-800 transition text-lg font-medium border rounded-lg bg-white hover:bg-gray-100 shadow-sm">
-              ← กลับ Dashboard
-            </Link>
-            <h1 className="text-3xl font-bold text-stone-800 flex items-center gap-3">
-              <span className="text-4xl">📚</span> จัดการคอร์สเรียน
-            </h1>
-          </div>
-          <button onClick={handleLogout} className="px-6 py-3 text-base text-red-500 bg-white border border-red-200 rounded-xl hover:bg-red-50 shadow-sm transition font-medium">ออกจากระบบ</button>
-        </div>
-
-        {/* Form Section */}
-        <div className={`bg-white rounded-3xl shadow-sm border mb-12 transition-all duration-300 ${editId ? 'border-yellow-400 ring-4 ring-yellow-50' : 'border-stone-200'}`}>
-          {/* Collapsible header — always visible */}
-          <button
-            type="button"
-            onClick={() => setFormOpen(!formOpen)}
-            className="w-full flex justify-between items-center px-10 py-6 text-left"
-          >
-            <h2 className="text-2xl font-bold text-stone-700 flex items-center gap-3">
-              <span className={`w-3 h-8 rounded-full ${editId ? 'bg-yellow-400' : 'bg-blue-500'}`}></span>
-              {editId ? 'แก้ไขข้อมูลคอร์ส' : 'เพิ่มคอร์สใหม่'}
-            </h2>
-            <div className="flex items-center gap-3">
-              {editId && (
-                <span
-                  onClick={(e) => { e.stopPropagation(); handleCancelEdit(); setFormOpen(false); }}
-                  className="text-sm text-stone-400 hover:text-stone-600 underline cursor-pointer"
-                >
-                  ยกเลิกการแก้ไข
-                </span>
-              )}
-              <span className={`text-stone-400 transition-transform duration-300 text-xl ${formOpen ? 'rotate-180' : ''}`}>▼</span>
-            </div>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="kh-eyebrow"><Library size={15} strokeWidth={1.9} /> คลังคอร์สเรียน</div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={() => setIsCategoryModalOpen(true)} className="kh-btn-ghost">
+            <Settings size={15} /> จัดการหมวดหมู่
           </button>
+          <button
+            onClick={() => { if (editId) handleCancelEdit(); setFormOpen((v) => !v); }}
+            className="kh-btn"
+          >
+            <Plus size={15} /> {editId ? "แก้ไขคอร์ส" : "เพิ่มคอร์ส"}
+          </button>
+          <button onClick={handleLogout} className="kh-btn-ghost" style={{ color: "var(--danger)" }}>
+            <LogOut size={15} /> ออกจากระบบ
+          </button>
+        </div>
+      </div>
 
-          {formOpen && (
-          <div className="px-10 pb-10">
-          <form onSubmit={handleSubmit} className="space-y-6">
-
-            {/* ✅ หมวดหมู่ */}
-            <div className="bg-indigo-50 p-6 rounded-2xl border-2 border-indigo-100 relative">
-              <div className="flex justify-between items-center mb-3">
-                <label className="block text-sm font-bold text-indigo-600 uppercase tracking-wider">📂 เลือกหมวดหมู่ (Category)</label>
-                <button
-                  type="button"
-                  onClick={() => setIsCategoryModalOpen(true)}
-                  className="text-xs font-bold text-indigo-500 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-indigo-100 hover:bg-indigo-500 hover:text-white transition flex items-center gap-1"
-                >
-                  <Settings size={14} /> จัดการหมวดหมู่
-                </button>
+      {/* Stat chips */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((s) => {
+          const Icon = s.icon;
+          return (
+            <div key={s.label} className="kh-card p-4 flex items-center justify-between">
+              <div>
+                <div className="text-[12px] font-medium kh-ink2">{s.label}</div>
+                <div className="kh-num kh-display mt-2 text-[24px] font-semibold leading-none kh-ink">{s.value}</div>
               </div>
-              <select
-                className="w-full p-4 bg-white border-2 border-indigo-200 rounded-xl focus:border-indigo-500 outline-none transition font-bold text-indigo-900 text-lg shadow-sm"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "var(--accent-soft)", color: "var(--accent-ink)" }}>
+                <Icon size={18} strokeWidth={1.8} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Form Section */}
+      <div className="kh-card overflow-hidden" style={editId ? { borderColor: "var(--warn)", boxShadow: "0 0 0 3px var(--warn-soft)" } : undefined}>
+        {/* Collapsible header — always visible */}
+        <button
+          type="button"
+          onClick={() => setFormOpen(!formOpen)}
+          className="w-full flex justify-between items-center px-5 py-4 text-left"
+        >
+          <h2 className="text-lg font-bold kh-ink flex items-center gap-3">
+            <span className="w-2.5 h-7 rounded-full" style={{ background: editId ? "var(--warn)" : "var(--accent)" }}></span>
+            {editId ? 'แก้ไขข้อมูลคอร์ส' : 'เพิ่มคอร์สใหม่'}
+          </h2>
+          <div className="flex items-center gap-3">
+            {editId && (
+              <span
+                onClick={(e) => { e.stopPropagation(); handleCancelEdit(); setFormOpen(false); }}
+                className="text-sm kh-ink3 hover:underline cursor-pointer"
               >
-                <option value="" disabled>-- เลือกหมวดหมู่ --</option>
-                {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-              </select>
-            </div>
+                ยกเลิกการแก้ไข
+              </span>
+            )}
+            <ChevronDown size={20} className={`kh-ink3 transition-transform duration-300 ${formOpen ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
 
-            {/* 🔐 Exam Bank Level — Controls exam access permission for this course */}
-            <div className="space-y-2 bg-amber-50 p-4 rounded-xl border-2 border-amber-200">
-              <label className="block text-sm font-bold text-amber-700 uppercase tracking-wider">🔐 ระดับข้อสอบที่เข้าถึงได้ (คลังข้อสอบ)</label>
-              <p className="text-xs text-amber-600 mb-2">ใช้เฉพาะคอร์ส "คลังข้อสอบ" เท่านั้น คอร์สเรียนวิดีโอปกติ ให้เลือก "ไม่ใช่คอร์สคลังข้อสอบ"</p>
-              <select
-                className="w-full p-3 bg-white border-2 border-amber-200 rounded-xl focus:border-amber-500 outline-none transition font-bold text-amber-900 shadow-sm"
-                value={allowedExamLevel}
-                onChange={(e) => setAllowedExamLevel(e.target.value as any)}
+        {formOpen && (
+        <div className="px-5 pb-5">
+        <form onSubmit={handleSubmit} className="space-y-5">
+
+          {/* ✅ หมวดหมู่ */}
+          <div className="p-4 rounded-xl" style={{ background: "var(--accent-soft)", border: "1px solid var(--line)" }}>
+            <div className="flex justify-between items-center mb-3">
+              <label className="kh-eyebrow"><FolderTree size={14} /> เลือกหมวดหมู่ (Category)</label>
+              <button
+                type="button"
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="kh-btn-ghost"
+                style={{ padding: "5px 11px", fontSize: "12px" }}
               >
-                <option value="none">ไม่ใช่คอร์สคลังข้อสอบ (คอร์สวิดีโอปกติ)</option>
-                <option value="primary">คลังข้อสอบประถม / สอบเข้า ม.1</option>
-                <option value="lower">คลังข้อสอบมัธยมต้น (ม.1-ม.3)</option>
-                <option value="upper">คลังข้อสอบมัธยมปลาย (ม.4-ม.6)</option>
-              </select>
+                <Settings size={13} /> จัดการหมวดหมู่
+              </button>
             </div>
+            <select
+              className="kh-select"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="" disabled>-- เลือกหมวดหมู่ --</option>
+              {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+            </select>
+          </div>
 
+          {/* 🔐 Exam Bank Level — Controls exam access permission for this course */}
+          <div className="p-4 rounded-xl space-y-2" style={{ background: "var(--warn-soft)", border: "1px solid var(--line)" }}>
+            <label className="kh-eyebrow" style={{ color: "var(--warn)" }}><KeyRound size={14} /> ระดับข้อสอบที่เข้าถึงได้ (คลังข้อสอบ)</label>
+            <p className="text-xs mb-2" style={{ color: "var(--warn)" }}>ใช้เฉพาะคอร์ส "คลังข้อสอบ" เท่านั้น คอร์สเรียนวิดีโอปกติ ให้เลือก "ไม่ใช่คอร์สคลังข้อสอบ"</p>
+            <select
+              className="kh-select"
+              value={allowedExamLevel}
+              onChange={(e) => setAllowedExamLevel(e.target.value as any)}
+            >
+              <option value="none">ไม่ใช่คอร์สคลังข้อสอบ (คอร์สวิดีโอปกติ)</option>
+              <option value="primary">คลังข้อสอบประถม / สอบเข้า ม.1</option>
+              <option value="lower">คลังข้อสอบมัธยมต้น (ม.1-ม.3)</option>
+              <option value="upper">คลังข้อสอบมัธยมปลาย (ม.4-ม.6)</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold kh-ink2">ชื่อวิชา</label>
+            <input type="text" className="kh-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น คณิตศาสตร์ ม.1 เทอม 1" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
-              <label className="text-base font-bold text-stone-600">ชื่อวิชา</label>
-              <input type="text" className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition text-lg" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น คณิตศาสตร์ ม.1 เทอม 1" />
+              <label className="text-sm font-bold kh-ink2">ราคาเต็ม (บาท)</label>
+              <input type="number" className="kh-input line-through" style={{ color: "var(--ink-3)" }} value={fullPrice} onChange={(e) => setFullPrice(e.target.value)} placeholder="เช่น 2500" />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold kh-ink2">ราคาขายจริง (บาท)</label>
+              <input type="number" className="kh-input font-bold" style={{ color: "var(--accent-ink)" }} value={price} onChange={(e) => setPrice(e.target.value)} placeholder="เช่น 1500" />
+            </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-base font-bold text-stone-600">ราคาเต็ม (บาท)</label>
-                <input type="number" className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition font-bold text-slate-500 text-lg line-through" value={fullPrice} onChange={(e) => setFullPrice(e.target.value)} placeholder="เช่น 2500" />
+          <div className="space-y-2">
+            <label className="text-sm font-bold kh-ink2">YouTube Intro (Video ID)</label>
+            <input type="text" className="kh-input" value={videoId} onChange={(e) => setVideoId(e.target.value)} placeholder="เช่น dQw4w9WgXcQ" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold kh-ink2">คำอธิบายสั้นๆ</label>
+            <textarea className="kh-textarea min-h-[100px]" value={desc} onChange={(e) => setDesc(e.target.value)} />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold" style={{ color: "var(--accent-ink)" }}>ลิงก์ Google Drive (รวมเอกสารทั้งคอร์ส)</label>
+            <input type="text" className="kh-input font-mono" value={docUrl} onChange={(e) => setDocUrl(e.target.value)} />
+          </div>
+
+          {/* ✅ Tags Field (System Filtering) */}
+          <div className="p-4 rounded-xl space-y-3" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>
+            <label className="kh-eyebrow"><Tag size={14} /> Tags (ระบบค้นหา) - สำหรับ Course Finder e.g. ระดับ:ป.6, เป้าหมาย:สอบเข้า ม.1</label>
+
+            {/* Display existing tags */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-1">
+                {tags.map((tag, idx) => (
+                  <span key={idx} className="kh-pill kh-pill-accent no-dot">
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => setTags(tags.filter((_, i) => i !== idx))}
+                      className="ml-1 hover:opacity-70 transition"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
               </div>
-              <div className="space-y-2">
-                <label className="text-base font-bold text-stone-600">ราคาขายจริง (บาท)</label>
-                <input type="number" className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition font-bold text-blue-600 text-lg" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="เช่น 1500" />
-              </div>
-            </div>
+            )}
 
-            <div className="space-y-2">
-              <label className="text-base font-bold text-stone-600">YouTube Intro (Video ID)</label>
-              <input type="text" className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition text-lg" value={videoId} onChange={(e) => setVideoId(e.target.value)} placeholder="เช่น dQw4w9WgXcQ" />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-base font-bold text-stone-600">คำอธิบายสั้นๆ</label>
-              <textarea className="w-full p-4 bg-[#F7F6F3] border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition min-h-[100px] text-lg" value={desc} onChange={(e) => setDesc(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-base font-bold text-blue-600">ลิงก์ Google Drive (รวมเอกสารทั้งคอร์ส)</label>
-              <input type="text" className="w-full p-4 bg-blue-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-200 outline-none transition font-mono text-base text-blue-700" value={docUrl} onChange={(e) => setDocUrl(e.target.value)} />
-            </div>
-
-            {/* ✅ Tags Field (System Filtering) */}
-            <div className="bg-pink-50 p-6 rounded-2xl border-2 border-pink-100 space-y-3">
-              <label className="block text-sm font-bold text-pink-600 uppercase tracking-wider">🏷️ Tags (ระบบค้นหา) - สำหรับ Course Finder e.g. ระดับ:ป.6, เป้าหมาย:สอบเข้า ม.1</label>
-
-              {/* Display existing tags */}
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {tags.map((tag, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-pink-200 text-pink-700 rounded-full text-sm font-medium">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => setTags(tags.filter((_, i) => i !== idx))}
-                        className="ml-1 text-pink-400 hover:text-red-500 transition"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Add new tag */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (newTag.trim() && !tags.includes(newTag.trim())) {
-                        setTags([...tags, newTag.trim()]);
-                        setNewTag("");
-                      }
-                    }
-                  }}
-                  placeholder="พิมพ์ Tag e.g. ระดับ:ป.6 แล้วกด Enter"
-                  className="flex-1 p-3 bg-white border-2 border-pink-200 rounded-xl focus:border-pink-500 outline-none transition text-pink-900"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
+            {/* Add new tag */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTag}
+                onChange={(e) => setNewTag(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
                     if (newTag.trim() && !tags.includes(newTag.trim())) {
                       setTags([...tags, newTag.trim()]);
                       setNewTag("");
                     }
-                  }}
-                  className="px-4 py-2 bg-pink-500 text-white rounded-xl font-bold hover:bg-pink-600 transition flex items-center gap-2"
-                >
-                  <Plus size={18} /> เพิ่ม
-                </button>
-              </div>
-              <div className="flex gap-2 mt-2">
-                <p className="text-xs text-pink-500 font-bold">แนะนำ:</p>
-                <div className="flex flex-wrap gap-1">
-                  {['ระดับ:ป.4', 'ระดับ:ป.5', 'ระดับ:ป.6', 'ระดับ:ม.1', 'ระดับ:ม.2', 'ระดับ:ม.3', 'ระดับ:ม.4', 'ระดับ:ม.5', 'ระดับ:ม.6', 'เป้าหมาย:เพิ่มเกรด', 'เป้าหมาย:สอบเข้า ม.1', 'เป้าหมาย:สอบเข้า ม.4', 'เป้าหมาย:สอบเข้ามหาวิทยาลัย'].map(t => (
-                    <button key={t} type="button" onClick={() => !tags.includes(t) && setTags([...tags, t])} className="text-xs px-2 py-1 bg-white border border-pink-200 rounded-md text-pink-600 hover:bg-pink-100 transition">
-                      {t}
-                    </button>
-                  ))}
-                </div>
+                  }
+                }}
+                placeholder="พิมพ์ Tag e.g. ระดับ:ป.6 แล้วกด Enter"
+                className="kh-input flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newTag.trim() && !tags.includes(newTag.trim())) {
+                    setTags([...tags, newTag.trim()]);
+                    setNewTag("");
+                  }
+                }}
+                className="kh-btn whitespace-nowrap"
+              >
+                <Plus size={16} /> เพิ่ม
+              </button>
+            </div>
+            <div className="flex gap-2 mt-2 items-start">
+              <p className="text-xs font-bold kh-ink3 whitespace-nowrap pt-1">แนะนำ:</p>
+              <div className="flex flex-wrap gap-1">
+                {['ระดับ:ป.4', 'ระดับ:ป.5', 'ระดับ:ป.6', 'ระดับ:ม.1', 'ระดับ:ม.2', 'ระดับ:ม.3', 'ระดับ:ม.4', 'ระดับ:ม.5', 'ระดับ:ม.6', 'เป้าหมาย:เพิ่มเกรด', 'เป้าหมาย:สอบเข้า ม.1', 'เป้าหมาย:สอบเข้า ม.4', 'เป้าหมาย:สอบเข้ามหาวิทยาลัย'].map(t => (
+                  <button key={t} type="button" onClick={() => !tags.includes(t) && setTags([...tags, t])} className="kh-tab" style={{ fontSize: "12px", padding: "4px 9px", border: "1px solid var(--line)" }}>
+                    {t}
+                  </button>
+                ))}
               </div>
             </div>
+          </div>
 
-            {/* Keywords Field */}
-            <div className="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-100 space-y-3">
-              <label className="block text-sm font-bold text-emerald-600 uppercase tracking-wider">🏷️ คำสำคัญ (Keywords) - สำหรับแนะนำคอร์สที่เกี่ยวข้อง</label>
+          {/* Keywords Field */}
+          <div className="p-4 rounded-xl space-y-3" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>
+            <label className="kh-eyebrow"><Tag size={14} /> คำสำคัญ (Keywords) - สำหรับแนะนำคอร์สที่เกี่ยวข้อง</label>
 
-              {/* Display existing keywords */}
-              {keywords.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {keywords.map((kw, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-emerald-200 text-emerald-700 rounded-full text-sm font-medium">
-                      {kw}
-                      <button
-                        type="button"
-                        onClick={() => setKeywords(keywords.filter((_, i) => i !== idx))}
-                        className="ml-1 text-emerald-400 hover:text-red-500 transition"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+            {/* Display existing keywords */}
+            {keywords.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-1">
+                {keywords.map((kw, idx) => (
+                  <span key={idx} className="kh-pill kh-pill-good no-dot">
+                    {kw}
+                    <button
+                      type="button"
+                      onClick={() => setKeywords(keywords.filter((_, i) => i !== idx))}
+                      className="ml-1 hover:opacity-70 transition"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
 
-              {/* Add new keyword */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newKeyword}
-                  onChange={(e) => setNewKeyword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (newKeyword.trim() && !keywords.includes(newKeyword.trim())) {
-                        setKeywords([...keywords, newKeyword.trim()]);
-                        setNewKeyword("");
-                      }
-                    }
-                  }}
-                  placeholder="พิมพ์คำสำคัญ แล้วกด Enter หรือกดปุ่มเพิ่ม"
-                  className="flex-1 p-3 bg-white border-2 border-emerald-200 rounded-xl focus:border-emerald-500 outline-none transition text-emerald-900"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
+            {/* Add new keyword */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newKeyword}
+                onChange={(e) => setNewKeyword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
                     if (newKeyword.trim() && !keywords.includes(newKeyword.trim())) {
                       setKeywords([...keywords, newKeyword.trim()]);
                       setNewKeyword("");
                     }
-                  }}
-                  className="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition flex items-center gap-2"
-                >
-                  <Plus size={18} /> เพิ่ม
-                </button>
-              </div>
-              <p className="text-xs text-emerald-500">ตัวอย่าง: จำนวนจริง, สมการ, แคลคูลัส, ลำดับ ฯลฯ</p>
+                  }
+                }}
+                placeholder="พิมพ์คำสำคัญ แล้วกด Enter หรือกดปุ่มเพิ่ม"
+                className="kh-input flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newKeyword.trim() && !keywords.includes(newKeyword.trim())) {
+                    setKeywords([...keywords, newKeyword.trim()]);
+                    setNewKeyword("");
+                  }
+                }}
+                className="kh-btn whitespace-nowrap"
+              >
+                <Plus size={16} /> เพิ่ม
+              </button>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-base font-bold text-stone-600">รูปปก <span className="text-stone-400 font-normal text-sm ml-2">(แนะนำขนาด 16:9 หรือ 1280x720 px)</span></label>
-              <div className="relative">
-                <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="file-upload" />
-                <label htmlFor="file-upload" className="w-full p-4 bg-[#F7F6F3] border-2 border-dashed border-stone-300 rounded-xl flex items-center justify-center gap-3 cursor-pointer hover:bg-stone-100 transition text-stone-500 text-lg font-medium">
-                  <span className="text-2xl">🖼️</span> คลิกเพื่อเลือกรูปภาพ
-                </label>
-              </div>
-              {imagePreview && <img src={imagePreview} className="mt-4 h-48 w-full object-cover rounded-xl shadow-sm border border-stone-200" alt="Preview" />}
-            </div>
-
-            <button type="submit" disabled={submitting} className={`w-full py-4 rounded-xl font-bold text-xl shadow-lg transition transform hover:-translate-y-1 ${submitting ? 'bg-stone-400' : editId ? 'bg-yellow-500 hover:bg-yellow-600 text-white' : 'bg-stone-800 hover:bg-stone-900 text-white'}`}>
-              {submitting ? '⏳ กำลังบันทึก...' : editId ? '✏️ บันทึกการแก้ไข' : '+ บันทึกคอร์สเรียน'}
-            </button>
-          </form>
+            <p className="text-xs kh-ink3">ตัวอย่าง: จำนวนจริง, สมการ, แคลคูลัส, ลำดับ ฯลฯ</p>
           </div>
-          )}
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold kh-ink2">รูปปก <span className="kh-ink3 font-normal text-xs ml-2">(แนะนำขนาด 16:9 หรือ 1280x720 px)</span></label>
+            <div className="relative">
+              <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="file-upload" />
+              <label htmlFor="file-upload" className="w-full p-4 rounded-xl flex items-center justify-center gap-3 cursor-pointer transition kh-ink2 hover:bg-[var(--card-2)]" style={{ background: "var(--card-2)", border: "2px dashed var(--line-2)" }}>
+                <ImageIcon size={20} /> คลิกเพื่อเลือกรูปภาพ
+              </label>
+            </div>
+            {imagePreview && <img src={imagePreview} className="mt-4 h-48 w-full object-cover rounded-xl" style={{ border: "1px solid var(--line)" }} alt="Preview" />}
+          </div>
+
+          <button type="submit" disabled={submitting} className="kh-btn w-full" style={{ padding: "13px", fontSize: "16px", ...(editId && !submitting ? { background: "linear-gradient(135deg,var(--warn),#9c6512)" } : {}) }}>
+            {submitting ? '⏳ กำลังบันทึก...' : editId ? '✏️ บันทึกการแก้ไข' : '+ บันทึกคอร์สเรียน'}
+          </button>
+        </form>
         </div>
+        )}
+      </div>
 
-        {/* Course List Section (Grouped) */}
-        <div className="space-y-12">
-          {finalSortedCategories.map((catName) => {
-            const catCourses = groupedCourses[catName];
-            if (!catCourses || catCourses.length === 0) return null;
+      {/* Course List Section (Grouped) */}
+      <div className="space-y-8">
+        {finalSortedCategories.map((catName) => {
+          const catCourses = groupedCourses[catName];
+          if (!catCourses || catCourses.length === 0) return null;
 
-            return (
-              <div key={catName} className="bg-white/50 p-8 rounded-[2.5rem] border border-stone-200">
-                <h3 className="text-2xl font-black text-stone-700 mb-6 flex items-center gap-3 pl-2">
-                  <span className="w-2 h-8 bg-stone-400 rounded-full"></span> {catName}
-                </h3>
-                <div className="space-y-4">
-                  {catCourses.map((c: any) => (
-                    <div key={c.id} className={`flex flex-col md:flex-row md:items-center justify-between bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md transition gap-4 ${editId === c.id ? 'border-yellow-400 ring-2 ring-yellow-100' : 'border-stone-200'}`}>
-                      <div className="flex items-center gap-5 overflow-hidden w-full">
-                        <div className="w-24 h-16 rounded-xl bg-stone-100 flex-shrink-0 overflow-hidden border border-stone-100 relative group">
-                          {c.image ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={c.image} alt={c.title} className="w-full h-full object-cover absolute inset-0 group-hover:scale-110 transition-transform duration-500" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-2xl">📚</div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-bold text-stone-800 truncate text-lg md:text-xl">{c.title}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            {c.fullPrice > 0 && (
-                              <span className="text-sm font-bold text-slate-400 line-through">฿{c.fullPrice.toLocaleString()}</span>
-                            )}
-                            <p className="text-sm font-bold text-blue-600">{c.price ? `฿${c.price.toLocaleString()}` : "ฟรี"}</p>
+          return (
+            <div key={catName}>
+              <h3 className="text-lg font-bold kh-ink mb-4 flex items-center gap-3">
+                <span className="w-2 h-7 rounded-full" style={{ background: "var(--accent)" }}></span> {catName}
+                <span className="kh-pill kh-pill-ink no-dot">{catCourses.length}</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {catCourses.map((c: any) => {
+                  const published = !!(c.image && c.videoId);
+                  return (
+                    <div key={c.id} className="kh-card kh-card-h overflow-hidden flex flex-col" style={editId === c.id ? { borderColor: "var(--warn)", boxShadow: "0 0 0 3px var(--warn-soft)" } : undefined}>
+                      {/* cover */}
+                      <div className="relative h-36 w-full overflow-hidden" style={{ background: "linear-gradient(135deg, var(--accent-2), var(--accent-ink))" }}>
+                        {c.image ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={c.image} alt={c.title} className="w-full h-full object-cover absolute inset-0" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white/80">
+                            <BookOpen size={40} strokeWidth={1.5} />
                           </div>
+                        )}
+                        <div className="absolute top-2.5 left-2.5">
+                          <span className="kh-pill no-dot" style={{ background: "rgba(255,255,255,.92)", color: "var(--accent-ink)" }}>{extractGradeLabel(c.title)}</span>
+                        </div>
+                        <div className="absolute top-2.5 right-2.5">
+                          <span className={`kh-pill no-dot ${published ? 'kh-pill-good' : 'kh-pill-ink'}`}>{published ? 'เผยแพร่' : 'ร่าง'}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 w-full md:w-auto justify-end flex-wrap">
-                        <Link
-                          href={`/admin/course/${c.id}/sales-page`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white rounded-lg hover:bg-slate-50 transition border border-slate-200 whitespace-nowrap"
-                        >
-                          <Palette size={14} className="text-pink-500" /> Sales
-                        </Link>
-                        <Link
-                          href={`/admin/course/${c.id}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white rounded-lg hover:bg-slate-50 transition border border-slate-200 whitespace-nowrap"
-                        >
-                          <BookOpen size={14} className="text-indigo-500" /> บทเรียน
-                        </Link>
-                        <div className="w-px h-5 bg-slate-200 mx-0.5 hidden md:block" />
-                        <button
-                          onClick={() => handleEditClick(c)}
-                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white rounded-lg hover:bg-slate-50 transition border border-slate-200 whitespace-nowrap"
-                        >
-                          <Edit2 size={13} /> แก้ไข
-                        </button>
-                        <button
-                          onClick={() => handleDelete(c)}
-                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-500 bg-white rounded-lg hover:bg-red-50 transition border border-red-200 whitespace-nowrap"
-                        >
-                          <Trash2 size={13} /> ลบ
-                        </button>
+
+                      {/* body */}
+                      <div className="p-4 flex flex-col flex-1">
+                        <h3 className="font-bold kh-ink text-base leading-snug line-clamp-2">{c.title}</h3>
+                        <p className="text-xs kh-ink3 mt-1">{catName}</p>
+
+                        <div className="flex items-center gap-2 mt-3">
+                          {c.fullPrice > 0 && (
+                            <span className="text-sm font-bold line-through kh-ink3">฿{c.fullPrice.toLocaleString()}</span>
+                          )}
+                          <p className="text-base font-bold" style={{ color: "var(--accent-ink)" }}>{c.price ? `฿${c.price.toLocaleString()}` : "ฟรี"}</p>
+                        </div>
+
+                        <div className="mt-4 pt-3 flex items-center gap-1.5 flex-wrap" style={{ borderTop: "1px solid var(--line)" }}>
+                          <Link
+                            href={`/admin/course/${c.id}/sales-page`}
+                            className="kh-btn-ghost"
+                            style={{ padding: "6px 10px", fontSize: "12px" }}
+                          >
+                            <Palette size={13} /> Sales
+                          </Link>
+                          <Link
+                            href={`/admin/course/${c.id}`}
+                            className="kh-btn-ghost"
+                            style={{ padding: "6px 10px", fontSize: "12px" }}
+                          >
+                            <BookOpen size={13} /> บทเรียน
+                          </Link>
+                          <div className="flex-1" />
+                          <button
+                            onClick={() => handleEditClick(c)}
+                            className="kh-btn-ghost"
+                            style={{ padding: "6px 10px", fontSize: "12px" }}
+                          >
+                            <Edit2 size={13} /> แก้ไข
+                          </button>
+                          <button
+                            onClick={() => handleDelete(c)}
+                            className="kh-btn-ghost"
+                            style={{ padding: "6px 10px", fontSize: "12px", color: "var(--danger)" }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          );
+        })}
 
-          {courses.length === 0 && !loading && (
-            <div className="text-center py-20 text-stone-400 italic">ยังไม่มีคอร์สเรียน เริ่มสร้างคอร์สแรกกันเลย!</div>
-          )}
-        </div>
+        {courses.length === 0 && !loading && (
+          <div className="kh-card p-12 text-center kh-ink3">ยังไม่มีคอร์สเรียน เริ่มสร้างคอร์สแรกกันเลย!</div>
+        )}
       </div>
       <ConfirmDialog />
     </div>

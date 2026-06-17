@@ -1,11 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import AdminGuard from "@/components/AdminGuard";
 import { db } from "@/lib/firebase";
 import { collectionGroup, getDocs, doc, getDoc, query, where } from "firebase/firestore";
-import { ArrowLeft } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { ExamResultsView, ExamResultRow } from "@/components/admin/ExamResultsView";
 
 export default function AdminExamResultsPage() {
@@ -66,21 +65,12 @@ export default function AdminExamResultsPage() {
 
     return (
         <AdminGuard>
-            <div className="min-h-screen bg-[#F0F7F4] dark:bg-slate-900 font-sans pb-20">
-                <header className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-white/20 dark:border-slate-800 px-6 py-4 shadow-sm">
-                    <div className="max-w-5xl mx-auto flex items-center gap-4">
-                        <Link href={`/admin/course/${courseId}`} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-500">
-                            <ArrowLeft size={24} />
-                        </Link>
-                        <div className="min-w-0">
-                            <h1 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">📊 ผลสอบนักเรียน</h1>
-                            <p className="text-xs text-slate-500 truncate">{courseTitle}</p>
-                        </div>
-                    </div>
-                </header>
-                <main className="max-w-5xl mx-auto p-6 md:p-8">
-                    <ExamResultsView rows={rows} loading={loading} />
-                </main>
+            <div className="space-y-6">
+                <div>
+                    <span className="kh-eyebrow"><BarChart3 size={14} /> ผลสอบนักเรียน</span>
+                    {courseTitle && <p className="kh-ink2 text-sm mt-1 truncate">{courseTitle}</p>}
+                </div>
+                <ExamResultsView rows={rows} loading={loading} />
             </div>
         </AdminGuard>
     );

@@ -2,8 +2,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, deleteDoc, doc, addDoc } from "firebase/firestore";
-import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
+import { Megaphone, Send, Globe, Target, Pin, BookOpen, Trash2, CheckCircle2, Clock, History, Inbox } from "lucide-react";
 
 export default function NotificationsPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
@@ -122,65 +122,75 @@ export default function NotificationsPage() {
     }, [courses]);
 
     return (
+        <div className="space-y-6">
+            <div className="kh-eyebrow">
+                <Megaphone size={15} strokeWidth={1.9} /> ประกาศข่าวสาร
+            </div>
 
-        <div className="min-h-screen bg-[#EEF2FF] p-6 md:p-10 font-sans text-slate-700">
-            <div className="max-w-4xl mx-auto">
-                <div className="mb-8">
-                    <Link href="/admin" className="inline-flex items-center gap-2 text-indigo-500 hover:text-indigo-700 mb-4 transition font-bold bg-white px-4 py-2 rounded-full shadow-sm">← กลับไปหน้า Dashboard</Link>
-                    <h1 className="text-3xl font-extrabold text-indigo-900 flex items-center gap-3">
-                        📢 ประกาศข่าวสาร (Notifications)
-                    </h1>
-                    <p className="text-slate-500 mt-2">จัดการประกาศและแจ้งเตือนถึงนักเรียนทุกคน</p>
-                </div>
-
-                {/* Form ส่งประกาศ */}
-                <div className="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-indigo-100 border border-indigo-50 mb-10">
-                    <h2 className="text-xl font-bold text-indigo-900 mb-4">✍️ สร้างประกาศใหม่</h2>
-                    <form onSubmit={handleSendNotification} className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                {/* LEFT — Form ส่งประกาศ */}
+                <div className="kh-card p-6">
+                    <h2 className="text-lg font-bold kh-ink mb-5 flex items-center gap-2">
+                        <Send size={18} strokeWidth={1.9} style={{ color: "var(--accent)" }} />
+                        สร้างประกาศใหม่
+                    </h2>
+                    <form onSubmit={handleSendNotification} className="space-y-5">
 
                         {/* Target Selection */}
-                        <div className="space-y-3">
-                            <label className="block text-sm font-bold text-slate-700">ส่งถึงใคร?</label>
-                            <div className="flex gap-4">
-                                <label className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 cursor-pointer transition ${targetType === 'all' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                        <div className="space-y-2.5">
+                            <label className="block text-sm font-bold kh-ink2">ส่งถึงใคร?</label>
+                            <div className="flex gap-3">
+                                <label
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition font-bold text-sm"
+                                    style={targetType === 'all'
+                                        ? { background: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--accent-ink)" }
+                                        : { background: "var(--card-2)", borderColor: "var(--line)", color: "var(--ink-3)" }}
+                                >
                                     <input type="radio" name="targetType" value="all" checked={targetType === 'all'} onChange={() => setTargetType('all')} className="hidden" />
-                                    <span className="font-bold">🌍 นักเรียนทุกคน</span>
+                                    <Globe size={15} strokeWidth={1.9} /> นักเรียนทุกคน
                                 </label>
-                                <label className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 cursor-pointer transition ${targetType === 'specific' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                                <label
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition font-bold text-sm"
+                                    style={targetType === 'specific'
+                                        ? { background: "var(--accent-soft)", borderColor: "var(--accent)", color: "var(--accent-ink)" }
+                                        : { background: "var(--card-2)", borderColor: "var(--line)", color: "var(--ink-3)" }}
+                                >
                                     <input type="radio" name="targetType" value="specific" checked={targetType === 'specific'} onChange={() => setTargetType('specific')} className="hidden" />
-                                    <span className="font-bold">🎯 เลือกคอร์สเฉพาะ</span>
+                                    <Target size={15} strokeWidth={1.9} /> เลือกคอร์สเฉพาะ
                                 </label>
                             </div>
                         </div>
 
                         {/* Course Selection List (Only show if specific) */}
                         {targetType === 'specific' && (
-                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 animate-in fade-in slide-in-from-top-2">
+                            <div className="p-4 rounded-xl border animate-in fade-in slide-in-from-top-2" style={{ background: "var(--card-2)", borderColor: "var(--line)" }}>
                                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">เลือกคอร์สที่ต้องการแจ้งเตือน ({selectedCourseIds.length})</p>
+                                    <p className="kh-eyebrow">เลือกคอร์สที่ต้องการแจ้งเตือน ({selectedCourseIds.length})</p>
                                     <div className="flex gap-2">
                                         <button
                                             type="button"
                                             onClick={() => setSelectedCourseIds(courses.map(c => c.id))}
-                                            className="px-3 py-1.5 text-xs font-bold bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition"
+                                            className="kh-pill kh-pill-good no-dot"
+                                            style={{ cursor: "pointer" }}
                                         >
-                                            ✅ เลือกทั้งหมด
+                                            เลือกทั้งหมด
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setSelectedCourseIds([])}
-                                            className="px-3 py-1.5 text-xs font-bold bg-slate-200 text-slate-600 rounded-lg hover:bg-slate-300 transition"
+                                            className="kh-pill kh-pill-ink no-dot"
+                                            style={{ cursor: "pointer" }}
                                         >
-                                            ❌ ยกเลิกทั้งหมด
+                                            ยกเลิกทั้งหมด
                                         </button>
                                     </div>
                                 </div>
-                                <div className="max-h-80 overflow-y-auto pr-2 custom-scrollbar space-y-6">
+                                <div className="max-h-80 overflow-y-auto pr-2 custom-scrollbar space-y-5">
                                     {groupedCourses.map(([category, items]) => (
                                         <div key={category}>
-                                            <div className="flex items-center justify-between mb-2 bg-indigo-50/50 p-2 rounded-lg border border-indigo-100 sticky top-0 backdrop-blur-sm z-10">
-                                                <h4 className="text-sm font-bold text-indigo-800">
-                                                    📌 {category} ({items.length})
+                                            <div className="flex items-center justify-between mb-2 p-2 rounded-lg border sticky top-0 backdrop-blur-sm z-10" style={{ background: "var(--accent-soft)", borderColor: "var(--line)" }}>
+                                                <h4 className="text-sm font-bold flex items-center gap-1.5" style={{ color: "var(--accent-ink)" }}>
+                                                    <Pin size={13} strokeWidth={1.9} /> {category} ({items.length})
                                                 </h4>
                                                 <button
                                                     type="button"
@@ -193,24 +203,29 @@ export default function NotificationsPage() {
                                                             setSelectedCourseIds(prev => [...new Set([...prev, ...categoryIds])]);
                                                         }
                                                     }}
-                                                    className={`text-[10px] px-2 py-1 rounded-md font-bold transition ${items.every((c: any) => selectedCourseIds.includes(c.id))
-                                                        ? 'bg-indigo-600 text-white'
-                                                        : 'bg-white text-indigo-600 hover:bg-indigo-100'
-                                                        }`}
+                                                    className={items.every((c: any) => selectedCourseIds.includes(c.id)) ? "kh-pill kh-pill-accent no-dot" : "kh-pill kh-pill-ink no-dot"}
+                                                    style={{ cursor: "pointer" }}
                                                 >
                                                     {items.every((c: any) => selectedCourseIds.includes(c.id)) ? '✓ เลือกแล้ว' : 'เลือกทั้งกลุ่ม'}
                                                 </button>
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                 {items.map((course: any) => (
-                                                    <label key={course.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${selectedCourseIds.includes(course.id) ? 'bg-white border-indigo-400 shadow-sm' : 'bg-white/50 border-transparent hover:bg-white'}`}>
+                                                    <label
+                                                        key={course.id}
+                                                        className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition"
+                                                        style={selectedCourseIds.includes(course.id)
+                                                            ? { background: "var(--card)", borderColor: "var(--accent)", boxShadow: "var(--shadow-sm)" }
+                                                            : { background: "var(--card)", borderColor: "var(--line)" }}
+                                                    >
                                                         <input
                                                             type="checkbox"
                                                             checked={selectedCourseIds.includes(course.id)}
                                                             onChange={() => toggleCourseSelection(course.id)}
-                                                            className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                                            className="w-5 h-5 rounded"
+                                                            style={{ accentColor: "var(--accent)" }}
                                                         />
-                                                        <span className={`text-sm font-medium ${selectedCourseIds.includes(course.id) ? 'text-indigo-900' : 'text-slate-600'}`}>{course.title}</span>
+                                                        <span className="text-sm font-medium" style={{ color: selectedCourseIds.includes(course.id) ? "var(--ink)" : "var(--ink-2)" }}>{course.title}</span>
                                                     </label>
                                                 ))}
                                             </div>
@@ -220,63 +235,74 @@ export default function NotificationsPage() {
                             </div>
                         )}
 
-                        <textarea
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            placeholder="พิมพ์ข้อความประกาศที่นี่..."
-                            className="w-full p-4 bg-slate-50 border-2 border-indigo-100 rounded-2xl outline-none focus:border-indigo-400 transition min-h-[120px]"
-                        />
+                        <div className="space-y-2.5">
+                            <label className="block text-sm font-bold kh-ink2">เนื้อหา</label>
+                            <textarea
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                placeholder="พิมพ์ข้อความประกาศที่นี่..."
+                                className="kh-textarea min-h-[120px]"
+                            />
+                        </div>
                         <div className="flex justify-end">
                             <button
                                 type="submit"
                                 disabled={submitting || !message.trim()}
-                                className={`px-8 py-3 rounded-xl font-bold text-white shadow-lg transition ${submitting || !message.trim() ? 'bg-slate-300 cursor-not-allowed' : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:scale-105 active:scale-95'}`}
+                                className="kh-btn"
                             >
-                                {submitting ? '⏳ กำลังส่ง...' : '🚀 ส่งประกาศ'}
+                                <Send size={15} strokeWidth={1.9} />
+                                {submitting ? 'กำลังส่ง...' : 'ส่งประกาศ'}
                             </button>
                         </div>
                     </form>
                 </div>
 
-                {/* รายการประกาศ */}
-                <div className="space-y-4">
-                    <h2 className="text-xl font-bold text-indigo-900 mb-4">📜 ประวัติการประกาศ</h2>
+                {/* RIGHT — รายการประกาศ */}
+                <div className="space-y-3">
+                    <h2 className="text-lg font-bold kh-ink mb-1 flex items-center gap-2">
+                        <History size={18} strokeWidth={1.9} style={{ color: "var(--accent)" }} />
+                        ประวัติการประกาศ
+                    </h2>
                     {loading ? (
-                        <p className="text-center text-slate-400">กำลังโหลด...</p>
+                        <p className="text-center kh-ink3 py-6">กำลังโหลด...</p>
                     ) : notifications.length === 0 ? (
-                        <div className="text-center py-10 bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">
+                        <div className="kh-card p-10 text-center kh-ink3 flex flex-col items-center gap-2">
+                            <Inbox size={28} strokeWidth={1.6} />
                             ยังไม่มีประกาศใดๆ
                         </div>
                     ) : (
                         notifications.map((note) => (
-                            <div key={note.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-start gap-4 hover:shadow-md transition">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className={`px-2 py-1 rounded-lg text-xs font-bold ${note.type === 'new_lesson' ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'}`}>
-                                            {note.type === 'new_lesson' ? '📚 บทเรียนใหม่' : '📢 ประกาศทั่วไป'}
-                                        </span>
-                                        {note.target === 'specific_courses' && (
-                                            <span className="px-2 py-1 rounded-lg text-xs font-bold bg-purple-100 text-purple-600">
-                                                🎯 เฉพาะกลุ่ม ({note.targetCourseIds?.length || 0} คอร์ส)
-                                            </span>
+                            <div key={note.id} className="kh-card kh-card-h p-5 flex justify-between items-start gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center flex-wrap gap-2 mb-2">
+                                        {note.type === 'new_lesson' ? (
+                                            <span className="kh-pill kh-pill-accent no-dot"><BookOpen size={12} strokeWidth={2} /> บทเรียนใหม่</span>
+                                        ) : (
+                                            <span className="kh-pill kh-pill-warn no-dot"><Megaphone size={12} strokeWidth={2} /> ประกาศทั่วไป</span>
                                         )}
-                                        <span className="text-xs text-slate-400">
+                                        {note.target === 'specific_courses' ? (
+                                            <span className="kh-pill kh-pill-warn"><Clock size={12} strokeWidth={2} /> ตั้งเวลา ({note.targetCourseIds?.length || 0} คอร์ส)</span>
+                                        ) : (
+                                            <span className="kh-pill kh-pill-good"><CheckCircle2 size={12} strokeWidth={2} /> ส่งแล้ว</span>
+                                        )}
+                                        <span className="text-xs kh-ink3 kh-num">
                                             {note.createdAt?.toDate ? note.createdAt.toDate().toLocaleString('th-TH') : 'เมื่อสักครู่'}
                                         </span>
                                     </div>
-                                    <h3 className="font-bold text-slate-800 text-lg">
+                                    <h3 className="font-bold kh-ink text-base">
                                         {note.lessonTitle || note.message || "ไม่มีหัวข้อ"}
                                     </h3>
                                     {note.courseTitle && (
-                                        <p className="text-sm text-slate-500 mt-1">คอร์ส: {note.courseTitle}</p>
+                                        <p className="text-sm kh-ink2 mt-1">คอร์ส: {note.courseTitle}</p>
                                     )}
                                 </div>
                                 <button
                                     onClick={() => handleDelete(note.id)}
-                                    className="p-2 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition"
+                                    className="kh-btn-ghost p-2"
+                                    style={{ color: "var(--danger)" }}
                                     title="ลบประกาศ"
                                 >
-                                    🗑
+                                    <Trash2 size={16} strokeWidth={1.9} />
                                 </button>
                             </div>
                         ))
@@ -285,6 +311,5 @@ export default function NotificationsPage() {
             </div>
             <ConfirmDialog />
         </div>
-
     );
 }

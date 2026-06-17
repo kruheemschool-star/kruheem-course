@@ -2,8 +2,7 @@
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc, setDoc, serverTimestamp, writeBatch } from "firebase/firestore";
-import Link from "next/link";
-import { Search, Edit3, Trash2, Eye, Phone, MessageCircle, ChevronLeft, ChevronRight, GraduationCap, X, UserX, Loader2 } from "lucide-react";
+import { Search, Edit3, Trash2, Eye, Phone, MessageCircle, ChevronLeft, ChevronRight, GraduationCap, X, UserX, Loader2, Users, PauseCircle, CalendarX } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
@@ -57,7 +56,7 @@ const UserAvatar = ({ userId, name, email }: { userId?: string, name?: string, e
             );
         }
         return (
-            <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-500 font-medium text-sm">
+            <div className="kh-avatar w-8 h-8 !rounded-full text-sm">
                 {name?.charAt(0).toUpperCase() || "?"}
             </div>
         );
@@ -68,10 +67,7 @@ const UserAvatar = ({ userId, name, email }: { userId?: string, name?: string, e
             <div className="flex items-center gap-2">
                 <AvatarImage />
                 {authProvider && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${authProvider === 'google'
-                        ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                        : 'bg-slate-100 text-slate-600 border border-slate-200'
-                        }`}>
+                    <span className={`kh-pill no-dot !text-[10px] !px-1.5 !py-0.5 ${authProvider === 'google' ? 'kh-pill-accent' : 'kh-pill-ink'}`}>
                         {authProvider === 'google' ? (
                             <span className="flex items-center gap-1">
                                 <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
@@ -244,6 +240,31 @@ export default function AdminStudentsPage() {
     const currentItems = filteredEnrollments.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredEnrollments.length / ITEMS_PER_PAGE);
 
+    // Stat chips — derived from real enrollment data already in memory.
+    const isExpiredEnrollment = (item: any) => {
+        if (item.status !== 'approved') return false;
+        if (item.accessType === 'lifetime') return false;
+        if (!item.expiryDate) return false;
+        const expiry = new Date(item.expiryDate.seconds ? item.expiryDate.seconds * 1000 : item.expiryDate);
+        return expiry < new Date();
+    };
+    const stats = {
+        total: enrollments.length,
+        learning: enrollments.filter(e => e.status === 'approved' && !isExpiredEnrollment(e)).length,
+        suspended: enrollments.filter(e => e.status === 'suspended').length,
+        expired: enrollments.filter(e => isExpiredEnrollment(e)).length,
+    };
+    const statChips = [
+        { label: "ทั้งหมด", value: stats.total, icon: Users, tone: "var(--accent)", soft: "var(--accent-soft)" },
+        { label: "กำลังเรียน", value: stats.learning, icon: GraduationCap, tone: "var(--good)", soft: "var(--good-soft)" },
+        { label: "พักการเรียน", value: stats.suspended, icon: PauseCircle, tone: "var(--warn)", soft: "var(--warn-soft)" },
+        { label: "หมดอายุ", value: stats.expired, icon: CalendarX, tone: "var(--danger)", soft: "var(--danger-soft)" },
+    ];
+
+    // Quick course-filter tabs reuse the existing `courseFilter` state + effect
+    // (no new filter logic): "ทุกคอร์ส" + the first few course titles.
+    const tabCourses = ["All", ...courseList.slice(0, 4)];
+
     const recalculatePublicStats = async () => {
         try {
             const qAppr = query(collection(db, "enrollments"), where("status", "==", "approved"));
@@ -376,23 +397,23 @@ export default function AdminStudentsPage() {
             const isLifetime = item.accessType === 'lifetime';
 
             return (
-                <div className="flex flex-col gap-0.5">
-                    <span className={`text-xs px-2 py-0.5 rounded ${isExpired ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                <div className="flex flex-col gap-0.5 items-start">
+                    <span className={`kh-pill !text-xs ${isExpired ? 'kh-pill-danger' : 'kh-pill-good'}`}>
                         {isExpired ? 'หมดอายุ' : 'เรียนได้'}
                     </span>
                     {isLifetime ? (
-                        <span className="text-[10px] text-slate-400">ตลอดชีพ</span>
+                        <span className="text-[10px] kh-ink3">ตลอดชีพ</span>
                     ) : expiry && (
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] kh-ink3">
                             หมด {expiry.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })}
                         </span>
                     )}
                 </div>
             );
         }
-        if (item.status === 'pending') return <span className="text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-600">รอตรวจสอบ</span>;
-        if (item.status === 'suspended') return <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-500">พักการเรียน</span>;
-        return <span className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-500">ยกเลิก</span>;
+        if (item.status === 'pending') return <span className="kh-pill kh-pill-warn !text-xs">รอตรวจสอบ</span>;
+        if (item.status === 'suspended') return <span className="kh-pill kh-pill-warn !text-xs">พักการเรียน</span>;
+        return <span className="kh-pill kh-pill-danger !text-xs">ยกเลิก</span>;
     };
 
     // Auto fix expiry data
@@ -434,183 +455,198 @@ export default function AdminStudentsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-white flex items-center justify-center">
-                <div className="text-slate-400">กำลังโหลด...</div>
+            <div className="flex items-center justify-center py-24">
+                <div className="kh-ink3 flex items-center gap-2">
+                    <Loader2 size={18} className="animate-spin" /> กำลังโหลด...
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-white">
-            {/* Header */}
-            <div className="border-b border-slate-100 bg-white sticky top-0 z-20">
-                <div className="max-w-7xl mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <Link href="/admin" className="text-slate-400 hover:text-slate-600 transition">
-                                <ChevronLeft size={20} />
-                            </Link>
-                            <div className="flex items-center gap-3">
-                                <GraduationCap size={24} className="text-slate-700" />
-                                <div>
-                                    <h1 className="text-xl font-semibold text-slate-800">ทะเบียนนักเรียน</h1>
-                                    <p className="text-xs text-slate-400">{filteredEnrollments.length} รายการ</p>
-                                </div>
+        <div className="space-y-6">
+            {/* Stat chips */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {statChips.map((s) => {
+                    const Icon = s.icon;
+                    return (
+                        <div key={s.label} className="kh-card p-4 flex items-center justify-between">
+                            <div>
+                                <p className="kh-ink2 text-xs mb-1">{s.label}</p>
+                                <p className="kh-num kh-ink text-2xl leading-none">{s.value}</p>
                             </div>
+                            <span
+                                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                style={{ background: s.soft, color: s.tone }}
+                            >
+                                <Icon size={20} />
+                            </span>
                         </div>
-                    </div>
-                </div>
+                    );
+                })}
             </div>
 
-            {/* Toolbar */}
-            <div className="border-b border-slate-100 bg-slate-50/50">
-                <div className="max-w-7xl mx-auto px-6 py-3">
-                    <div className="flex flex-col md:flex-row gap-3">
-                        <div className="flex-1 relative">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                                type="text"
-                                placeholder="ค้นหาชื่อ, เบอร์, อีเมล..."
-                                className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:border-slate-400 focus:outline-none transition"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <select
-                            className="px-4 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:border-slate-400 focus:outline-none cursor-pointer"
-                            value={courseFilter}
-                            onChange={(e) => setCourseFilter(e.target.value)}
-                        >
-                            <option value="All">ทุกคอร์ส</option>
-                            {courseList.map((c, i) => <option key={i} value={c}>{c}</option>)}
-                        </select>
+            {/* Toolbar: tabs + search + course filter + actions */}
+            <div className="kh-card p-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    {tabCourses.map((c) => (
                         <button
-                            onClick={handleUnifyExamBankTitles}
-                            disabled={unifying || loading}
-                            className="px-4 py-2 text-sm font-bold bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 transition whitespace-nowrap"
-                            title='รวมทุกชื่อคอร์สที่มีคำว่า "คลังข้อสอบ" ให้เป็นชื่อเดียว (มี preview ให้ดูก่อนยืนยัน)'
+                            key={c}
+                            type="button"
+                            className="kh-tab"
+                            data-active={courseFilter === c}
+                            onClick={() => setCourseFilter(c)}
                         >
-                            {unifying ? "กำลังรวม..." : "รวมชื่อคลังข้อสอบ"}
+                            {c === "All" ? "ทุกคอร์ส" : c}
                         </button>
+                    ))}
+                </div>
+                <div className="flex flex-col md:flex-row gap-3">
+                    <div className="flex-1 relative">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 kh-ink3" />
+                        <input
+                            type="text"
+                            placeholder="ค้นหาชื่อ, เบอร์, อีเมล..."
+                            className="kh-input !pl-9"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
+                    <select
+                        className="kh-select md:w-56 cursor-pointer"
+                        value={courseFilter}
+                        onChange={(e) => setCourseFilter(e.target.value)}
+                    >
+                        <option value="All">ทุกคอร์ส</option>
+                        {courseList.map((c, i) => <option key={i} value={c}>{c}</option>)}
+                    </select>
+                    <button
+                        onClick={handleUnifyExamBankTitles}
+                        disabled={unifying || loading}
+                        className="kh-btn-ghost whitespace-nowrap"
+                        title='รวมทุกชื่อคอร์สที่มีคำว่า "คลังข้อสอบ" ให้เป็นชื่อเดียว (มี preview ให้ดูก่อนยืนยัน)'
+                    >
+                        {unifying ? "กำลังรวม..." : "รวมชื่อคลังข้อสอบ"}
+                    </button>
                 </div>
             </div>
 
             {/* Table */}
-            <div className="max-w-7xl mx-auto px-6 py-6">
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200">
-                                <tr>
-                                    <th className="px-4 py-3 text-left font-medium text-slate-500 w-12">#</th>
-                                    <th className="px-4 py-3 text-left font-medium text-slate-500">นักเรียน</th>
-                                    <th className="px-4 py-3 text-left font-medium text-slate-500">ติดต่อ</th>
-                                    <th className="px-4 py-3 text-left font-medium text-slate-500">คอร์ส</th>
-                                    <th className="px-4 py-3 text-left font-medium text-slate-500">วันที่</th>
-                                    <th className="px-4 py-3 text-left font-medium text-slate-500">สถานะ</th>
-                                    <th className="px-4 py-3 text-right font-medium text-slate-500 w-32"></th>
+            <div className="kh-card !p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="kh-table">
+                        <thead>
+                            <tr>
+                                <th className="w-12">#</th>
+                                <th>นักเรียน</th>
+                                <th>ติดต่อ</th>
+                                <th>คอร์ส</th>
+                                <th>วันที่</th>
+                                <th>สถานะ</th>
+                                <th className="!text-right w-32"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {currentItems.map((item, index) => (
+                                <tr key={item.id}>
+                                    <td className="kh-ink3 text-xs">
+                                        {filteredEnrollments.length - ((currentPage - 1) * ITEMS_PER_PAGE + index)}
+                                    </td>
+                                    <td>
+                                        <div className="flex items-center gap-3">
+                                            <UserAvatar userId={item.userId} name={item.userName} email={item.userEmail} />
+                                            <div>
+                                                <p className="font-medium kh-ink">{item.userName || "ไม่ระบุ"}</p>
+                                                <p className="text-xs kh-ink3">{item.userEmail}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div className="flex flex-col gap-0.5">
+                                            {item.userTel && (
+                                                <span className="text-xs kh-ink2 flex items-center gap-1">
+                                                    <Phone size={12} /> {item.userTel}
+                                                </span>
+                                            )}
+                                            {item.lineId && <span className="text-xs" style={{ color: "var(--good)" }}>Line: {item.lineId}</span>}
+                                            {!item.userTel && !item.lineId && <span className="text-xs kh-ink3">-</span>}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span className="kh-pill kh-pill-ink no-dot !text-xs">
+                                            {item.courseTitle || "-"}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div className="flex flex-col">
+                                            <span className="text-xs kh-ink2">{item.formattedDate}</span>
+                                            {item.formattedApprovedDate && (
+                                                <span className="text-[10px]" style={{ color: "var(--good)" }}>อนุมัติ: {item.formattedApprovedDate}</span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td>{getStatusBadge(item)}</td>
+                                    <td>
+                                        <div className="flex items-center justify-end gap-1">
+                                            {item.slipUrl && (
+                                                <button onClick={() => setSlipModalUrl(item.slipUrl)} className="p-1.5 rounded-lg transition kh-ink3 hover:bg-[var(--card-2)] hover:text-[var(--accent)]" title="ดูสลิป">
+                                                    <Eye size={16} />
+                                                </button>
+                                            )}
+                                            <button onClick={() => handleMessage(item)} className="p-1.5 rounded-lg transition kh-ink3 hover:bg-[var(--card-2)] hover:text-[var(--accent)]" title="ส่งข้อความ">
+                                                <MessageCircle size={16} />
+                                            </button>
+                                            <button onClick={() => handleEdit(item)} className="p-1.5 rounded-lg transition kh-ink3 hover:bg-[var(--card-2)] hover:text-[var(--accent)]" title="แก้ไข">
+                                                <Edit3 size={16} />
+                                            </button>
+                                            <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg transition kh-ink3 hover:bg-[var(--danger-soft)] hover:text-[var(--danger)]" title="ลบรายการลงทะเบียน">
+                                                <Trash2 size={16} />
+                                            </button>
+                                            {item.userId && (
+                                                <button
+                                                    onClick={() => handleDeleteUser(item)}
+                                                    disabled={deletingUserId === item.userId}
+                                                    className="p-1.5 rounded-lg transition kh-ink3 hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] disabled:opacity-50"
+                                                    title="ลบบัญชีผู้ใช้ (Auth + Firestore)"
+                                                >
+                                                    {deletingUserId === item.userId ? <Loader2 size={16} className="animate-spin" /> : <UserX size={16} />}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {currentItems.map((item, index) => (
-                                    <tr key={item.id} className="hover:bg-slate-50/50 transition">
-                                        <td className="px-4 py-3 text-slate-400 text-xs">
-                                            {filteredEnrollments.length - ((currentPage - 1) * ITEMS_PER_PAGE + index)}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-3">
-                                                <UserAvatar userId={item.userId} name={item.userName} email={item.userEmail} />
-                                                <div>
-                                                    <p className="font-medium text-slate-800">{item.userName || "ไม่ระบุ"}</p>
-                                                    <p className="text-xs text-slate-400">{item.userEmail}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col gap-0.5">
-                                                {item.userTel && (
-                                                    <span className="text-xs text-slate-600 flex items-center gap-1">
-                                                        <Phone size={12} /> {item.userTel}
-                                                    </span>
-                                                )}
-                                                {item.lineId && <span className="text-xs text-green-600">Line: {item.lineId}</span>}
-                                                {!item.userTel && !item.lineId && <span className="text-xs text-slate-300">-</span>}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded">
-                                                {item.courseTitle || "-"}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs text-slate-500">{item.formattedDate}</span>
-                                                {item.formattedApprovedDate && (
-                                                    <span className="text-[10px] text-emerald-500">อนุมัติ: {item.formattedApprovedDate}</span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">{getStatusBadge(item)}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center justify-end gap-1">
-                                                {item.slipUrl && (
-                                                    <button onClick={() => setSlipModalUrl(item.slipUrl)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded transition" title="ดูสลิป">
-                                                        <Eye size={16} />
-                                                    </button>
-                                                )}
-                                                <button onClick={() => handleMessage(item)} className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded transition" title="ส่งข้อความ">
-                                                    <MessageCircle size={16} />
-                                                </button>
-                                                <button onClick={() => handleEdit(item)} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded transition" title="แก้ไข">
-                                                    <Edit3 size={16} />
-                                                </button>
-                                                <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition" title="ลบรายการลงทะเบียน">
-                                                    <Trash2 size={16} />
-                                                </button>
-                                                {item.userId && (
-                                                    <button
-                                                        onClick={() => handleDeleteUser(item)}
-                                                        disabled={deletingUserId === item.userId}
-                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition disabled:opacity-50"
-                                                        title="ลบบัญชีผู้ใช้ (Auth + Firestore)"
-                                                    >
-                                                        {deletingUserId === item.userId ? <Loader2 size={16} className="animate-spin" /> : <UserX size={16} />}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {currentItems.length === 0 && (
-                                    <tr>
-                                        <td colSpan={7} className="px-4 py-12 text-center text-slate-400">ไม่พบข้อมูล</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                            ))}
+                            {currentItems.length === 0 && (
+                                <tr>
+                                    <td colSpan={7} className="!text-center kh-ink3 py-12">ไม่พบข้อมูล</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
 
-                    {/* Pagination */}
+                {/* Pagination */}
+                <div className="px-4 py-3 flex items-center justify-between text-sm" style={{ borderTop: "1px solid var(--line)" }}>
+                    <span className="kh-ink3">
+                        แสดง {filteredEnrollments.length === 0 ? 0 : indexOfFirstItem + 1}–{Math.min(indexOfLastItem, filteredEnrollments.length)} จาก {filteredEnrollments.length}
+                    </span>
                     {totalPages > 1 && (
-                        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between text-sm">
-                            <span className="text-slate-400">หน้า {currentPage} / {totalPages}</span>
-                            <div className="flex gap-1">
-                                <button
-                                    onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                                    disabled={currentPage === 1}
-                                    className="px-3 py-1 text-slate-500 hover:bg-slate-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition"
-                                >
-                                    ก่อนหน้า
-                                </button>
-                                <button
-                                    onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                                    disabled={currentPage === totalPages}
-                                    className="px-3 py-1 text-slate-500 hover:bg-slate-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition"
-                                >
-                                    ถัดไป
-                                </button>
-                            </div>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="kh-btn-ghost !px-2 !py-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <ChevronLeft size={16} />
+                            </button>
+                            <span className="kh-ink2 px-2">{currentPage} / {totalPages}</span>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="kh-btn-ghost !px-2 !py-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                <ChevronRight size={16} />
+                            </button>
                         </div>
                     )}
                 </div>
@@ -618,64 +654,64 @@ export default function AdminStudentsPage() {
 
             {/* Edit Modal */}
             {isEditOpen && editingItem && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                            <h3 className="font-semibold text-slate-800">แก้ไขข้อมูล</h3>
-                            <button onClick={() => setIsEditOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <div className="kh-admin fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+                    <div className="kh-card !p-0 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--line)" }}>
+                            <h3 className="font-semibold kh-ink">แก้ไขข้อมูล</h3>
+                            <button onClick={() => setIsEditOpen(false)} className="kh-ink3 hover:text-[var(--ink)]">
                                 <X size={20} />
                             </button>
                         </div>
                         <div className="p-5 space-y-4">
                             <div>
-                                <label className="block text-xs text-slate-500 mb-1">ชื่อนักเรียน</label>
-                                <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-slate-400 outline-none" value={editingItem.userName} onChange={(e) => setEditingItem({ ...editingItem, userName: e.target.value })} />
+                                <label className="block text-xs kh-ink2 mb-1">ชื่อนักเรียน</label>
+                                <input type="text" className="kh-input" value={editingItem.userName} onChange={(e) => setEditingItem({ ...editingItem, userName: e.target.value })} />
                             </div>
                             <div>
-                                <label className="block text-xs text-slate-500 mb-1">เบอร์โทร</label>
-                                <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-slate-400 outline-none" value={editingItem.userTel} onChange={(e) => setEditingItem({ ...editingItem, userTel: e.target.value })} />
+                                <label className="block text-xs kh-ink2 mb-1">เบอร์โทร</label>
+                                <input type="text" className="kh-input" value={editingItem.userTel} onChange={(e) => setEditingItem({ ...editingItem, userTel: e.target.value })} />
                             </div>
                             <div>
-                                <label className="block text-xs text-slate-500 mb-1">อีเมล</label>
-                                <input type="email" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-slate-400 outline-none" value={editingItem.userEmail} onChange={(e) => setEditingItem({ ...editingItem, userEmail: e.target.value })} />
+                                <label className="block text-xs kh-ink2 mb-1">อีเมล</label>
+                                <input type="email" className="kh-input" value={editingItem.userEmail} onChange={(e) => setEditingItem({ ...editingItem, userEmail: e.target.value })} />
                             </div>
                             <div>
-                                <label className="block text-xs text-slate-500 mb-1">LINE ID</label>
-                                <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-slate-400 outline-none" value={editingItem.lineId} onChange={(e) => setEditingItem({ ...editingItem, lineId: e.target.value })} />
+                                <label className="block text-xs kh-ink2 mb-1">LINE ID</label>
+                                <input type="text" className="kh-input" value={editingItem.lineId} onChange={(e) => setEditingItem({ ...editingItem, lineId: e.target.value })} />
                             </div>
                             <div>
-                                <label className="block text-xs text-slate-500 mb-1">คอร์ส</label>
-                                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-slate-400 outline-none cursor-pointer" value={editingItem.courseId} onChange={handleCourseChange}>
+                                <label className="block text-xs kh-ink2 mb-1">คอร์ส</label>
+                                <select className="kh-select cursor-pointer" value={editingItem.courseId} onChange={handleCourseChange}>
                                     <option value="" disabled>-- เลือกคอร์ส --</option>
                                     {allCourses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs text-slate-500 mb-1">สถานะ</label>
-                                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-slate-400 outline-none cursor-pointer" value={editingItem.status} onChange={(e) => setEditingItem({ ...editingItem, status: e.target.value })}>
+                                <label className="block text-xs kh-ink2 mb-1">สถานะ</label>
+                                <select className="kh-select cursor-pointer" value={editingItem.status} onChange={(e) => setEditingItem({ ...editingItem, status: e.target.value })}>
                                     <option value="pending">รอตรวจสอบ</option>
                                     <option value="approved">เรียนได้</option>
                                     <option value="suspended">พักการเรียน</option>
                                     <option value="rejected">ยกเลิก</option>
                                 </select>
                             </div>
-                            <div className="pt-3 border-t border-slate-100">
-                                <label className="block text-xs text-slate-500 mb-1">ประเภทสิทธิ์</label>
-                                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-slate-400 outline-none cursor-pointer mb-3" value={editingItem.accessType || "limited"} onChange={(e) => setEditingItem({ ...editingItem, accessType: e.target.value })}>
+                            <div className="pt-3" style={{ borderTop: "1px solid var(--line)" }}>
+                                <label className="block text-xs kh-ink2 mb-1">ประเภทสิทธิ์</label>
+                                <select className="kh-select cursor-pointer mb-3" value={editingItem.accessType || "limited"} onChange={(e) => setEditingItem({ ...editingItem, accessType: e.target.value })}>
                                     <option value="limited">กำหนดวันหมดอายุ</option>
                                     <option value="lifetime">ตลอดชีพ</option>
                                 </select>
                                 {editingItem.accessType !== 'lifetime' && (
                                     <div>
-                                        <label className="block text-xs text-slate-500 mb-1">วันหมดอายุ</label>
-                                        <input type="date" className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-slate-400 outline-none" value={editingItem.expiryDate ? new Date(editingItem.expiryDate.seconds ? editingItem.expiryDate.seconds * 1000 : editingItem.expiryDate).toISOString().split('T')[0] : ""} onChange={(e) => setEditingItem({ ...editingItem, expiryDate: new Date(e.target.value) })} />
+                                        <label className="block text-xs kh-ink2 mb-1">วันหมดอายุ</label>
+                                        <input type="date" className="kh-input" value={editingItem.expiryDate ? new Date(editingItem.expiryDate.seconds ? editingItem.expiryDate.seconds * 1000 : editingItem.expiryDate).toISOString().split('T')[0] : ""} onChange={(e) => setEditingItem({ ...editingItem, expiryDate: new Date(e.target.value) })} />
                                     </div>
                                 )}
                             </div>
                         </div>
-                        <div className="flex gap-2 px-5 py-4 border-t border-slate-100">
-                            <button onClick={() => setIsEditOpen(false)} className="flex-1 py-2 text-sm text-slate-500 hover:bg-slate-100 rounded-lg transition">ยกเลิก</button>
-                            <button onClick={saveEdit} className="flex-1 py-2 text-sm text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition">บันทึก</button>
+                        <div className="flex gap-2 px-5 py-4" style={{ borderTop: "1px solid var(--line)" }}>
+                            <button onClick={() => setIsEditOpen(false)} className="kh-btn-ghost flex-1">ยกเลิก</button>
+                            <button onClick={saveEdit} className="kh-btn flex-1">บันทึก</button>
                         </div>
                     </div>
                 </div>
@@ -683,11 +719,11 @@ export default function AdminStudentsPage() {
 
             {/* Slip Modal */}
             {slipModalUrl && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSlipModalUrl(null)}>
-                    <div className="bg-white rounded-xl max-w-md w-full overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                            <span className="text-sm font-medium text-slate-700">สลิปการโอนเงิน</span>
-                            <button onClick={() => setSlipModalUrl(null)} className="text-slate-400 hover:text-slate-600">
+                <div className="kh-admin fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSlipModalUrl(null)}>
+                    <div className="kh-card !p-0 max-w-md w-full overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--line)" }}>
+                            <span className="text-sm font-medium kh-ink">สลิปการโอนเงิน</span>
+                            <button onClick={() => setSlipModalUrl(null)} className="kh-ink3 hover:text-[var(--ink)]">
                                 <X size={18} />
                             </button>
                         </div>

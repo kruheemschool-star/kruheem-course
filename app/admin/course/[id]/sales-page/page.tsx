@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -14,7 +14,6 @@ import { getSectionForm, hasFormEditor } from "@/components/admin/forms/registry
 export default function SalesPageAdmin() {
     const { id } = useParams();
     const courseId = typeof id === "string" ? id : "";
-    const router = useRouter();
     const { isAdmin } = useUserAuth();
 
     const [loading, setLoading] = useState(true);
@@ -199,37 +198,25 @@ export default function SalesPageAdmin() {
         saveConfig(sample, `✨ Seed ตัวอย่าง ${sample.sections.length} sections`);
     };
 
-    if (!isAdmin) return <div className="min-h-screen flex items-center justify-center text-slate-500">Admin only</div>;
-    if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-500">กำลังโหลด...</div>;
-    if (!course) return <div className="min-h-screen flex items-center justify-center text-slate-500">ไม่พบคอร์ส</div>;
+    if (!isAdmin) return <div className="flex items-center justify-center py-20 text-slate-500">Admin only</div>;
+    if (loading) return <div className="flex items-center justify-center py-20 text-slate-500">กำลังโหลด...</div>;
+    if (!course) return <div className="flex items-center justify-center py-20 text-slate-500">ไม่พบคอร์ส</div>;
 
     const sortedSections = [...config.sections].sort((a, b) => a.order - b.order);
 
     return (
-        <div className="min-h-screen bg-slate-50 py-10 px-4">
-            <div className="max-w-5xl mx-auto">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-                    <div>
-                        <button onClick={() => router.back()} className="text-sm text-slate-500 hover:underline mb-2">
-                            ← กลับ
-                        </button>
-                        <h1 className="text-2xl font-bold text-slate-800">🎨 Sales Page Editor</h1>
-                        <p className="text-slate-500 text-sm">{course.title}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Link
-                            href={`/course/${courseId}`}
-                            target="_blank"
-                            className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-100"
-                        >
-                            👁️ ดูหน้าจริง
-                        </Link>
-                    </div>
+        <div className="space-y-6">
+            <div>
+                {/* Top toolbar */}
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
+                    <p className="text-slate-500 text-sm">{course.title}</p>
+                    <Link href={`/course/${courseId}`} target="_blank" className="kh-btn-ghost">
+                        👁️ ดูหน้าจริง
+                    </Link>
                 </div>
 
                 {/* Master toggle */}
-                <div className={`p-5 rounded-2xl border-2 mb-6 flex items-center justify-between flex-wrap gap-3 ${config.enabled ? "bg-emerald-50 border-emerald-200" : "bg-slate-100 border-slate-200"}`}>
+                <div className={`kh-card p-5 mb-6 flex items-center justify-between flex-wrap gap-3 ${config.enabled ? "bg-emerald-50 border-emerald-200" : ""}`}>
                     <div>
                         <p className="font-bold text-slate-800 text-lg">
                             {config.enabled ? "✅ Template เปิดใช้งานอยู่" : "⏸️ Template ปิดอยู่"}
@@ -245,7 +232,7 @@ export default function SalesPageAdmin() {
                             <button
                                 onClick={seedSample}
                                 disabled={saving}
-                                className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 disabled:opacity-50"
+                                className="kh-btn"
                             >
                                 ✨ Seed ตัวอย่าง 12 sections
                             </button>
@@ -253,7 +240,7 @@ export default function SalesPageAdmin() {
                         <button
                             onClick={toggleEnabled}
                             disabled={saving || (config.sections.length === 0 && !config.enabled)}
-                            className={`px-5 py-2 rounded-xl font-bold text-sm disabled:opacity-50 ${config.enabled ? "bg-slate-800 text-white hover:bg-slate-700" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}
+                            className="kh-btn"
                         >
                             {config.enabled ? "ปิดใช้งาน" : "เปิดใช้งาน"}
                         </button>
@@ -261,7 +248,7 @@ export default function SalesPageAdmin() {
                 </div>
 
                 {/* Theme picker — per-course palette (saved to salesPage.theme.id) */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+                <div className="kh-card p-6 mb-6">
                     <div className="mb-4">
                         <h2 className="text-xl font-bold text-slate-800">🎨 ชุดสีของหน้านี้</h2>
                         <p className="text-sm text-slate-500">
@@ -305,7 +292,7 @@ export default function SalesPageAdmin() {
                 {/* Sections list */}
                 <div className="space-y-3 mb-6">
                     {sortedSections.length === 0 ? (
-                        <div className="p-10 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-center">
+                        <div className="kh-card p-10 border-dashed text-center">
                             <p className="text-4xl mb-3">📭</p>
                             <p className="text-slate-500">ยังไม่มี sections — กด "เพิ่ม Section" หรือ "Seed ตัวอย่าง"</p>
                         </div>
@@ -315,7 +302,7 @@ export default function SalesPageAdmin() {
                             return (
                                 <div
                                     key={section.id}
-                                    className={`bg-white rounded-2xl border shadow-sm p-4 flex items-center gap-3 transition ${section.enabled ? "border-slate-200" : "border-slate-100 opacity-60"}`}
+                                    className={`kh-card p-4 flex items-center gap-3 transition ${section.enabled ? "" : "opacity-60"}`}
                                 >
                                     <div className="flex flex-col gap-1">
                                         <button
@@ -377,7 +364,7 @@ export default function SalesPageAdmin() {
                 </button>
 
                 {/* Boosters Panel */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+                <div className="kh-card p-6 mb-6">
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <h2 className="text-xl font-bold text-slate-800">⚡ Conversion Boosters</h2>
@@ -593,7 +580,7 @@ export default function SalesPageAdmin() {
                                             setEditJson(e.target.value);
                                             setEditError(null);
                                         }}
-                                        className={`flex-1 min-h-[400px] p-4 font-mono text-sm border-2 rounded-xl outline-none resize-none ${editError ? "border-red-300 focus:border-red-500" : "border-slate-200 focus:border-indigo-400"}`}
+                                        className={`kh-textarea flex-1 min-h-[400px] font-mono text-sm resize-none ${editError ? "border-red-300 focus:border-red-500" : ""}`}
                                         spellCheck={false}
                                     />
                                 </>
@@ -605,13 +592,13 @@ export default function SalesPageAdmin() {
                             <button
                                 onClick={saveEditor}
                                 disabled={saving}
-                                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-50"
+                                className="kh-btn flex-1"
                             >
                                 💾 บันทึก
                             </button>
                             <button
                                 onClick={() => setEditingSection(null)}
-                                className="px-6 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200"
+                                className="kh-btn-ghost"
                             >
                                 ยกเลิก
                             </button>
@@ -644,7 +631,7 @@ export default function SalesPageAdmin() {
                                 setBoosterJson(e.target.value);
                                 setBoosterError(null);
                             }}
-                            className={`flex-1 min-h-[400px] p-4 font-mono text-sm border-2 rounded-xl outline-none resize-none ${boosterError ? "border-red-300 focus:border-red-500" : "border-slate-200 focus:border-indigo-400"}`}
+                            className={`kh-textarea flex-1 min-h-[400px] font-mono text-sm resize-none ${boosterError ? "border-red-300 focus:border-red-500" : ""}`}
                             spellCheck={false}
                         />
                         {boosterError && <p className="text-red-600 text-sm mt-2">{boosterError}</p>}
@@ -652,13 +639,13 @@ export default function SalesPageAdmin() {
                             <button
                                 onClick={saveBoosterEditor}
                                 disabled={saving}
-                                className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-50"
+                                className="kh-btn flex-1"
                             >
                                 💾 บันทึก
                             </button>
                             <button
                                 onClick={() => setEditingBooster(null)}
-                                className="px-6 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200"
+                                className="kh-btn-ghost"
                             >
                                 ยกเลิก
                             </button>

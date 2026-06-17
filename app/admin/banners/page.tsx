@@ -4,8 +4,7 @@ import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
-import Link from "next/link";
-import { ArrowLeft, Upload, Image as ImageIcon, Save, Loader2, Trash2, Star, Heart, Flame, Trophy, Sparkles, FileText, Link as LinkIcon, DollarSign } from "lucide-react";
+import { Upload, Image as ImageIcon, Save, Loader2, Trash2, Star, Heart, Flame, Trophy, Sparkles, FileText, Link as LinkIcon, DollarSign } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // File validation constants
@@ -169,239 +168,234 @@ export default function AdminBanners() {
         { name: "Sparkles", icon: <Sparkles size={20} fill="currentColor" /> },
     ];
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-24">
+                <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--accent)" }} />
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-amber-50 font-sans text-stone-700 pb-20">
-            {/* Header */}
-            <header className="sticky top-0 z-20 bg-white/60 backdrop-blur-md border-b border-white/20 px-6 py-4">
-                <div className="max-w-5xl mx-auto flex items-center gap-4">
-                    <Link href="/admin" className="p-2 rounded-full hover:bg-white/50 transition">
-                        <ArrowLeft size={24} className="text-stone-600" />
-                    </Link>
-                    <h1 className="text-xl font-bold text-stone-800">จัดการโฆษณา (Banners)</h1>
+        <div className="space-y-6">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="kh-eyebrow"><ImageIcon size={15} strokeWidth={1.9} /> โฆษณาหน้าแรก</div>
+                    <span className="kh-pill kh-pill-accent no-dot">{bannerImages.length} รูป</span>
                 </div>
-            </header>
+                <label className={`kh-btn ${uploading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                    {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} strokeWidth={1.9} />}
+                    <span>{uploading ? "กำลังอัปโหลด..." : "เพิ่มรูปภาพ"}</span>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageChange}
+                        disabled={uploading}
+                    />
+                </label>
+            </div>
 
-            <main className="max-w-3xl mx-auto p-6 md:p-10">
+            {/* Main Banner Card */}
+            <div className="kh-card p-5 md:p-6 space-y-5">
+                <div>
+                    <div className="kh-eyebrow"><ImageIcon size={15} strokeWidth={1.9} /> โฆษณาหลัก</div>
+                    <p className="text-sm kh-ink3 mt-1">รูปภาพที่จะแสดงในหน้าแรก (อัปโหลดได้หลายรูปเพื่อทำสไลด์)</p>
+                </div>
 
-                {/* Main Banner Card */}
-                <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100">
-                    <div className="flex items-center gap-4 mb-6 border-b border-stone-100 pb-4">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600">
-                            <ImageIcon size={24} />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-stone-800">โฆษณาหลัก (Main Banner)</h2>
-                            <p className="text-stone-400 text-sm">รูปภาพที่จะแสดงในหน้าแรก (สามารถอัปโหลดได้หลายรูปเพื่อทำสไลด์)</p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-6">
-                        {/* Image Grid */}
-                        {bannerImages.length > 0 ? (
-                            <div className="grid grid-cols-1 gap-6">
-                                {bannerImages.map((img, index) => (
-                                    <div key={img.id || index} className="relative group rounded-3xl overflow-hidden border-2 border-stone-100 shadow-sm">
-                                        <div className="aspect-[4/5]">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={img.url} alt={`Banner ${index + 1}`} className="w-full h-full object-cover" />
-                                        </div>
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                                            <button
-                                                onClick={() => handleDeleteImage(img.id)}
-                                                disabled={deletingId === img.id}
-                                                className={`p-3 bg-white text-rose-500 rounded-full hover:bg-rose-50 hover:scale-110 transition shadow-lg ${deletingId === img.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                title="ลบรูปภาพ"
-                                            >
-                                                {deletingId === img.id ? <Loader2 size={20} className="animate-spin" /> : <Trash2 size={20} />}
-                                            </button>
-                                        </div>
-                                        <div className="absolute top-4 left-4 bg-black/50 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm">
-                                            รูปที่ {index + 1}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="w-full aspect-[4/5] bg-stone-50 rounded-3xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center">
-                                <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mb-4 text-stone-300">
-                                    <ImageIcon size={32} />
+                {/* Image Grid */}
+                {bannerImages.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {bannerImages.map((img, index) => (
+                            <div
+                                key={img.id || index}
+                                className="kh-card kh-card-h relative group overflow-hidden p-0"
+                            >
+                                <div className="aspect-[4/5]">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={img.url} alt={`Banner ${index + 1}`} className="w-full h-full object-cover" />
                                 </div>
-                                <p className="text-stone-400 font-medium">ยังไม่มีรูปภาพ</p>
-                            </div>
-                        )}
-
-                        {/* Upload Controls */}
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-stone-50 p-6 rounded-3xl">
-                            <div className="text-center md:text-left">
-                                <p className="font-bold text-stone-700 mb-1">อัปโหลดรูปภาพใหม่</p>
-                                <p className="text-xs text-stone-400">ขนาดที่แนะนำ: <span className="text-amber-600 font-bold">800 x 950 px</span> (อัตราส่วน 800:950)</p>
-                            </div>
-
-                            <label className={`
-                                flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white shadow-lg transition cursor-pointer
-                                ${uploading ? 'bg-stone-300 cursor-not-allowed' : 'bg-gradient-to-r from-amber-500 to-orange-600 hover:scale-105 hover:shadow-orange-200'}
-                            `}>
-                                {uploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} />}
-                                <span>{uploading ? 'กำลังอัปโหลด...' : 'เพิ่มรูปภาพ'}</span>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={handleImageChange}
-                                    disabled={uploading}
-                                />
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-
-                {/* Banner Content Details Card */}
-                <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100 mt-8">
-                    <div className="flex items-center gap-4 mb-6 border-b border-stone-100 pb-4">
-                        <div className="w-12 h-12 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-600">
-                            <FileText size={24} />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-stone-800">รายละเอียดโฆษณา (Content)</h2>
-                            <p className="text-stone-400 text-sm">ข้อมูลที่จะแสดงบนการ์ดโฆษณา</p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-bold text-stone-700 mb-2">หัวข้อ (Title)</label>
-                            <input
-                                type="text"
-                                value={bannerTitle}
-                                onChange={(e) => setBannerTitle(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition font-bold text-lg"
-                                placeholder="เช่น ติวเข้มสอบเข้า Gifted ม.1"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-stone-700 mb-2">รายละเอียด (Description)</label>
-                            <textarea
-                                value={bannerDescription}
-                                onChange={(e) => setBannerDescription(e.target.value)}
-                                rows={3}
-                                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition resize-none"
-                                placeholder="คำอธิบายสั้นๆ เกี่ยวกับคอร์สหรือโปรโมชั่น..."
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-bold text-stone-700 mb-2 flex items-center gap-2">
-                                    <DollarSign size={16} /> ราคา (ปล่อยว่างได้)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={bannerPrice}
-                                    onChange={(e) => setBannerPrice(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition"
-                                    placeholder="เช่น 1,900"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-bold text-stone-700 mb-2 flex items-center gap-2">
-                                    <DollarSign size={16} /> ราคาเต็ม (ขีดฆ่า)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={bannerFullPrice}
-                                    onChange={(e) => setBannerFullPrice(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition text-stone-400"
-                                    placeholder="เช่น 2,900"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <div>
-                                <label className="block text-sm font-bold text-stone-700 mb-2 flex items-center gap-2">
-                                    <LinkIcon size={16} /> ลิงก์ปลายทาง (Link URL)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={bannerLinkUrl}
-                                    onChange={(e) => setBannerLinkUrl(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-teal-200 transition"
-                                    placeholder="เช่น /payment หรือ /course/abc"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-stone-100 flex justify-end">
-                            <button
-                                onClick={handleSaveDetails}
-                                disabled={isSavingDetails}
-                                className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition shadow-lg shadow-teal-200 disabled:opacity-50"
-                            >
-                                {isSavingDetails ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-                                <span>บันทึกรายละเอียด</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Badge Customization Card */}
-                <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100 mt-8">
-                    <div className="flex items-center gap-4 mb-6 border-b border-stone-100 pb-4">
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-600">
-                            <Star size={24} />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-stone-800">ป้ายกำกับ (Badge)</h2>
-                            <p className="text-stone-400 text-sm">ข้อความและไอคอนที่จะแสดงบนรูปภาพ</p>
-                        </div>
-                    </div>
-
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-bold text-stone-700 mb-2">ข้อความบนป้าย</label>
-                            <input
-                                type="text"
-                                value={badgeText}
-                                onChange={(e) => setBadgeText(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 transition"
-                                placeholder="เช่น คอร์สยอดนิยม, โปรโมชั่นพิเศษ"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-stone-700 mb-2">เลือกไอคอน</label>
-                            <div className="flex gap-3 flex-wrap">
-                                {icons.map((item) => (
+                                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ background: "rgba(15, 30, 27, .55)" }}>
                                     <button
-                                        key={item.name}
-                                        onClick={() => setBadgeIcon(item.name)}
-                                        className={`p-3 rounded-xl border-2 transition flex items-center justify-center w-14 h-14 ${badgeIcon === item.name ? 'border-indigo-500 bg-indigo-50 text-indigo-600' : 'border-stone-100 bg-white text-stone-400 hover:border-indigo-200'}`}
+                                        onClick={() => handleDeleteImage(img.id)}
+                                        disabled={deletingId === img.id}
+                                        className={`kh-btn-ghost ${deletingId === img.id ? "opacity-50 cursor-not-allowed" : ""}`}
+                                        title="ลบรูปภาพ"
                                     >
-                                        {item.icon}
+                                        {deletingId === img.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.9} />}
+                                        <span>ลบ</span>
                                     </button>
-                                ))}
+                                </div>
+                                <span className="absolute top-3 left-3 kh-pill kh-pill-ink no-dot">รูปที่ {index + 1}</span>
                             </div>
-                        </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div
+                        className="w-full aspect-[16/9] rounded-xl flex flex-col items-center justify-center gap-3"
+                        style={{ background: "var(--card-2)", border: "1px dashed var(--line-2)" }}
+                    >
+                        <ImageIcon size={32} className="kh-ink3" />
+                        <p className="text-sm font-medium kh-ink3">ยังไม่มีรูปภาพ</p>
+                    </div>
+                )}
 
-                        <div className="pt-4 border-t border-stone-100 flex justify-end">
-                            <button
-                                onClick={handleSaveBadge}
-                                disabled={isSavingBadge}
-                                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 disabled:opacity-50"
-                            >
-                                {isSavingBadge ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-                                <span>บันทึกการเปลี่ยนแปลง</span>
-                            </button>
-                        </div>
+                {/* Upload hint */}
+                <div className="rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>
+                    <div>
+                        <p className="text-sm font-medium kh-ink2">อัปโหลดรูปภาพใหม่</p>
+                        <p className="text-xs kh-ink3 mt-0.5">ขนาดที่แนะนำ <span className="font-semibold" style={{ color: "var(--accent)" }}>800 × 950 px</span> (อัตราส่วน 800:950) · JPG/PNG/WebP · สูงสุด 5MB</p>
+                    </div>
+                    <label className={`kh-btn-ghost ${uploading ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                        {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} strokeWidth={1.9} />}
+                        <span>{uploading ? "กำลังอัปโหลด..." : "เลือกไฟล์"}</span>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageChange}
+                            disabled={uploading}
+                        />
+                    </label>
+                </div>
+            </div>
+
+            {/* Banner Content Details Card */}
+            <div className="kh-card p-5 md:p-6 space-y-5">
+                <div>
+                    <div className="kh-eyebrow"><FileText size={15} strokeWidth={1.9} /> รายละเอียดโฆษณา</div>
+                    <p className="text-sm kh-ink3 mt-1">ข้อมูลที่จะแสดงบนการ์ดโฆษณา</p>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-1">หัวข้อ</label>
+                    <input
+                        type="text"
+                        value={bannerTitle}
+                        onChange={(e) => setBannerTitle(e.target.value)}
+                        className="kh-input"
+                        placeholder="เช่น ติวเข้มสอบเข้า Gifted ม.1"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-1">รายละเอียด</label>
+                    <textarea
+                        value={bannerDescription}
+                        onChange={(e) => setBannerDescription(e.target.value)}
+                        rows={3}
+                        className="kh-textarea resize-none"
+                        placeholder="คำอธิบายสั้นๆ เกี่ยวกับคอร์สหรือโปรโมชั่น..."
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs font-medium kh-ink2 mb-1 flex items-center gap-1.5">
+                            <DollarSign size={14} strokeWidth={1.9} /> ราคา <span className="font-normal kh-ink3">(ปล่อยว่างได้)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={bannerPrice}
+                            onChange={(e) => setBannerPrice(e.target.value)}
+                            className="kh-input"
+                            placeholder="เช่น 1,900"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium kh-ink2 mb-1 flex items-center gap-1.5">
+                            <DollarSign size={14} strokeWidth={1.9} /> ราคาเต็ม <span className="font-normal kh-ink3">(ขีดฆ่า)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={bannerFullPrice}
+                            onChange={(e) => setBannerFullPrice(e.target.value)}
+                            className="kh-input"
+                            placeholder="เช่น 2,900"
+                        />
                     </div>
                 </div>
 
-            </main >
+                <div>
+                    <label className="text-xs font-medium kh-ink2 mb-1 flex items-center gap-1.5">
+                        <LinkIcon size={14} strokeWidth={1.9} /> ลิงก์ปลายทาง
+                    </label>
+                    <input
+                        type="text"
+                        value={bannerLinkUrl}
+                        onChange={(e) => setBannerLinkUrl(e.target.value)}
+                        className="kh-input"
+                        placeholder="เช่น /payment หรือ /course/abc"
+                    />
+                </div>
+
+                <div className="pt-4 flex justify-end" style={{ borderTop: "1px solid var(--line)" }}>
+                    <button
+                        onClick={handleSaveDetails}
+                        disabled={isSavingDetails}
+                        className="kh-btn"
+                    >
+                        {isSavingDetails ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} strokeWidth={1.9} />}
+                        <span>บันทึกรายละเอียด</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Badge Customization Card */}
+            <div className="kh-card p-5 md:p-6 space-y-5">
+                <div>
+                    <div className="kh-eyebrow"><Star size={15} strokeWidth={1.9} /> ป้ายกำกับ</div>
+                    <p className="text-sm kh-ink3 mt-1">ข้อความและไอคอนที่จะแสดงบนรูปภาพ</p>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-1">ข้อความบนป้าย</label>
+                    <input
+                        type="text"
+                        value={badgeText}
+                        onChange={(e) => setBadgeText(e.target.value)}
+                        className="kh-input"
+                        placeholder="เช่น คอร์สยอดนิยม, โปรโมชั่นพิเศษ"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium kh-ink2 mb-2">เลือกไอคอน</label>
+                    <div className="flex gap-3 flex-wrap">
+                        {icons.map((item) => {
+                            const active = badgeIcon === item.name;
+                            return (
+                                <button
+                                    key={item.name}
+                                    onClick={() => setBadgeIcon(item.name)}
+                                    className="flex items-center justify-center w-14 h-14 rounded-xl transition"
+                                    style={{
+                                        border: active ? "2px solid var(--accent)" : "1px solid var(--line)",
+                                        background: active ? "var(--accent-soft)" : "var(--card)",
+                                        color: active ? "var(--accent-ink)" : "var(--ink-3)",
+                                    }}
+                                >
+                                    {item.icon}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="pt-4 flex justify-end" style={{ borderTop: "1px solid var(--line)" }}>
+                    <button
+                        onClick={handleSaveBadge}
+                        disabled={isSavingBadge}
+                        className="kh-btn"
+                    >
+                        {isSavingBadge ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} strokeWidth={1.9} />}
+                        <span>บันทึกการเปลี่ยนแปลง</span>
+                    </button>
+                </div>
+            </div>
+
             <ConfirmDialog />
-        </div >
+        </div>
     );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, BarChart3, Settings, FolderPlus, AlertCircle, Pencil, Check, X, ChevronDown, ChevronUp, Download, FileText, BookOpen, Loader2 } from "lucide-react";
+import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, ClipboardList, BarChart3, Settings, FolderPlus, AlertCircle, Pencil, Check, X, ChevronDown, ChevronUp, Download, FileText, BookOpen, Loader2 } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
 import { deriveExamLevel } from "@/lib/exam-level";
@@ -31,40 +31,45 @@ function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onTogg
     const style: React.CSSProperties = {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
+        opacity: isDragging ? 0.5 : (exam.hidden ? 0.55 : 1),
         zIndex: isDragging ? 50 : 1,
         position: 'relative',
-        backgroundColor: isDragging ? '#f1f5f9' : undefined,
+        backgroundColor: isDragging ? 'var(--card-2)' : undefined,
     };
 
     return (
-        <tr ref={setNodeRef} style={style} className={`hover:bg-slate-50/50 transition-colors group ${exam.hidden ? 'opacity-50' : ''}`}>
-            <td className="p-4 w-10">
+        <tr ref={setNodeRef} style={style} className="group">
+            <td className="w-10">
                 <button
                     {...attributes}
                     {...listeners}
-                    className="flex items-center justify-center w-8 h-8 cursor-grab active:cursor-grabbing text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition"
+                    className="flex items-center justify-center w-8 h-8 cursor-grab active:cursor-grabbing rounded-lg transition hover:bg-[var(--card-2)]"
+                    style={{ color: 'var(--ink-3)' }}
                     aria-label="ลากเพื่อเรียงลำดับ"
                 >
                     <GripVertical size={18} />
                 </button>
             </td>
-            <td className="p-6">
+            <td>
                 <div className="flex items-center gap-2">
-                    <div className="font-bold text-slate-800 text-lg">{exam.title}</div>
+                    <FileText size={16} style={{ color: 'var(--accent)' }} className="shrink-0" />
+                    <div className="font-bold kh-ink">{exam.title}</div>
                     {exam.hidden && (
-                        <span className="px-2 py-0.5 bg-rose-50 text-rose-500 rounded-full text-xs font-bold border border-rose-100">ซ่อนอยู่</span>
+                        <span className="kh-pill kh-pill-danger no-dot">ซ่อนอยู่</span>
                     )}
                 </div>
-                <div className="text-sm text-slate-400 line-clamp-1 max-w-sm">{exam.description || "-"}</div>
+                {exam.description && (
+                    <div className="text-xs kh-ink3 line-clamp-1 max-w-sm mt-1 pl-6">{exam.description}</div>
+                )}
             </td>
-            <td className="p-6">
+            <td>
                 <select
                     value={exam.category || ""}
                     onChange={(e) => onCategoryChange(exam.id, e.target.value)}
-                    className="px-3 py-2 bg-amber-50 text-amber-700 rounded-lg text-xs font-bold border border-amber-200 hover:bg-amber-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all cursor-pointer"
+                    className="kh-select cursor-pointer"
+                    style={{ width: 'auto', minWidth: 130, fontSize: 12.5, padding: '6px 10px' }}
                 >
-                    <option value="">— เลือกหมวดหมู่ —</option>
+                    <option value="">— เลือกระดับชั้น —</option>
                     {categoryOptions.map((name) => (
                         <option key={name} value={name}>
                             {name}
@@ -72,72 +77,70 @@ function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onTogg
                     ))}
                 </select>
             </td>
-            <td className="p-6 text-center">
-                <span className={`text-xs font-bold px-2 py-1 rounded ${exam.difficulty === 'Easy' ? 'text-green-500 bg-green-50' :
-                    exam.difficulty === 'Hard' ? 'text-red-500 bg-red-50' :
-                        'text-amber-500 bg-amber-50'
+            <td className="text-center">
+                <span className={`kh-pill no-dot ${exam.difficulty === 'Easy' ? 'kh-pill-good' :
+                    exam.difficulty === 'Hard' ? 'kh-pill-danger' :
+                        'kh-pill-warn'
                     }`}>
                     {exam.difficulty}
                 </span>
             </td>
-            <td className="p-6 text-center font-mono text-slate-500">
+            <td className="text-center kh-num kh-ink2 font-bold">
                 {exam.questions?.length || 0}
             </td>
-            <td className="p-6 text-center">
+            <td className="text-center">
                 <button
                     onClick={() => onToggleFree(exam.id, exam.isFree || false)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
-                        exam.isFree
-                            ? "bg-teal-50 text-teal-600 border border-teal-200 hover:bg-teal-100 hover:shadow"
-                            : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 hover:shadow"
-                    }`}
+                    className={`kh-pill ${exam.isFree ? "kh-pill-accent" : "kh-pill-ink"}`}
+                    style={{ cursor: 'pointer' }}
                 >
                     {exam.isFree ? (
-                        <><Unlock size={14} /> ทำฟรี</>
+                        <><Unlock size={13} /> ทำฟรี</>
                     ) : (
-                        <><Lock size={14} /> เฉพาะสมาชิก</>
+                        <><Lock size={13} /> เฉพาะสมาชิก</>
                     )}
                 </button>
             </td>
-            <td className="p-6 text-center">
+            <td className="text-center">
                 <button
                     onClick={() => onToggleAnswerChecking(exam.id, exam.showAnswerChecking || false)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
-                        exam.showAnswerChecking
-                            ? "bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 hover:shadow"
-                            : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 hover:shadow"
-                    }`}
+                    className={`kh-pill ${exam.showAnswerChecking ? "kh-pill-good" : "kh-pill-ink"}`}
+                    style={{ cursor: 'pointer' }}
                 >
-                    <ClipboardCheck size={14} />
+                    <ClipboardCheck size={13} />
                     {exam.showAnswerChecking ? 'เปิดตรวจ' : 'ปิดตรวจ'}
                 </button>
             </td>
-            <td className="p-6 text-right">
-                <div className="flex items-center justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+            <td className="text-right">
+                <div className="flex items-center justify-end gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                     <button
                         onClick={() => onToggleHidden(exam.id, exam.hidden || false)}
-                        className={`p-2 rounded-lg tooltip ${exam.hidden ? 'text-rose-500 hover:bg-rose-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
+                        className="p-2 rounded-lg transition hover:bg-[var(--card-2)]"
+                        style={{ color: exam.hidden ? 'var(--danger)' : 'var(--good)' }}
                         title={exam.hidden ? 'แสดงข้อสอบ (ปลดซ่อน)' : 'ซ่อนข้อสอบ'}
                     >
                         {exam.hidden ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                     <button
                         onClick={() => onExport(exam)}
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg tooltip"
+                        className="p-2 rounded-lg transition hover:bg-[var(--card-2)]"
+                        style={{ color: 'var(--accent)' }}
                         title="ดาวน์โหลดข้อมูล JSON (โจทย์/เฉลย)"
                     >
                         <Download size={18} />
                     </button>
                     <Link
                         href={`/admin/exams/${exam.id}`}
-                        className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg tooltip"
+                        className="p-2 rounded-lg transition hover:bg-[var(--card-2)]"
+                        style={{ color: 'var(--accent)' }}
                         title="แก้ไขเนื้อหา (JSON Editor)"
                     >
                         <FileJson size={18} />
                     </Link>
                     <button
                         onClick={() => onDelete(exam.id)}
-                        className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg tooltip"
+                        className="p-2 rounded-lg transition hover:bg-[var(--card-2)]"
+                        style={{ color: 'var(--danger)' }}
                         title="ลบชุดข้อสอบ"
                     >
                         <Trash2 size={18} />
@@ -168,7 +171,7 @@ function SortableCategoryRow({ category, count, onDelete, onRename }: { category
         opacity: isDragging ? 0.5 : 1,
         zIndex: isDragging ? 50 : 1,
         position: 'relative',
-        backgroundColor: isDragging ? '#f1f5f9' : undefined,
+        backgroundColor: isDragging ? 'var(--card-2)' : 'var(--card-2)',
     };
 
     const submitRename = () => {
@@ -178,12 +181,13 @@ function SortableCategoryRow({ category, count, onDelete, onRename }: { category
     };
 
     return (
-        <div ref={setNodeRef} style={style} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors group border border-transparent hover:border-slate-200">
+        <div ref={setNodeRef} style={style} className="flex items-center justify-between p-3 rounded-xl transition-colors group border" >
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <button
                     {...attributes}
                     {...listeners}
-                    className="flex items-center justify-center w-8 h-8 cursor-grab active:cursor-grabbing text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition flex-shrink-0"
+                    className="flex items-center justify-center w-8 h-8 cursor-grab active:cursor-grabbing rounded-lg transition flex-shrink-0 hover:bg-[var(--card)]"
+                    style={{ color: 'var(--ink-3)' }}
                     aria-label="ลากเพื่อเรียงลำดับ"
                 >
                     <GripVertical size={16} />
@@ -194,33 +198,34 @@ function SortableCategoryRow({ category, count, onDelete, onRename }: { category
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') submitRename(); if (e.key === 'Escape') { setDraft(category.name); setEditing(false); } }}
-                        className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none font-bold text-slate-700"
+                        className="kh-input flex-1 min-w-0 font-bold"
                     />
                 ) : (
-                    <span className="font-bold text-slate-700 truncate">
+                    <span className="font-bold kh-ink truncate">
                         {category.name}
-                        <span className="ml-2 text-xs font-medium text-slate-400">({count} ชุด)</span>
+                        <span className="ml-2 text-xs font-medium kh-ink3">({count} ชุด)</span>
                     </span>
                 )}
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
                 {editing ? (
                     <>
-                        <button onClick={submitRename} className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="บันทึกชื่อ">
+                        <button onClick={submitRename} className="p-2 rounded-lg transition-colors hover:bg-[var(--card)]" style={{ color: 'var(--good)' }} title="บันทึกชื่อ">
                             <Check size={16} />
                         </button>
-                        <button onClick={() => { setDraft(category.name); setEditing(false); }} className="p-2 text-slate-400 hover:bg-slate-200 rounded-lg transition-colors" title="ยกเลิก">
+                        <button onClick={() => { setDraft(category.name); setEditing(false); }} className="p-2 rounded-lg transition-colors hover:bg-[var(--card)]" style={{ color: 'var(--ink-3)' }} title="ยกเลิก">
                             <X size={16} />
                         </button>
                     </>
                 ) : (
                     <>
-                        <button onClick={() => { setDraft(category.name); setEditing(true); }} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="เปลี่ยนชื่อหมวดหมู่">
+                        <button onClick={() => { setDraft(category.name); setEditing(true); }} className="p-2 rounded-lg transition-colors hover:bg-[var(--card)]" style={{ color: 'var(--ink-3)' }} title="เปลี่ยนชื่อหมวดหมู่">
                             <Pencil size={15} />
                         </button>
                         <button
                             onClick={() => onDelete(category.id, category.name)}
-                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                            className="p-2 rounded-lg transition-colors hover:bg-[var(--card)]"
+                            style={{ color: 'var(--danger)' }}
                             title="ลบหมวดหมู่"
                         >
                             <Trash2 size={16} />
@@ -276,63 +281,66 @@ function ExamExportModal({ exam, onClose }: { exam: any; onClose: () => void }) 
     const count = data?.meta.questionCount ?? 0;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(12, 24, 22, 0.55)', backdropFilter: 'blur(4px)' }} onClick={onClose}>
+            <div className="kh-card p-8 max-w-md w-full animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-start justify-between mb-1">
-                    <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                        <Download size={22} className="text-emerald-600" />
+                    <h2 className="text-2xl font-black kh-ink flex items-center gap-2">
+                        <Download size={22} style={{ color: 'var(--accent)' }} />
                         ดาวน์โหลดข้อมูล JSON
                     </h2>
-                    <button onClick={onClose} className="p-2 -mr-2 -mt-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
+                    <button onClick={onClose} className="p-2 -mr-2 -mt-2 kh-ink3 rounded-lg transition-colors hover:bg-[var(--card-2)]">
                         <X size={20} />
                     </button>
                 </div>
-                <p className="text-slate-500 text-sm mb-5 truncate">{exam.title}</p>
+                <p className="kh-ink3 text-sm mb-5 truncate">{exam.title}</p>
 
                 {loading ? (
-                    <div className="py-10 flex flex-col items-center text-slate-400">
+                    <div className="py-10 flex flex-col items-center kh-ink3">
                         <Loader2 className="animate-spin mb-3" size={28} />
                         <p className="text-sm font-medium">กำลังเตรียมข้อมูล...</p>
                     </div>
                 ) : count === 0 ? (
                     <div className="py-8 text-center">
-                        <p className="text-slate-600 font-bold mb-1">ชุดนี้ยังไม่มีโจทย์ที่ใช้งานได้</p>
-                        <p className="text-slate-400 text-sm">เพิ่มโจทย์ในหน้าแก้ไขก่อน แล้วค่อยดาวน์โหลด</p>
+                        <p className="kh-ink2 font-bold mb-1">ชุดนี้ยังไม่มีโจทย์ที่ใช้งานได้</p>
+                        <p className="kh-ink3 text-sm">เพิ่มโจทย์ในหน้าแก้ไขก่อน แล้วค่อยดาวน์โหลด</p>
                     </div>
                 ) : (
                     <>
-                        <div className="mb-4 px-4 py-3 bg-slate-50 rounded-xl text-sm text-slate-600 font-medium">
-                            มีโจทย์ใช้งานได้ <span className="font-black text-slate-800">{count}</span> ข้อ — แยกโจทย์และเฉลยให้อัตโนมัติ
+                        <div className="mb-4 px-4 py-3 rounded-xl text-sm kh-ink2 font-medium" style={{ background: 'var(--card-2)' }}>
+                            มีโจทย์ใช้งานได้ <span className="font-black kh-ink">{count}</span> ข้อ — แยกโจทย์และเฉลยให้อัตโนมัติ
                         </div>
                         <div className="space-y-2">
                             <button
                                 onClick={() => download("", data)}
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition text-left"
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition text-left"
+                                style={{ border: '2px solid var(--accent)', background: 'var(--accent-soft)' }}
                             >
-                                <FileJson size={20} className="text-emerald-600 shrink-0" />
+                                <FileJson size={20} className="shrink-0" style={{ color: 'var(--accent)' }} />
                                 <div className="flex-1">
-                                    <div className="font-bold text-slate-800">ทั้งชุด (โจทย์ + เฉลย)</div>
-                                    <div className="text-xs text-slate-500">ไฟล์เดียว แยกเป็นส่วน problems และ solutions</div>
+                                    <div className="font-bold kh-ink">ทั้งชุด (โจทย์ + เฉลย)</div>
+                                    <div className="text-xs kh-ink3">ไฟล์เดียว แยกเป็นส่วน problems และ solutions</div>
                                 </div>
                             </button>
                             <button
                                 onClick={() => download("โจทย์", { meta: data!.meta, problems: data!.problems })}
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition text-left"
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition text-left hover:bg-[var(--card-2)]"
+                                style={{ border: '1px solid var(--line)' }}
                             >
-                                <FileText size={20} className="text-indigo-500 shrink-0" />
+                                <FileText size={20} className="shrink-0" style={{ color: 'var(--accent)' }} />
                                 <div className="flex-1">
-                                    <div className="font-bold text-slate-800">เฉพาะโจทย์</div>
-                                    <div className="text-xs text-slate-500">ไม่มีเฉลย — สำหรับหน้าข้อสอบ</div>
+                                    <div className="font-bold kh-ink">เฉพาะโจทย์</div>
+                                    <div className="text-xs kh-ink3">ไม่มีเฉลย — สำหรับหน้าข้อสอบ</div>
                                 </div>
                             </button>
                             <button
                                 onClick={() => download("เฉลย", { meta: data!.meta, solutions: data!.solutions })}
-                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition text-left"
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition text-left hover:bg-[var(--card-2)]"
+                                style={{ border: '1px solid var(--line)' }}
                             >
-                                <BookOpen size={20} className="text-amber-500 shrink-0" />
+                                <BookOpen size={20} className="shrink-0" style={{ color: 'var(--warn)' }} />
                                 <div className="flex-1">
-                                    <div className="font-bold text-slate-800">เฉพาะเฉลย</div>
-                                    <div className="text-xs text-slate-500">คำตอบ + คำอธิบายละเอียด</div>
+                                    <div className="font-bold kh-ink">เฉพาะเฉลย</div>
+                                    <div className="text-xs kh-ink3">คำตอบ + คำอธิบายละเอียด</div>
                                 </div>
                             </button>
                         </div>
@@ -391,6 +399,16 @@ export default function ExamManagerPage() {
         if (uncat && uncat.length) ordered.push({ key: UNCAT, name: "ไม่ได้จัดหมวด", items: uncat });
         return ordered;
     }, [exams, categories]);
+
+    // Top stat chips — derived purely from data the component already holds.
+    // No invented numbers: only counts available from the exams array.
+    const stats = React.useMemo(() => {
+        const total = exams.length;
+        const free = exams.filter(e => e.isFree).length;
+        const hidden = exams.filter(e => e.hidden).length;
+        const totalQuestions = exams.reduce((sum, e) => sum + (e.questions?.length || 0), 0);
+        return { total, free, hidden, totalQuestions };
+    }, [exams]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -701,187 +719,207 @@ export default function ExamManagerPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-8">
+        <div className="space-y-6">
             <Toaster position="top-right" />
-            <div className="max-w-6xl mx-auto">
-                {categoriesLoadError && (
-                    <div className="mb-4 bg-amber-50 border-2 border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                        <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1 text-sm">
-                            <p className="font-bold text-amber-800">โหลดหมวดหมู่ไม่สำเร็จ</p>
-                            <p className="text-amber-700 mt-1">
-                                ไม่สามารถอ่านจาก <code className="bg-amber-100 px-1 rounded">examCategories</code> ได้
-                                — dropdown จะใช้ค่าจากข้อสอบที่มีอยู่ชั่วคราว กด "จัดการหมวดหมู่" เพื่อเพิ่มใหม่
-                            </p>
-                            <p className="text-xs text-amber-600 mt-1 font-mono">{categoriesLoadError}</p>
-                            <button
-                                onClick={fetchCategories}
-                                className="mt-2 px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700"
-                            >
-                                ลองใหม่
-                            </button>
-                        </div>
-                    </div>
-                )}
-                <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <h1 className="text-3xl font-black text-slate-800">จัดการคลังข้อสอบ 📚</h1>
-                        <p className="text-slate-500">สร้างและแก้ไขชุดข้อสอบสำหรับนักเรียน</p>
-                    </div>
-                    <div className="flex gap-3 items-center">
-                        {isSavingOrder && (
-                            <span className="text-sm text-indigo-500 font-medium animate-pulse">กำลังบันทึกลำดับ...</span>
-                        )}
-                        <Link href="/admin" className="px-4 py-2 bg-white text-slate-600 rounded-lg hover:bg-slate-100 font-bold border border-slate-200">
-                            ย้อนกลับ
-                        </Link>
-                        <Link href="/admin/exams/audit" className="px-4 py-2 bg-white text-slate-600 rounded-lg hover:bg-slate-100 font-bold flex items-center gap-2 border border-slate-200" title="ตรวจสอบข้อสอบที่ category ไม่ตรงกับ title">
-                            🔍 ตรวจสอบหมวด
-                        </Link>
-                        <button onClick={() => setIsCategoryModalOpen(v => !v)} className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-bold flex items-center gap-2 shadow-lg shadow-amber-200">
-                            <FolderPlus size={20} />
-                            จัดการหมวดหมู่
-                            {isCategoryModalOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                        </button>
-                        <button onClick={handleQuickAdd} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold flex items-center gap-2 shadow-lg shadow-indigo-200">
-                            <Plus size={20} />
-                            สร้างข้อสอบใหม่
+
+            {categoriesLoadError && (
+                <div className="kh-card p-4 flex items-start gap-3" style={{ borderColor: 'var(--warn)', background: 'var(--warn-soft)' }}>
+                    <AlertCircle size={20} style={{ color: 'var(--warn)' }} className="flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 text-sm">
+                        <p className="font-bold kh-ink">โหลดหมวดหมู่ไม่สำเร็จ</p>
+                        <p className="kh-ink2 mt-1">
+                            ไม่สามารถอ่านจาก <code className="px-1 rounded" style={{ background: 'var(--card-2)' }}>examCategories</code> ได้
+                            — dropdown จะใช้ค่าจากข้อสอบที่มีอยู่ชั่วคราว กด "จัดการหมวดหมู่" เพื่อเพิ่มใหม่
+                        </p>
+                        <p className="text-xs kh-ink3 mt-1 font-mono">{categoriesLoadError}</p>
+                        <button
+                            onClick={fetchCategories}
+                            className="kh-btn mt-2"
+                            style={{ padding: '5px 12px', fontSize: 12 }}
+                        >
+                            ลองใหม่
                         </button>
                     </div>
                 </div>
+            )}
 
-                {/* Global Exam Settings */}
-                <div className="mb-6 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                    <h3 className="font-bold text-slate-700 flex items-center gap-2 mb-4 text-sm">
-                        <Settings size={16} />
-                        ตั้งค่าระบบข้อสอบ
-                    </h3>
-                    <div className="flex flex-wrap gap-4">
-                        <button
-                            onClick={() => toggleExamConfig('enableResultTracking')}
-                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
-                                examConfig.enableResultTracking
-                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'
-                                    : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                            }`}
-                        >
-                            <ClipboardCheck size={16} />
-                            บันทึกผลสอบ: {examConfig.enableResultTracking ? 'เปิด' : 'ปิด'}
-                        </button>
-                        <button
-                            onClick={() => toggleExamConfig('showExamDashboard')}
-                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
-                                examConfig.showExamDashboard
-                                    ? 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100'
-                                    : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                            }`}
-                        >
-                            <BarChart3 size={16} />
-                            หน้า Dashboard: {examConfig.showExamDashboard ? 'เปิด' : 'ปิด'}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Inline Category Management Panel (toggled by the toolbar
-                    button). One place for all category CRUD — no hidden modal. */}
-                {isCategoryModalOpen && (
-                    <div className="mb-6 bg-white rounded-2xl border border-amber-100 shadow-sm p-5">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-bold text-slate-700 flex items-center gap-2 text-sm">
-                                <FolderPlus size={16} />
-                                จัดการหมวดหมู่ — เพิ่ม / เปลี่ยนชื่อ / ลบ / ลากเรียงลำดับ
-                            </h3>
-                            {isSavingCategoryOrder && <span className="text-xs font-bold text-amber-500 animate-pulse">กำลังบันทึก...</span>}
-                        </div>
-                        <div className="mb-3 flex gap-2">
-                            <input
-                                type="text"
-                                value={newCategoryName}
-                                onChange={(e) => setNewCategoryName(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && addCategory()}
-                                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all"
-                                placeholder="ชื่อหมวดหมู่ใหม่ เช่น สอบเข้า ม.4"
-                            />
-                            <button
-                                onClick={addCategory}
-                                disabled={!newCategoryName.trim()}
-                                className="px-6 py-2.5 rounded-xl font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 transition-colors shadow-lg shadow-amber-200"
-                            >
-                                เพิ่ม
-                            </button>
-                        </div>
-                        <p className="text-xs text-slate-400 mb-2">ลำดับด้านล่างคือลำดับหมวดที่แสดงในหน้า /exam ของนักเรียน — ลากเพื่อสลับ</p>
-                        <div className="max-h-72 overflow-y-auto space-y-2 p-1">
-                            {categories.length === 0 ? (
-                                <p className="text-center text-slate-400 py-8">ยังไม่มีหมวดหมู่ — เพิ่มด้านบน</p>
-                            ) : (
-                                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
-                                    <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                                        <div className="space-y-2">
-                                            {categories.map((cat) => (
-                                                <SortableCategoryRow
-                                                    key={cat.id}
-                                                    category={cat}
-                                                    count={exams.filter(e => e.category === cat.name).length}
-                                                    onDelete={deleteCategory}
-                                                    onRename={renameCategory}
-                                                />
-                                            ))}
-                                        </div>
-                                    </SortableContext>
-                                </DndContext>
-                            )}
-                        </div>
-                    </div>
+            {/* Toolbar — page title/back nav come from the admin shell */}
+            <div className="flex flex-wrap gap-3 items-center justify-end">
+                {isSavingOrder && (
+                    <span className="text-sm font-medium animate-pulse mr-auto" style={{ color: 'var(--accent)' }}>กำลังบันทึกลำดับ...</span>
                 )}
-
-                {loading ? (
-                    <div className="text-center py-20 text-slate-400">กำลังโหลดข้อมูล...</div>
-                ) : exams.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-3xl border border-slate-200 border-dashed">
-                        <div className="text-4xl mb-4 opacity-50">📂</div>
-                        <h3 className="text-xl font-bold text-slate-600">ยังไม่มีชุดข้อสอบ</h3>
-                        <p className="text-slate-400 mt-2">เริ่มสร้างชุดแรกกันเลย!</p>
-                    </div>
-                ) : (
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <div className="space-y-6">
-                            {groupedExams.map((group) => (
-                                <div key={group.key} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                                    <div className="flex items-center gap-3 flex-wrap px-6 py-4 bg-gradient-to-r from-amber-50 to-white border-b border-slate-100">
-                                        <h3 className="font-black text-slate-800 text-lg">{group.name}</h3>
-                                        <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">{group.items.length} ชุด</span>
-                                        {group.key === "__uncat__" && (
-                                            <span className="text-xs text-slate-400">— เลือกหมวดในช่อง &ldquo;หมวดหมู่&rdquo; ของแต่ละชุด เพื่อจัดเข้าหมวด</span>
-                                        )}
-                                    </div>
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold text-sm">
-                                            <tr>
-                                                <th className="p-4 w-10"></th>
-                                                <th className="p-6">ชื่อชุดข้อสอบ</th>
-                                                <th className="p-6">หมวดหมู่</th>
-                                                <th className="p-6 text-center">ระดับความยาก</th>
-                                                <th className="p-6 text-center">จำนวนข้อ</th>
-                                                <th className="p-6 text-center">สิทธิ์การเข้าถึง</th>
-                                                <th className="p-6 text-center">ตรวจคำตอบ</th>
-                                                <th className="p-6 text-right">จัดการ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-50">
-                                            <SortableContext items={group.items.map(e => e.id)} strategy={verticalListSortingStrategy}>
-                                                {group.items.map((exam) => (
-                                                    <SortableExamRow key={exam.id} exam={exam} categoryOptions={categoryOptions} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} onExport={setExportExam} />
-                                                ))}
-                                            </SortableContext>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ))}
-                        </div>
-                    </DndContext>
-                )}
+                <Link href="/admin/exams/audit" className="kh-btn-ghost" title="ตรวจสอบข้อสอบที่ category ไม่ตรงกับ title">
+                    <AlertCircle size={16} />
+                    ตรวจสอบหมวด
+                </Link>
+                <button onClick={() => setIsCategoryModalOpen(v => !v)} className="kh-btn-ghost">
+                    <FolderPlus size={16} />
+                    จัดการหมวดหมู่
+                    {isCategoryModalOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </button>
+                <button onClick={handleQuickAdd} className="kh-btn">
+                    <Plus size={16} />
+                    สร้างข้อสอบใหม่
+                </button>
             </div>
+
+            {/* Stat chips — derived from loaded exam data */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="kh-card p-4">
+                    <div className="flex items-start justify-between">
+                        <p className="kh-eyebrow" style={{ textTransform: 'none' }}>ชุดข้อสอบ</p>
+                        <ClipboardList size={18} style={{ color: 'var(--accent)' }} />
+                    </div>
+                    <p className="kh-num text-3xl font-black kh-ink mt-1">{stats.total}</p>
+                </div>
+                <div className="kh-card p-4">
+                    <div className="flex items-start justify-between">
+                        <p className="kh-eyebrow" style={{ textTransform: 'none' }}>โจทย์ทั้งหมด</p>
+                        <FileText size={18} style={{ color: 'var(--accent)' }} />
+                    </div>
+                    <p className="kh-num text-3xl font-black kh-ink mt-1">{stats.totalQuestions}</p>
+                </div>
+                <div className="kh-card p-4">
+                    <div className="flex items-start justify-between">
+                        <p className="kh-eyebrow" style={{ textTransform: 'none' }}>ทำฟรี</p>
+                        <Unlock size={18} style={{ color: 'var(--good)' }} />
+                    </div>
+                    <p className="kh-num text-3xl font-black kh-ink mt-1">{stats.free}</p>
+                </div>
+                <div className="kh-card p-4">
+                    <div className="flex items-start justify-between">
+                        <p className="kh-eyebrow" style={{ textTransform: 'none' }}>ซ่อนอยู่</p>
+                        <EyeOff size={18} style={{ color: 'var(--danger)' }} />
+                    </div>
+                    <p className="kh-num text-3xl font-black kh-ink mt-1">{stats.hidden}</p>
+                </div>
+            </div>
+
+            {/* Global Exam Settings */}
+            <div className="kh-card p-5">
+                <h3 className="kh-eyebrow mb-4">
+                    <Settings size={15} />
+                    ตั้งค่าระบบข้อสอบ
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                    <button
+                        onClick={() => toggleExamConfig('enableResultTracking')}
+                        className={`kh-pill ${examConfig.enableResultTracking ? 'kh-pill-good' : 'kh-pill-ink'}`}
+                        style={{ cursor: 'pointer', padding: '7px 14px', fontSize: 13 }}
+                    >
+                        <ClipboardCheck size={15} />
+                        บันทึกผลสอบ: {examConfig.enableResultTracking ? 'เปิด' : 'ปิด'}
+                    </button>
+                    <button
+                        onClick={() => toggleExamConfig('showExamDashboard')}
+                        className={`kh-pill ${examConfig.showExamDashboard ? 'kh-pill-accent' : 'kh-pill-ink'}`}
+                        style={{ cursor: 'pointer', padding: '7px 14px', fontSize: 13 }}
+                    >
+                        <BarChart3 size={15} />
+                        หน้า Dashboard: {examConfig.showExamDashboard ? 'เปิด' : 'ปิด'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Inline Category Management Panel (toggled by the toolbar
+                button). One place for all category CRUD — no hidden modal. */}
+            {isCategoryModalOpen && (
+                <div className="kh-card p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="kh-eyebrow">
+                            <FolderPlus size={15} />
+                            จัดการหมวดหมู่ — เพิ่ม / เปลี่ยนชื่อ / ลบ / ลากเรียงลำดับ
+                        </h3>
+                        {isSavingCategoryOrder && <span className="text-xs font-bold animate-pulse" style={{ color: 'var(--accent)' }}>กำลังบันทึก...</span>}
+                    </div>
+                    <div className="mb-3 flex gap-2">
+                        <input
+                            type="text"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+                            className="kh-input flex-1"
+                            placeholder="ชื่อหมวดหมู่ใหม่ เช่น สอบเข้า ม.4"
+                        />
+                        <button
+                            onClick={addCategory}
+                            disabled={!newCategoryName.trim()}
+                            className="kh-btn"
+                        >
+                            เพิ่ม
+                        </button>
+                    </div>
+                    <p className="text-xs kh-ink3 mb-2">ลำดับด้านล่างคือลำดับหมวดที่แสดงในหน้า /exam ของนักเรียน — ลากเพื่อสลับ</p>
+                    <div className="max-h-72 overflow-y-auto space-y-2 p-1">
+                        {categories.length === 0 ? (
+                            <p className="text-center kh-ink3 py-8">ยังไม่มีหมวดหมู่ — เพิ่มด้านบน</p>
+                        ) : (
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+                                <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                                    <div className="space-y-2">
+                                        {categories.map((cat) => (
+                                            <SortableCategoryRow
+                                                key={cat.id}
+                                                category={cat}
+                                                count={exams.filter(e => e.category === cat.name).length}
+                                                onDelete={deleteCategory}
+                                                onRename={renameCategory}
+                                            />
+                                        ))}
+                                    </div>
+                                </SortableContext>
+                            </DndContext>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {loading ? (
+                <div className="text-center py-20 kh-ink3">กำลังโหลดข้อมูล...</div>
+            ) : exams.length === 0 ? (
+                <div className="kh-card text-center py-20" style={{ borderStyle: 'dashed' }}>
+                    <div className="text-4xl mb-4 opacity-50">📂</div>
+                    <h3 className="text-xl font-bold kh-ink2">ยังไม่มีชุดข้อสอบ</h3>
+                    <p className="kh-ink3 mt-2">เริ่มสร้างชุดแรกกันเลย!</p>
+                </div>
+            ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <div className="space-y-6">
+                        {groupedExams.map((group) => (
+                            <div key={group.key} className="kh-card overflow-hidden">
+                                <div className="flex items-center gap-3 flex-wrap px-5 py-4 border-b" style={{ borderColor: 'var(--line)', background: 'var(--card-2)' }}>
+                                    <h3 className="font-black kh-ink text-lg">{group.name}</h3>
+                                    <span className="kh-pill kh-pill-accent no-dot">{group.items.length} ชุด</span>
+                                    {group.key === "__uncat__" && (
+                                        <span className="text-xs kh-ink3">— เลือกระดับชั้นในช่อง &ldquo;ระดับชั้น&rdquo; ของแต่ละชุด เพื่อจัดเข้าหมวด</span>
+                                    )}
+                                </div>
+                                <table className="kh-table">
+                                    <thead>
+                                        <tr>
+                                            <th className="w-10"></th>
+                                            <th>ชื่อชุดข้อสอบ</th>
+                                            <th>ระดับชั้น</th>
+                                            <th className="text-center">ระดับความยาก</th>
+                                            <th className="text-center">จำนวนข้อ</th>
+                                            <th className="text-center">สิทธิ์การเข้าถึง</th>
+                                            <th className="text-center">ตรวจคำตอบ</th>
+                                            <th className="text-right">จัดการ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <SortableContext items={group.items.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                                            {group.items.map((exam) => (
+                                                <SortableExamRow key={exam.id} exam={exam} categoryOptions={categoryOptions} onDelete={handleDelete} onToggleFree={handleToggleFree} onToggleHidden={handleToggleHidden} onToggleAnswerChecking={handleToggleAnswerChecking} onCategoryChange={handleCategoryChange} onExport={setExportExam} />
+                                            ))}
+                                        </SortableContext>
+                                    </tbody>
+                                </table>
+                            </div>
+                        ))}
+                    </div>
+                </DndContext>
+            )}
             <ConfirmDialog />
 
             {/* Export JSON Modal */}
@@ -891,16 +929,16 @@ export default function ExamManagerPage() {
 
             {/* Custom Create Exam Modal */}
             {isAddModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <h2 className="text-2xl font-black text-slate-800 mb-4">สร้างชุดข้อสอบใหม่</h2>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(12, 24, 22, 0.55)', backdropFilter: 'blur(4px)' }}>
+                    <div className="kh-card p-8 max-w-md w-full animate-in fade-in zoom-in duration-200">
+                        <h2 className="text-2xl font-black kh-ink mb-4">สร้างชุดข้อสอบใหม่</h2>
                         <div className="mb-6">
-                            <label className="block text-sm font-bold text-slate-600 mb-2">ชื่อชุดข้อสอบ</label>
+                            <label className="block text-sm font-bold kh-ink2 mb-2">ชื่อชุดข้อสอบ</label>
                             <input
                                 type="text"
                                 value={newExamTitle}
                                 onChange={(e) => setNewExamTitle(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                className="kh-input"
                                 placeholder="เช่น สอบเข้า ม.1 ชุดที่ 5"
                                 autoFocus
                             />
@@ -908,14 +946,14 @@ export default function ExamManagerPage() {
                         <div className="flex justify-end gap-3">
                             <button
                                 onClick={() => setIsAddModalOpen(false)}
-                                className="px-6 py-3 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+                                className="kh-btn-ghost"
                             >
                                 ยกเลิก
                             </button>
                             <button
                                 onClick={submitQuickAdd}
                                 disabled={!newExamTitle.trim()}
-                                className="px-6 py-3 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-lg shadow-indigo-200"
+                                className="kh-btn"
                             >
                                 ยืนยันสร้าง
                             </button>

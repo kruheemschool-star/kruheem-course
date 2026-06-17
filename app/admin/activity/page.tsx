@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, getDocs, orderBy, limit, where, collectionGroup, Timestamp, doc, getDoc } from "firebase/firestore";
-import Link from "next/link";
+import { RefreshCw, Search, CheckCircle2, Rocket, KeyRound, BookOpen, FileText, Activity, Inbox, Loader2 } from "lucide-react";
 
 interface ActivityItem {
     id: string;
@@ -306,12 +306,12 @@ export default function ActivityLogPage() {
 
     const getActivityIcon = (type: ActivityItem['type']) => {
         switch (type) {
-            case 'lesson_complete': return '✅';
-            case 'course_start': return '🚀';
-            case 'login': return '🔑';
-            case 'enrollment': return '📚';
-            case 'exam_submit': return '📝';
-            default: return '📌';
+            case 'lesson_complete': return CheckCircle2;
+            case 'course_start': return Rocket;
+            case 'login': return KeyRound;
+            case 'enrollment': return BookOpen;
+            case 'exam_submit': return FileText;
+            default: return Activity;
         }
     };
 
@@ -326,16 +326,42 @@ export default function ActivityLogPage() {
         }
     };
 
-    const getActivityColor = (type: ActivityItem['type']) => {
+    // Token-based color tile per type: finance/enrollment=accent, students/login=good, content=warn, etc.
+    const getActivityTone = (type: ActivityItem['type']): { soft: string; tone: string; pill: string } => {
         switch (type) {
-            case 'lesson_complete': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-            case 'course_start': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
-            case 'login': return 'bg-amber-100 text-amber-700 border-amber-200';
-            case 'enrollment': return 'bg-purple-100 text-purple-700 border-purple-200';
-            case 'exam_submit': return 'bg-blue-100 text-blue-700 border-blue-200';
-            default: return 'bg-slate-100 text-slate-700 border-slate-200';
+            case 'lesson_complete': return { soft: 'var(--good-soft)', tone: 'var(--good)', pill: 'kh-pill-good' };
+            case 'course_start': return { soft: 'var(--accent-soft)', tone: 'var(--accent-ink)', pill: 'kh-pill-accent' };
+            case 'login': return { soft: 'var(--good-soft)', tone: 'var(--good)', pill: 'kh-pill-good' };
+            case 'enrollment': return { soft: 'var(--accent-soft)', tone: 'var(--accent-ink)', pill: 'kh-pill-accent' };
+            case 'exam_submit': return { soft: 'var(--warn-soft)', tone: 'var(--warn)', pill: 'kh-pill-warn' };
+            default: return { soft: 'var(--card-2)', tone: 'var(--ink-2)', pill: 'kh-pill-ink' };
         }
     };
+
+    // Presentational: group activities by day bucket label (วันนี้ / เมื่อวาน / date).
+    const dayLabel = (date: Date): string => {
+        const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const today = startOfDay(new Date());
+        const target = startOfDay(date);
+        const dayMs = 86400000;
+        if (target === today) return 'วันนี้';
+        if (target === today - dayMs) return 'เมื่อวาน';
+        return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
+    const groupedActivities: { label: string; items: ActivityItem[] }[] = (() => {
+        const groups: { label: string; items: ActivityItem[] }[] = [];
+        for (const activity of filteredActivities) {
+            const label = dayLabel(activity.timestamp);
+            const last = groups[groups.length - 1];
+            if (last && last.label === label) {
+                last.items.push(activity);
+            } else {
+                groups.push({ label, items: [activity] });
+            }
+        }
+        return groups;
+    })();
 
     const formatTime = (date: Date) => {
         const now = new Date();
@@ -353,180 +379,168 @@ export default function ActivityLogPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-                <div className="text-slate-500 flex items-center gap-3">
-                    <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    กำลังโหลดกิจกรรม...
+            <div className="flex items-center justify-center py-24">
+                <div className="kh-ink3 flex items-center gap-2">
+                    <Loader2 size={18} className="animate-spin" /> กำลังโหลดกิจกรรม...
                 </div>
             </div>
         );
     }
 
+    const typeTabs: { value: string; label: string }[] = [
+        { value: 'all', label: 'ทั้งหมด' },
+        { value: 'enrollment', label: 'การเงิน' },
+        { value: 'login', label: 'นักเรียน' },
+        { value: 'lesson_complete', label: 'เนื้อหา' },
+        { value: 'exam_submit', label: 'ระบบ' },
+    ];
+
+    const statChips: { label: string; value: number; icon: typeof BookOpen; soft: string; tone: string }[] = [
+        { label: 'ลงทะเบียน', value: activities.filter(a => a.type === 'enrollment').length, icon: BookOpen, soft: 'var(--accent-soft)', tone: 'var(--accent-ink)' },
+        { label: 'เข้าสู่ระบบ', value: activities.filter(a => a.type === 'login').length, icon: KeyRound, soft: 'var(--good-soft)', tone: 'var(--good)' },
+        { label: 'เรียนจบบท', value: activities.filter(a => a.type === 'lesson_complete').length, icon: CheckCircle2, soft: 'var(--good-soft)', tone: 'var(--good)' },
+        { label: 'กิจกรรมทั้งหมด', value: activities.length, icon: Activity, soft: 'var(--card-2)', tone: 'var(--ink-2)' },
+    ];
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 font-sans">
-            {/* Header */}
-            <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4">
-                <div className="max-w-6xl mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <Link href="/admin" className="text-slate-400 hover:text-slate-600 transition">
-                            ← กลับ Dashboard
-                        </Link>
+        <div className="space-y-6">
+            {/* Stat chips */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {statChips.map((s) => {
+                    const Icon = s.icon;
+                    return (
+                        <div key={s.label} className="kh-card p-4 flex items-center justify-between">
+                            <div>
+                                <p className="kh-ink2 text-xs mb-1">{s.label}</p>
+                                <p className="kh-num kh-ink text-2xl leading-none">{s.value}</p>
+                            </div>
+                            <span
+                                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                style={{ background: s.soft, color: s.tone }}
+                            >
+                                <Icon size={20} />
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Toolbar: filter tabs + search + date range + refresh */}
+            <div className="kh-card p-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    {typeTabs.map((t) => (
+                        <button
+                            key={t.value}
+                            type="button"
+                            className="kh-tab"
+                            data-active={filterType === t.value}
+                            onClick={() => setFilterType(t.value)}
+                        >
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
+                <div className="flex flex-col md:flex-row gap-3">
+                    <div className="flex-1 relative">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 kh-ink3" />
+                        <input
+                            type="text"
+                            placeholder="ค้นหาชื่อ, อีเมล, หรือคอร์ส..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="kh-input !pl-9"
+                        />
+                    </div>
+                    <div className="flex items-center gap-1 p-1 rounded-[10px]" style={{ background: 'var(--card-2)', border: '1px solid var(--line)' }}>
+                        {(['today', 'week', 'month', 'all'] as const).map((range) => (
+                            <button
+                                key={range}
+                                type="button"
+                                className="kh-tab"
+                                data-active={dateRange === range}
+                                onClick={() => setDateRange(range)}
+                            >
+                                {range === 'today' && 'วันนี้'}
+                                {range === 'week' && '7 วัน'}
+                                {range === 'month' && '30 วัน'}
+                                {range === 'all' && 'ทั้งหมด'}
+                            </button>
+                        ))}
                     </div>
                     <button
                         onClick={fetchActivities}
-                        className="px-4 py-2 bg-indigo-100 text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-200 transition"
+                        className="kh-btn-ghost whitespace-nowrap"
                     >
-                        🔄 รีเฟรช
+                        <RefreshCw size={15} /> รีเฟรช
                     </button>
                 </div>
-            </header>
+            </div>
 
-            <main className="max-w-6xl mx-auto p-6 md:p-10">
-                {/* Title */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-slate-800 mb-2 flex items-center gap-3">
-                        📊 Activity Log
-                    </h1>
-                    <p className="text-slate-500">ติดตามกิจกรรมของนักเรียนแบบ Real-time</p>
-                </div>
-
-                {/* Filters */}
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-8">
-                    <div className="flex flex-col md:flex-row gap-4">
-                        {/* Search */}
-                        <div className="flex-1">
-                            <input
-                                type="text"
-                                placeholder="🔍 ค้นหาชื่อ, อีเมล, หรือคอร์ส..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 transition"
-                            />
-                        </div>
-
-                        {/* Type Filter */}
-                        <select
-                            value={filterType}
-                            onChange={(e) => setFilterType(e.target.value)}
-                            className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 cursor-pointer font-medium"
-                        >
-                            <option value="all">📌 ทุกประเภท</option>
-                            <option value="enrollment">📚 ลงทะเบียน</option>
-                            <option value="login">🔑 เข้าสู่ระบบ</option>
-                            <option value="lesson_complete">✅ เรียนจบบท</option>
-                            <option value="exam_submit">📝 ทำข้อสอบ</option>
-                        </select>
-
-                        {/* Date Range */}
-                        <div className="flex bg-slate-100 p-1 rounded-xl">
-                            {(['today', 'week', 'month', 'all'] as const).map((range) => (
-                                <button
-                                    key={range}
-                                    onClick={() => setDateRange(range)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition ${dateRange === range
-                                        ? 'bg-white text-indigo-600 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-700'
-                                        }`}
-                                >
-                                    {range === 'today' && 'วันนี้'}
-                                    {range === 'week' && '7 วัน'}
-                                    {range === 'month' && '30 วัน'}
-                                    {range === 'all' && 'ทั้งหมด'}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Stats Summary */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                        <div className="text-2xl mb-1">📚</div>
-                        <p className="text-2xl font-bold text-slate-800">
-                            {activities.filter(a => a.type === 'enrollment').length}
-                        </p>
-                        <p className="text-xs text-slate-500">ลงทะเบียน</p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                        <div className="text-2xl mb-1">🔑</div>
-                        <p className="text-2xl font-bold text-slate-800">
-                            {activities.filter(a => a.type === 'login').length}
-                        </p>
-                        <p className="text-xs text-slate-500">เข้าสู่ระบบ</p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                        <div className="text-2xl mb-1">✅</div>
-                        <p className="text-2xl font-bold text-slate-800">
-                            {activities.filter(a => a.type === 'lesson_complete').length}
-                        </p>
-                        <p className="text-xs text-slate-500">เรียนจบบท</p>
-                    </div>
-                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                        <div className="text-2xl mb-1">📊</div>
-                        <p className="text-2xl font-bold text-slate-800">
-                            {activities.length}
-                        </p>
-                        <p className="text-xs text-slate-500">กิจกรรมทั้งหมด</p>
-                    </div>
-                </div>
-
-                {/* Activity List */}
-                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                    <div className="p-6 border-b border-slate-100">
-                        <h2 className="font-bold text-lg text-slate-800">
-                            กิจกรรมล่าสุด ({filteredActivities.length} รายการ)
-                        </h2>
-                    </div>
-
-                    {filteredActivities.length > 0 ? (
-                        <div className="divide-y divide-slate-50">
-                            {filteredActivities.map((activity) => (
-                                <div key={activity.id} className="p-5 hover:bg-slate-50/50 transition flex items-center gap-4">
-                                    {/* Icon */}
-                                    <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-2xl flex-shrink-0">
-                                        {getActivityIcon(activity.type)}
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-0.5">
-                                            <span className="font-bold text-slate-800 truncate">
-                                                {activity.userName}{activity.userLastName ? ` ${activity.userLastName}` : ''}
+            {/* Timeline feed */}
+            {filteredActivities.length > 0 ? (
+                <div className="space-y-5">
+                    {groupedActivities.map((group) => (
+                        <div key={group.label} className="kh-card overflow-hidden">
+                            <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--line)' }}>
+                                <span className="kh-eyebrow">{group.label}</span>
+                                <span className="kh-ink3 text-xs kh-num">{group.items.length} รายการ</span>
+                            </div>
+                            <div className="divide-y divide-slate-100">
+                                {group.items.map((activity) => {
+                                    const Icon = getActivityIcon(activity.type);
+                                    const t = getActivityTone(activity.type);
+                                    return (
+                                        <div key={activity.id} className="p-5 flex items-center gap-4 hover:bg-slate-50 transition">
+                                            {/* Icon tile */}
+                                            <span
+                                                className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                                                style={{ background: t.soft, color: t.tone }}
+                                            >
+                                                <Icon size={20} />
                                             </span>
-                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border flex-shrink-0 ${getActivityColor(activity.type)}`}>
-                                                {getActivityLabel(activity.type)}
-                                            </span>
+
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <span className="kh-ink font-semibold truncate">
+                                                        {activity.userName}{activity.userLastName ? ` ${activity.userLastName}` : ''}
+                                                    </span>
+                                                    <span className={`kh-pill no-dot !text-[10px] !px-1.5 !py-0.5 shrink-0 ${t.pill}`}>
+                                                        {getActivityLabel(activity.type)}
+                                                    </span>
+                                                </div>
+                                                {activity.userEmail && (
+                                                    <p className="kh-ink3 text-xs truncate mb-0.5">{activity.userEmail}</p>
+                                                )}
+                                                <p className="kh-ink2 text-sm truncate">
+                                                    {activity.courseTitle && activity.courseTitle}
+                                                    {activity.lessonTitle && ` • ${activity.lessonTitle}`}
+                                                </p>
+                                            </div>
+
+                                            {/* Time */}
+                                            <div className="text-right shrink-0">
+                                                <p className="kh-ink2 text-sm font-medium kh-num">
+                                                    {activity.timestamp.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </p>
+                                                <p className="kh-ink3 text-xs kh-num">
+                                                    {activity.timestamp.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                                                </p>
+                                            </div>
                                         </div>
-                                        {activity.userEmail && (
-                                            <p className="text-xs text-slate-400 truncate mb-0.5">{activity.userEmail}</p>
-                                        )}
-                                        <p className="text-sm text-slate-500 truncate">
-                                            {activity.courseTitle && `📚 ${activity.courseTitle}`}
-                                            {activity.lessonTitle && ` • ${activity.lessonTitle}`}
-                                        </p>
-                                    </div>
-
-                                    {/* Time */}
-                                    <div className="text-right flex-shrink-0">
-                                        <p className="text-sm font-medium text-slate-600">
-                                            {activity.timestamp.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                        </p>
-                                        <p className="text-xs text-slate-500">
-                                            {activity.timestamp.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    ) : (
-                        <div className="p-16 text-center text-slate-400">
-                            <div className="text-5xl mb-4">📭</div>
-                            <p className="font-medium">ไม่พบกิจกรรมในช่วงเวลานี้</p>
-                            <p className="text-sm mt-1">ลองเปลี่ยนตัวกรองหรือช่วงเวลา</p>
-                        </div>
-                    )}
+                    ))}
                 </div>
-            </main>
+            ) : (
+                <div className="kh-card p-16 text-center">
+                    <Inbox size={48} className="mx-auto mb-4 kh-ink3" strokeWidth={1.5} />
+                    <p className="kh-ink2 font-medium">ไม่พบกิจกรรมในช่วงเวลานี้</p>
+                    <p className="kh-ink3 text-sm mt-1">ลองเปลี่ยนตัวกรองหรือช่วงเวลา</p>
+                </div>
+            )}
         </div>
     );
 }

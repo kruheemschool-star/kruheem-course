@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Upload, Trash2, Loader2, Check, AlertCircle } from 'lucide-react';
+import { Upload, Trash2, Loader2, Check, AlertCircle, ImageIcon, Info } from 'lucide-react';
 import AdminGuard from '@/components/AdminGuard';
 import { db, storage } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -150,8 +149,8 @@ export default function AdminSettingsPage() {
     if (loading) {
         return (
             <AdminGuard>
-                <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-                    <Loader2 className="animate-spin text-slate-400" size={32} />
+                <div className="flex items-center justify-center py-24">
+                    <Loader2 className="animate-spin kh-ink3" size={32} />
                 </div>
             </AdminGuard>
         );
@@ -159,124 +158,136 @@ export default function AdminSettingsPage() {
 
     return (
         <AdminGuard>
-            <div className="min-h-screen bg-slate-50 font-sans">
-                {/* Header */}
-                <header className="sticky top-0 z-20 bg-white border-b border-slate-200">
-                    <div className="max-w-5xl mx-auto px-6 py-4 flex items-center gap-4">
-                        <Link href="/admin" className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
-                            <ArrowLeft size={20} className="text-slate-600" />
-                        </Link>
-                        <div>
-                            <h1 className="text-lg font-semibold text-slate-800">⚙️ ตั้งค่า Admin Dashboard</h1>
-                            <p className="text-sm text-slate-500">จัดการรูป Cover สำหรับเมนู</p>
-                        </div>
-                    </div>
-                </header>
-
+            <div className="space-y-6">
                 {/* Message Toast */}
                 {message && (
-                    <div className={`fixed top-20 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg animate-in slide-in-from-right ${message.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
-                        }`}>
+                    <div
+                        className="fixed top-20 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl animate-in slide-in-from-right kh-pill no-dot"
+                        style={{
+                            fontSize: '13.5px',
+                            boxShadow: 'var(--shadow)',
+                            background: message.type === 'success' ? 'var(--good-soft)' : 'var(--danger-soft)',
+                            color: message.type === 'success' ? 'var(--good)' : 'var(--danger)',
+                            border: `1px solid ${message.type === 'success' ? 'var(--good)' : 'var(--danger)'}`,
+                        }}
+                    >
                         {message.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
                         {message.text}
                     </div>
                 )}
 
-                <main className="max-w-5xl mx-auto p-6">
-                    {/* Info Box */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-                        <h3 className="font-semibold text-blue-800 mb-2">📐 ข้อแนะนำสำหรับรูปภาพ</h3>
-                        <ul className="text-sm text-blue-700 space-y-1">
-                            <li>• ขนาดแนะนำ: <strong>{RECOMMENDED_WIDTH} x {RECOMMENDED_HEIGHT} px</strong> (อัตราส่วน 4:1)</li>
-                            <li>• ขนาดไฟล์สูงสุด: <strong>500 KB</strong></li>
-                            <li>• รูปแบบที่รองรับ: <strong>JPG, PNG, WebP</strong></li>
-                        </ul>
+                {/* Toolbar */}
+                <div className="kh-card flex flex-wrap items-center gap-3 px-5 py-4">
+                    <div className="min-w-0 flex-1">
+                        <div className="kh-eyebrow mb-1">
+                            <ImageIcon size={14} strokeWidth={2} />
+                            รูป Cover เมนู
+                        </div>
+                        <p className="kh-ink2 text-[13px]">จัดการรูป Cover สำหรับการ์ดเมนูในหน้าแดชบอร์ด</p>
                     </div>
+                    <span className="kh-pill kh-pill-accent no-dot">{menuItems.length} เมนู</span>
+                </div>
 
-                    {/* Cards Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {menuItems.map((item) => {
-                            const coverUrl = covers[item.key];
-                            const isUploading = uploading === item.key;
-                            const isDeleting = deleting === item.key;
+                {/* Info Box */}
+                <div className="kh-card p-5" style={{ background: 'var(--accent-soft)', borderColor: 'color-mix(in srgb, var(--accent) 25%, transparent)' }}>
+                    <h3 className="flex items-center gap-2 font-semibold mb-3" style={{ color: 'var(--accent-ink)' }}>
+                        <Info size={16} strokeWidth={2} />
+                        ข้อแนะนำสำหรับรูปภาพ
+                    </h3>
+                    <ul className="text-[13px] kh-ink2 space-y-1.5">
+                        <li>ขนาดแนะนำ: <strong className="kh-ink">{RECOMMENDED_WIDTH} x {RECOMMENDED_HEIGHT} px</strong> (อัตราส่วน 4:1)</li>
+                        <li>ขนาดไฟล์สูงสุด: <strong className="kh-ink">500 KB</strong></li>
+                        <li>รูปแบบที่รองรับ: <strong className="kh-ink">JPG, PNG, WebP</strong></li>
+                    </ul>
+                </div>
 
-                            return (
-                                <div key={item.key} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                                    {/* Cover Preview */}
-                                    <div className="h-24 relative">
-                                        {coverUrl ? (
-                                            <Image
-                                                src={coverUrl}
-                                                alt={item.title}
-                                                fill
-                                                className="object-cover"
-                                            />
-                                        ) : (
-                                            <div className={`h-full bg-gradient-to-br ${item.coverColor}`} />
-                                        )}
+                {/* Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {menuItems.map((item) => {
+                        const coverUrl = covers[item.key];
+                        const isUploading = uploading === item.key;
+                        const isDeleting = deleting === item.key;
 
-                                        {/* Loading Overlay */}
-                                        {(isUploading || isDeleting) && (
-                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                                <Loader2 className="animate-spin text-white" size={24} />
-                                            </div>
-                                        )}
+                        return (
+                            <div key={item.key} className="kh-card kh-card-h overflow-hidden">
+                                {/* Cover Preview */}
+                                <div className="h-24 relative" style={{ background: 'var(--card-2)' }}>
+                                    {coverUrl ? (
+                                        <Image
+                                            src={coverUrl}
+                                            alt={item.title}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    ) : (
+                                        <div className={`h-full bg-gradient-to-br ${item.coverColor}`} />
+                                    )}
 
-                                        {/* Icon Badge */}
-                                        <div className="absolute -bottom-4 left-3">
-                                            <div className="w-10 h-10 bg-white rounded-lg shadow border border-slate-100 flex items-center justify-center text-xl">
-                                                {item.icon}
-                                            </div>
+                                    {/* Loading Overlay */}
+                                    {(isUploading || isDeleting) && (
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                            <Loader2 className="animate-spin text-white" size={24} />
                                         </div>
+                                    )}
 
-                                        {/* Has Cover Badge */}
-                                        {coverUrl && (
-                                            <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full">
-                                                มีรูป
-                                            </div>
-                                        )}
+                                    {/* Icon Badge */}
+                                    <div className="absolute -bottom-4 left-3">
+                                        <div
+                                            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                                            style={{ background: 'var(--card)', border: '1px solid var(--line)', boxShadow: 'var(--shadow-sm)' }}
+                                        >
+                                            {item.icon}
+                                        </div>
                                     </div>
 
-                                    {/* Content */}
-                                    <div className="pt-6 pb-4 px-4">
-                                        <h3 className="font-medium text-slate-800 mb-3">{item.title}</h3>
-
-                                        {/* Actions */}
-                                        <div className="flex gap-2">
-                                            {/* Upload Button */}
-                                            <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-medium text-slate-700 cursor-pointer transition-colors">
-                                                <Upload size={16} />
-                                                {coverUrl ? 'เปลี่ยน' : 'อัปโหลด'}
-                                                <input
-                                                    type="file"
-                                                    className="hidden"
-                                                    accept=".jpg,.jpeg,.png,.webp"
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (file) handleUpload(item.key, file);
-                                                        e.target.value = '';
-                                                    }}
-                                                    disabled={isUploading || isDeleting}
-                                                />
-                                            </label>
-
-                                            {/* Delete Button */}
-                                            {coverUrl && (
-                                                <button
-                                                    onClick={() => handleDelete(item.key)}
-                                                    disabled={isUploading || isDeleting}
-                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            )}
+                                    {/* Has Cover Badge */}
+                                    {coverUrl && (
+                                        <div className="absolute top-2 right-2 kh-pill kh-pill-good no-dot">
+                                            มีรูป
                                         </div>
+                                    )}
+                                </div>
+
+                                {/* Content */}
+                                <div className="pt-6 pb-4 px-4">
+                                    <h3 className="font-medium kh-ink mb-3">{item.title}</h3>
+
+                                    {/* Actions */}
+                                    <div className="flex gap-2">
+                                        {/* Upload Button */}
+                                        <label className="kh-btn-ghost flex-1 cursor-pointer">
+                                            <Upload size={16} />
+                                            {coverUrl ? 'เปลี่ยน' : 'อัปโหลด'}
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                accept=".jpg,.jpeg,.png,.webp"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) handleUpload(item.key, file);
+                                                    e.target.value = '';
+                                                }}
+                                                disabled={isUploading || isDeleting}
+                                            />
+                                        </label>
+
+                                        {/* Delete Button */}
+                                        {coverUrl && (
+                                            <button
+                                                onClick={() => handleDelete(item.key)}
+                                                disabled={isUploading || isDeleting}
+                                                className="p-2 rounded-lg transition-colors disabled:opacity-50"
+                                                style={{ color: 'var(--danger)' }}
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
-                </main>
+                            </div>
+                        );
+                    })}
+                </div>
                 <ConfirmDialog />
             </div>
         </AdminGuard>

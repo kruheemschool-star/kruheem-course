@@ -2,14 +2,13 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
-import Link from "next/link";
-import { ArrowLeft, MessageCircle, Clock, User, Send, X, Phone, Smartphone, Trash2, Loader2 } from "lucide-react";
+import { MessageCircle, Clock, Send, Phone, Smartphone, Trash2, Loader2, Search } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function AdminChatPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-teal-500" size={32} /></div>}>
+        <Suspense fallback={<div className="flex items-center justify-center" style={{ height: "calc(100vh - 112px)" }}><Loader2 className="animate-spin" size={32} style={{ color: "var(--accent)" }} /></div>}>
             <AdminChatContent />
         </Suspense>
     );
@@ -24,6 +23,7 @@ function AdminChatContent() {
     const [selectedChat, setSelectedChat] = useState<any | null>(null);
     const [messages, setMessages] = useState<any[]>([]);
     const [replyMessage, setReplyMessage] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
@@ -112,6 +112,15 @@ function AdminChatContent() {
     // Helper to get latest chat data
     const currentChat = selectedChat ? (chats.find(c => c.id === selectedChat.id) || selectedChat) : null;
 
+    // Presentational derivations (no listener/state logic)
+    const unreadCount = chats.filter(c => c.isRead === false).length;
+    const filteredChats = searchTerm.trim()
+        ? chats.filter(c =>
+            (c.userName || "").toLowerCase().includes(searchTerm.trim().toLowerCase()) ||
+            (c.lastMessage || "").toLowerCase().includes(searchTerm.trim().toLowerCase())
+        )
+        : chats;
+
     // 3. Auto-scroll
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -157,149 +166,153 @@ function AdminChatContent() {
         }, true);
     };
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center text-stone-500 bg-orange-50">กำลังโหลด...</div>;
+    if (loading) return <div className="flex items-center justify-center kh-ink3" style={{ height: "calc(100vh - 112px)" }}>กำลังโหลด...</div>;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-amber-50 font-sans text-stone-700 pb-20">
-            {/* Header */}
-            <header className="sticky top-0 z-20 bg-white/60 backdrop-blur-md border-b border-white/20 px-6 py-4">
-                <div className="max-w-6xl mx-auto flex items-center gap-4">
-                    <Link href="/admin" className="p-2 rounded-full hover:bg-white/50 transition">
-                        <ArrowLeft size={24} className="text-stone-600" />
-                    </Link>
-                    <h1 className="text-xl font-bold text-stone-800">แชทกับลูกค้า (Live Chat)</h1>
+        <div className="flex flex-col" style={{ height: "calc(100vh - 112px)" }}>
+            {fetchError && (
+                <div className="kh-card !rounded-xl mb-3 px-4 py-3 flex items-center gap-2 text-sm" style={{ background: "var(--danger-soft)", borderColor: "var(--danger)", color: "var(--danger)" }}>
+                    <span>เกิดข้อผิดพลาด: {fetchError}</span>
+                    <span className="kh-pill kh-pill-danger no-dot !text-[10px]">โปรดตรวจสอบ Firestore Rules</span>
                 </div>
-            </header>
+            )}
 
-            <main className="max-w-6xl mx-auto p-6 md:p-10">
-                {fetchError && (
-                    <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-2xl border border-red-200 flex items-center gap-2">
-                        <span>⚠️ เกิดข้อผิดพลาด: {fetchError}</span>
-                        <span className="text-xs bg-white px-2 py-1 rounded border border-red-100">โปรดตรวจสอบ Firestore Rules</span>
-                    </div>
-                )}
-
-                <div className="grid gap-6">
-                    {chats.length === 0 ? (
-                        <div className="text-center py-20 bg-white/50 rounded-3xl border-2 border-dashed border-stone-200">
-                            <MessageCircle size={48} className="mx-auto text-stone-300 mb-4" />
-                            <p className="text-stone-500">ยังไม่มีการสนทนา</p>
+            <div className="kh-card !p-0 flex-1 min-h-0 overflow-hidden grid" style={{ gridTemplateColumns: "320px 1fr" }}>
+                {/* ===== LEFT: master list ===== */}
+                <div className="flex flex-col min-h-0" style={{ borderRight: "1px solid var(--line)" }}>
+                    {/* List header */}
+                    <div className="px-4 pt-4 pb-3 space-y-3" style={{ borderBottom: "1px solid var(--line)" }}>
+                        <div className="flex items-center justify-between">
+                            <h2 className="kh-eyebrow !text-[13px] !normal-case">
+                                <MessageCircle size={15} style={{ color: "var(--accent)" }} />
+                                ข้อความ
+                            </h2>
+                            {unreadCount > 0 && (
+                                <span className="kh-pill kh-pill-accent no-dot !text-[10px]">{unreadCount} ใหม่</span>
+                            )}
                         </div>
-                    ) : (
-                        chats.map((chat) => (
-                            <div
-                                key={chat.id}
-                                className={`bg-white rounded-3xl p-6 shadow-sm border flex flex-col md:flex-row gap-6 hover:shadow-md transition-all cursor-pointer relative overflow-hidden
-                                    ${chat.isRead === false ? 'border-indigo-200 bg-indigo-50/30' : 'border-stone-100'}
-                                `}
-                                onClick={() => setSelectedChat(chat)}
-                            >
-                                {chat.isRead === false && (
-                                    <div className="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm">
-                                        ข้อความใหม่
-                                    </div>
-                                )}
+                        <div className="relative">
+                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 kh-ink3" />
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="ค้นหาแชท..."
+                                className="kh-input !pl-9 !py-2 !text-[13px]"
+                            />
+                        </div>
+                    </div>
 
-                                <div className="flex-1 space-y-3">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shadow-sm
-                                                ${chat.userType === 'member' ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'}
-                                            `}>
-                                                {chat.userName?.charAt(0) || "G"}
-                                            </div>
-                                            <div>
-                                                <h3 className="font-bold text-lg text-stone-800 flex items-center gap-2">
+                    {/* List rows */}
+                    <div className="flex-1 min-h-0 overflow-y-auto">
+                        {filteredChats.length === 0 ? (
+                            <div className="text-center py-16 px-4">
+                                <MessageCircle size={40} className="mx-auto kh-ink3 mb-3 opacity-50" />
+                                <p className="kh-ink3 text-sm">{searchTerm.trim() ? "ไม่พบแชทที่ค้นหา" : "ยังไม่มีการสนทนา"}</p>
+                            </div>
+                        ) : (
+                            filteredChats.map((chat) => {
+                                const isActive = selectedChat?.id === chat.id;
+                                return (
+                                    <div
+                                        key={chat.id}
+                                        onClick={() => setSelectedChat(chat)}
+                                        className="group relative flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors"
+                                        style={{
+                                            borderBottom: "1px solid var(--line)",
+                                            borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+                                            background: isActive ? "var(--accent-soft)" : "transparent",
+                                        }}
+                                    >
+                                        <div className="kh-avatar w-10 h-10 !rounded-full shrink-0 text-base">
+                                            {chat.userName?.charAt(0) || "G"}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h3 className="font-semibold kh-ink text-sm truncate flex items-center gap-1.5">
                                                     {chat.userName || "Guest"}
                                                     {chat.userType === 'member' && (
-                                                        <span className="bg-indigo-100 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full">Member</span>
+                                                        <span className="kh-pill kh-pill-accent no-dot !text-[9px] !px-1.5 !py-0">Member</span>
                                                     )}
                                                 </h3>
-                                                <div className="text-xs text-stone-400 flex items-center gap-1">
-                                                    <Clock size={12} />
-                                                    {chat.lastUpdated?.toDate ? chat.lastUpdated.toDate().toLocaleString('th-TH') : 'ไม่ระบุเวลา'}
-                                                </div>
+                                                <span className="text-[10px] kh-ink3 shrink-0 flex items-center gap-0.5">
+                                                    <Clock size={10} />
+                                                    {chat.lastUpdated?.toDate ? chat.lastUpdated.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-2 mt-0.5">
+                                                <p className="text-xs kh-ink3 truncate flex-1">{chat.lastMessage}</p>
+                                                {chat.isRead === false && (
+                                                    <span className="shrink-0 w-2 h-2 rounded-full" style={{ background: "var(--accent)" }} title="ข้อความใหม่" />
+                                                )}
                                             </div>
                                         </div>
                                         <button
                                             onClick={(e) => handleDeleteChat(e, chat.id)}
-                                            className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-full transition z-10"
+                                            className="absolute right-2 bottom-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition kh-ink3 hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] z-10"
                                             title="ลบแชท"
                                         >
-                                            <Trash2 size={18} />
+                                            <Trash2 size={15} />
                                         </button>
                                     </div>
-
-                                    <div className="bg-stone-50 p-4 rounded-2xl text-sm text-stone-600 flex items-start gap-2">
-                                        <MessageCircle size={16} className="mt-0.5 text-stone-400 shrink-0" />
-                                        <span className="truncate line-clamp-2">{chat.lastMessage}</span>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-4 pt-2 border-t border-stone-50 text-xs text-stone-500">
-                                        {chat.enrolledCourses && chat.enrolledCourses !== "Guest" && (
-                                            <div className="flex items-center gap-1">
-                                                <span>📚 {chat.enrolledCourses}</span>
-                                            </div>
-                                        )}
-                                        {chat.userTel && (
-                                            <div className="flex items-center gap-1">
-                                                <Phone size={12} /> {chat.userTel}
-                                            </div>
-                                        )}
-                                        {chat.lineId && (
-                                            <div className="flex items-center gap-1">
-                                                <Smartphone size={12} /> {chat.lineId}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        ))
-                    )}
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
-            </main>
 
-            {/* Chat Modal */}
-            {selectedChat && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        {/* Modal Header */}
-                        <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+                {/* ===== RIGHT: conversation detail ===== */}
+                {selectedChat ? (
+                    <div className="flex flex-col min-h-0">
+                        {/* Conversation header */}
+                        <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--line)" }}>
                             <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold
-                                    ${selectedChat.userType === 'member' ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'}
-                                `}>
+                                <div className="kh-avatar w-10 h-10 !rounded-full text-base">
                                     {selectedChat.userName?.charAt(0) || "G"}
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-stone-800">{selectedChat.userName || "Guest"}</h3>
-                                    <p className="text-xs text-stone-500 flex items-center gap-1">
-                                        {selectedChat.userType === 'member' ? 'สมาชิก' : 'ผู้เยี่ยมชม'}
-                                    </p>
+                                    <h3 className="font-semibold kh-ink text-sm flex items-center gap-2">
+                                        {selectedChat.userName || "Guest"}
+                                        <span className="inline-flex items-center gap-1 text-[11px] kh-ink3">
+                                            <span className="w-2 h-2 rounded-full" style={{ background: "var(--good)" }} />
+                                            {selectedChat.userType === 'member' ? 'สมาชิก' : 'ผู้เยี่ยมชม'}
+                                        </span>
+                                    </h3>
+                                    <div className="flex flex-wrap gap-3 mt-0.5 text-[11px] kh-ink3">
+                                        {selectedChat.enrolledCourses && selectedChat.enrolledCourses !== "Guest" && (
+                                            <span className="flex items-center gap-1">📚 {selectedChat.enrolledCourses}</span>
+                                        )}
+                                        {selectedChat.userTel && (
+                                            <span className="flex items-center gap-1"><Phone size={11} /> {selectedChat.userTel}</span>
+                                        )}
+                                        {selectedChat.lineId && (
+                                            <span className="flex items-center gap-1"><Smartphone size={11} /> {selectedChat.lineId}</span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedChat(null)} className="p-2 hover:bg-stone-200 rounded-full transition">
-                                <X size={20} className="text-stone-500" />
-                            </button>
                         </div>
 
-                        {/* Chat Area */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-stone-50/50">
+                        {/* Message area */}
+                        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-3" style={{ background: "var(--card-2)" }}>
                             {messages.map((msg) => (
                                 <div key={msg.id} className={`flex flex-col ${msg.sender === 'admin' ? 'items-end' : 'items-start'}`}>
-                                    <div className={`py-3 px-5 rounded-2xl max-w-[80%] shadow-sm text-sm
-                                        ${msg.sender === 'admin'
-                                            ? 'bg-indigo-600 text-white rounded-tr-none'
-                                            : 'bg-white border border-stone-100 text-stone-700 rounded-tl-none'
-                                        }`}>
+                                    <div
+                                        className="py-2.5 px-4 max-w-[75%] text-sm leading-relaxed"
+                                        style={
+                                            msg.sender === 'admin'
+                                                ? { background: "linear-gradient(135deg,var(--accent),var(--accent-ink))", color: "#fff", borderRadius: "16px 16px 4px 16px" }
+                                                : { background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink)", borderRadius: "16px 16px 16px 4px" }
+                                        }
+                                    >
                                         {msg.text}
-                                        <div className={`text-[10px] mt-1 text-right ${msg.sender === 'admin' ? 'text-indigo-200' : 'text-stone-400'}`}>
+                                        <div className="text-[10px] mt-1 text-right" style={{ opacity: 0.7, color: msg.sender === 'admin' ? "rgba(255,255,255,0.85)" : "var(--ink-3)" }}>
                                             {msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '...'}
                                         </div>
                                     </div>
                                     {/* Read Receipt for Admin Messages */}
                                     {msg.sender === 'admin' && (
-                                        <span className="text-[10px] text-stone-400 mt-1 mr-1">
+                                        <span className="text-[10px] kh-ink3 mt-1 mr-1">
                                             {currentChat?.lastUserReadAt && msg.createdAt?.toMillis() <= currentChat.lastUserReadAt.toMillis()
                                                 ? "อ่านแล้ว"
                                                 : "ยังไม่อ่าน"}
@@ -310,26 +323,28 @@ function AdminChatContent() {
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Input Area */}
-                        <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-stone-100 flex gap-2 items-end">
+                        {/* Input row */}
+                        <form onSubmit={handleSendMessage} className="px-4 py-3 flex gap-2 items-end" style={{ borderTop: "1px solid var(--line)", background: "var(--card)" }}>
                             <input
                                 type="text"
                                 value={replyMessage}
                                 onChange={(e) => setReplyMessage(e.target.value)}
                                 placeholder="พิมพ์ข้อความตอบกลับ..."
-                                className="flex-1 px-4 py-3 rounded-xl bg-stone-50 border-transparent focus:bg-white border focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none transition"
+                                className="kh-input flex-1"
                             />
-                            <button
-                                type="submit"
-                                disabled={!replyMessage.trim()}
-                                className="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-indigo-200"
-                            >
-                                <Send size={20} />
+                            <button type="submit" disabled={!replyMessage.trim()} className="kh-btn !px-4">
+                                <Send size={18} />
                             </button>
                         </form>
                     </div>
-                </div>
-            )}
+                ) : (
+                    <div className="flex flex-col items-center justify-center text-center px-6" style={{ background: "var(--card-2)" }}>
+                        <MessageCircle size={48} className="kh-ink3 mb-3 opacity-40" />
+                        <p className="kh-ink2 text-sm font-medium">เลือกการสนทนาเพื่อเริ่มแชท</p>
+                        <p className="kh-ink3 text-xs mt-1">เลือกรายชื่อจากด้านซ้ายเพื่อดูข้อความ</p>
+                    </div>
+                )}
+            </div>
             <ConfirmDialog />
         </div>
     );

@@ -2,8 +2,7 @@
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, doc, getDocs, setDoc, deleteDoc, query, where, writeBatch, serverTimestamp, orderBy } from "firebase/firestore";
-import { Loader2, Plus, Trash2, Save, BarChart3, CheckCircle2, Power, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { Loader2, Plus, Trash2, Save, BarChart3, ListChecks, Pencil, Sparkles } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 export default function AdminPollPage() {
@@ -168,59 +167,59 @@ export default function AdminPollPage() {
         }, true);
     };
 
-    if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin" /></div>;
+    if (loading) return (
+        <div className="flex justify-center items-center py-24 kh-ink3">
+            <Loader2 className="animate-spin" size={24} />
+        </div>
+    );
 
     return (
-        <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8 min-h-screen bg-slate-50/50 font-sans">
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <Link href="/admin" className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition">
-                        <ArrowLeft size={20} />
-                    </Link>
-                    <h1 className="text-3xl font-black text-slate-800 flex items-center gap-3">
-                        <BarChart3 className="w-8 h-8 text-indigo-600" />
-                        จัดการแบบสอบถาม (Polls)
-                    </h1>
-                </div>
+        <div className="space-y-6">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="kh-eyebrow"><BarChart3 size={15} strokeWidth={1.9} /> จัดการแบบสอบถาม</div>
+                <button onClick={handleCreateNew} className="kh-btn">
+                    <Plus size={15} strokeWidth={2.1} /> สร้างแบบสอบถาม
+                </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
                 {/* Left Sidebar: Poll List */}
-                <div className="lg:col-span-4 space-y-4">
-                    <button
-                        onClick={handleCreateNew}
-                        className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition flex items-center justify-center gap-2"
-                    >
-                        <Plus size={20} /> สร้างคำถามใหม่
-                    </button>
-
-                    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div className="p-4 bg-slate-50 border-b border-slate-100 font-bold text-slate-500 text-sm">
-                            รายการคำถามทั้งหมด ({polls.length})
+                <div className="lg:col-span-4">
+                    <div className="kh-card overflow-hidden">
+                        <div className="px-4 py-3 border-b flex items-center gap-2 kh-eyebrow" style={{ borderColor: "var(--line)" }}>
+                            <ListChecks size={14} strokeWidth={1.9} /> รายการทั้งหมด ({polls.length})
                         </div>
-                        <div className="max-h-[600px] overflow-y-auto custom-scrollbar p-2 space-y-2">
-                            {polls.map(poll => (
-                                <div
-                                    key={poll.id}
-                                    onClick={() => handleSelectPoll(poll)}
-                                    className={`p-4 rounded-xl cursor-pointer transition border-2 relative group ${selectedPollId === poll.id ? 'bg-indigo-50 border-indigo-500' : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-200'}`}
-                                >
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${poll.isActive ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
-                                            {poll.isActive ? '● ใช้งานอยู่' : '○ ปิดใช้งาน'}
-                                        </span>
-                                        <span className="text-xs text-slate-400">
-                                            {Object.values(poll.votes || {}).reduce((a: any, b: any) => a + b, 0) as number} โหวต
-                                        </span>
-                                    </div>
-                                    <h3 className={`font-bold text-sm line-clamp-2 ${selectedPollId === poll.id ? 'text-indigo-900' : 'text-slate-700'}`}>
-                                        {poll.question}
-                                    </h3>
-                                </div>
-                            ))}
+                        <div className="max-h-[600px] overflow-y-auto custom-scrollbar p-2 space-y-1.5">
+                            {polls.map(poll => {
+                                const active = selectedPollId === poll.id;
+                                return (
+                                    <button
+                                        key={poll.id}
+                                        onClick={() => handleSelectPoll(poll)}
+                                        className="w-full text-left p-3.5 rounded-xl transition border"
+                                        style={{
+                                            background: active ? "var(--accent-soft)" : "transparent",
+                                            borderColor: active ? "color-mix(in srgb, var(--accent) 35%, transparent)" : "transparent",
+                                        }}
+                                    >
+                                        <div className="flex justify-between items-start gap-2 mb-1.5">
+                                            <span className={`kh-pill ${poll.isActive ? "kh-pill-good" : "kh-pill-ink"}`}>
+                                                {poll.isActive ? "กำลังเปิดโหวต" : "ปิดอยู่"}
+                                            </span>
+                                            <span className="kh-num text-xs kh-ink3 whitespace-nowrap mt-0.5">
+                                                {Object.values(poll.votes || {}).reduce((a: any, b: any) => a + b, 0) as number} โหวต
+                                            </span>
+                                        </div>
+                                        <h3 className="font-semibold text-sm line-clamp-2" style={{ color: active ? "var(--accent-ink)" : "var(--ink)" }}>
+                                            {poll.question}
+                                        </h3>
+                                    </button>
+                                );
+                            })}
                             {polls.length === 0 && (
-                                <div className="text-center py-10 text-slate-400 text-sm">ยังไม่มีแบบสอบถาม</div>
+                                <div className="text-center py-10 kh-ink3 text-sm">ยังไม่มีแบบสอบถาม</div>
                             )}
                         </div>
                     </div>
@@ -228,78 +227,81 @@ export default function AdminPollPage() {
 
                 {/* Right Content: Editor & Results */}
                 <div className="lg:col-span-8 space-y-6">
-                    <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-                        <div className="flex justify-between items-center mb-6 pb-6 border-b border-slate-100">
-                            <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2">
-                                {selectedPollId === "new" ? "✨ สร้างแบบสอบถามใหม่" : "✏️ แก้ไขแบบสอบถาม"}
+                    <div className="kh-card p-6">
+                        <div className="flex justify-between items-center mb-5 pb-5 border-b" style={{ borderColor: "var(--line)" }}>
+                            <h2 className="text-base font-semibold kh-ink flex items-center gap-2">
+                                {selectedPollId === "new"
+                                    ? <><Sparkles size={16} strokeWidth={1.9} style={{ color: "var(--accent)" }} /> สร้างแบบสอบถามใหม่</>
+                                    : <><Pencil size={16} strokeWidth={1.9} style={{ color: "var(--accent)" }} /> แก้ไขแบบสอบถาม</>}
                             </h2>
 
                             {selectedPollId !== "new" && (
-                                <button onClick={handleDelete} className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-lg transition">
-                                    <Trash2 size={20} />
+                                <button onClick={handleDelete} className="kh-btn-ghost p-2" style={{ color: "var(--danger)" }} title="ลบแบบสอบถาม">
+                                    <Trash2 size={16} strokeWidth={1.9} />
                                 </button>
                             )}
                         </div>
 
-                        <div className="space-y-6">
+                        <div className="space-y-5">
                             {/* Active Toggle */}
-                            <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                            <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>
                                 <div>
-                                    <h3 className="font-bold text-slate-700">สถานะการแสดงผล</h3>
-                                    <p className="text-xs text-slate-500">เปิดให้แสดงบนหน้าเว็บนักเรียน (แสดงได้ทีละ 1 อัน)</p>
+                                    <h3 className="font-semibold text-sm kh-ink">สถานะการแสดงผล</h3>
+                                    <p className="text-xs kh-ink3 mt-0.5">เปิดให้แสดงบนหน้าเว็บนักเรียน (แสดงได้ทีละ 1 อัน)</p>
                                 </div>
                                 <button
                                     onClick={() => setIsActive(!isActive)}
-                                    className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none ${isActive ? 'bg-green-500' : 'bg-slate-300'}`}
+                                    className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none"
+                                    style={{ background: isActive ? "var(--good)" : "var(--line-2)" }}
                                 >
-                                    <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${isActive ? 'translate-x-7' : 'translate-x-1'}`} />
+                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isActive ? 'translate-x-6' : 'translate-x-1'}`} />
                                 </button>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-600 mb-2">คำถาม</label>
+                                <label className="block text-xs font-semibold kh-ink2 mb-2">คำถาม</label>
                                 <input
                                     type="text"
                                     value={question}
                                     onChange={(e) => setQuestion(e.target.value)}
-                                    className="w-full p-4 bg-white border-2 border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition font-bold text-lg text-slate-800"
+                                    className="kh-input font-medium"
                                     placeholder="เช่น คุณชอบเรียนวิชาอะไรมากที่สุด?"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-slate-600 mb-2">ตัวเลือกคำตอบ</label>
-                                <div className="space-y-3">
+                                <label className="block text-xs font-semibold kh-ink2 mb-2">ตัวเลือกคำตอบ</label>
+                                <div className="space-y-2.5">
                                     {options.map((opt, idx) => (
-                                        <div key={idx} className="flex gap-2 group">
-                                            <div className="w-8 h-12 flex items-center justify-center font-bold text-slate-300 bg-slate-50 rounded-lg">{idx + 1}</div>
+                                        <div key={idx} className="flex gap-2 group items-center">
+                                            <div className="kh-num w-9 h-9 flex-shrink-0 flex items-center justify-center font-semibold text-sm rounded-lg kh-ink3" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>{idx + 1}</div>
                                             <input
                                                 type="text"
                                                 value={opt}
                                                 onChange={(e) => handleOptionChange(idx, e.target.value)}
-                                                className="flex-1 p-3 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-500 transition font-medium text-slate-700"
+                                                className="kh-input flex-1"
                                                 placeholder={`ตัวเลือกที่ ${idx + 1}`}
                                             />
                                             {options.length > 2 && (
-                                                <button onClick={() => removeOption(idx)} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition opacity-0 group-hover:opacity-100">
-                                                    <Trash2 size={20} />
+                                                <button onClick={() => removeOption(idx)} className="kh-btn-ghost p-2 opacity-0 group-hover:opacity-100" style={{ color: "var(--danger)" }} title="ลบตัวเลือก">
+                                                    <Trash2 size={16} strokeWidth={1.9} />
                                                 </button>
                                             )}
                                         </div>
                                     ))}
-                                    <button onClick={addOption} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold hover:border-indigo-300 hover:text-indigo-500 transition flex items-center justify-center gap-2 hover:bg-indigo-50">
-                                        <Plus size={20} /> เพิ่มตัวเลือก
+                                    <button onClick={addOption} className="w-full py-2.5 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition kh-ink3" style={{ border: "1.5px dashed var(--line-2)", background: "var(--card-2)" }}>
+                                        <Plus size={16} strokeWidth={2} /> เพิ่มตัวเลือก
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="pt-6 border-t border-slate-100 flex gap-3">
+                            <div className="pt-5 border-t flex gap-3" style={{ borderColor: "var(--line)" }}>
                                 <button
                                     onClick={handleSave}
                                     disabled={saving}
-                                    className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                                    className="kh-btn flex-1"
                                 >
-                                    {saving ? <Loader2 className="animate-spin" /> : <Save size={20} />}
+                                    {saving ? <Loader2 className="animate-spin" size={16} /> : <Save size={15} strokeWidth={1.9} />}
                                     บันทึกข้อมูล
                                 </button>
                             </div>
@@ -308,24 +310,25 @@ export default function AdminPollPage() {
 
                     {/* Results Section (Only if saved) */}
                     {selectedPollId !== "new" && (
-                        <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2">
-                                    📊 ผลโหวตปัจจุบัน
-                                    <span className="bg-indigo-100 text-indigo-600 text-xs px-2 py-1 rounded-full">{totalVotes} คน</span>
+                        <div className="kh-card p-6">
+                            <div className="flex justify-between items-center mb-5">
+                                <h2 className="text-base font-semibold kh-ink flex items-center gap-2">
+                                    <BarChart3 size={16} strokeWidth={1.9} style={{ color: "var(--accent)" }} /> ผลโหวตปัจจุบัน
+                                    <span className="kh-pill kh-pill-accent no-dot kh-num">{totalVotes} คน</span>
                                 </h2>
                                 <button
                                     onClick={handleResetVotes}
-                                    className="text-xs font-bold text-rose-500 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition"
+                                    className="kh-btn-ghost"
+                                    style={{ color: "var(--danger)" }}
                                 >
                                     ล้างผลโหวต
                                 </button>
                             </div>
 
                             {totalVotes === 0 ? (
-                                <div className="text-center py-10 text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                <div className="text-center py-10 kh-ink3 rounded-xl" style={{ background: "var(--card-2)", border: "1px dashed var(--line-2)" }}>
                                     <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                                    <p>ยังไม่มีผู้ตอบแบบสอบถาม</p>
+                                    <p className="text-sm">ยังไม่มีผู้ตอบแบบสอบถาม</p>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
@@ -335,15 +338,12 @@ export default function AdminPollPage() {
                                             const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
                                             return (
                                                 <div key={idx}>
-                                                    <div className="flex justify-between text-sm font-bold text-slate-600 mb-1">
-                                                        <span>{opt}</span>
-                                                        <span>{count} ({percent}%)</span>
+                                                    <div className="flex justify-between text-sm font-medium kh-ink2 mb-1.5 gap-2">
+                                                        <span className="truncate">{opt}</span>
+                                                        <span className="kh-num whitespace-nowrap kh-ink3">{count} ({percent}%)</span>
                                                     </div>
-                                                    <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out"
-                                                            style={{ width: `${percent}%` }}
-                                                        />
+                                                    <div className="kh-progress">
+                                                        <span style={{ width: `${percent}%` }} />
                                                     </div>
                                                 </div>
                                             );
@@ -353,8 +353,9 @@ export default function AdminPollPage() {
                                     {/* Pie Chart */}
                                     <div className="flex justify-center">
                                         <div
-                                            className="w-40 h-40 rounded-full shadow-inner border-4 border-white"
+                                            className="w-40 h-40 rounded-full shadow-inner"
                                             style={{
+                                                border: "4px solid var(--card)",
                                                 background: `conic-gradient(
                                                     ${options.map((opt, i) => {
                                                     const count = stats[opt] || 0;

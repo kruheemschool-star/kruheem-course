@@ -4,7 +4,7 @@ import { useState } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, doc, updateDoc } from "firebase/firestore";
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck, AlertTriangle, CheckCircle2, Loader2, Wrench } from "lucide-react";
+import { ShieldCheck, AlertTriangle, CheckCircle2, Loader2, Wrench } from "lucide-react";
 
 interface Mismatch {
     examId: string;
@@ -177,33 +177,26 @@ export default function ExamValidatorPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-6 font-sans">
-            <div className="max-w-5xl mx-auto">
-                {/* Header */}
-                <div className="flex items-center gap-4 mb-8">
-                    <Link href="/admin/exams" className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                        <ArrowLeft size={24} className="text-slate-600" />
-                    </Link>
+        <div className="space-y-6">
+            {/* Toolbar */}
+            <div className="kh-card p-5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                            <ShieldCheck size={28} className="text-indigo-600" />
+                        <div className="kh-eyebrow">
+                            <ShieldCheck size={14} />
                             ตรวจสอบคำตอบข้อสอบ
-                        </h1>
-                        <p className="text-slate-500 text-sm mt-1">
+                        </div>
+                        <p className="kh-ink3 text-sm mt-1.5">
                             สแกนทุกชุดข้อสอบเพื่อตรวจหาคำตอบที่ไม่ตรงกันระหว่าง correctIndex กับเฉลยในข้อความ
                         </p>
                     </div>
-                </div>
-
-                {/* Action Button */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={scanAllExams}
                             disabled={loading}
-                            className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                            className="kh-btn"
                         >
-                            {loading ? <Loader2 size={20} className="animate-spin" /> : <ShieldCheck size={20} />}
+                            {loading ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
                             {loading ? 'กำลังสแกน...' : 'สแกนข้อสอบทั้งหมด'}
                         </button>
 
@@ -211,93 +204,100 @@ export default function ExamValidatorPage() {
                             <button
                                 onClick={fixAllMismatches}
                                 disabled={fixing}
-                                className="px-6 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                className="kh-btn-ghost"
+                                style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}
                             >
-                                {fixing ? <Loader2 size={20} className="animate-spin" /> : <Wrench size={20} />}
+                                {fixing ? <Loader2 size={18} className="animate-spin" /> : <Wrench size={18} />}
                                 {fixing ? 'กำลังแก้ไข...' : `แก้ไขทั้งหมด (${mismatches.length} ข้อ)`}
                             </button>
                         )}
                     </div>
                 </div>
-
-                {/* Stats */}
-                {scanned && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">
-                            <div className="text-2xl font-bold text-slate-800">{stats.totalExams}</div>
-                            <div className="text-sm text-slate-500">ชุดข้อสอบ</div>
-                        </div>
-                        <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">
-                            <div className="text-2xl font-bold text-slate-800">{stats.totalQuestions}</div>
-                            <div className="text-sm text-slate-500">ข้อทั้งหมด</div>
-                        </div>
-                        <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">
-                            <div className="text-2xl font-bold text-emerald-600">{stats.checked}</div>
-                            <div className="text-sm text-slate-500">ตรวจสอบได้</div>
-                        </div>
-                        <div className={`bg-white rounded-xl p-4 border shadow-sm text-center ${mismatches.length > 0 ? 'border-rose-200 bg-rose-50' : 'border-slate-100'}`}>
-                            <div className={`text-2xl font-bold ${mismatches.length > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                {mismatches.length}
-                            </div>
-                            <div className="text-sm text-slate-500">คำตอบไม่ตรง</div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Results */}
-                {scanned && mismatches.length === 0 && (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-8 text-center">
-                        <CheckCircle2 size={48} className="mx-auto text-emerald-500 mb-3" />
-                        <h3 className="text-lg font-bold text-emerald-700">ผ่านการตรวจสอบทั้งหมด!</h3>
-                        <p className="text-emerald-600 text-sm mt-1">ไม่พบคำตอบที่ไม่ตรงกันในข้อสอบใดเลย</p>
-                    </div>
-                )}
-
-                {mismatches.length > 0 && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                        <div className="bg-rose-50 px-6 py-4 border-b border-rose-100 flex items-center gap-2">
-                            <AlertTriangle size={20} className="text-rose-600" />
-                            <h3 className="font-bold text-rose-800">พบคำตอบไม่ตรงกัน {mismatches.length} ข้อ</h3>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-slate-50 text-slate-500 text-left">
-                                        <th className="px-4 py-3 font-medium">ชุดข้อสอบ</th>
-                                        <th className="px-4 py-3 font-medium">ข้อที่</th>
-                                        <th className="px-4 py-3 font-medium">โจทย์</th>
-                                        <th className="px-4 py-3 font-medium text-center">ระบบ</th>
-                                        <th className="px-4 py-3 font-medium text-center">เฉลย</th>
-                                        <th className="px-4 py-3 font-medium text-center">แก้ไข</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {mismatches.map((m, i) => (
-                                        <tr key={i} className="border-t border-slate-100 hover:bg-slate-50">
-                                            <td className="px-4 py-3 font-medium text-slate-700">
-                                                <Link href={`/admin/exams/${m.examId}`} className="text-indigo-600 hover:underline">
-                                                    {m.examTitle}
-                                                </Link>
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-600">{m.questionIdx + 1}</td>
-                                            <td className="px-4 py-3 text-slate-500 max-w-xs truncate">{m.questionText}...</td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className="px-2 py-1 bg-rose-100 text-rose-700 rounded font-bold">ข้อ {m.storedAnswer + 1}</span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded font-bold">ข้อ {m.explainedAnswer + 1}</span>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className="text-amber-600 font-bold">→ ข้อ {m.explainedAnswer + 1}</span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
             </div>
+
+            {/* Stats */}
+            {scanned && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="kh-card p-4 text-center">
+                        <div className="kh-ink kh-num text-2xl font-bold">{stats.totalExams}</div>
+                        <div className="kh-ink3 text-sm mt-0.5">ชุดข้อสอบ</div>
+                    </div>
+                    <div className="kh-card p-4 text-center">
+                        <div className="kh-ink kh-num text-2xl font-bold">{stats.totalQuestions}</div>
+                        <div className="kh-ink3 text-sm mt-0.5">ข้อทั้งหมด</div>
+                    </div>
+                    <div className="kh-card p-4 text-center">
+                        <div className="kh-num text-2xl font-bold" style={{ color: 'var(--good)' }}>{stats.checked}</div>
+                        <div className="kh-ink3 text-sm mt-0.5">ตรวจสอบได้</div>
+                    </div>
+                    <div
+                        className="kh-card p-4 text-center"
+                        style={mismatches.length > 0 ? { borderColor: 'var(--danger)', background: 'var(--danger-soft)' } : undefined}
+                    >
+                        <div className="kh-num text-2xl font-bold" style={{ color: mismatches.length > 0 ? 'var(--danger)' : 'var(--good)' }}>
+                            {mismatches.length}
+                        </div>
+                        <div className="kh-ink3 text-sm mt-0.5">คำตอบไม่ตรง</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Results */}
+            {scanned && mismatches.length === 0 && (
+                <div className="kh-card p-8 text-center" style={{ borderColor: 'var(--good)', background: 'var(--good-soft)' }}>
+                    <CheckCircle2 size={48} className="mx-auto mb-3" style={{ color: 'var(--good)' }} />
+                    <h3 className="text-lg font-bold" style={{ color: 'var(--good)' }}>ผ่านการตรวจสอบทั้งหมด!</h3>
+                    <p className="kh-ink2 text-sm mt-1">ไม่พบคำตอบที่ไม่ตรงกันในข้อสอบใดเลย</p>
+                </div>
+            )}
+
+            {mismatches.length > 0 && (
+                <div className="kh-card overflow-hidden">
+                    <div
+                        className="px-6 py-4 flex items-center gap-2"
+                        style={{ background: 'var(--danger-soft)', borderBottom: '1px solid var(--line)' }}
+                    >
+                        <AlertTriangle size={20} style={{ color: 'var(--danger)' }} />
+                        <h3 className="font-bold" style={{ color: 'var(--danger)' }}>พบคำตอบไม่ตรงกัน {mismatches.length} ข้อ</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="kh-table">
+                            <thead>
+                                <tr>
+                                    <th>ชุดข้อสอบ</th>
+                                    <th>ข้อที่</th>
+                                    <th>โจทย์</th>
+                                    <th className="text-center">ระบบ</th>
+                                    <th className="text-center">เฉลย</th>
+                                    <th className="text-center">แก้ไข</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {mismatches.map((m, i) => (
+                                    <tr key={i}>
+                                        <td className="font-medium">
+                                            <Link href={`/admin/exams/${m.examId}`} className="hover:underline" style={{ color: 'var(--accent-ink)' }}>
+                                                {m.examTitle}
+                                            </Link>
+                                        </td>
+                                        <td className="kh-num">{m.questionIdx + 1}</td>
+                                        <td className="kh-ink3 max-w-xs truncate">{m.questionText}...</td>
+                                        <td className="text-center">
+                                            <span className="kh-pill kh-pill-danger no-dot">ข้อ {m.storedAnswer + 1}</span>
+                                        </td>
+                                        <td className="text-center">
+                                            <span className="kh-pill kh-pill-good no-dot">ข้อ {m.explainedAnswer + 1}</span>
+                                        </td>
+                                        <td className="text-center">
+                                            <span className="font-bold" style={{ color: 'var(--warn)' }}>→ ข้อ {m.explainedAnswer + 1}</span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

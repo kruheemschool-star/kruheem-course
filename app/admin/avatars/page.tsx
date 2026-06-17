@@ -18,7 +18,7 @@ import { uploadImageToStorage } from "@/lib/upload";
 import { useUserAuth } from "@/context/AuthContext";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import toast, { Toaster } from "react-hot-toast";
-import { ArrowLeft, Upload, Trash2, Loader2, ImageOff, AlertCircle, Plus, CheckSquare, Square, X } from "lucide-react";
+import { Upload, Trash2, Loader2, ImageOff, AlertCircle, Plus, CheckSquare, Square, X, Images, Layers, Star, FolderOpen, Sparkles } from "lucide-react";
 
 const DEFAULT_CATEGORIES = [
     { id: "kids", label: "เด็ก", emoji: "🧒", order: 0 },
@@ -447,295 +447,328 @@ export default function AdminAvatarsPage() {
     // === Auth gate ===
     if (authLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="animate-spin text-slate-400" size={32} />
+            <div className="flex items-center justify-center py-32">
+                <Loader2 className="animate-spin" size={32} style={{ color: "var(--ink-3)" }} />
             </div>
         );
     }
     if (!isAdmin) {
         return (
-            <div className="min-h-screen flex items-center justify-center p-8">
-                <div className="text-center max-w-sm">
-                    <h1 className="text-2xl font-bold text-slate-700">จำเป็นต้องเป็นแอดมิน</h1>
-                    <p className="text-slate-500 mt-2">เข้าสู่ระบบด้วยบัญชีแอดมินก่อน</p>
-                    <Link href="/" className="inline-block mt-4 px-4 py-2 bg-slate-800 text-white rounded-lg">
-                        กลับหน้าหลัก
-                    </Link>
-                </div>
+            <div className="kh-card p-10 flex flex-col items-center text-center gap-3 max-w-sm mx-auto">
+                <h1 className="text-2xl font-bold kh-ink">จำเป็นต้องเป็นแอดมิน</h1>
+                <p className="kh-ink2">เข้าสู่ระบบด้วยบัญชีแอดมินก่อน</p>
+                <Link href="/" className="kh-btn mt-2">กลับหน้าหลัก</Link>
             </div>
         );
     }
 
     const current = avatars[activeTab] || [];
 
+    // === Stats derived ONLY from data already loaded ===
+    const totalAvatars = Object.values(avatars).reduce((sum, list) => sum + list.length, 0);
+    const totalCategories = categories.length;
+    const emptyCategories = categories.filter((c) => (avatars[c.id]?.length || 0) === 0).length;
+    const topCategory = categories.reduce<{ label: string; count: number } | null>((best, c) => {
+        const count = avatars[c.id]?.length || 0;
+        if (!best || count > best.count) return { label: c.label, count };
+        return best;
+    }, null);
+
     return (
-        <div className="min-h-screen bg-slate-50 p-4 sm:p-8">
+        <div className="space-y-6">
             <Toaster position="top-right" />
-            <div className="max-w-6xl mx-auto">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/admin"
-                            className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 transition"
-                        >
-                            <ArrowLeft size={18} />
-                        </Link>
-                        <div>
-                            <h1 className="text-2xl sm:text-3xl font-black text-slate-800">
-                                🖼️ จัดการรูปประจำตัว
-                            </h1>
-                            <p className="text-slate-500 text-sm">
-                                เพิ่ม/ลบ รูปที่นักเรียนจะเลือกใช้เป็น avatar
-                            </p>
-                        </div>
-                    </div>
 
-                    {/* Upload + Cleanup buttons */}
-                    <div className="flex gap-2 flex-wrap">
-                        <Link
-                            href="/admin/avatars/cleanup"
-                            className="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 font-bold flex items-center gap-2 text-sm"
-                            title="ล้างรูปเก่าที่ไม่ใช้แล้ว"
-                        >
-                            🧹 ล้างรูปเก่า
-                        </Link>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                            onChange={handleFilesSelected}
-                        />
+            {/* Top toolbar */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                    <span className="kh-eyebrow"><Images size={14} /> คลังรูปประจำตัว</span>
+                    <span className="kh-pill kh-pill-accent no-dot">{totalAvatars} รูป</span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                    <Link
+                        href="/admin/avatars/cleanup"
+                        className="kh-btn-ghost"
+                        title="ล้างรูปเก่าที่ไม่ใช้แล้ว"
+                    >
+                        <Sparkles size={16} /> ล้างรูปเก่า
+                    </Link>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleFilesSelected}
+                    />
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="kh-btn"
+                    >
+                        {uploading ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin" />
+                                กำลังอัปโหลด ({uploadProgress.done}/{uploadProgress.total})
+                            </>
+                        ) : (
+                            <>
+                                <Upload size={16} />
+                                อัปโหลดรูปใหม่
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            {/* Stat chips */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="kh-card p-4 flex items-center justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-bold kh-ink3">รูปทั้งหมด</p>
+                        <p className="kh-num text-2xl font-black kh-ink mt-1">{totalAvatars}</p>
+                    </div>
+                    <Images size={22} style={{ color: "var(--accent)" }} />
+                </div>
+                <div className="kh-card p-4 flex items-center justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-bold kh-ink3">หมวดหมู่</p>
+                        <p className="kh-num text-2xl font-black kh-ink mt-1">{totalCategories}</p>
+                    </div>
+                    <Layers size={22} style={{ color: "var(--good)" }} />
+                </div>
+                <div className="kh-card p-4 flex items-center justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-bold kh-ink3">หมวดที่มีรูปมากสุด</p>
+                        <p className="text-base font-black kh-ink mt-1 truncate">{topCategory && topCategory.count > 0 ? topCategory.label : "—"}</p>
+                        {topCategory && topCategory.count > 0 && (
+                            <p className="kh-num text-xs kh-ink3">{topCategory.count} รูป</p>
+                        )}
+                    </div>
+                    <Star size={22} style={{ color: "var(--warn)" }} />
+                </div>
+                <div className="kh-card p-4 flex items-center justify-between gap-3">
+                    <div>
+                        <p className="text-xs font-bold kh-ink3">หมวดที่ยังว่าง</p>
+                        <p className="kh-num text-2xl font-black kh-ink mt-1">{emptyCategories}</p>
+                    </div>
+                    <FolderOpen size={22} style={{ color: "var(--danger)" }} />
+                </div>
+            </div>
+
+            {/* Helper note */}
+            <div className="kh-card p-4" style={{ background: "var(--accent-soft)", borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)" }}>
+                <p className="font-bold mb-1" style={{ color: "var(--accent-ink)" }}>เคล็ดลับ</p>
+                <ul className="list-disc pl-5 space-y-0.5 text-sm" style={{ color: "var(--accent-ink)" }}>
+                    <li>เลือกแท็บหมวดที่ต้องการก่อน แล้วค่อยอัปโหลด (อัปโหลดหลายรูปพร้อมกันได้)</li>
+                    <li>เพิ่ม/ลบหมวดหมู่ได้ด้านล่าง (ลบได้เฉพาะหมวดที่ไม่มีรูป)</li>
+                    <li>ระบบจะ compress รูปอัตโนมัติให้ขนาดเล็ก (≤512×512, ≤0.5MB) เพื่อประหยัด bandwidth</li>
+                    <li>รูปแนะนำ: สี่เหลี่ยมจัตุรัส, PNG มีพื้นหลังโปร่งใส</li>
+                    <li>ลบรูปจะไม่กระทบนักเรียนที่เลือกรูปนี้ไปแล้ว (URL เดิมยังใช้ได้)</li>
+                </ul>
+            </div>
+
+            {/* Category management */}
+            <div className="kh-card p-4">
+                <p className="font-bold kh-ink mb-3">จัดการหมวดหมู่</p>
+                <div className="flex flex-wrap items-center gap-2">
+                    <input
+                        type="text"
+                        value={newCategoryEmoji}
+                        onChange={(e) => setNewCategoryEmoji(e.target.value)}
+                        className="kh-input text-center"
+                        style={{ width: "5rem" }}
+                        placeholder="✨"
+                        maxLength={4}
+                    />
+                    <input
+                        type="text"
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addCategory()}
+                        className="kh-input flex-1"
+                        style={{ minWidth: "220px" }}
+                        placeholder="ชื่อหมวดหมู่ใหม่ (เช่น นักวิทย์)"
+                    />
+                    <button
+                        onClick={addCategory}
+                        disabled={addingCategory || !newCategoryName.trim()}
+                        className="kh-btn"
+                    >
+                        {addingCategory ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                        เพิ่มหมวดหมู่
+                    </button>
+                </div>
+                <p className="text-xs kh-ink3 mt-2">
+                    หมายเหตุ: ระบบจะสร้างรหัสหมวดหมู่อัตโนมัติจากชื่อหมวดที่กรอก
+                </p>
+            </div>
+
+            {/* Error banner */}
+            {fetchError && (
+                <div className="kh-card p-4 flex items-start gap-3" style={{ background: "var(--warn-soft)", borderColor: "color-mix(in srgb, var(--warn) 35%, transparent)" }}>
+                    <AlertCircle size={20} className="flex-shrink-0 mt-0.5" style={{ color: "var(--warn)" }} />
+                    <div className="text-sm">
+                        <p className="font-bold" style={{ color: "var(--warn)" }}>โหลดรูปไม่สำเร็จ</p>
+                        <p className="mt-1 font-mono text-xs" style={{ color: "var(--warn)" }}>{fetchError}</p>
                         <button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={uploading}
-                            className="px-5 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold flex items-center gap-2 shadow-lg shadow-indigo-200 disabled:opacity-50"
+                            onClick={fetchAll}
+                            className="kh-btn mt-2"
                         >
-                            {uploading ? (
-                                <>
-                                    <Loader2 size={18} className="animate-spin" />
-                                    กำลังอัปโหลด ({uploadProgress.done}/{uploadProgress.total})
-                                </>
-                            ) : (
-                                <>
-                                    <Upload size={18} />
-                                    อัปโหลดรูปใหม่
-                                </>
-                            )}
+                            ลองใหม่
                         </button>
                     </div>
                 </div>
+            )}
 
-                {/* Helper note */}
-                <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
-                    <p className="font-bold mb-1">💡 เคล็ดลับ</p>
-                    <ul className="list-disc pl-5 space-y-0.5 text-blue-700">
-                        <li>เลือกแท็บหมวดที่ต้องการก่อน แล้วค่อยอัปโหลด (อัปโหลดหลายรูปพร้อมกันได้)</li>
-                        <li>เพิ่ม/ลบหมวดหมู่ได้ด้านล่าง (ลบได้เฉพาะหมวดที่ไม่มีรูป)</li>
-                        <li>ระบบจะ compress รูปอัตโนมัติให้ขนาดเล็ก (≤512×512, ≤0.5MB) เพื่อประหยัด bandwidth</li>
-                        <li>รูปแนะนำ: สี่เหลี่ยมจัตุรัส, PNG มีพื้นหลังโปร่งใส</li>
-                        <li>ลบรูปจะไม่กระทบนักเรียนที่เลือกรูปนี้ไปแล้ว (URL เดิมยังใช้ได้)</li>
-                    </ul>
-                </div>
-
-                <div className="mb-6 bg-white border border-slate-200 rounded-xl p-4">
-                    <p className="font-bold text-slate-800 mb-3">จัดการหมวดหมู่</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <input
-                            type="text"
-                            value={newCategoryEmoji}
-                            onChange={(e) => setNewCategoryEmoji(e.target.value)}
-                            className="w-20 px-3 py-2 rounded-lg border border-slate-300 text-center"
-                            placeholder="✨"
-                            maxLength={4}
-                        />
-                        <input
-                            type="text"
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && addCategory()}
-                            className="min-w-[220px] flex-1 px-3 py-2 rounded-lg border border-slate-300"
-                            placeholder="ชื่อหมวดหมู่ใหม่ (เช่น นักวิทย์)"
-                        />
-                        <button
-                            onClick={addCategory}
-                            disabled={addingCategory || !newCategoryName.trim()}
-                            className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-bold disabled:opacity-50 flex items-center gap-2"
-                        >
-                            {addingCategory ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                            เพิ่มหมวดหมู่
-                        </button>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-2">
-                        หมายเหตุ: ระบบจะสร้างรหัสหมวดหมู่อัตโนมัติจากชื่อหมวดที่กรอก
-                    </p>
-                </div>
-
-                {/* Error banner */}
-                {fetchError && (
-                    <div className="mb-4 bg-amber-50 border-2 border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                        <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div className="text-sm">
-                            <p className="font-bold text-amber-800">โหลดรูปไม่สำเร็จ</p>
-                            <p className="text-amber-700 mt-1 font-mono text-xs">{fetchError}</p>
+            {/* Category filter tabs */}
+            <div className="flex flex-wrap gap-2">
+                {categories.map((t) => {
+                    const count = avatars[t.id]?.length || 0;
+                    const active = activeTab === t.id;
+                    return (
+                        <div key={t.id} className="flex items-center gap-1">
                             <button
-                                onClick={fetchAll}
-                                className="mt-2 px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700"
+                                onClick={() => { setActiveTab(t.id); setSelectedIds(new Set()); }}
+                                data-active={active}
+                                className="kh-tab flex items-center gap-2"
                             >
-                                ลองใหม่
+                                <span>{t.emoji}</span>
+                                <span>{t.label}</span>
+                                <span className="kh-pill kh-pill-ink no-dot kh-num" style={{ padding: "1px 8px" }}>
+                                    {count}
+                                </span>
+                            </button>
+                            <button
+                                onClick={() => handleDeleteCategory(t)}
+                                disabled={!t.persisted}
+                                className="p-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                                style={{ color: "var(--danger)" }}
+                                title={!t.persisted ? "หมวด fallback ลบไม่ได้" : count > 0 ? `ลบหมวดพร้อมรูป ${count} รูป` : "ลบหมวดหมู่"}
+                            >
+                                <Trash2 size={14} />
                             </button>
                         </div>
-                    </div>
-                )}
+                    );
+                })}
+            </div>
 
-                {/* Tabs */}
-                <div className="flex flex-wrap gap-2 mb-6">
-                    {categories.map((t) => {
-                        const count = avatars[t.id]?.length || 0;
-                        const active = activeTab === t.id;
+            {/* Selection mode toolbar */}
+            {current.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                    {selectionMode ? (
+                        <>
+                            <button
+                                onClick={exitSelectionMode}
+                                className="kh-btn-ghost"
+                            >
+                                <X size={16} />
+                                ยกเลิก
+                            </button>
+                            <button
+                                onClick={selectedIds.size === current.length ? deselectAll : selectAll}
+                                className="kh-btn-ghost"
+                            >
+                                {selectedIds.size === current.length ? <CheckSquare size={16} /> : <Square size={16} />}
+                                {selectedIds.size === current.length ? "เลิกเลือกทั้งหมด" : "เลือกทั้งหมด"}
+                            </button>
+                            {selectedIds.size > 0 && (
+                                <button
+                                    onClick={handleBulkDelete}
+                                    disabled={bulkDeleting}
+                                    className="kh-btn"
+                                    style={{ background: "linear-gradient(135deg, var(--danger), var(--danger))" }}
+                                >
+                                    {bulkDeleting ? (
+                                        <Loader2 size={16} className="animate-spin" />
+                                    ) : (
+                                        <Trash2 size={16} />
+                                    )}
+                                    ลบที่เลือก ({selectedIds.size})
+                                </button>
+                            )}
+                        </>
+                    ) : (
+                        <button
+                            onClick={() => setSelectionMode(true)}
+                            className="kh-btn-ghost"
+                        >
+                            <CheckSquare size={16} />
+                            เลือกหลายรูป
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {/* Upload dropzone + Grid */}
+            {loading ? (
+                <div className="kh-card p-16 flex flex-col items-center text-center gap-3" style={{ color: "var(--ink-3)" }}>
+                    <Loader2 className="animate-spin" size={32} />
+                    กำลังโหลด…
+                </div>
+            ) : current.length === 0 ? (
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="kh-card w-full p-16 flex flex-col items-center text-center gap-3 transition"
+                    style={{ borderStyle: "dashed", borderWidth: "2px", borderColor: "var(--line-2)", color: "var(--ink-3)" }}
+                >
+                    <ImageOff size={48} style={{ color: "var(--ink-3)" }} />
+                    <p className="font-bold kh-ink2">ยังไม่มีรูปในหมวดนี้</p>
+                    <p className="text-sm kh-ink3">
+                        กด &quot;อัปโหลดรูปใหม่&quot; ด้านบน หรือคลิกที่นี่เพื่อเพิ่มรูปแรก
+                    </p>
+                </button>
+            ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {current.map((a) => {
+                        const isSelected = selectedIds.has(a.id);
                         return (
-                            <div key={t.id} className="flex items-center gap-1">
-                                <button
-                                    onClick={() => { setActiveTab(t.id); setSelectedIds(new Set()); }}
-                                    className={`px-4 py-2 rounded-lg font-bold text-sm transition flex items-center gap-2 ${active
-                                        ? "bg-slate-800 text-white shadow-sm"
-                                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
-                                        }`}
-                                >
-                                    <span>{t.emoji}</span>
-                                    <span>{t.label}</span>
-                                    <span
-                                        className={`text-xs px-2 py-0.5 rounded-full ${active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
-                                            }`}
+                            <div
+                                key={a.id}
+                                onClick={selectionMode ? () => toggleSelect(a.id) : undefined}
+                                className="kh-card kh-card-h group relative p-3 cursor-pointer"
+                                style={
+                                    selectionMode && isSelected
+                                        ? { borderColor: "var(--accent)", boxShadow: "0 0 0 3px var(--accent-soft)" }
+                                        : undefined
+                                }
+                            >
+                                {selectionMode && (
+                                    <div className="absolute top-2 left-2 z-10">
+                                        {isSelected ? (
+                                            <CheckSquare size={20} style={{ color: "var(--accent)" }} />
+                                        ) : (
+                                            <Square size={20} style={{ color: "var(--ink-3)" }} />
+                                        )}
+                                    </div>
+                                )}
+                                <div className="aspect-square rounded-lg overflow-hidden flex items-center justify-center" style={{ background: "var(--card-2)" }}>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={a.url}
+                                        alt={a.label || "avatar"}
+                                        loading="lazy"
+                                        className="w-full h-full object-contain"
+                                        onError={(e) => {
+                                            (e.currentTarget as HTMLImageElement).style.opacity = "0.2";
+                                        }}
+                                    />
+                                </div>
+                                {!selectionMode && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(a); }}
+                                        className="absolute top-2 right-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition"
+                                        style={{ background: "var(--card)", border: "1px solid var(--line)", color: "var(--danger)" }}
+                                        title="ลบรูปนี้"
                                     >
-                                        {count}
-                                    </span>
-                                </button>
-                                <button
-                                    onClick={() => handleDeleteCategory(t)}
-                                    disabled={!t.persisted}
-                                    className="p-2 rounded-lg border border-slate-200 bg-white text-rose-500 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title={!t.persisted ? "หมวด fallback ลบไม่ได้" : count > 0 ? `ลบหมวดพร้อมรูป ${count} รูป` : "ลบหมวดหมู่"}
-                                >
-                                    <Trash2 size={14} />
-                                </button>
+                                        <Trash2 size={14} />
+                                    </button>
+                                )}
                             </div>
                         );
                     })}
                 </div>
-
-                {/* Selection mode toolbar */}
-                {current.length > 0 && (
-                    <div className="flex items-center gap-2 mb-4 flex-wrap">
-                        {selectionMode ? (
-                            <>
-                                <button
-                                    onClick={exitSelectionMode}
-                                    className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2"
-                                >
-                                    <X size={16} />
-                                    ยกเลิก
-                                </button>
-                                <button
-                                    onClick={selectedIds.size === current.length ? deselectAll : selectAll}
-                                    className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2"
-                                >
-                                    {selectedIds.size === current.length ? <CheckSquare size={16} /> : <Square size={16} />}
-                                    {selectedIds.size === current.length ? "เลิกเลือกทั้งหมด" : "เลือกทั้งหมด"}
-                                </button>
-                                {selectedIds.size > 0 && (
-                                    <button
-                                        onClick={handleBulkDelete}
-                                        disabled={bulkDeleting}
-                                        className="px-4 py-2 bg-rose-500 text-white rounded-lg font-bold text-sm hover:bg-rose-600 shadow-md shadow-rose-200 flex items-center gap-2 disabled:opacity-50"
-                                    >
-                                        {bulkDeleting ? (
-                                            <Loader2 size={16} className="animate-spin" />
-                                        ) : (
-                                            <Trash2 size={16} />
-                                        )}
-                                        ลบที่เลือก ({selectedIds.size})
-                                    </button>
-                                )}
-                            </>
-                        ) : (
-                            <button
-                                onClick={() => setSelectionMode(true)}
-                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-100 flex items-center gap-2"
-                            >
-                                <CheckSquare size={16} />
-                                เลือกหลายรูป
-                            </button>
-                        )}
-                    </div>
-                )}
-
-                {/* Grid */}
-                {loading ? (
-                    <div className="text-center py-20 text-slate-400">
-                        <Loader2 className="animate-spin mx-auto mb-3" size={32} />
-                        กำลังโหลด…
-                    </div>
-                ) : current.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
-                        <ImageOff className="mx-auto text-slate-300 mb-3" size={48} />
-                        <p className="text-slate-500 font-bold">ยังไม่มีรูปในหมวดนี้</p>
-                        <p className="text-slate-400 text-sm mt-1">
-                            กด &quot;อัปโหลดรูปใหม่&quot; ด้านบนเพื่อเพิ่มรูปแรก
-                        </p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {current.map((a) => {
-                            const isSelected = selectedIds.has(a.id);
-                            return (
-                                <div
-                                    key={a.id}
-                                    onClick={selectionMode ? () => toggleSelect(a.id) : undefined}
-                                    className={`group relative bg-white border-2 rounded-xl p-3 hover:shadow-md transition cursor-pointer ${
-                                        selectionMode && isSelected
-                                            ? "border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50/50"
-                                            : "border-slate-200"
-                                    }`}
-                                >
-                                    {selectionMode && (
-                                        <div className="absolute top-2 left-2 z-10">
-                                            {isSelected ? (
-                                                <CheckSquare size={20} className="text-indigo-600" />
-                                            ) : (
-                                                <Square size={20} className="text-slate-400" />
-                                            )}
-                                        </div>
-                                    )}
-                                    <div className="aspect-square rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                            src={a.url}
-                                            alt={a.label || "avatar"}
-                                            loading="lazy"
-                                            className="w-full h-full object-contain"
-                                            onError={(e) => {
-                                                (e.currentTarget as HTMLImageElement).style.opacity = "0.2";
-                                            }}
-                                        />
-                                    </div>
-                                    {!selectionMode && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDelete(a); }}
-                                            className="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-lg text-rose-500 hover:bg-rose-50 hover:border-rose-200 opacity-0 group-hover:opacity-100 transition"
-                                            title="ลบรูปนี้"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
+            )}
             <ConfirmDialog />
         </div>
     );

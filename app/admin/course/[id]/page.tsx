@@ -1483,7 +1483,7 @@ export default function ManageLessonsPage() {
 
     return (
 
-        <div className="min-h-screen bg-[#EEF2FF] p-6 md:p-10 font-sans text-slate-700 relative">
+        <div className="space-y-6 relative">
             {/* Global KaTeX Styles */}
             <style dangerouslySetInnerHTML={{ __html: katexGlobalStyles }} />
             {toast && (
@@ -1492,44 +1492,36 @@ export default function ManageLessonsPage() {
                 </div>
             )}
 
-            <div className="max-w-3xl mx-auto">
-                <div className="mb-8">
-                    <Link href="/admin/courses" className="inline-flex items-center gap-2 text-indigo-500 hover:text-indigo-700 mb-4 transition font-bold bg-white px-4 py-2 rounded-full shadow-sm">← กลับไปหน้ารวมคอร์ส</Link>
-                    <div className="flex items-center gap-4 mt-2">
-                        <div className="w-14 h-14 bg-indigo-500 rounded-2xl shadow-lg shadow-indigo-200 flex items-center justify-center text-white"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg></div>
-                        <div>
-                            <h1 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">จัดการบทเรียน</h1>
-                            <div className="flex items-center gap-4">
-                                <h2 className="text-3xl font-extrabold text-indigo-900">{courseTitle}</h2>
-                                <button
-                                    onClick={async () => {
-                                        setLoading(true);
-                                        await recalculateTotalLessons();
-                                        setLoading(false);
-                                        showToast("✅ คำนวณจำนวนบทเรียนใหม่เรียบร้อย!");
-                                    }}
-                                    className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-indigo-200"
-                                    title="กดปุ่มนี้ถ้ายอดรวมบทเรียนไม่ตรง"
-                                >
-                                    ↻ Recalculate Count
-                                </button>
-                                <Link
-                                    href={`/admin/course/${courseId}/sales-page`}
-                                    className="px-3 py-1 bg-pink-50 hover:bg-pink-100 text-pink-600 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-pink-200"
-                                    title="แก้ไขหน้า Sales Page ของคอร์สนี้"
-                                >
-                                    🎨 Sales Page
-                                </Link>
-                                <Link
-                                    href={`/admin/course/${courseId}/exam-results`}
-                                    className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold transition flex items-center gap-1 border border-indigo-200"
-                                    title="ดูผลการทำข้อสอบของนักเรียนในคอร์สนี้"
-                                >
-                                    📊 ผลสอบนักเรียน
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
+            <div>
+                {/* Toolbar: course title + actions (page chrome handled by admin shell) */}
+                <div className="flex flex-wrap items-center gap-3 mb-6">
+                    <h2 className="text-xl font-extrabold kh-ink mr-auto truncate">{courseTitle}</h2>
+                    <button
+                        onClick={async () => {
+                            setLoading(true);
+                            await recalculateTotalLessons();
+                            setLoading(false);
+                            showToast("✅ คำนวณจำนวนบทเรียนใหม่เรียบร้อย!");
+                        }}
+                        className="kh-btn-ghost"
+                        title="กดปุ่มนี้ถ้ายอดรวมบทเรียนไม่ตรง"
+                    >
+                        ↻ Recalculate Count
+                    </button>
+                    <Link
+                        href={`/admin/course/${courseId}/sales-page`}
+                        className="kh-btn-ghost"
+                        title="แก้ไขหน้า Sales Page ของคอร์สนี้"
+                    >
+                        🎨 Sales Page
+                    </Link>
+                    <Link
+                        href={`/admin/course/${courseId}/exam-results`}
+                        className="kh-btn-ghost"
+                        title="ดูผลการทำข้อสอบของนักเรียนในคอร์สนี้"
+                    >
+                        📊 ผลสอบนักเรียน
+                    </Link>
                 </div>
 
                 {/* ✅ Tab Navigation */}
@@ -1551,7 +1543,7 @@ export default function ManageLessonsPage() {
                 {
                     loading ? <div className="p-10 text-center text-indigo-400">กำลังโหลด...</div> : activeTab === 'lessons' ? (
                         <>
-                            <div className={`bg-white p-8 rounded-[2.5rem] shadow-xl shadow-indigo-100 border border-indigo-50 mb-10 transition-all duration-300 ${editId ? 'ring-4 ring-amber-200' : ''}`}>
+                            <div className={`kh-card p-8 mb-10 transition-all duration-300 ${editId ? 'ring-4 ring-amber-200' : ''}`}>
 
                                 {/* ✅ เพิ่มปุ่มเมนู 5 ปุ่ม (รวม Exercise) */}
                                 <div className="grid grid-cols-5 gap-2 p-2 bg-slate-100 rounded-3xl mb-8 overflow-x-auto">
@@ -2361,12 +2353,12 @@ export default function ManageLessonsPage() {
 
                                 <div className="grid md:grid-cols-2 gap-8">
                                     {/* Bulk Import */}
-                                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                                    <div className="kh-card p-6">
                                         <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">📥 นำเข้าบทเรียนทีละเยอะๆ (Bulk Import)</h4>
                                         <select
                                             value={bulkHeaderId}
                                             onChange={(e) => setBulkHeaderId(e.target.value)}
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl mb-3 outline-none"
+                                            className="kh-select mb-3"
                                         >
                                             <option value="">-- เลือกบทเรียนที่จะนำเข้า (Select Chapter) --</option>
                                             {availableHeaders.map((h) => (
@@ -2375,14 +2367,14 @@ export default function ManageLessonsPage() {
                                         </select>
                                         <textarea
                                             placeholder={`วางรายชื่อตอนที่นี่...\nตัวอย่าง:\nEP.1 ปูพื้นฐาน | https://youtu.be/...\nEP.2 ตะลุยโจทย์ | https://youtu.be/...`}
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none min-h-[150px] font-mono text-sm mb-4"
+                                            className="kh-textarea min-h-[150px] font-mono mb-4"
                                             value={bulkImportText}
                                             onChange={(e) => setBulkImportText(e.target.value)}
                                         />
                                         <button
                                             onClick={handleBulkImport}
                                             disabled={submitting}
-                                            className="w-full py-3 bg-indigo-100 text-indigo-700 font-bold rounded-xl hover:bg-indigo-200 transition"
+                                            className="kh-btn w-full"
                                         >
                                             {submitting ? 'กำลังทำงาน...' : '🚀 เริ่มนำเข้าข้อมูล'}
                                         </button>
@@ -2520,7 +2512,7 @@ export default function ManageLessonsPage() {
 
             {/* Floating bulk-action bar — sticky bottom, shown only when something is selected */}
             {selectedIds.size > 0 && (
-                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900 dark:bg-slate-800 text-white shadow-2xl shadow-slate-900/30 border border-slate-700/40 animate-in slide-in-from-bottom-4 duration-200">
+                <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900 text-white shadow-2xl shadow-slate-900/30 border border-slate-700/40 animate-in slide-in-from-bottom-4 duration-200">
                     <span className="text-sm font-bold">
                         เลือกแล้ว <span className="text-amber-300">{selectedIds.size}</span> รายการ
                     </span>

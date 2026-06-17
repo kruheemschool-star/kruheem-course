@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUserAuth } from "@/context/AuthContext";
 import { useAdminStats } from "@/hooks/useAdminStats";
 import { useAdminLearningStats } from "@/hooks/useAdminLearningStats";
 import {
-    ArrowLeft,
     Copy,
     Download,
     FileText,
     Loader2,
     Check,
     RefreshCw,
+    CalendarRange,
+    Sparkles,
+    ShieldCheck,
 } from "lucide-react";
 import {
     buildReportMarkdown,
@@ -182,8 +183,8 @@ export default function AdminReportsPage() {
 
     if (authLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <Loader2 className="animate-spin text-slate-400" size={28} />
+            <div className="flex items-center justify-center py-24">
+                <Loader2 className="animate-spin" size={28} style={{ color: "var(--ink-3)" }} />
             </div>
         );
     }
@@ -193,197 +194,223 @@ export default function AdminReportsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-700">
-            {/* Header */}
-            <header className="sticky top-0 z-20 bg-white border-b border-slate-200">
-                <div className="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/admin"
-                            prefetch={false}
-                            className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 transition-colors"
-                        >
-                            <ArrowLeft size={16} />
-                            <span>กลับ Admin</span>
-                        </Link>
-                        <span className="text-slate-300">/</span>
-                        <div className="flex items-center gap-2">
-                            <FileText size={18} className="text-indigo-500" />
-                            <h1 className="text-lg font-semibold text-slate-800">ส่งออกรายงานสถิติ</h1>
-                        </div>
-                    </div>
+        <div className="space-y-6">
+            {/* Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="kh-eyebrow">
+                    <FileText size={15} strokeWidth={1.9} /> ส่งออกรายงานสถิติ
                 </div>
-            </header>
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Range tabs */}
+                    <div className="flex flex-wrap items-center gap-1">
+                        {RANGE_OPTIONS.map(opt => (
+                            <button
+                                key={opt.value}
+                                onClick={() => setRange(opt.value)}
+                                className="kh-tab"
+                                data-active={range === opt.value}
+                                title={opt.hint}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
 
-            <main className="max-w-5xl mx-auto p-6 md:p-8 space-y-6">
-                {/* Intro card */}
-                <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 border border-indigo-100 rounded-xl p-5">
-                    <p className="text-sm text-slate-700 leading-relaxed">
-                        📋 ส่งออกข้อมูลสถิติเว็บไซต์เป็นไฟล์ <strong>Markdown</strong> เพื่อนำไปให้ AI ภายนอก (เช่น ChatGPT, Claude, Gemini) ช่วยวิเคราะห์
+                    {/* Month picker — only when range === "month" */}
+                    {range === "month" && (
+                        <select
+                            value={selectedMonth}
+                            onChange={e => setSelectedMonth(Number(e.target.value))}
+                            className="kh-select w-auto"
+                            aria-label="เลือกเดือน"
+                        >
+                            {[
+                                "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
+                                "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
+                            ].map((m, i) => (
+                                <option key={i} value={i}>{m}</option>
+                            ))}
+                        </select>
+                    )}
+
+                    {/* Year picker — show for month + year ranges */}
+                    <select
+                        value={selectedYear}
+                        onChange={e => setSelectedYear(Number(e.target.value))}
+                        className="kh-select w-auto"
+                        aria-label="เลือกปี"
+                    >
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                            <option key={year} value={year}>
+                                พ.ศ. {year + 543}
+                            </option>
+                        ))}
+                    </select>
+
+                    <button
+                        onClick={handleRefresh}
+                        disabled={statsLoading || learningLoading}
+                        className="kh-btn-ghost"
+                    >
+                        <RefreshCw size={14} strokeWidth={1.9} className={statsLoading || learningLoading ? "animate-spin" : ""} />
+                        รีเฟรชข้อมูล
+                    </button>
+                </div>
+            </div>
+
+            {/* Intro card */}
+            <div className="kh-card p-5 flex items-start gap-4">
+                <div
+                    className="flex items-center justify-center rounded-xl shrink-0"
+                    style={{ width: 44, height: 44, background: "var(--accent-soft)", color: "var(--accent-ink)" }}
+                >
+                    <Sparkles size={20} strokeWidth={1.8} />
+                </div>
+                <div className="space-y-2">
+                    <p className="text-sm leading-relaxed kh-ink2">
+                        ส่งออกข้อมูลสถิติเว็บไซต์เป็นไฟล์ <strong className="kh-ink">Markdown</strong> เพื่อนำไปให้ AI ภายนอก (เช่น ChatGPT, Claude, Gemini) ช่วยวิเคราะห์
                         — ครอบคลุม Traffic, Revenue, Learning Health และงานค้าง
                     </p>
-                    <p className="text-xs text-slate-500 mt-2">
-                        ⚠️ ข้อมูลที่ส่งออกเป็น <strong>aggregated stats</strong> เท่านั้น ไม่มี PII ของนักเรียน
+                    <p className="kh-eyebrow no-dot" style={{ textTransform: "none" }}>
+                        <ShieldCheck size={14} strokeWidth={1.9} style={{ color: "var(--good)" }} />
+                        ข้อมูลที่ส่งออกเป็น aggregated stats เท่านั้น ไม่มี PII ของนักเรียน
                     </p>
                 </div>
+            </div>
 
-                {/* Controls */}
-                <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-                    {/* Range picker */}
+            {/* Report cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Markdown export */}
+                <div className="kh-card kh-card-h p-5 flex flex-col gap-3">
+                    <div
+                        className="flex items-center justify-center rounded-xl"
+                        style={{ width: 40, height: 40, background: "var(--accent-soft)", color: "var(--accent-ink)" }}
+                    >
+                        <FileText size={19} strokeWidth={1.8} />
+                    </div>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                            ช่วงเวลา
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {RANGE_OPTIONS.map(opt => (
-                                <button
-                                    key={opt.value}
-                                    onClick={() => setRange(opt.value)}
-                                    className={`px-4 py-3 rounded-lg border text-sm font-medium transition-all ${
-                                        range === opt.value
-                                            ? "bg-slate-800 text-white border-slate-800 shadow-sm"
-                                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                                    }`}
-                                >
-                                    <div className="font-semibold">{opt.label}</div>
-                                    <div className={`text-[11px] mt-0.5 ${range === opt.value ? "text-slate-300" : "text-slate-400"}`}>
-                                        {opt.hint}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
+                        <div className="text-sm font-semibold kh-ink">คัดลอก Markdown</div>
+                        <p className="text-xs kh-ink3 mt-1 leading-relaxed">
+                            คัดลอกรายงานทั้งหมดไปวางในแชต AI ได้ทันที
+                        </p>
                     </div>
-
-                    {/* Year + Month pickers */}
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                        <div className="flex items-center gap-3 flex-wrap">
-                            {/* Month picker — only when range === "month" */}
-                            {range === "month" && (
-                                <div className="flex items-center gap-2">
-                                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                                        เลือกเดือน:
-                                    </label>
-                                    <select
-                                        value={selectedMonth}
-                                        onChange={e => setSelectedMonth(Number(e.target.value))}
-                                        className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium outline-none cursor-pointer hover:border-slate-300"
-                                    >
-                                        {[
-                                            "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
-                                            "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
-                                        ].map((m, i) => (
-                                            <option key={i} value={i}>{m}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {/* Year picker — show for month + year ranges */}
-                            <div className="flex items-center gap-2">
-                                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                                    {range === "month" ? "ปี:" : range === "year" ? "เลือกปี:" : "ปี (สำหรับสรุปรายปี):"}
-                                </label>
-                                <select
-                                    value={selectedYear}
-                                    onChange={e => setSelectedYear(Number(e.target.value))}
-                                    className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium outline-none cursor-pointer hover:border-slate-300"
-                                >
-                                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                                        <option key={year} value={year}>
-                                            พ.ศ. {year + 543}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleRefresh}
-                            disabled={statsLoading || learningLoading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-                        >
-                            <RefreshCw size={12} className={statsLoading || learningLoading ? "animate-spin" : ""} />
-                            รีเฟรชข้อมูล
-                        </button>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100">
-                        <button
-                            onClick={handleCopy}
-                            disabled={!isReady}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {copied ? (
-                                <>
-                                    <Check size={16} />
-                                    คัดลอกแล้ว
-                                </>
-                            ) : (
-                                <>
-                                    <Copy size={16} />
-                                    คัดลอก Markdown
-                                </>
-                            )}
-                        </button>
-                        <button
-                            onClick={handleDownload}
-                            disabled={!isReady}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Download size={16} />
-                            ดาวน์โหลด .md
-                        </button>
-                        {isReady && (
-                            <span className="text-xs text-slate-400 ml-auto">
-                                {lineCount.toLocaleString()} บรรทัด · {charCount.toLocaleString()} ตัวอักษร
-                            </span>
+                    <button
+                        onClick={handleCopy}
+                        disabled={!isReady}
+                        className="kh-btn mt-auto"
+                    >
+                        {copied ? (
+                            <>
+                                <Check size={15} strokeWidth={2} />
+                                คัดลอกแล้ว
+                            </>
+                        ) : (
+                            <>
+                                <Copy size={15} strokeWidth={1.9} />
+                                คัดลอก Markdown
+                            </>
                         )}
-                    </div>
+                    </button>
                 </div>
 
-                {/* Status banner */}
-                {(statsLoading || (!learningFetched && learningLoading)) && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
-                        <Loader2 className="animate-spin text-amber-600" size={18} />
-                        <p className="text-sm text-amber-800">
-                            กำลังโหลดข้อมูล… (สถิติเว็บ + การเรียน)
+                {/* Download .md */}
+                <div className="kh-card kh-card-h p-5 flex flex-col gap-3">
+                    <div
+                        className="flex items-center justify-center rounded-xl"
+                        style={{ width: 40, height: 40, background: "var(--good-soft)", color: "var(--good)" }}
+                    >
+                        <Download size={19} strokeWidth={1.8} />
+                    </div>
+                    <div>
+                        <div className="text-sm font-semibold kh-ink">ดาวน์โหลด .md</div>
+                        <p className="text-xs kh-ink3 mt-1 leading-relaxed">
+                            บันทึกรายงานเป็นไฟล์ Markdown เก็บไว้
                         </p>
                     </div>
-                )}
+                    <button
+                        onClick={handleDownload}
+                        disabled={!isReady}
+                        className="kh-btn-ghost mt-auto"
+                    >
+                        <Download size={15} strokeWidth={1.9} />
+                        ดาวน์โหลด .md
+                    </button>
+                </div>
 
-                {!learningFetched && !learningLoading && !statsLoading && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
-                        <p className="text-sm text-amber-800">
-                            ⚠️ ส่วน "สถิติการเรียน" ยังไม่ได้โหลด — กดปุ่มเพื่อดึงข้อมูลก่อน export
-                        </p>
-                        <button
-                            onClick={fetchLearningStats}
-                            className="px-4 py-2 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 transition-colors"
-                        >
-                            โหลดข้อมูลการเรียน
-                        </button>
+                {/* Range summary */}
+                <div className="kh-card p-5 flex flex-col gap-3">
+                    <div
+                        className="flex items-center justify-center rounded-xl"
+                        style={{ width: 40, height: 40, background: "var(--warn-soft)", color: "var(--warn)" }}
+                    >
+                        <CalendarRange size={19} strokeWidth={1.8} />
                     </div>
-                )}
-
-                {/* Preview */}
-                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
-                        <div className="flex items-center gap-2">
-                            <FileText size={14} className="text-slate-400" />
-                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                                Preview (Markdown)
+                    <div>
+                        <div className="text-sm font-semibold kh-ink">ช่วงเวลาที่เลือก</div>
+                        <p className="text-xs kh-ink3 mt-1 leading-relaxed">
+                            {RANGE_OPTIONS.find(o => o.value === range)?.label} ·{" "}
+                            {RANGE_OPTIONS.find(o => o.value === range)?.hint}
+                        </p>
+                    </div>
+                    {isReady && (
+                        <div className="mt-auto flex flex-wrap gap-2">
+                            <span className="kh-pill kh-pill-ink no-dot kh-num">
+                                {lineCount.toLocaleString()} บรรทัด
+                            </span>
+                            <span className="kh-pill kh-pill-ink no-dot kh-num">
+                                {charCount.toLocaleString()} ตัวอักษร
                             </span>
                         </div>
-                    </div>
-                    <textarea
-                        readOnly
-                        value={markdown}
-                        placeholder={statsLoading ? "กำลังสร้างรายงาน..." : "ไม่มีข้อมูล"}
-                        spellCheck={false}
-                        className="w-full h-[600px] p-5 font-mono text-xs leading-relaxed text-slate-700 bg-white outline-none resize-none"
-                    />
+                    )}
                 </div>
-            </main>
+            </div>
+
+            {/* Status banner */}
+            {(statsLoading || (!learningFetched && learningLoading)) && (
+                <div
+                    className="kh-card p-4 flex items-center gap-3"
+                    style={{ background: "var(--warn-soft)", borderColor: "transparent" }}
+                >
+                    <Loader2 className="animate-spin" size={18} style={{ color: "var(--warn)" }} />
+                    <p className="text-sm font-medium" style={{ color: "var(--warn)" }}>
+                        กำลังโหลดข้อมูล… (สถิติเว็บ + การเรียน)
+                    </p>
+                </div>
+            )}
+
+            {!learningFetched && !learningLoading && !statsLoading && (
+                <div
+                    className="kh-card p-4 flex items-center justify-between gap-3 flex-wrap"
+                    style={{ background: "var(--warn-soft)", borderColor: "transparent" }}
+                >
+                    <p className="text-sm font-medium" style={{ color: "var(--warn)" }}>
+                        ส่วน &quot;สถิติการเรียน&quot; ยังไม่ได้โหลด — กดปุ่มเพื่อดึงข้อมูลก่อน export
+                    </p>
+                    <button onClick={fetchLearningStats} className="kh-btn">
+                        โหลดข้อมูลการเรียน
+                    </button>
+                </div>
+            )}
+
+            {/* Preview */}
+            <div className="kh-card overflow-hidden">
+                <div
+                    className="flex items-center justify-between px-5 py-3"
+                    style={{ borderBottom: "1px solid var(--line)", background: "var(--card-2)" }}
+                >
+                    <div className="kh-eyebrow">
+                        <FileText size={14} strokeWidth={1.9} /> Preview (Markdown)
+                    </div>
+                </div>
+                <textarea
+                    readOnly
+                    value={markdown}
+                    placeholder={statsLoading ? "กำลังสร้างรายงาน..." : "ไม่มีข้อมูล"}
+                    spellCheck={false}
+                    className="w-full h-[600px] p-5 font-mono text-xs leading-relaxed outline-none resize-none kh-ink2"
+                    style={{ background: "var(--card-2)", border: "none" }}
+                />
+            </div>
         </div>
     );
 }
