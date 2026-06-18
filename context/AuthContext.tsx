@@ -256,10 +256,9 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         };
     }, [user?.uid]);
 
-    // 3. Admin Pending Count — polling every 5 min (NOT a realtime listener,
-    //    by design: cost). Extracted as a stable callback so admin actions
-    //    can recount immediately after changing the pending set. One
-    //    aggregation read per call; the interval is unchanged (safety net).
+    // 3. Admin Pending Count — kept as a stable callback for callers that want an
+    //    immediate one-shot recount after an action (a single aggregation read).
+    //    The live value comes from the realtime listener below.
     const refreshPendingCount = useCallback(async () => {
         if (!isAdmin) return;
         try {
@@ -271,15 +270,24 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [isAdmin]);
 
+    // Realtime pending-count: ONE push-based onSnapshot listener (NOT polling).
+    // Firestore pushes only when the "pending" set actually changes, so a newly
+    // submitted slip reflects in the badge instantly — with no repeated requests
+    // and no fixed-interval timer. It reads the (small) pending set once on attach,
+    // then only the changed docs thereafter. Cleaned up on logout/unmount.
     useEffect(() => {
         if (!isAdmin) {
             setPendingCount(0);
             return;
         }
-        refreshPendingCount();
-        const interval = setInterval(refreshPendingCount, 5 * 60 * 1000); // Poll every 5 min
-        return () => clearInterval(interval);
-    }, [isAdmin, refreshPendingCount]);
+        const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
+        const unsubscribe = onSnapshot(
+            q,
+            (snap) => setPendingCount(snap.size),
+            (error) => console.error("Pending count listener error:", error)
+        );
+        return () => unsubscribe();
+    }, [isAdmin]);
 
     const contextValue = useMemo(() => ({
         user,

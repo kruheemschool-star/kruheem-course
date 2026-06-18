@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
@@ -43,8 +43,33 @@ export default function AdminEnrollmentsPage() {
         }
     };
 
+    // Realtime: a single push-based listener so newly-submitted slips appear
+    // instantly (no polling / no manual refresh). Same query as fetchData, so it
+    // reuses the existing composite index. Cleaned up on unmount.
     useEffect(() => {
-        fetchData();
+        const q = query(
+            collection(db, "enrollments"),
+            where("status", "==", "pending"),
+            orderBy("createdAt", "desc")
+        );
+        const unsubscribe = onSnapshot(
+            q,
+            (snapshot) => {
+                setEnrollments(snapshot.docs.map(d => ({
+                    id: d.id,
+                    ...d.data(),
+                    formattedDate: d.data().createdAt?.toDate
+                        ? d.data().createdAt.toDate().toLocaleString('th-TH', {
+                            day: 'numeric', month: 'short', year: '2-digit',
+                            hour: '2-digit', minute: '2-digit'
+                        })
+                        : '-'
+                })));
+                setLoading(false);
+            },
+            (error) => { console.error("Enrollments listener error:", error); setLoading(false); }
+        );
+        return () => unsubscribe();
     }, []);
 
     const [selectedDurations, setSelectedDurations] = useState<Record<string, string>>({});
