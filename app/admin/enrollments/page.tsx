@@ -251,7 +251,9 @@ export default function AdminEnrollmentsPage() {
                         const amount = item.discountAmount > 0 ? item.finalPrice : item.price;
                         const slipUrls = ((item.slipUrls && item.slipUrls.length > 0 ? item.slipUrls : [item.slipUrl]) as string[]).filter(Boolean);
                         return (
-                            <div className="space-y-4">
+                            <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(320px,400px)] gap-4 items-start">
+                              {/* ===== LEFT: slip-related details ===== */}
+                              <div className="space-y-4 min-w-0">
 
                                 {/* Header */}
                                 <div className="kh-card p-5 flex items-center gap-4 flex-wrap">
@@ -308,17 +310,8 @@ export default function AdminEnrollmentsPage() {
                                     </div>
 
                                     {slipUrls.length > 0 && (
-                                        <div className="mt-5 grid grid-cols-2 gap-2">
-                                            {slipUrls.map((url: string, i: number) => (
-                                                <a key={i} href={url} target="_blank" rel="noreferrer" className="block rounded-xl overflow-hidden relative group cursor-pointer" style={{ border: "1px solid rgba(94,234,212,0.22)", background: "rgba(255,255,255,0.05)" }}>
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={url} alt={`Slip ${i + 1}`} className="w-full h-40 object-cover transition-transform group-hover:scale-105" />
-                                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-sm font-bold gap-1" style={{ background: "rgba(0,0,0,0.35)" }}>
-                                                        <ZoomIn size={16} /> ดูรูปใหญ่
-                                                    </div>
-                                                    {slipUrls.length > 1 && <span className="absolute top-2 left-2 text-white text-[11px] px-2 py-0.5 rounded-full font-bold" style={{ background: "rgba(0,0,0,0.55)" }}>{i + 1}/{slipUrls.length}</span>}
-                                                </a>
-                                            ))}
+                                        <div className="mt-4 text-xs xl:hidden" style={{ color: "#8FD8CB" }}>
+                                            ดูรูปสลิปเต็มใบด้านล่าง ↓
                                         </div>
                                     )}
                                 </div>
@@ -415,6 +408,34 @@ export default function AdminEnrollmentsPage() {
                                         <X size={16} /> ปฏิเสธ
                                     </button>
                                 </div>
+                              </div>{/* end LEFT column */}
+
+                              {/* ===== RIGHT: full transfer-slip image(s), uncropped ===== */}
+                              <div className="xl:sticky xl:top-20">
+                                <div className="kh-card p-3">
+                                    <div className="kh-eyebrow px-1 mb-2 flex items-center gap-1.5">
+                                        <ArrowDownLeft size={14} /> สลิปที่แนบมา
+                                    </div>
+                                    {slipUrls.length === 0 ? (
+                                        <div className="p-8 text-center text-sm kh-ink3">ไม่มีไฟล์สลิปแนบมา</div>
+                                    ) : (
+                                        <div className="space-y-3 xl:max-h-[calc(100vh-160px)] xl:overflow-y-auto">
+                                            {slipUrls.map((url: string, i: number) => (
+                                                <a key={i} href={url} target="_blank" rel="noreferrer"
+                                                    className="group block relative rounded-xl overflow-hidden"
+                                                    style={{ border: "1px solid var(--line)", background: "var(--card-2)" }}>
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={url} alt={`สลิป ${i + 1}`} className="w-full h-auto block" />
+                                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-sm font-bold gap-1" style={{ background: "rgba(0,0,0,0.35)" }}>
+                                                        <ZoomIn size={16} /> เปิดรูปเต็ม
+                                                    </div>
+                                                    {slipUrls.length > 1 && <span className="absolute top-2 left-2 text-white text-[11px] px-2 py-0.5 rounded-full font-bold" style={{ background: "rgba(0,0,0,0.55)" }}>{i + 1}/{slipUrls.length}</span>}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                              </div>
                             </div>
                         );
                     })()}
