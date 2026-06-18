@@ -5,6 +5,7 @@ import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, 
 import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
+import toast from "react-hot-toast";
 import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Building2, Calendar, Hash, Phone, Mail, CheckCircle2, Clock, Inbox, ZoomIn } from "lucide-react";
 
 export default function AdminEnrollmentsPage() {
@@ -155,13 +156,13 @@ export default function AdminEnrollmentsPage() {
                 console.error("Error updating public_stats:", statError);
             }
 
-            alert("✅ อนุมัติเรียบร้อย! (กำหนดเวลาเรียน 5 ปี)");
+            toast.success("อนุมัติเรียบร้อย! (กำหนดเวลาเรียน 5 ปี)");
             setConfirmApproveId(null);
             fetchData(); // รีโหลดข้อมูล
             refreshPendingCount(); // recount badge immediately (self-guarded, fire-and-forget)
         } catch (error) {
             console.error("Error:", error);
-            alert("เกิดข้อผิดพลาด");
+            toast.error("เกิดข้อผิดพลาด ลองอีกครั้ง");
         }
     };
 
@@ -375,7 +376,7 @@ export default function AdminEnrollmentsPage() {
 
                                     <button
                                         onClick={async () => {
-                                            if (!item.userId) return alert("ไม่พบข้อมูล User ID");
+                                            if (!item.userId) { toast.error("ไม่พบข้อมูล User ID"); return; }
                                             try {
                                                 // Ensure chat exists
                                                 await setDoc(doc(db, "chats", item.userId), {
@@ -392,7 +393,7 @@ export default function AdminEnrollmentsPage() {
                                                 window.location.href = `/admin/chat?chatId=${item.userId}`;
                                             } catch (err) {
                                                 console.error(err);
-                                                alert("เกิดข้อผิดพลาดในการเปิดแชท");
+                                                toast.error("เกิดข้อผิดพลาดในการเปิดแชท");
                                             }
                                         }}
                                         className="kh-btn-ghost flex-1"
