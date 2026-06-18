@@ -1159,6 +1159,85 @@ h6 {
     padding: 10px;
 }
 
+/* draggable nav rows + favourite star + drag handle */
+.kh-nav-row {
+    position: relative;
+}
+
+.kh-nav-row.is-dragging {
+    z-index: 50;
+}
+
+.kh-row-actions {
+    position: absolute;
+    top: 0;
+    right: 6px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    pointer-events: none;
+}
+
+.kh-row-actions > * {
+    pointer-events: auto;
+}
+
+.kh-fav-star,
+.kh-row-grip {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: var(--side-ink-2);
+    opacity: 0;
+    transition: opacity .15s ease, color .15s ease, background .15s ease;
+}
+
+.kh-nav-row:hover .kh-fav-star,
+.kh-nav-row:hover .kh-row-grip {
+    opacity: 1;
+}
+
+.kh-fav-star[data-fav="true"] {
+    opacity: 1;
+    color: var(--accent-2);
+}
+
+.kh-fav-star:hover {
+    color: #fff;
+    background: var(--side-line);
+}
+
+.kh-row-grip {
+    cursor: grab;
+    touch-action: none;
+}
+
+.kh-row-grip:hover {
+    color: #fff;
+    background: var(--side-line);
+}
+
+.kh-row-grip:active {
+    cursor: grabbing;
+}
+
+/* leave room on the link for the hover actions */
+.kh-nav-row .kh-side-link {
+    padding-right: 48px;
+}
+
+.is-collapsed .kh-row-actions {
+    display: none;
+}
+
+.is-collapsed .kh-nav-row .kh-side-link {
+    padding-right: 10px;
+}
+
 /* topbar */
 .kh-topbar {
     position: sticky;

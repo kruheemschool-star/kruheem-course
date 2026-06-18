@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -8,11 +8,19 @@ import { useUserAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getCountFromServer } from "firebase/firestore";
 import {
+    DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+    type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+    arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
     LayoutDashboard, Wallet, Ticket, Gift, Download,
     BookOpen, ClipboardList, ScrollText, Newspaper,
     Users, Smile, Activity,
     MessageCircle, LifeBuoy, Megaphone, Star, BarChart3,
-    Menu, Search, Bell, Sun, Moon, LogOut, Home,
+    Menu, Search, Bell, Sun, Moon, LogOut, Home, GripVertical,
     type LucideIcon,
 } from "lucide-react";
 
@@ -25,15 +33,17 @@ type NavItem = {
     match?: string[];
 };
 
-type NavGroup = { title?: string; items: NavItem[] };
+type NavGroup = { key: string; title?: string; items: NavItem[] };
 
 const NAV: NavGroup[] = [
     {
+        key: "overview",
         items: [
             { href: "/admin", label: "ภาพรวมระบบ", icon: LayoutDashboard },
         ],
     },
     {
+        key: "finance",
         title: "การเงิน",
         items: [
             { href: "/admin/enrollments", label: "ตรวจสอบชำระเงิน", icon: Wallet, badge: "pending" },
@@ -43,6 +53,7 @@ const NAV: NavGroup[] = [
         ],
     },
     {
+        key: "content",
         title: "เนื้อหา",
         items: [
             { href: "/admin/courses", label: "จัดการคอร์สเรียน", icon: BookOpen, match: ["/admin/course"] },
@@ -52,6 +63,7 @@ const NAV: NavGroup[] = [
         ],
     },
     {
+        key: "learners",
         title: "ผู้เรียน",
         items: [
             { href: "/admin/students", label: "ทะเบียนนักเรียน", icon: Users },
@@ -60,6 +72,7 @@ const NAV: NavGroup[] = [
         ],
     },
     {
+        key: "comms",
         title: "การสื่อสาร",
         items: [
             { href: "/admin/chat", label: "แชทกับลูกค้า", icon: MessageCircle },
@@ -70,6 +83,13 @@ const NAV: NavGroup[] = [
         ],
     },
 ];
+
+const ITEM_BY_HREF: Record<string, NavItem> = {};
+for (const g of NAV) for (const it of g.items) ITEM_BY_HREF[it.href] = it;
+const ALL_HREFS = Object.keys(ITEM_BY_HREF);
+
+const FAV_KEY = "kh-fav-menu";
+const ORDER_KEY = "kh-nav-order";
 
 // Page title + subtitle per route (longest-prefix match)
 const PAGE_META: { prefix: string; exact?: boolean; title: string; subtitle: string }[] = [
@@ -123,6 +143,78 @@ function initialsOf(email?: string | null) {
     return name.slice(0, 2).toUpperCase();
 }
 
+/** merge a saved order with the canonical list: saved-first (existing only), then any new items */
+function applyOrder(base: string[], saved: string[]): string[] {
+    const set = new Set(base);
+    return [...saved.filter((h) => set.has(h)), ...base.filter((h) => !saved.includes(h))];
+}
+
+/* ---------- one draggable nav row ---------- */
+function NavRow({
+    sortId, item, active, count, fav, canEdit, onToggleFav,
+}: {
+    sortId: string;
+    item: NavItem;
+    active: boolean;
+    count: number;
+    fav: boolean;
+    canEdit: boolean;
+    onToggleFav: (href: string) => void;
+}) {
+    const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+        useSortable({ id: sortId, disabled: !canEdit });
+    const Icon = item.icon;
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.55 : 1,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className={`kh-nav-row ${isDragging ? "is-dragging" : ""}`}>
+            <Link href={item.href} data-active={active} className="kh-side-link" title={item.label}>
+                <Icon size={18} strokeWidth={1.8} className="shrink-0" />
+                <span className="kh-label flex-1">{item.label}</span>
+                {count > 0 && (
+                    <span
+                        className="kh-label text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0"
+                        style={{ background: item.badge === "pending" ? "var(--danger)" : "var(--warn)" }}
+                    >
+                        {count}
+                    </span>
+                )}
+            </Link>
+
+            {canEdit && (
+                <div className="kh-row-actions kh-label">
+                    <button
+                        type="button"
+                        aria-label={fav ? "เอาออกจากรายการโปรด" : "เพิ่มเข้ารายการโปรด"}
+                        title={fav ? "เอาออกจากรายการโปรด" : "เพิ่มเข้ารายการโปรด"}
+                        data-fav={fav}
+                        className="kh-fav-star"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFav(item.href); }}
+                    >
+                        <Star size={14} strokeWidth={2} fill={fav ? "currentColor" : "none"} />
+                    </button>
+                    <button
+                        type="button"
+                        aria-label="ลากเพื่อจัดเรียง"
+                        title="ลากเพื่อจัดเรียง"
+                        className="kh-row-grip"
+                        ref={setActivatorNodeRef}
+                        {...attributes}
+                        {...listeners}
+                    >
+                        <GripVertical size={15} strokeWidth={1.8} />
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function AdminShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname() || "/admin";
     const { user, logOut, pendingCount } = useUserAuth();
@@ -133,11 +225,24 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     const [mobileOpen, setMobileOpen] = useState(false);
     const [ticketsCount, setTicketsCount] = useState(0);
 
-    // restore collapse preference
+    // user-customisable nav
+    const [favs, setFavs] = useState<string[]>([]);
+    const [order, setOrder] = useState<Record<string, string[]>>({});
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    );
+
+    // restore preferences
     useEffect(() => {
         setMounted(true);
         try {
             setCollapsed(localStorage.getItem("kh-collapsed") === "1");
+            const f = JSON.parse(localStorage.getItem(FAV_KEY) || "[]");
+            if (Array.isArray(f)) setFavs(f.filter((h) => ALL_HREFS.includes(h)));
+            const o = JSON.parse(localStorage.getItem(ORDER_KEY) || "{}");
+            if (o && typeof o === "object") setOrder(o);
         } catch { /* ignore */ }
     }, []);
 
@@ -170,6 +275,69 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         });
     }, []);
 
+    const persistFavs = (next: string[]) => {
+        try { localStorage.setItem(FAV_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    };
+    const persistOrder = (next: Record<string, string[]>) => {
+        try { localStorage.setItem(ORDER_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    };
+
+    const toggleFav = useCallback((href: string) => {
+        setFavs((prev) => {
+            const next = prev.includes(href) ? prev.filter((h) => h !== href) : [...prev, href];
+            persistFavs(next);
+            return next;
+        });
+    }, []);
+
+    const favSet = useMemo(() => new Set(favs), [favs]);
+
+    // favourite items (in saved order)
+    const favItems = useMemo(
+        () => favs.map((h) => ITEM_BY_HREF[h]).filter(Boolean) as NavItem[],
+        [favs]
+    );
+
+    // per-group items: saved order, minus anything that's been favourited
+    const groupsView = useMemo(() => {
+        return NAV.map((g) => {
+            const base = g.items.map((i) => i.href);
+            const ordered = applyOrder(base, order[g.key] || []);
+            const items = ordered.filter((h) => !favSet.has(h)).map((h) => ITEM_BY_HREF[h]);
+            return { ...g, view: items };
+        });
+    }, [order, favSet]);
+
+    const canEdit = mounted && !collapsed; // drag/star only when expanded
+
+    const handleDragEnd = (e: DragEndEvent) => {
+        const { active, over } = e;
+        if (!over || active.id === over.id) return;
+        const [cA, hA] = String(active.id).split("::");
+        const [cB, hB] = String(over.id).split("::");
+        if (cA !== cB) return; // reorder only within the same list
+
+        if (cA === "_fav") {
+            setFavs((prev) => {
+                const from = prev.indexOf(hA), to = prev.indexOf(hB);
+                if (from < 0 || to < 0) return prev;
+                const next = arrayMove(prev, from, to);
+                persistFavs(next);
+                return next;
+            });
+            return;
+        }
+        const grp = NAV.find((g) => g.key === cA);
+        if (!grp) return;
+        const base = grp.items.map((i) => i.href);
+        const current = applyOrder(base, order[cA] || []);
+        const from = current.indexOf(hA), to = current.indexOf(hB);
+        if (from < 0 || to < 0) return;
+        const next = { ...order, [cA]: arrayMove(current, from, to) };
+        setOrder(next);
+        persistOrder(next);
+    };
+
     const meta = resolvePageMeta(pathname);
     const isDark = mounted && theme === "dark";
     const badgeFor = (k?: NavItem["badge"]) =>
@@ -177,7 +345,6 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
     return (
         <div className={`kh-admin kh-shell ${collapsed ? "is-collapsed" : ""} ${mobileOpen ? "is-mobile-open" : ""}`}>
-            {/* backdrop (mobile drawer) */}
             <div className="kh-backdrop" onClick={() => setMobileOpen(false)} aria-hidden />
 
             {/* ============ SIDEBAR ============ */}
@@ -203,42 +370,66 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
                 {/* nav */}
                 <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
-                    {NAV.map((group, gi) => (
-                        <div key={gi} className="space-y-1">
-                            {group.title && <div className="kh-side-group mb-1 mt-1">{group.title}</div>}
-                            {group.items.map((item) => {
-                                const active = isActive(item, pathname);
-                                const Icon = item.icon;
-                                const count = badgeFor(item.badge);
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        data-active={active}
-                                        className="kh-side-link"
-                                        title={item.label}
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        {/* favourites */}
+                        {favItems.length > 0 && (
+                            <div className="space-y-1">
+                                <div className="kh-side-group mb-1 mt-1 flex items-center gap-1.5">
+                                    <Star size={11} strokeWidth={2.4} fill="currentColor" />
+                                    รายการโปรด
+                                </div>
+                                <SortableContext
+                                    items={favItems.map((it) => `_fav::${it.href}`)}
+                                    strategy={verticalListSortingStrategy}
+                                >
+                                    {favItems.map((it) => (
+                                        <NavRow
+                                            key={`fav-${it.href}`}
+                                            sortId={`_fav::${it.href}`}
+                                            item={it}
+                                            active={isActive(it, pathname)}
+                                            count={badgeFor(it.badge)}
+                                            fav
+                                            canEdit={canEdit}
+                                            onToggleFav={toggleFav}
+                                        />
+                                    ))}
+                                </SortableContext>
+                            </div>
+                        )}
+
+                        {/* grouped nav */}
+                        {groupsView.map((group) =>
+                            group.view.length === 0 ? null : (
+                                <div key={group.key} className="space-y-1">
+                                    {group.title && <div className="kh-side-group mb-1 mt-1">{group.title}</div>}
+                                    <SortableContext
+                                        items={group.view.map((it) => `${group.key}::${it.href}`)}
+                                        strategy={verticalListSortingStrategy}
                                     >
-                                        <Icon size={18} strokeWidth={1.8} className="shrink-0" />
-                                        <span className="kh-label flex-1">{item.label}</span>
-                                        {count > 0 && (
-                                            <span
-                                                className={`kh-label text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white shrink-0`}
-                                                style={{ background: item.badge === "pending" ? "var(--danger)" : "var(--warn)" }}
-                                            >
-                                                {count}
-                                            </span>
-                                        )}
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    ))}
+                                        {group.view.map((it) => (
+                                            <NavRow
+                                                key={`${group.key}-${it.href}`}
+                                                sortId={`${group.key}::${it.href}`}
+                                                item={it}
+                                                active={isActive(it, pathname)}
+                                                count={badgeFor(it.badge)}
+                                                fav={false}
+                                                canEdit={canEdit}
+                                                onToggleFav={toggleFav}
+                                            />
+                                        ))}
+                                    </SortableContext>
+                                </div>
+                            )
+                        )}
+                    </DndContext>
                 </nav>
 
                 {/* profile + logout */}
                 <div className="shrink-0 border-t p-3" style={{ borderColor: "var(--side-line)" }}>
                     <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[12px] font-semibold text-white shrink-0"
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-[12px] font-semibold shrink-0"
                             style={{ background: "linear-gradient(135deg,#5EEAD4,#0D9488)", color: "#06231F" }}>
                             {initialsOf(user?.email)}
                         </div>
