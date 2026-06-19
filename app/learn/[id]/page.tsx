@@ -42,6 +42,9 @@ function CoursePlayer() {
     const [openSections, setOpenSections] = useState<string[]>([]);
 
     const [completedLessons, setCompletedLessons] = useState<string[]>([]);
+    // Where the student left off last time (read once on entry — for the "เรียนต่อ" banner)
+    const [resumeState, setResumeState] = useState<{ lessonId: string; lessonTitle?: string; timestamp?: number } | null>(null);
+    const [resumeDismissed, setResumeDismissed] = useState(false);
     const [isNotesOpen, setIsNotesOpen] = useState(false);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [isAnswered, setIsAnswered] = useState(false);
@@ -229,6 +232,22 @@ function CoursePlayer() {
         }
     }, [user?.uid, courseId]);
 
+    // Read the last-watched state ONCE on entry (lesson + video second) so we can
+    // surface a "เรียนต่อจากครั้งก่อน" banner. (course_states is written live while watching.)
+    useEffect(() => {
+        if (!user || !courseId) { setResumeState(null); return; }
+        let alive = true;
+        getDoc(doc(db, "users", user.uid, "course_states", courseId))
+            .then((s) => {
+                if (alive && s.exists() && s.data().lessonId) {
+                    const d = s.data();
+                    setResumeState({ lessonId: d.lessonId, lessonTitle: d.lessonTitle, timestamp: d.timestamp });
+                }
+            })
+            .catch(() => { /* ignore */ });
+        return () => { alive = false; };
+    }, [user?.uid, courseId]);
+
     const progressPercent = useMemo(() => {
         if (visibleLessons.length === 0) return 0;
         const learnableLessons = visibleLessons.filter(l => l.type !== 'header');
@@ -238,6 +257,19 @@ function CoursePlayer() {
         const percent = (validCompletedCount / totalLearnable) * 100;
         return Math.min(100, Math.round(percent));
     }, [visibleLessons, completedLessons]);
+
+    // "เรียนต่อ" banner: the last-watched lesson, shown only when it still exists in this
+    // course and the student isn't already viewing it (and hasn't dismissed it this visit).
+    const resumeLesson = useMemo(
+        () => (resumeState ? visibleLessons.find((l) => l.id === resumeState.lessonId && l.type !== 'header') || null : null),
+        [resumeState, visibleLessons]
+    );
+    const showResume = !!resumeState && !!resumeLesson && resumeLesson.id !== activeLesson?.id && !resumeDismissed;
+    const fmtMMSS = (s?: number) => {
+        if (!s || s < 1) return null;
+        const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+        return `${m}:${sec.toString().padStart(2, "0")}`;
+    };
 
     const changeLesson = (lesson: Lesson | null) => {
         if (lesson?.id === activeLesson?.id) return;
@@ -469,6 +501,7 @@ function CoursePlayer() {
                 toggleSection={toggleSection}
                 changeLesson={changeLesson}
                 completedLessons={completedLessons}
+                lastLessonId={resumeState?.lessonId || null}
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
                 isLessonUnlocked={isLessonUnlocked}
                 isEnrolled={isEnrolled}
@@ -540,6 +573,35 @@ function CoursePlayer() {
                         )}
                     </div>
                 </header>
+
+                {/* 📍 "เรียนต่อจากครั้งก่อน" banner — surfaces the last-watched lesson + video position */}
+                {showResume && resumeLesson && (
+                    <div className="mx-4 md:mx-10 mt-4 flex items-center gap-3 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <span className="text-xl flex-shrink-0">📍</span>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] md:text-xs font-bold text-indigo-500 dark:text-indigo-300 uppercase tracking-wide">เรียนต่อจากครั้งก่อน</p>
+                            <p className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                                {resumeState?.lessonTitle || resumeLesson.title}
+                                {fmtMMSS(resumeState?.timestamp) && (
+                                    <span className="font-medium text-slate-500 dark:text-slate-400"> · ดูค้างไว้ที่ {fmtMMSS(resumeState?.timestamp)}</span>
+                                )}
+                            </p>
+                        </div>
+                        <a
+                            href={`/learn/${courseId}?lessonId=${resumeLesson.id}${resumeState?.timestamp ? `&t=${Math.floor(resumeState.timestamp)}` : ""}`}
+                            className="flex-shrink-0 inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm transition shadow-sm"
+                        >
+                            <span>▶</span> เรียนต่อ
+                        </a>
+                        <button
+                            onClick={() => setResumeDismissed(true)}
+                            aria-label="ปิด"
+                            className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200/70 dark:hover:bg-slate-700 transition"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
 
                 <LessonContent
                     activeLesson={activeLesson}

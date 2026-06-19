@@ -19,6 +19,7 @@ interface LessonSidebarProps {
     toggleSection: (id: string) => void;
     changeLesson: (lesson: Lesson) => void;
     completedLessons: string[];
+    lastLessonId?: string | null;
     setIsMobileMenuOpen: (open: boolean) => void;
     isLessonUnlocked: (lesson: Lesson) => boolean;
     isEnrolled: boolean;
@@ -41,6 +42,7 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
     toggleSection,
     changeLesson,
     completedLessons,
+    lastLessonId,
     setIsMobileMenuOpen,
     isLessonUnlocked,
     isEnrolled,
@@ -279,6 +281,9 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                                                                 <span>{lesson.type === 'video' ? 'Video' : lesson.type === 'quiz' ? 'Quiz' : lesson.type === 'exercise' ? 'Exercise' : lesson.type === 'practice' ? 'แบบฝึกหัด' : lesson.type === 'html' ? 'ตะลุยโจทย์ (Exam)' : lesson.type === 'flashcard' ? 'Flashcard' : 'Reading'}</span>
                                                             </div>
                                                         </div>
+                                                        {lastLessonId === lesson.id && !isActive && (
+                                                            <span className="ml-auto flex-shrink-0 text-[10px] font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/40 px-1.5 py-0.5 rounded-md whitespace-nowrap">📍 ล่าสุด</span>
+                                                        )}
                                                         {(!isUnlocked || (lesson.type === 'html' && !isEnrolled && !isAdmin)) && <span className="ml-auto text-xs">🔒</span>}
                                                     </button>
                                                 );
