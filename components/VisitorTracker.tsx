@@ -240,5 +240,23 @@ export default function VisitorTracker() {
         recordPageView();
     }, [pathname, isAdmin]);
 
+    // === 3. Logged-in Member Presence: record the page they're currently on ===
+    //     Anonymous visitors are handled above; this mirrors it for members so the
+    //     admin "online users" list can show each member's current page. Writes ONLY
+    //     on an actual route change (throttle), and skips admins + admin pages.
+    const lastMemberPathRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (loading || !user) return;
+        if (isAdmin || isAdminSession()) return;
+        if (!pathname || pathname.startsWith('/admin')) return;
+        if (pathname === lastMemberPathRef.current) return;
+        lastMemberPathRef.current = pathname;
+
+        setDoc(doc(db, "users", user.uid), {
+            currentPage: pathname,
+            lastActive: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+    }, [pathname, user, isAdmin, loading]);
+
     return null;
 }

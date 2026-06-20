@@ -184,7 +184,7 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
                     userEmail: data.email || userDoc.id,
                     lastAccessedAt: data.lastActive,
                     isMember: false,
-                    currentActivity: 'กำลังเยี่ยมชมเว็บไซต์',
+                    currentActivity: data.currentPage ? `กำลังดูหน้า: ${data.currentPage}` : 'กำลังเยี่ยมชมเว็บไซต์',
                     sessionStart: data.sessionStart,
                 });
             });
