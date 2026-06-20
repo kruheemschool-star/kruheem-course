@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
 import { useAdminStats } from "@/hooks/useAdminStats";
@@ -114,6 +114,14 @@ export default function AdminDashboard() {
         setIsRefreshing(false);
     };
 
+    // Auto-load online users ONCE per visit, after the main data is ready (so member
+    // status resolves correctly). Not polled — admin can hit "รีเฟรช" to update.
+    useEffect(() => {
+        if (!loading && !onlineFetched && !onlineLoading) {
+            fetchOnlineUsers();
+        }
+    }, [loading, onlineFetched, onlineLoading, fetchOnlineUsers]);
+
     // ---- derived KPI values (all from real data) ----
     const cm = new Date().getMonth();
     const uniqueStudents = useMemo(
@@ -145,6 +153,27 @@ export default function AdminDashboard() {
 
     return (
         <div className="space-y-7">
+            {/* ============ ผู้ใช้งานออนไลน์ (auto-load, top) ============ */}
+            <div>
+                <SectionHead icon={Radio} title="ผู้ใช้งานออนไลน์">
+                    {onlineFetched && (
+                        <button onClick={fetchOnlineUsers} disabled={onlineLoading} className="kh-btn-ghost text-[12px]">
+                            <RefreshCw size={13} className={onlineLoading ? "animate-spin" : ""} />รีเฟรช
+                        </button>
+                    )}
+                </SectionHead>
+                {!onlineFetched ? (
+                    <div className="kh-card p-10 flex items-center justify-center gap-2 kh-ink3">
+                        <Loader2 className="animate-spin" size={18} /><span className="text-[13px]">กำลังโหลดข้อมูลผู้ใช้งานออนไลน์...</span>
+                    </div>
+                ) : (
+                    <OnlineUsersWidget
+                        onlineUsers={onlineUsers}
+                        formatOnlineDuration={formatOnlineDuration}
+                        todayVisitors={dailyVisits[new Date().toISOString().split("T")[0]] || 0} />
+                )}
+            </div>
+
             {/* ============ HERO: urgent tasks ============ */}
             {totalUrgent > 0 ? (
                 <section className="kh-card p-5" style={{ background: "var(--card)" }}>
@@ -222,7 +251,7 @@ export default function AdminDashboard() {
                         value={`${stats.retentionRate.toFixed(1)}%`} sub="สมัคร > 1 คอร์ส" />
                     <Kpi icon={Radio} label="ออนไลน์ตอนนี้"
                         value={onlineFetched ? onlineUsers.length.toLocaleString() : "—"}
-                        sub={onlineFetched ? "ผู้ใช้กำลังออนไลน์" : "กดโหลดด้านล่าง"} live highlight />
+                        sub={onlineFetched ? "ผู้ใช้กำลังออนไลน์" : "กำลังโหลด..."} live highlight />
                 </div>
             )}
 
@@ -286,33 +315,6 @@ export default function AdminDashboard() {
                         </div>
                         <ContentPerformance mostEngagingLessons={mostEngagingLessons} dropOffPoints={dropOffPoints} />
                     </div>
-                )}
-            </div>
-
-            {/* ============ ONLINE NOW (lazy) ============ */}
-            <div>
-                <SectionHead icon={Radio} title="ผู้ใช้งานออนไลน์">
-                    {onlineFetched && (
-                        <button onClick={fetchOnlineUsers} disabled={onlineLoading} className="kh-btn-ghost text-[12px]">
-                            <RefreshCw size={13} className={onlineLoading ? "animate-spin" : ""} />รีเฟรช
-                        </button>
-                    )}
-                </SectionHead>
-                {!onlineFetched && !onlineLoading ? (
-                    <div className="kh-card p-8 flex flex-col items-center gap-3">
-                        <Eye size={26} className="kh-ink3" />
-                        <p className="text-[13px] kh-ink3">ข้อมูลผู้ใช้งานออนไลน์ยังไม่ถูกโหลด</p>
-                        <button onClick={fetchOnlineUsers} className="kh-btn"><Eye size={15} />โหลดข้อมูลออนไลน์</button>
-                    </div>
-                ) : onlineLoading ? (
-                    <div className="kh-card p-10 flex items-center justify-center gap-2 kh-ink3">
-                        <Loader2 className="animate-spin" size={18} /><span className="text-[13px]">กำลังโหลดข้อมูลผู้ใช้งานออนไลน์...</span>
-                    </div>
-                ) : (
-                    <OnlineUsersWidget
-                        onlineUsers={onlineUsers}
-                        formatOnlineDuration={formatOnlineDuration}
-                        todayVisitors={dailyVisits[new Date().toISOString().split("T")[0]] || 0} />
                 )}
             </div>
 
