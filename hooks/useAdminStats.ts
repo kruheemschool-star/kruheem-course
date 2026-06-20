@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where, doc, getDoc, deleteDoc, orderBy, limit, Timestamp, getCountFromServer } from "firebase/firestore";
+import { pageLabel } from "@/lib/pageLabel";
 
 export interface Enrollment {
     id: string;
@@ -184,7 +185,7 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
                     userEmail: data.email || userDoc.id,
                     lastAccessedAt: data.lastActive,
                     isMember: false,
-                    currentActivity: data.currentPage ? `กำลังดูหน้า: ${data.currentPage}` : 'กำลังเยี่ยมชมเว็บไซต์',
+                    currentActivity: data.currentPage ? pageLabel(data.currentPage) : 'กำลังเยี่ยมชมเว็บไซต์',
                     sessionStart: data.sessionStart,
                 });
             });
@@ -219,7 +220,7 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
                 return {
                     userEmail: `anonymous_${d.id}`,
                     userName: `เยี่ยมชม ${idx + 1}`,
-                    currentActivity: `กำลังดูหน้า: ${data.currentPage || '/'}`,
+                    currentActivity: pageLabel(data.currentPage || '/'),
                     isMember: false,
                     isStudying: false,
                     userType: 'ผู้เยี่ยมชม',
