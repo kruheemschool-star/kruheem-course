@@ -145,7 +145,7 @@ const tryParseJson = (str: string) => {
 };
 
 // ✨ Component แสดงกลุ่มบทเรียน
-const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, handleMoveLesson, onDragEnd, selectedIds, toggleSelect, toggleSelectGroup }: { group: any, handleEdit: any, handleDelete: any, handleToggleVisibility: any, handleMoveLesson: any, onDragEnd: (event: DragEndEvent, groupItems: any[]) => void, selectedIds: Set<string>, toggleSelect: (id: string) => void, toggleSelectGroup: (ids: string[]) => void }) => {
+const LessonGroup = ({ group, handleEdit, handleDelete, handleExport, handleToggleVisibility, handleMoveLesson, onDragEnd, selectedIds, toggleSelect, toggleSelectGroup }: { group: any, handleEdit: any, handleDelete: any, handleExport: any, handleToggleVisibility: any, handleMoveLesson: any, onDragEnd: (event: DragEndEvent, groupItems: any[]) => void, selectedIds: Set<string>, toggleSelect: (id: string) => void, toggleSelectGroup: (ids: string[]) => void }) => {
     const [isOpen, setIsOpen] = useState(true);
     const itemIds: string[] = group.items.map((l: any) => l.id);
     const groupCheckIds: string[] = group.header ? [group.header.id, ...itemIds] : itemIds;
@@ -191,8 +191,9 @@ const LessonGroup = ({ group, handleEdit, handleDelete, handleToggleVisibility, 
                 <div className="flex items-center gap-3">
                     {group.header && (
                         <div className="flex gap-1 mr-2" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => handleEdit(group.header)} className="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition">✏️</button>
-                            <button onClick={() => handleDelete(group.header.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">🗑</button>
+                            <button onClick={() => handleExport(group)} className="p-2 text-teal-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition" title="คัดลอกชื่อตอน + ลิงก์วิดีโอ">📋</button>
+                            <button onClick={() => handleEdit(group.header)} className="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition" title="แก้ไขชื่อบท">✏️</button>
+                            <button onClick={() => handleDelete(group.header.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="ลบบท">🗑</button>
                         </div>
                     )}
                     <button className={`transform transition-transform duration-300 text-indigo-300 ${isOpen ? 'rotate-180' : ''}`}>▼</button>
@@ -731,6 +732,46 @@ export default function ManageLessonsPage() {
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
         const match = url.match(regExp);
         return (match && match[2].length === 11) ? match[2] : url;
+    };
+
+    // 📋 คัดลอกรายชื่อตอน + ลิงก์วิดีโอ ของบทนั้นๆ (ฟอร์แมตเดียวกับ Bulk Import: "ชื่อตอน | ลิงก์")
+    const handleExportChapter = async (group: any) => {
+        const items: any[] = group?.items || [];
+        if (items.length === 0) {
+            showToast("บทนี้ยังไม่มีตอนให้คัดลอก", "error");
+            return;
+        }
+
+        const text = items
+            .map((l: any) => {
+                const url = l.videoId ? `https://youtu.be/${l.videoId}` : "";
+                return url ? `${l.title} | ${url}` : l.title;
+            })
+            .join('\n');
+
+        const chapterTitle = group.header ? group.header.title : "บทที่ยังไม่จัดหมวด";
+
+        const done = () => showToast(`📋 คัดลอก ${items.length} ตอนจาก "${chapterTitle}" แล้ว`);
+
+        try {
+            await navigator.clipboard.writeText(text);
+            done();
+        } catch {
+            // Fallback สำหรับเบราว์เซอร์/บริบทที่ใช้ async clipboard ไม่ได้
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.opacity = "0";
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand("copy");
+                done();
+            } catch {
+                showToast("คัดลอกไม่สำเร็จ ลองใหม่อีกครั้ง", "error");
+            }
+            document.body.removeChild(ta);
+        }
     };
 
     const fetchCourseInfo = useCallback(async () => {
@@ -2318,6 +2359,7 @@ export default function ManageLessonsPage() {
                                                         group={group}
                                                         handleEdit={handleEditClick}
                                                         handleDelete={handleDelete}
+                                                        handleExport={handleExportChapter}
                                                         handleToggleVisibility={handleToggleVisibility}
                                                         handleMoveLesson={handleMoveLesson}
                                                         onDragEnd={handleDragEnd}
@@ -2336,6 +2378,7 @@ export default function ManageLessonsPage() {
                                             group={group}
                                             handleEdit={handleEditClick}
                                             handleDelete={handleDelete}
+                                            handleExport={handleExportChapter}
                                             handleToggleVisibility={handleToggleVisibility}
                                             handleMoveLesson={handleMoveLesson}
                                             onDragEnd={handleDragEnd}
