@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
 import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, ClipboardList, BarChart3, Settings, FolderPlus, AlertCircle, Pencil, Check, X, ChevronDown, ChevronUp, Download, FileText, BookOpen, Loader2 } from "lucide-react";
@@ -516,6 +516,7 @@ export default function ExamManagerPage() {
             await batch.commit();
             setCategories(prev => prev.map((c: any) => c.id === id ? { ...c, name } : c));
             setExams(prev => prev.map(e => e.category === oldName ? { ...e, category: name } : e));
+            revalidateExamPages();
             toast.success(`เปลี่ยนชื่อหมวดเป็น "${name}" แล้ว`);
         } catch (e) {
             console.error('Error renaming category:', e);
@@ -537,11 +538,30 @@ export default function ExamManagerPage() {
         fetchExamConfig();
     }, [authLoading, isAdmin]);
 
+    // Bust the ISR cache on the student-facing /exam pages right after an admin
+    // change, so things like flipping "ทำฟรี" show up immediately instead of
+    // waiting up to 5 min for the next time-based revalidation. Best-effort and
+    // fire-and-forget: the Firestore write is what matters; if this fails the
+    // page just falls back to its normal revalidate window, so we only warn.
+    const revalidateExamPages = async () => {
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) return;
+            await fetch("/api/revalidate-exams", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+        } catch (e) {
+            console.warn("Revalidate exam pages failed (non-fatal):", e);
+        }
+    };
+
     const handleDelete = (id: string) => {
         confirmModal("ยืนยันการลบชุดข้อสอบ", "คุณแน่ใจหรือไม่ว่าจะลบชุดข้อสอบนี้? การกระทำนี้ไม่สามารถย้อนกลับได้", async () => {
             try {
                 await deleteDoc(doc(db, "exams", id));
                 setExams(prev => prev.filter(exam => exam.id !== id));
+                revalidateExamPages();
                 alert("ลบสำเร็จ!");
             } catch (error) {
                 console.error("Error deleting exam:", error);
@@ -556,6 +576,7 @@ export default function ExamManagerPage() {
                 isFree: !currentStatus
             });
             setExams(prev => prev.map(exam => exam.id === id ? { ...exam, isFree: !currentStatus } : exam));
+            revalidateExamPages();
         } catch (error) {
             console.error("Error updating exam free status:", error);
             alert("เกิดข้อผิดพลาดในการอัปเดตสิทธิ์การเข้าถึง");
@@ -568,6 +589,7 @@ export default function ExamManagerPage() {
                 hidden: !currentStatus
             });
             setExams(prev => prev.map(exam => exam.id === id ? { ...exam, hidden: !currentStatus } : exam));
+            revalidateExamPages();
         } catch (error) {
             console.error("Error updating exam hidden status:", error);
             alert("เกิดข้อผิดพลาดในการอัปเดตสถานะซ่อน");
@@ -580,6 +602,7 @@ export default function ExamManagerPage() {
                 showAnswerChecking: !currentStatus
             });
             setExams(prev => prev.map(exam => exam.id === id ? { ...exam, showAnswerChecking: !currentStatus } : exam));
+            revalidateExamPages();
         } catch (error) {
             console.error("Error updating answer checking status:", error);
             alert("เกิดข้อผิดพลาดในการอัปเดตสถานะตรวจคำตอบ");
@@ -592,6 +615,7 @@ export default function ExamManagerPage() {
                 category: newCategory
             });
             setExams(prev => prev.map(exam => exam.id === id ? { ...exam, category: newCategory } : exam));
+            revalidateExamPages();
         } catch (error) {
             console.error("Error updating exam category:", error);
             alert("เกิดข้อผิดพลาดในการอัปเดตหมวดหมู่");
@@ -641,6 +665,7 @@ export default function ExamManagerPage() {
             setIsAddModalOpen(false);
             setNewExamTitle("");
             fetchExams();
+            revalidateExamPages();
             alert("เพิ่มชุดข้อสอบใหม่แล้ว!");
         } catch (err) {
             console.error(err);
@@ -678,6 +703,7 @@ export default function ExamManagerPage() {
                 batch.update(ref, { order: index });
             });
             await batch.commit();
+            revalidateExamPages();
         } catch (error) {
             console.error("Error saving order:", error);
             alert("เกิดข้อผิดพลาดในการบันทึกลำดับ");
