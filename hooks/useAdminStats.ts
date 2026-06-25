@@ -2,6 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where, doc, getDoc, deleteDoc, orderBy, limit, Timestamp, getCountFromServer } from "firebase/firestore";
 import { pageLabel } from "@/lib/pageLabel";
+import { ADMIN_EMAILS } from "@/lib/constants";
+
+// Exam/course titles can contain embedded newlines (e.g. "แบบฝึกหัด\nสอบเข้า ม.1");
+// collapse whitespace so the online-users activity line reads as one clean phrase.
+const cleanTitle = (t: unknown): string => String(t ?? "").replace(/\s+/g, " ").trim();
 
 export interface Enrollment {
     id: string;
@@ -27,6 +32,7 @@ export interface OnlineUser {
     sessionStart?: any;
     lastAccessedAt?: any;
     isAnonymous?: boolean;
+    isAdmin?: boolean;
     device?: string;
 }
 
@@ -164,15 +170,28 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
 
             const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
-            // 3 queries for online presence (no fallbacks — if index missing, just show empty)
-            const [snapOnlineEnrollments, snapOnlineUsers, snapAnonymous] = await Promise.all([
+            // 3 presence queries + 2 lightweight title feeds (so we can name the
+            // specific course classroom / exam set a user is on). The title feeds
+            // are the cached, metadata-only /api/* endpoints — no extra heavy
+            // Firestore reads here. No fallbacks — if anything fails, just show empty.
+            const [snapOnlineEnrollments, snapOnlineUsers, snapAnonymous, examTitles, courseTitles] = await Promise.all([
                 getDocs(query(collection(db, "enrollments"), where("lastAccessedAt", ">", tenMinutesAgo)))
                     .catch(() => ({ docs: [] as any[] })),
                 getDocs(query(collection(db, "users"), where("lastActive", ">", tenMinutesAgo)))
                     .catch(() => ({ docs: [] as any[] })),
                 getDocs(query(collection(db, "anonymous_visitors"), where("lastActive", ">", tenMinutesAgo)))
                     .catch(() => ({ docs: [] as any[] })),
+                fetch("/api/feature-exams")
+                    .then(r => r.ok ? r.json() : { exams: [] })
+                    .then((d: any) => Object.fromEntries((d.exams || []).map((e: any) => [e.id, cleanTitle(e.title)])) as Record<string, string>)
+                    .catch(() => ({} as Record<string, string>)),
+                fetch("/api/home-courses")
+                    .then(r => r.ok ? r.json() : { courses: [] })
+                    .then((d: any) => Object.fromEntries((d.courses || []).map((c: any) => [c.id, cleanTitle(c.title)])) as Record<string, string>)
+                    .catch(() => ({} as Record<string, string>)),
             ]);
+
+            const titleMaps = { examTitles, courseTitles };
 
             const onlineMap = new Map();
 
@@ -185,7 +204,7 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
                     userEmail: data.email || userDoc.id,
                     lastAccessedAt: data.lastActive,
                     isMember: false,
-                    currentActivity: data.currentPage ? pageLabel(data.currentPage) : 'กำลังเยี่ยมชมเว็บไซต์',
+                    currentActivity: data.currentPage ? pageLabel(data.currentPage, titleMaps) : 'กำลังเยี่ยมชมเว็บไซต์',
                     sessionStart: data.sessionStart,
                 });
             });
@@ -205,13 +224,19 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
                 }
             });
 
+            // Admins log in like anyone else, so AuthContext writes their
+            // `lastActive` and they surface in this list — but they have no
+            // enrollment, so without this check they'd be mislabeled "แขกทั่วไป".
+            const adminSet = new Set(ADMIN_EMAILS.map(e => e.toLowerCase()));
             const uniqueOnline = Array.from(onlineMap.values());
             const finalOnlineUsers = uniqueOnline.map((user: any) => {
+                const isAdmin = adminSet.has((user.userEmail || '').toLowerCase());
                 const isMember = enrollments.some(e => e.userEmail === user.userEmail);
                 return {
                     ...user,
+                    isAdmin,
                     isMember,
-                    userType: isMember ? 'สมาชิก' : 'แขกทั่วไป'
+                    userType: isAdmin ? 'แอดมิน' : (isMember ? 'สมาชิก' : 'แขกทั่วไป')
                 };
             });
 
@@ -220,7 +245,7 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
                 return {
                     userEmail: `anonymous_${d.id}`,
                     userName: `เยี่ยมชม ${idx + 1}`,
-                    currentActivity: pageLabel(data.currentPage || '/'),
+                    currentActivity: pageLabel(data.currentPage || '/', titleMaps),
                     isMember: false,
                     isStudying: false,
                     userType: 'ผู้เยี่ยมชม',
