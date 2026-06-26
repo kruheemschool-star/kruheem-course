@@ -133,7 +133,7 @@ export default function Navbar() {
                             </div>
 
                             {isAdmin && (
-                                <Link href="/admin" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs text-slate-600 bg-slate-100 hover:bg-indigo-100 hover:text-indigo-600 transition-all hover:-translate-y-0.5 relative" title="ระบบจัดการ (Admin)">
+                                <Link href={pendingCount > 0 ? "/admin/enrollments" : "/admin"} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full font-bold text-xs text-slate-600 bg-slate-100 hover:bg-indigo-100 hover:text-indigo-600 transition-all hover:-translate-y-0.5 relative" title={pendingCount > 0 ? `มีสลิปรออนุมัติ ${pendingCount} รายการ` : "ระบบจัดการ (Admin)"}>
                                     <Settings size={16} />
                                     <span className="hidden xl:inline">Admin</span>
                                     {pendingCount > 0 && (
@@ -244,12 +244,12 @@ export default function Navbar() {
 
                         {isAdmin && (
                             <Link
-                                href="/admin"
+                                href={pendingCount > 0 ? "/admin/enrollments" : "/admin"}
                                 onClick={() => setMobileMenuOpen(false)}
                                 className="flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-xl text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors font-medium"
                             >
                                 <Settings size={20} />
-                                <span>Admin Panel</span>
+                                <span>{pendingCount > 0 ? "อนุมัติสลิปแจ้งโอน" : "Admin Panel"}</span>
                                 {pendingCount > 0 && (
                                     <span className="ml-auto px-2 py-0.5 bg-rose-500 text-white text-xs font-bold rounded-full animate-pulse shadow-sm shadow-rose-200">
                                         {pendingCount}

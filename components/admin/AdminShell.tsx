@@ -482,10 +482,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                         />
                     </div>
 
-                    {/* notifications */}
+                    {/* notifications → ลัดไปหน้าอนุมัติสลิป (ที่กระดิ่งนับรออยู่) */}
                     <Link
-                        href="/admin/notifications"
-                        aria-label="การแจ้งเตือน"
+                        href="/admin/enrollments"
+                        aria-label="การแจ้งเตือน (สลิปรออนุมัติ)"
                         className="relative w-9 h-9 rounded-lg flex items-center justify-center kh-ink2 shrink-0"
                         style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}
                     >
