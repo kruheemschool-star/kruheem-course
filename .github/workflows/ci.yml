@@ -1,0 +1,23 @@
+# Lint + type-check on every push/PR. Deliberately NOT `next build`: the build
+# needs Firebase env vars that don't (and shouldn't) live in GitHub, and the
+# Vercel deploy already builds. These two checks catch the common breakage
+# (type errors, lint violations) in ~2 minutes with zero secrets.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
