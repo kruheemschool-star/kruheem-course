@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, addDoc, where, updateDoc, doc, limit } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, addDoc, where, doc, limit, runTransaction } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
@@ -394,17 +394,29 @@ export default function EnrollmentForm() {
 
       await Promise.all(promises);
 
-      // 4. Update Coupon Status to 'Used' immediately to prevent reuse
+      // 4. Mark the coupon used ATOMICALLY (transaction re-checks isUsed under
+      // lock, so two simultaneous submissions can't both redeem it). Kept in
+      // its own try/catch: the enrollment is already created above, so a lost
+      // race must not surface as a scary "payment failed" — the slip carries
+      // the coupon code and the admin review remains the source of truth.
       if (discount) {
-        const qCoupon = query(collection(db, "coupons"), where("code", "==", discount.code));
-        const couponSnap = await getDocs(qCoupon);
-        if (!couponSnap.empty) {
-          const couponDoc = couponSnap.docs[0];
-          await updateDoc(doc(db, "coupons", couponDoc.id), {
-            isUsed: true,
-            usedAt: new Date(),
-            usedForCourseId: selectedCourses[0] || null,
-          });
+        try {
+          const qCoupon = query(collection(db, "coupons"), where("code", "==", discount.code));
+          const couponSnap = await getDocs(qCoupon);
+          if (!couponSnap.empty) {
+            const couponRef = doc(db, "coupons", couponSnap.docs[0].id);
+            await runTransaction(db, async (tx) => {
+              const fresh = await tx.get(couponRef);
+              if (!fresh.exists() || fresh.data().isUsed === true) return; // already redeemed — nothing to do
+              tx.update(couponRef, {
+                isUsed: true,
+                usedAt: new Date(),
+                usedForCourseId: selectedCourses[0] || null,
+              });
+            });
+          }
+        } catch (couponError) {
+          console.error("Coupon redeem failed (enrollment already submitted):", couponError);
         }
       }
 

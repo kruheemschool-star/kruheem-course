@@ -99,12 +99,39 @@ service cloud.firestore {
     // === Enrollments ===
     match /enrollments/{enrollmentId} {
       allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
+      // Create: own doc, must start pending, and the price fields must be
+      // numerically sane and self-consistent (finalPrice = price - discount,
+      // clamped at 0 exactly like both payment forms compute it). This stops
+      // hand-crafted enrollments with negative/absurd numbers while accepting
+      // every value the real forms can produce. (The slip review remains the
+      // human check that the transferred amount matches.)
       allow create: if isAdmin() || (
         isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status == "pending"
+        && request.resource.data.price is number
+        && request.resource.data.price >= 0
+        && request.resource.data.discountAmount is number
+        && request.resource.data.discountAmount >= 0
+        && request.resource.data.finalPrice is number
+        && (
+          request.resource.data.finalPrice == request.resource.data.price - request.resource.data.discountAmount
+          || (request.resource.data.finalPrice == 0
+              && request.resource.data.discountAmount >= request.resource.data.price)
+        )
       );
-      allow update: if isAdmin();
+      // Update: admin manages status/expiry; the OWNER may fix their own
+      // still-pending submission (the /payment/edit page: re-upload slip,
+      // correct name/phone/LINE) but can never touch status, price fields,
+      // courseId, or anything else.
+      allow update: if isAdmin() || (
+        isAuth()
+        && resource.data.userId == request.auth.uid
+        && resource.data.status == "pending"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "userName", "userTel", "lineId", "slipUrl", "lastUpdated"
+        ])
+      );
       allow delete: if isAdmin();
     }
 
@@ -273,13 +300,19 @@ service cloud.firestore {
     }
 
     // === Chats / Messages ===
+    // Admin-only: the student-facing ChatWidget is disabled (commented out in
+    // app/layout.tsx), so the only legitimate writer is the admin console
+    // (/admin/chat and the "ส่งข้อความ" action on /admin/students). The old
+    // isAuth() rule let ANY signed-in user read and rewrite EVERY chat room.
+    // If the student widget is ever re-enabled, relax this to a participant
+    // check (e.g. chatId == request.auth.uid), not back to isAuth().
     match /chats/{chatId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
+      allow read: if isAdmin();
+      allow write: if isAdmin();
 
       match /messages/{messageId} {
-        allow read: if isAuth();
-        allow write: if isAuth();
+        allow read: if isAdmin();
+        allow write: if isAdmin();
       }
     }
   }

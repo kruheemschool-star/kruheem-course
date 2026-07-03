@@ -14,8 +14,38 @@ export const runtime = "nodejs";
  * "email already in use"). If the lookup fails, the client degrades to an
  * attempt-based flow, so a failure here never blocks enrollment.
  */
+
+// Per-IP throttle so this endpoint can't be scripted into a bulk email-
+// enumeration scan. In-memory and therefore per-serverless-instance — not a
+// hard guarantee, but it turns "millions of lookups" into "a few dozen per
+// instance" at zero infra cost. Real users check 1-2 emails per enrollment;
+// the client already degrades gracefully on any non-200 (see above), so a
+// throttled legitimate user just falls back to the attempt-based flow.
+const WINDOW_MS = 10 * 60 * 1000;
+const MAX_PER_WINDOW = 20;
+const hits = new Map<string, { count: number; windowStart: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = hits.get(ip);
+  if (!entry || now - entry.windowStart > WINDOW_MS) {
+    if (hits.size > 5000) hits.clear(); // bound memory on long-lived instances
+    hits.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > MAX_PER_WINDOW;
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+    if (isRateLimited(ip)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
     const body = await request.json().catch(() => ({}));
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
