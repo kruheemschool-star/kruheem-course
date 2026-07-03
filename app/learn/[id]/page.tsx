@@ -12,7 +12,13 @@ import { LearnPageSkeleton } from "@/components/skeletons/LearnPageSkeleton";
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { LessonSidebar } from "@/components/learn/LessonSidebar";
 import { LessonContent } from "@/components/learn/LessonContent";
-import LearnProgressDashboard from "@/components/learn/LearnProgressDashboard";
+import dynamic from "next/dynamic";
+
+// Chart-heavy dashboard loads on demand so recharts stays out of the learn
+// page's initial JS bundle (the video player is the critical path here).
+const LearnProgressDashboard = dynamic(() => import("@/components/learn/LearnProgressDashboard"), {
+    ssr: false,
+});
 import { Lesson } from "@/components/learn/types";
 import { CheckIcon } from "@/components/learn/Icons";
 
@@ -143,7 +149,7 @@ function CoursePlayer() {
             } catch (err) {
                 console.error("Heartbeat error:", err);
             }
-        }, 5 * 60 * 1000); // 5 minutes
+        }, 30 * 60 * 1000); // 30 minutes — attendance uses 3/7-DAY thresholds, so finer granularity only costs writes
 
         return () => {
             isMounted = false;

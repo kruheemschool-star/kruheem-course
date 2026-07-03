@@ -59,6 +59,7 @@ async function fetchFs(
     label: string,
     timeoutMs = 8000,
     noStore = false,
+    tags?: string[],
 ): Promise<Response> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -67,9 +68,11 @@ async function fetchFs(
         // larger than the 2MB cache limit (e.g. reading exams *with* their full
         // `questions` arrays): Next can't cache those and logs a noisy
         // "items over 2MB can not be cached" error on every revalidation.
+        // `tags` lets on-demand revalidation (revalidateTag) bust the cached
+        // fetch before its time-based window expires.
         const init: RequestInit = noStore
             ? { cache: "no-store", signal: ctrl.signal }
-            : { next: { revalidate }, signal: ctrl.signal };
+            : { next: { revalidate, ...(tags?.length ? { tags } : {}) }, signal: ctrl.signal };
         return await fetch(url, init);
     } catch (e) {
         if (e instanceof Error && e.name === "AbortError") {
@@ -88,7 +91,7 @@ async function fetchFs(
 export async function listCollection(
     collectionId: string,
     fields: string[],
-    opts: { pageSize?: number; revalidate?: number; noStore?: boolean } = {}
+    opts: { pageSize?: number; revalidate?: number; noStore?: boolean; tags?: string[] } = {}
 ): Promise<FsDoc[]> {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -110,7 +113,7 @@ export async function listCollection(
         for (const f of fields) params.append("mask.fieldPaths", f);
         if (pageToken) params.set("pageToken", pageToken);
 
-        const res = await fetchFs(`${base}?${params.toString()}`, opts.revalidate ?? 300, collectionId, 8000, opts.noStore ?? false);
+        const res = await fetchFs(`${base}?${params.toString()}`, opts.revalidate ?? 300, collectionId, 8000, opts.noStore ?? false, opts.tags);
         if (!res.ok) {
             throw new Error(`Firestore REST ${collectionId}: HTTP ${res.status}`);
         }

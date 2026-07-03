@@ -51,7 +51,26 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     const [showCorrection, setShowCorrection] = React.useState(false);
     const [isClosing, setIsClosing] = React.useState(false);
     const videoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const playerRef = useRef<{ getCurrentTime: () => number } | null>(null);
     const hasUsedInitialTime = useRef(false);
+
+    // Best-effort save when the tab is hidden/closed, so the 60s heartbeat
+    // gap can't lose the resume position (fire-and-forget on pagehide).
+    useEffect(() => {
+        const saveNow = () => {
+            try {
+                const time = playerRef.current?.getCurrentTime();
+                if (typeof time === 'number' && time > 0 && onVideoProgress) onVideoProgress(time);
+            } catch (_) { /* player gone */ }
+        };
+        const onVisibility = () => { if (document.visibilityState === 'hidden') saveNow(); };
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('pagehide', saveNow);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('pagehide', saveNow);
+        };
+    }, [onVideoProgress]);
 
     // Cleanup video progress interval on unmount or lesson change
     useEffect(() => {
@@ -412,6 +431,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                         onStateChange={(event) => {
                                             const player = event.target;
                                             const state = event.data;
+                                            playerRef.current = player;
 
                                             // Clear any existing interval
                                             if (videoIntervalRef.current) {
@@ -424,7 +444,9 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                                 // Save immediately on start/resume
                                                 if (onVideoProgress) onVideoProgress(player.getCurrentTime());
 
-                                                // Start Heartbeat (Every 15s)
+                                                // Start Heartbeat (Every 60s — pause/end/seek still save
+                                                // immediately below, so resume stays accurate while
+                                                // Firestore writes drop ~75%)
                                                 videoIntervalRef.current = setInterval(() => {
                                                     try {
                                                         const time = player.getCurrentTime();
@@ -436,7 +458,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                                             videoIntervalRef.current = null;
                                                         }
                                                     }
-                                                }, 15000);
+                                                }, 60000);
                                             } else {
                                                 // Paused (2) or Ended (0) -> Save immediately
                                                 try {

@@ -1,32 +1,42 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { listCollection } from "@/lib/firestoreRest";
 
-// ISR: cache 5 minutes. The Firestore client SDK has no field projection,
-// so reading exam docs always transfers the full `questions` blob. Doing
-// that read here (server, cached) instead of in FeatureCarousel (client,
-// every homepage load) keeps the ~8 MB off the user's connection — the
-// client only ever receives the tiny { id, title, coverImage } list.
-export const revalidate = 300;
+// ISR: cache 1 hour. Reads via the Firestore REST API with server-side
+// field projection (mask.fieldPaths), so each revalidation transfers only
+// { title, coverImage, createdAt } per exam instead of the full documents
+// with their multi-MB `questions` arrays (the client SDK used here before
+// had no projection and pulled ~8 MB every refresh). The client keeps
+// receiving the exact same tiny { id, title, coverImage } list.
+//
+// 1 hour (not 5 min) is safe because admin exam changes bust this cache
+// on-demand: /api/revalidate-exams calls revalidateTag("exams-feed") +
+// revalidatePath("/api/feature-exams"), so edits still appear instantly.
+export const revalidate = 3600;
 
 // Metadata-only feed for the homepage FeatureCarousel.
-// Same query/order the carousel used before (orderBy createdAt asc); no
-// `hidden` filter — the carousel never filtered hidden, so omitting it
+// Ordering matches the previous Firestore query (orderBy createdAt asc),
+// including its behavior of excluding docs that have no createdAt field.
+// No `hidden` filter — the carousel never filtered hidden, so omitting it
 // keeps the rendered output byte-identical.
 export async function GET() {
     try {
-        const snapshot = await getDocs(
-            query(collection(db, "exams"), orderBy("createdAt", "asc"))
+        const docs = await listCollection(
+            "exams",
+            ["title", "coverImage", "createdAt"],
+            { revalidate: 3600, tags: ["exams-feed"] }
         );
 
-        const exams = snapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                title: data.title || "",
-                coverImage: data.coverImage || "",
-            };
-        });
+        const exams = docs
+            .filter((d) => d.createdAt != null)
+            .map((d) => ({
+                id: d.id,
+                title: (d.title as string) || "",
+                coverImage: (d.coverImage as string) || "",
+                // REST returns timestamps as ISO 8601 strings (same as exam-search).
+                createdAtMs: d.createdAt ? new Date(String(d.createdAt)).getTime() || 0 : 0,
+            }))
+            .sort((a, b) => a.createdAtMs - b.createdAtMs)
+            .map(({ createdAtMs, ...rest }) => rest);
 
         return NextResponse.json({ exams });
     } catch (error) {

@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { db, storage } from "@/lib/firebase";
+import { auth, db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
@@ -851,6 +851,22 @@ export default function ExamEditorPage() {
                 questionCount: parsedQuestions.length,
                 updatedAt: serverTimestamp()
             });
+
+            // Bust the student-facing exam caches (listing, exam pages, search
+            // index, homepage carousel) so this edit shows up immediately —
+            // same best-effort, fire-and-forget call /admin/exams makes.
+            (async () => {
+                try {
+                    const token = await auth.currentUser?.getIdToken();
+                    if (!token) return;
+                    await fetch("/api/revalidate-exams", {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                } catch (e) {
+                    console.warn("Revalidate exam pages failed (non-fatal):", e);
+                }
+            })();
 
             // Show simple toast or alert
             // alert("บันทึกข้อมูลเรียบร้อยแล้ว!"); // Remove alert to make it smoother

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import Link from "next/link";
@@ -90,6 +90,34 @@ export default function AdminEnrollmentsPage() {
     // State สำหรับ Modal ยืนยัน
     const [confirmApproveId, setConfirmApproveId] = useState<string | null>(null);
 
+    // Debounced public_stats recalculation. Recomputing the unique-student
+    // counter needs a scan of every approved enrollment (~600 reads), and it
+    // used to run INSIDE every approve/delete click — approving 10 slips in a
+    // row cost 10 full scans and made each click wait on one. Debouncing runs
+    // ONE scan ~5s after the last action in a burst; same numbers, ~90% fewer
+    // reads, and the approve button responds immediately. Deliberately not
+    // cleared on unmount so a pending recalc still completes after navigating
+    // away (it touches Firestore only, no component state).
+    const statsRecalcTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const schedulePublicStatsRecalc = () => {
+        if (statsRecalcTimer.current) clearTimeout(statsRecalcTimer.current);
+        statsRecalcTimer.current = setTimeout(async () => {
+            try {
+                const qAppr = query(collection(db, "enrollments"), where("status", "==", "approved"));
+                const snapAppr = await getDocs(qAppr);
+                const uniqueEmails = new Set<string>();
+                snapAppr.docs.forEach(d => {
+                    const email = d.data().userEmail;
+                    if (email) uniqueEmails.add(email);
+                });
+                const totalStudents = uniqueEmails.size > 0 ? uniqueEmails.size : snapAppr.size;
+                await setDoc(doc(db, "public_stats", "enrollments"), { count: totalStudents }, { merge: true });
+            } catch (statError) {
+                console.error("Error updating public_stats:", statError);
+            }
+        }, 5000);
+    };
+
     // ฟังก์ชันอนุมัติ (เมื่อกดยืนยันใน Modal)
     const handleConfirmApprove = async () => {
         if (!confirmApproveId) return;
@@ -141,20 +169,8 @@ export default function AdminEnrollmentsPage() {
                 }
             }
 
-            // ✅ Recalculate and update public_stats for total unique enrolled students
-            try {
-                const qAppr = query(collection(db, "enrollments"), where("status", "==", "approved"));
-                const snapAppr = await getDocs(qAppr);
-                const uniqueEmails = new Set<string>();
-                snapAppr.docs.forEach(d => {
-                    const email = d.data().userEmail;
-                    if (email) uniqueEmails.add(email);
-                });
-                const totalStudents = uniqueEmails.size > 0 ? uniqueEmails.size : snapAppr.size;
-                await setDoc(doc(db, "public_stats", "enrollments"), { count: totalStudents }, { merge: true });
-            } catch (statError) {
-                console.error("Error updating public_stats:", statError);
-            }
+            // ✅ Recalculate public_stats — debounced (one scan per burst of approvals)
+            schedulePublicStatsRecalc();
 
             toast.success("อนุมัติเรียบร้อย! (กำหนดเวลาเรียน 5 ปี)");
             setConfirmApproveId(null);
@@ -171,17 +187,9 @@ export default function AdminEnrollmentsPage() {
         confirmModal("ยืนยันการลบ", "ยืนยันการลบรายการนี้? (กรณีสลิปปลอมหรือข้อมูลผิด)", async () => {
             try {
                 await deleteDoc(doc(db, "enrollments", id));
-                
-                // ✅ Recalculate public stats if needed
-                const qAppr = query(collection(db, "enrollments"), where("status", "==", "approved"));
-                const snapAppr = await getDocs(qAppr);
-                const uniqueEmails = new Set<string>();
-                snapAppr.docs.forEach(d => {
-                    const email = d.data().userEmail;
-                    if (email) uniqueEmails.add(email);
-                });
-                const totalStudents = uniqueEmails.size > 0 ? uniqueEmails.size : snapAppr.size;
-                await setDoc(doc(db, "public_stats", "enrollments"), { count: totalStudents }, { merge: true });
+
+                // ✅ Recalculate public_stats — debounced (one scan per burst)
+                schedulePublicStatsRecalc();
 
                 fetchData();
                 refreshPendingCount(); // deleting a pending row changes the badge — recount now

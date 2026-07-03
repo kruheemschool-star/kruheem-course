@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { ADMIN_EMAILS } from "@/lib/constants";
 
 // On-demand ISR invalidation for the public exam pages.
@@ -54,6 +54,12 @@ export async function POST(request: NextRequest) {
     // Passing the route pattern + "page" revalidates all /exam/[id] pages at once.
     revalidatePath("/exam");
     revalidatePath("/exam/[id]", "page");
+
+    // Also bust the exam data feeds so the homepage carousel and the search
+    // index refresh instantly instead of waiting out their 1-hour windows.
+    // ({ expire: 0 } = immediate expiration, the pre-Next-16 revalidateTag behavior.)
+    revalidateTag("exams-feed", { expire: 0 });
+    revalidatePath("/api/feature-exams");
 
     return NextResponse.json({ revalidated: true });
 }

@@ -1,71 +1,89 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc, setDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { Search, Edit3, Trash2, Eye, Phone, MessageCircle, ChevronLeft, ChevronRight, GraduationCap, X, UserX, Loader2, Users, PauseCircle, CalendarX } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
+// Session-scoped cache of users/{uid} profile reads. Every table refresh
+// (initial load, after each approve/edit/delete, paging) remounts the rows,
+// and each UserAvatar used to getDoc() its user again — ~30 reads per
+// refresh, hundreds per admin session. Caching the promise dedupes to at
+// most ONE read per distinct user per page session.
+const userProfileCache = new Map<string, Promise<{ avatar: string | null; authProvider: string | null }>>();
+const fetchUserProfile = (userId: string) => {
+    let cached = userProfileCache.get(userId);
+    if (!cached) {
+        cached = getDoc(doc(db, "users", userId)).then(snap => {
+            if (!snap.exists()) return { avatar: null, authProvider: null };
+            const data = snap.data();
+            return {
+                avatar: (data.avatar as string) || null,
+                authProvider: (data.authProvider as string) || null,
+            };
+        }).catch(err => {
+            console.error(err);
+            userProfileCache.delete(userId); // allow retry next mount
+            return { avatar: null, authProvider: null };
+        });
+        userProfileCache.set(userId, cached);
+    }
+    return cached;
+};
+
+// Hoisted so it isn't re-created on every UserAvatar render
+// (react-hooks/static-components).
+const AvatarImage = ({ avatar, imageError, name, onImageError }: {
+    avatar: string | null; imageError: boolean; name?: string; onImageError: () => void;
+}) => {
+    if (avatar && !imageError) {
+        return (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+                src={avatar}
+                alt={name || "User"}
+                className="w-8 h-8 rounded-full object-cover"
+                onError={onImageError}
+            />
+        );
+    }
+    return (
+        <div className="kh-avatar w-8 h-8 !rounded-full text-sm">
+            {name?.charAt(0).toUpperCase() || "?"}
+        </div>
+    );
+};
+
 // User Avatar Component with Auth Provider
 const UserAvatar = ({ userId, name, email }: { userId?: string, name?: string, email?: string }) => {
     const [avatar, setAvatar] = useState<string | null>(null);
     const [imageError, setImageError] = useState(false);
-    const [authProvider, setAuthProvider] = useState<string | null>(null);
+    const [fetchedProvider, setFetchedProvider] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!userId) {
-            // Infer from email if no userId
-            if (email) {
-                const inferred = email.endsWith('@gmail.com') ? 'google' : 'email';
-                setAuthProvider(inferred);
+        if (!userId) return;
+        let cancelled = false;
+        fetchUserProfile(userId).then(profile => {
+            if (cancelled) return;
+            if (profile.avatar) {
+                setAvatar(profile.avatar);
+                setImageError(false);
             }
-            return;
-        }
-        getDoc(doc(db, "users", userId)).then(snap => {
-            if (snap.exists()) {
-                const data = snap.data();
-                if (data.avatar) {
-                    setAvatar(data.avatar);
-                    setImageError(false);
-                }
-                if (data.authProvider) {
-                    setAuthProvider(data.authProvider);
-                } else if (email) {
-                    // Infer from email if not stored in profile
-                    const inferred = email.endsWith('@gmail.com') ? 'google' : 'email';
-                    setAuthProvider(inferred);
-                }
-            } else if (email) {
-                // User doc doesn't exist, infer from email
-                const inferred = email.endsWith('@gmail.com') ? 'google' : 'email';
-                setAuthProvider(inferred);
-            }
-        }).catch(err => console.error(err));
-    }, [userId, email]);
+            if (profile.authProvider) setFetchedProvider(profile.authProvider);
+        });
+        return () => { cancelled = true; };
+    }, [userId]);
 
-    const AvatarImage = () => {
-        if (avatar && !imageError) {
-            return (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                    src={avatar}
-                    alt={name || "User"}
-                    className="w-8 h-8 rounded-full object-cover"
-                    onError={() => setImageError(true)}
-                />
-            );
-        }
-        return (
-            <div className="kh-avatar w-8 h-8 !rounded-full text-sm">
-                {name?.charAt(0).toUpperCase() || "?"}
-            </div>
-        );
-    };
+    // Derived during render (no setState-in-effect): the stored provider wins,
+    // otherwise infer from the email domain — same display logic as before.
+    const authProvider = fetchedProvider
+        || (email ? (email.endsWith('@gmail.com') ? 'google' : 'email') : null);
 
     return (
         <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-                <AvatarImage />
+                <AvatarImage avatar={avatar} imageError={imageError} name={name} onImageError={() => setImageError(true)} />
                 {authProvider && (
                     <span className={`kh-pill no-dot !text-[10px] !px-1.5 !py-0.5 ${authProvider === 'google' ? 'kh-pill-accent' : 'kh-pill-ink'}`}>
                         {authProvider === 'google' ? (
@@ -265,17 +283,30 @@ export default function AdminStudentsPage() {
     // (no new filter logic): "ทุกคอร์ส" + the first few course titles.
     const tabCourses = ["All", ...courseList.slice(0, 4)];
 
-    const recalculatePublicStats = async () => {
+    // Recompute the public student counter from the enrollments already in
+    // memory (the table always holds the full collection) instead of
+    // re-querying Firestore — the old version re-read every approved
+    // enrollment (~600 docs) on every page load AND after every admin action.
+    // Same numbers as before: unique userEmail among approved, falling back
+    // to the approved row count. Writes only when the value actually changed.
+    const lastPublishedCount = useRef<number | null>(null);
+    const recalculatePublicStats = async (data: any[]) => {
         try {
-            const qAppr = query(collection(db, "enrollments"), where("status", "==", "approved"));
-            const snapAppr = await getDocs(qAppr);
+            const approved = data.filter(e => e.status === "approved");
             const uniqueEmails = new Set<string>();
-            snapAppr.docs.forEach(d => {
-                const email = d.data().userEmail;
-                if (email) uniqueEmails.add(email);
-            });
-            const totalStudents = uniqueEmails.size > 0 ? uniqueEmails.size : snapAppr.size;
+            approved.forEach(e => { if (e.userEmail) uniqueEmails.add(e.userEmail); });
+            const totalStudents = uniqueEmails.size > 0 ? uniqueEmails.size : approved.length;
+
+            if (lastPublishedCount.current === null) {
+                // Seed the comparison from the published doc once (1 read) so a
+                // mere page visit doesn't rewrite an unchanged counter.
+                const statSnap = await getDoc(doc(db, "public_stats", "enrollments"));
+                lastPublishedCount.current = statSnap.exists() ? (statSnap.data().count as number) : -1;
+            }
+            if (totalStudents === lastPublishedCount.current) return;
+
             await setDoc(doc(db, "public_stats", "enrollments"), { count: totalStudents }, { merge: true });
+            lastPublishedCount.current = totalStudents;
         } catch (error) {
             console.error("Error updating public_stats:", error);
         }
@@ -284,7 +315,8 @@ export default function AdminStudentsPage() {
     const handleDelete = async (id: string) => {
         confirmModal("ยืนยันการลบ", "ยืนยันการลบข้อมูลการลงทะเบียนนี้?", async () => {
             await deleteDoc(doc(db, "enrollments", id));
-            await recalculatePublicStats();
+            // fetchData() refreshes the table; the [enrollments] effect then
+            // recalculates public_stats from the fresh in-memory data (0 reads).
             fetchData();
             refreshPendingCount(); // may have removed a pending row — recount badge
         }, true);
@@ -356,8 +388,9 @@ export default function AdminStudentsPage() {
                 accessType: editingItem.accessType || "limited",
                 expiryDate: editingItem.expiryDate || null
             });
-            await recalculatePublicStats();
             setIsEditOpen(false);
+            // fetchData() refreshes the table; the [enrollments] effect then
+            // recalculates public_stats from the fresh in-memory data (0 reads).
             fetchData();
             refreshPendingCount(); // status edit may add/remove a pending row — recount badge
         } catch (error) {
@@ -448,8 +481,9 @@ export default function AdminStudentsPage() {
                 fixData();
             }
             
-            // Auto sync stats on load
-            recalculatePublicStats();
+            // Auto sync stats on load / after each table refresh — computed
+            // from the in-memory table, writes only when the count changed.
+            recalculatePublicStats(enrollments);
         }
     }, [enrollments]);
 
