@@ -47,6 +47,12 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react'],
   },
+  compiler: {
+    // Strip console.log/info/debug from production bundles (dozens are left
+    // in student-facing paths). error/warn stay — they are the operational
+    // signals in Vercel logs and the browser console.
+    removeConsole: { exclude: ['error', 'warn'] },
+  },
 };
 
 export default nextConfig;

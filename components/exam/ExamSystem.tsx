@@ -11,7 +11,19 @@ import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useTheme } from 'next-themes';
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, BarChart, Bar, Cell, XAxis } from 'recharts';
+import dynamic from 'next/dynamic';
+
+// Charts are loaded on demand (they only appear on the results screen), so
+// recharts stays out of the exam page's initial JS bundle. Fixed-height
+// placeholders keep the layout from shifting while the chunk loads.
+const TopicRadarChart = dynamic(() => import('./TopicRadarChart'), {
+    ssr: false,
+    loading: () => <div style={{ height: 300 }} />,
+});
+const ScoreDistributionChart = dynamic(() => import('./ScoreDistributionChart'), {
+    ssr: false,
+    loading: () => <div style={{ height: 150 }} />,
+});
 
 // === localStorage Auto-Save Helpers ===
 interface SavedExamProgress {
@@ -697,14 +709,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <div className="mb-10 rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-6 md:p-8">
                                     <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">📊 จุดแข็ง-จุดอ่อนรายหัวข้อ</h3>
                                     <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">ยิ่งกางออกไกล = ยิ่งเก่งหัวข้อนั้น (เต็ม 100%)</p>
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <RadarChart data={radarData} outerRadius="72%">
-                                            <PolarGrid stroke={radarColors.grid} />
-                                            <PolarAngleAxis dataKey="tag" tick={{ fontSize: 12, fill: radarColors.tick, fontWeight: 600 }} />
-                                            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                                            <Radar dataKey="percent" stroke={radarColors.stroke} fill={radarColors.stroke} fillOpacity={0.35} strokeWidth={2} />
-                                        </RadarChart>
-                                    </ResponsiveContainer>
+                                    <TopicRadarChart data={radarData} colors={radarColors} />
                                 </div>
                             )}
 
@@ -716,16 +721,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                         คุณทำได้ <span className="text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 align-middle">เก่งกว่า {percentile.percentile}%</span>{' '}
                                         <span className="text-sm">ของคนที่ทำชุดนี้ ({percentile.count} ครั้ง)</span>
                                     </p>
-                                    <ResponsiveContainer width="100%" height={150}>
-                                        <BarChart data={percentile.buckets.map((c, i) => ({ label: `${i * 10}`, count: c }))} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: isDark ? '#94a3b8' : '#94a3b8' }} interval={0} stroke={isDark ? '#334155' : '#e2e8f0'} />
-                                            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                                                {percentile.buckets.map((_, i) => (
-                                                    <Cell key={i} fill={i === percentile.yourBucket ? '#f59e0b' : (isDark ? '#4f46e5' : '#c7d2fe')} />
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                    <ScoreDistributionChart buckets={percentile.buckets} yourBucket={percentile.yourBucket} isDark={isDark} height={150} />
                                     <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-1">การกระจายคะแนนของทุกคน · <span className="text-amber-500 font-bold">แท่งสีส้ม</span> = ช่วงคะแนนของคุณ ({finalScore.percent}%)</p>
                                 </div>
                             )}

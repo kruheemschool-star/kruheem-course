@@ -18,7 +18,14 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { useTheme } from "next-themes";
-import { BarChart, Bar, Cell, XAxis, ResponsiveContainer } from "recharts";
+import dynamic from "next/dynamic";
+
+// Loaded on demand — the chart only appears on the results screen, so
+// recharts stays out of the learn page's initial JS bundle.
+const ScoreDistributionChart = dynamic(() => import("@/components/exam/ScoreDistributionChart"), {
+    ssr: false,
+    loading: () => <div style={{ height: 140 }} />,
+});
 import CelebrationModal from "@/components/gamification/CelebrationModal";
 
 interface ExamRunnerProps {
@@ -516,16 +523,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                                 ทำได้ <span className="text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 align-middle">เก่งกว่า {percentile.percentile}%</span>{' '}
                                 <span className="text-sm">ของคนที่ทำชุดนี้ ({percentile.count} คน)</span>
                             </p>
-                            <ResponsiveContainer width="100%" height={140}>
-                                <BarChart data={percentile.buckets.map((c, i) => ({ label: `${i * 10}`, count: c }))} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} interval={0} stroke={isDark ? '#334155' : '#e2e8f0'} />
-                                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                                        {percentile.buckets.map((_, i) => (
-                                            <Cell key={i} fill={i === percentile.yourBucket ? '#f59e0b' : (isDark ? '#4f46e5' : '#c7d2fe')} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <ScoreDistributionChart buckets={percentile.buckets} yourBucket={percentile.yourBucket} isDark={isDark} height={140} />
                             <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-1">การกระจายคะแนนของทุกคน · <span className="text-amber-500 font-bold">แท่งสีส้ม</span> = ช่วงคะแนนของคุณ</p>
                         </div>
                     )}
