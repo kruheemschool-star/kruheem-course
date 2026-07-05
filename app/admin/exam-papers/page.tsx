@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
-import { uploadPublicFile, uploadPrivateFile } from "@/lib/pdfUpload";
+import { uploadPublicFile, uploadPrivateFile, deleteStorageFile } from "@/lib/pdfUpload";
 import { uploadImageToStorage } from "@/lib/upload";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import type { ExamPaper } from "@/types";
@@ -42,6 +42,11 @@ export default function AdminExamPapersPage() {
     const [masterFile, setMasterFile] = useState<File | null>(null);
     const [masterName, setMasterName] = useState<string>("");       // existing master filename
 
+    // Storage paths already on this paper, so we can delete the OLD file when
+    // it gets replaced by a new upload (otherwise every edit leaves an orphan
+    // behind in Storage, quietly growing usage/cost).
+    const [existingPaths, setExistingPaths] = useState<{ cover?: string; preview?: string; pdf?: string }>({});
+
     const [saving, setSaving] = useState(false);
     const [progressLabel, setProgressLabel] = useState("");
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -70,6 +75,7 @@ export default function AdminExamPapersPage() {
         setCoverFile(null); setCoverPreview("");
         setPreviewFile(null); setPreviewName("");
         setMasterFile(null); setMasterName("");
+        setExistingPaths({});
         setEditorOpen(true);
     };
 
@@ -87,6 +93,7 @@ export default function AdminExamPapersPage() {
         setCoverFile(null); setCoverPreview(p.coverUrl || "");
         setPreviewFile(null); setPreviewName(p.previewUrl ? "มีไฟล์ตัวอย่างแล้ว" : "");
         setMasterFile(null); setMasterName(p.pdfName || (p.pdfPath ? "มีไฟล์ต้นฉบับแล้ว" : ""));
+        setExistingPaths({ cover: p.coverPath, preview: p.previewPath, pdf: p.pdfPath });
         setEditorOpen(true);
     };
 
@@ -144,33 +151,37 @@ export default function AdminExamPapersPage() {
                 updatedAt: serverTimestamp(),
             };
 
-            // 2. Cover (public image).
+            // 2. Cover (public image). Track the new path so we can wipe the old
+            //    file after the new one is safely uploaded and saved.
+            let newCoverPath: string | undefined;
             if (coverFile) {
                 setProgressLabel("กำลังอัปโหลดหน้าปก...");
-                patch.coverUrl = await uploadImageToStorage(
-                    coverFile,
-                    `exam-paper-covers/${paperId}_${Date.now()}.jpg`,
-                    { maxSizeMB: 0.5, maxWidthOrHeight: 1200 },
-                );
+                newCoverPath = `exam-paper-covers/${paperId}_${Date.now()}.jpg`;
+                patch.coverUrl = await uploadImageToStorage(coverFile, newCoverPath, { maxSizeMB: 0.5, maxWidthOrHeight: 1200 });
+                patch.coverPath = newCoverPath;
             }
 
             // 3. Free preview (public PDF, optional).
+            let newPreviewPath: string | undefined;
             if (previewFile) {
                 setProgressLabel("กำลังอัปโหลดไฟล์ตัวอย่าง...");
+                newPreviewPath = `exam-paper-previews/${paperId}_${Date.now()}.pdf`;
                 patch.previewUrl = await uploadPublicFile(
                     previewFile,
-                    `exam-paper-previews/${paperId}_${Date.now()}.pdf`,
+                    newPreviewPath,
                     (p) => setProgressLabel(`กำลังอัปโหลดไฟล์ตัวอย่าง... ${p}%`),
                 );
+                patch.previewPath = newPreviewPath;
             }
 
             // 4. Master PDF (PRIVATE — store the path only, never a public URL).
+            let newPdfPath: string | undefined;
             if (masterFile) {
                 setProgressLabel("กำลังอัปโหลดไฟล์ต้นฉบับ...");
-                const path = `exam-pdfs/${paperId}/${Date.now()}_${masterFile.name.replace(/[^\w.\-]/g, "_")}`;
+                newPdfPath = `exam-pdfs/${paperId}/${Date.now()}_${masterFile.name.replace(/[^\w.\-]/g, "_")}`;
                 patch.pdfPath = await uploadPrivateFile(
                     masterFile,
-                    path,
+                    newPdfPath,
                     (p) => setProgressLabel(`กำลังอัปโหลดไฟล์ต้นฉบับ... ${p}%`),
                 );
                 patch.pdfName = masterFile.name;
@@ -178,6 +189,15 @@ export default function AdminExamPapersPage() {
 
             setProgressLabel("กำลังบันทึก...");
             await updateDoc(doc(db, "examPapers", paperId), patch);
+
+            // 5. Only now that the doc points at the new files, delete whichever
+            //    OLD files got replaced — otherwise a crash between upload and
+            //    save could orphan the new file while the doc still needs it.
+            await Promise.allSettled([
+                newCoverPath && existingPaths.cover ? deleteStorageFile(existingPaths.cover) : Promise.resolve(),
+                newPreviewPath && existingPaths.preview ? deleteStorageFile(existingPaths.preview) : Promise.resolve(),
+                newPdfPath && existingPaths.pdf ? deleteStorageFile(existingPaths.pdf) : Promise.resolve(),
+            ]);
 
             toast.success(editingId ? "บันทึกการแก้ไขแล้ว" : "เพิ่มชุดข้อสอบแล้ว");
             closeEditor();
@@ -194,9 +214,18 @@ export default function AdminExamPapersPage() {
     const handleDelete = (p: ExamPaper) => {
         confirm(
             "ลบชุดข้อสอบนี้?",
-            `"${p.title}" จะถูกลบออกจากหน้าร้าน (ไฟล์ที่ลูกค้าซื้อไปแล้วจะดาวน์โหลดไม่ได้อีก)`,
+            `"${p.title}" จะถูกลบออกจากหน้าร้านพร้อมไฟล์ทั้งหมด (ไฟล์ที่ลูกค้าซื้อไปแล้วจะดาวน์โหลดไม่ได้อีก)`,
             async () => {
                 try {
+                    // Delete the actual Storage files FIRST — best-effort, each
+                    // failure is independent so a missing/already-gone file never
+                    // blocks the others. Only after that remove the catalog entry,
+                    // so nothing is left orphaned in Storage racking up cost.
+                    await Promise.allSettled([
+                        deleteStorageFile(p.coverPath),
+                        deleteStorageFile(p.previewPath),
+                        deleteStorageFile(p.pdfPath),
+                    ]);
                     await deleteDoc(doc(db, "examPapers", p.id));
                     toast.success("ลบแล้ว");
                     setPapers((prev) => prev.filter((x) => x.id !== p.id));

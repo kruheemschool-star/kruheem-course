@@ -85,7 +85,9 @@ export interface ExamPaper {
     category?: string;       // e.g. "O-NET", "A-Level", "กลางภาค"
     tags?: string[];
     coverUrl?: string;       // public — shown on the shop cards
+    coverPath?: string;      // Storage path of coverUrl — needed to delete it later
     previewUrl?: string;     // public — free sample (first 1–2 pages), optional
+    previewPath?: string;    // Storage path of previewUrl — needed to delete it later
     pdfPath?: string;        // PRIVATE Storage path of the master file (not a URL)
     pdfName?: string;        // original filename, used for the download attachment
     pageCount?: number;      // shown as "X หน้า" on the card
