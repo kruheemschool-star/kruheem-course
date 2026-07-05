@@ -96,6 +96,16 @@ service cloud.firestore {
       }
     }
 
+    // === Exam Papers (downloadable PDF products) ===
+    // Public read = card metadata (title, price, cover, preview) for the shop.
+    // The private master PDF lives in Storage and is NOT reachable from here —
+    // it is only served as a short-lived signed URL by /api/download-pdf after
+    // that route verifies an approved enrollment. Admin-only write.
+    match /examPapers/{paperId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // === Enrollments ===
     match /enrollments/{enrollmentId} {
       allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);

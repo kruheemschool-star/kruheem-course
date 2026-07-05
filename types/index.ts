@@ -65,6 +65,34 @@ export interface Enrollment {
     createdAt: Timestamp | Date;
     approvedAt?: Timestamp | Date;
     lastAccessedAt?: Timestamp | Date;
+    // When this enrollment is the purchase of a downloadable PDF exam paper
+    // (not a course), these mark it so the download API + "ข้อสอบของฉัน" page
+    // can find it. Absent on ordinary course enrollments.
+    productType?: 'course' | 'examPaper';
+    paperId?: string;
+}
+
+// ========== Exam Papers (downloadable PDF products) ==========
+// A single sellable PDF exam. The master file lives in the private
+// `exam-pdfs/` Storage folder (never public); only a short-lived signed URL
+// minted by /api/download-pdf reaches a paid buyer. Cover + preview are public.
+export interface ExamPaper {
+    id: string;
+    title: string;
+    description?: string;
+    price: number;
+    level?: string;          // e.g. "ม.6", "ม.3" — free-form to match exam bank
+    category?: string;       // e.g. "O-NET", "A-Level", "กลางภาค"
+    tags?: string[];
+    coverUrl?: string;       // public — shown on the shop cards
+    previewUrl?: string;     // public — free sample (first 1–2 pages), optional
+    pdfPath?: string;        // PRIVATE Storage path of the master file (not a URL)
+    pdfName?: string;        // original filename, used for the download attachment
+    pageCount?: number;      // shown as "X หน้า" on the card
+    hidden?: boolean;        // draft / hidden from the public shop
+    order?: number;          // manual sort (lower first)
+    createdAt?: Timestamp | Date;
+    updatedAt?: Timestamp | Date;
 }
 
 // ========== Progress Tracking ==========

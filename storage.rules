@@ -50,6 +50,28 @@ service firebase.storage {
       allow delete: if isAdmin();
     }
 
+    // === Exam paper MASTER files: PAID content, never public ===
+    // The sellable PDFs. Public read is DENIED here — a buyer only ever gets a
+    // short-lived signed URL minted server-side by /api/download-pdf (Admin SDK),
+    // which bypasses these rules. Admin uploads the master via the client SDK.
+    // Deny getDownloadURL-style public tokens by never allowing read to non-admins.
+    match /exam-pdfs/{allPaths=**} {
+      allow read: if isAdmin();
+      allow write: if isAdmin()
+                   && request.resource.size < 50 * 1024 * 1024
+                   && request.resource.contentType == 'application/pdf';
+    }
+
+    // === Exam paper covers + free previews: PUBLIC by design ===
+    // Covers are shown on the shop cards; previews are the intentional free
+    // sample (first 1–2 pages). Public read, admin-only write.
+    match /exam-paper-covers/{allPaths=**}   { allow read: if true; allow write: if isAdmin(); }
+    match /exam-paper-previews/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin()
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
     // === Admin-managed PUBLIC image folders ===
     // These hold content images that must display to everyone (course covers,
     // lesson images, banners, blog/post images, summary images, exam images,

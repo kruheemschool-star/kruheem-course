@@ -17,7 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
     LayoutDashboard, Wallet, Ticket, Gift, Download,
-    BookOpen, ClipboardList, ScrollText, Newspaper,
+    BookOpen, ClipboardList, ScrollText, Newspaper, FileText,
     Users, Smile, Activity,
     MessageCircle, LifeBuoy, Megaphone, Star, BarChart3,
     Menu, Search, Bell, Sun, Moon, LogOut, Home, GripVertical,
@@ -58,6 +58,7 @@ const NAV: NavGroup[] = [
         items: [
             { href: "/admin/courses", label: "จัดการคอร์สเรียน", icon: BookOpen, match: ["/admin/course"] },
             { href: "/admin/exams", label: "คลังข้อสอบ", icon: ClipboardList, match: ["/admin/exam-validator"] },
+            { href: "/admin/exam-papers", label: "ขายข้อสอบ PDF", icon: FileText },
             { href: "/admin/summaries", label: "สรุปเนื้อหา", icon: ScrollText },
             { href: "/admin/posts", label: "จัดการบทความ", icon: Newspaper },
         ],
