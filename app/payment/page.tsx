@@ -192,11 +192,10 @@ export default function PaymentPage() {
         setCourses(courseData);
 
         const allCategories = Array.from(new Set(courseData.map((c: any) => c.category || "อื่นๆ")));
-        const sortedCategories = allCategories.sort((a, b) => {
-          const orderA = categoryOrder[a] || 99;
-          const orderB = categoryOrder[b] || 99;
-          return orderA - orderB;
-        });
+        // "คลังข้อสอบ" is always pinned to the front (leftmost) so it never hides
+        // off-screen at the end of the horizontally-scrolling tab row on mobile.
+        const rank = (c: string) => (c.includes("คลังข้อสอบ") ? 0 : (categoryOrder[c] || 99));
+        const sortedCategories = allCategories.sort((a, b) => rank(a) - rank(b));
 
         setCategories(sortedCategories);
         if (sortedCategories.length > 0) setSelectedCategory(sortedCategories[0]);
