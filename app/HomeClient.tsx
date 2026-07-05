@@ -18,6 +18,7 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FeatureCarousel from "@/components/home/FeatureCarousel";
+import StartHereNav from "@/components/home/StartHereNav";
 import HomeReviewCarousel from "@/components/home/HomeReviewCarousel";
 import PromotionBanner, { PromotionData } from "@/components/home/PromotionBanner";
 // import CourseFinder from "@/components/CourseFinder";
@@ -223,6 +224,9 @@ export default function HomeClient({ initialPromo }: { initialPromo: PromotionDa
             </div>
           </div>
         </header>
+
+        {/* Wayfinding — "เริ่มต้นตรงนี้" cards + returning-student classroom bar */}
+        <StartHereNav />
 
         {/* Course Finder Section - Solution to Paradox of Choice */}
         {/* <CourseFinder /> */}
