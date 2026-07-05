@@ -21,6 +21,7 @@ const emptyForm = {
     level: "ม.6",
     category: "O-NET",
     pageCount: 0,
+    questionCount: 0,
     hidden: false,
 };
 
@@ -88,6 +89,7 @@ export default function AdminExamPapersPage() {
             level: p.level || "ม.6",
             category: p.category || "O-NET",
             pageCount: Number(p.pageCount || 0),
+            questionCount: Number(p.questionCount || 0),
             hidden: !!p.hidden,
         });
         setCoverFile(null); setCoverPreview(p.coverUrl || "");
@@ -147,6 +149,7 @@ export default function AdminExamPapersPage() {
                 level: form.level,
                 category: form.category,
                 pageCount: Number(form.pageCount) || 0,
+                questionCount: Number(form.questionCount) || 0,
                 hidden: form.hidden,
                 updatedAt: serverTimestamp(),
             };
@@ -338,7 +341,7 @@ export default function AdminExamPapersPage() {
                                 <textarea className="kh-textarea w-full" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="บอกว่าในไฟล์มีอะไรบ้าง เช่น 30 ข้อ พร้อมเฉลยละเอียดทุกข้อ" />
                             </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 <div>
                                     <label className="block text-sm font-medium kh-ink mb-1">ราคา (บาท) *</label>
                                     <input type="number" min={0} className="kh-input w-full" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
@@ -354,6 +357,10 @@ export default function AdminExamPapersPage() {
                                     <select className="kh-select w-full" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                                         {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium kh-ink mb-1">จำนวนข้อ</label>
+                                    <input type="number" min={0} className="kh-input w-full" value={form.questionCount} onChange={(e) => setForm({ ...form, questionCount: Number(e.target.value) })} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium kh-ink mb-1">จำนวนหน้า</label>

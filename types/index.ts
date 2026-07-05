@@ -90,7 +90,8 @@ export interface ExamPaper {
     previewPath?: string;    // Storage path of previewUrl — needed to delete it later
     pdfPath?: string;        // PRIVATE Storage path of the master file (not a URL)
     pdfName?: string;        // original filename, used for the download attachment
-    pageCount?: number;      // shown as "X หน้า" on the card
+    pageCount?: number;      // shown as "X หน้า" on the shop card
+    questionCount?: number;  // shown as "X ข้อ" on the "my exam papers" card
     hidden?: boolean;        // draft / hidden from the public shop
     order?: number;          // manual sort (lower first)
     createdAt?: Timestamp | Date;

@@ -1658,3 +1658,76 @@ h6 {
         transition: none !important;
     }
 }
+
+/* ============================================================
+   "MY EXAM PAPERS" THEME — ".khep"
+   Scoped warm-paper + teal token system for /my-exam-papers.
+   Mirrors the .khrv (reviews) pattern; dark mode via global .dark.
+   Tokens from ~/Downloads/design-spec.md §2.2.
+   ============================================================ */
+.khep {
+    --ep-paper: #F6F4EE;
+    --ep-surface: #FFFFFF;
+    --ep-surface2: #F5F7F6;
+    --ep-ink: #0F172A;
+    --ep-ink2: #5A6675;
+    --ep-ink3: #94A3B8;
+    --ep-line: #E7E9EE;
+    --ep-amber: #B45309;
+    --ep-amber-soft: #FBEFE0;
+    --ep-teal: #0D9488;
+    --ep-teal2: #0F766E;
+    --ep-shadow: 0 22px 48px -30px rgba(15, 23, 42, 0.28);
+    --ep-shadow-sm: 0 10px 26px -22px rgba(15, 23, 42, 0.26);
+
+    color: var(--ep-ink);
+    font-family: var(--font-ibm-loop), sans-serif;
+    background-color: var(--ep-paper);
+}
+
+.dark .khep {
+    --ep-paper: #080D18;
+    --ep-surface: #0F1728;
+    --ep-surface2: #16213A;
+    --ep-ink: #F1F5F9;
+    --ep-ink2: #9AA7BC;
+    --ep-ink3: #647089;
+    --ep-line: #22304A;
+    --ep-amber: #FBBF24;
+    --ep-amber-soft: #2A2011;
+    --ep-teal: #2DD4BF;
+    --ep-teal2: #14B8A6;
+    --ep-shadow: 0 22px 48px -28px rgba(0, 0, 0, 0.62);
+    --ep-shadow-sm: 0 10px 26px -22px rgba(0, 0, 0, 0.55);
+    color: var(--ep-ink);
+    color-scheme: dark;
+    background-color: var(--ep-paper);
+}
+
+.khep :is(h1, h2, h3, .khep-display) {
+    font-family: var(--font-mitr), sans-serif;
+}
+
+/* Card lifts on hover and borrows its cover accent (set inline as --ep-accent). */
+.khep .ep-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--ep-accent, var(--ep-line));
+    box-shadow: var(--ep-shadow);
+}
+
+.khep .ep-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--ep-teal);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.85rem;
+    transition: background-color .18s ease, transform .18s ease;
+}
+
+.khep .ep-btn-primary:hover {
+    background: var(--ep-teal2);
+    transform: translateY(-1px);
+}
