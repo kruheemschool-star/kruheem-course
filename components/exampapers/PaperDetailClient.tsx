@@ -11,6 +11,7 @@ import type { ExamPaper } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
 import { FileText, Eye, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, X, UploadCloud, Loader2 } from "lucide-react";
 import ExamAnalysisSection from "@/components/exampapers/ExamAnalysisSection";
+import PaymentTransferInfo from "@/components/payment/PaymentTransferInfo";
 
 const PHONE_RE = /^[0-9]{9,10}$/;
 
@@ -181,10 +182,10 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
                             <span className="font-black text-teal-600 dark:text-teal-400 shrink-0">฿{Number(paper.price || 0).toLocaleString()}</span>
                         </div>
 
-                        {/* bank / promptpay note */}
-                        <div className="rounded-xl border border-teal-200 dark:border-teal-900 bg-teal-50 dark:bg-teal-950 p-3 mb-4 text-sm text-teal-800 dark:text-teal-200">
-                            โอนเงินมาที่บัญชีครูฮีม แล้วแนบสลิปด้านล่าง ครูจะตรวจและอนุมัติให้โดยเร็วที่สุด
-                        </div>
+                        {/* transfer details — same block as the main checkout */}
+                        <div className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">1. สแกน QR หรือโอนเข้าบัญชี</div>
+                        <div className="mb-4"><PaymentTransferInfo compact /></div>
+                        <div className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">2. กรอกข้อมูล แล้วแนบสลิป</div>
 
                         <div className="space-y-3">
                             <input className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500" placeholder="ชื่อ-นามสกุล *" value={fullName} onChange={(e) => setFullName(e.target.value)} />

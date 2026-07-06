@@ -10,6 +10,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
 import ConfettiBurst from "@/components/gamification/ConfettiBurst";
+import { PAYMENT_INFO } from "@/lib/constants";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (before compression)
 const UPLOAD_TIMEOUT = 120_000; // 120 seconds
@@ -691,10 +692,7 @@ export default function PaymentPage() {
 
                       {/* Account numbers */}
                       <div className="space-y-3">
-                        {[
-                          { label: "พร้อมเพย์", value: "082-705-7440" },
-                          { label: "กสิกรไทย (ออมทรัพย์)", value: "391-2-78364-1", note: "สาขา เซ็นทรัลรัตนาธิเบศร์" },
-                        ].map(acc => (
+                        {PAYMENT_INFO.accounts.map(acc => (
                           <div key={acc.value} className="rounded-[12px] border border-[var(--line)] bg-[var(--card)] p-4">
                             <div className="text-xs text-[color:var(--ink-2)] font-semibold mb-1">{acc.label}</div>
                             <div className="flex items-center justify-between gap-2">
