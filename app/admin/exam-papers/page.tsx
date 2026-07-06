@@ -432,7 +432,7 @@ export default function AdminExamPapersPage() {
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 <div>
                                     <label className="block text-sm font-medium kh-ink mb-1">ราคา (บาท) *</label>
-                                    <input type="number" min={0} className="kh-input w-full" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
+                                    <input type="number" min={0} className="kh-input w-full" placeholder="0" value={form.price || ""} onChange={(e) => setForm({ ...form, price: Number(e.target.value) || 0 })} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium kh-ink mb-1">ระดับชั้น</label>
@@ -448,11 +448,11 @@ export default function AdminExamPapersPage() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium kh-ink mb-1">จำนวนข้อ</label>
-                                    <input type="number" min={0} className="kh-input w-full" value={form.questionCount} onChange={(e) => setForm({ ...form, questionCount: Number(e.target.value) })} />
+                                    <input type="number" min={0} className="kh-input w-full" placeholder="0" value={form.questionCount || ""} onChange={(e) => setForm({ ...form, questionCount: Number(e.target.value) || 0 })} />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium kh-ink mb-1">จำนวนหน้า</label>
-                                    <input type="number" min={0} className="kh-input w-full" value={form.pageCount} onChange={(e) => setForm({ ...form, pageCount: Number(e.target.value) })} />
+                                    <input type="number" min={0} className="kh-input w-full" placeholder="0" value={form.pageCount || ""} onChange={(e) => setForm({ ...form, pageCount: Number(e.target.value) || 0 })} />
                                 </div>
                             </div>
 
@@ -525,9 +525,9 @@ export default function AdminExamPapersPage() {
                                         <label className="block text-xs kh-ink3 mb-1">หัวข้อ (headline)</label>
                                         <input className="kh-input w-full" value={analysis.headline || ""} onChange={(e) => setAnalysis({ ...analysis, headline: e.target.value })} placeholder="เช่น สอบเข้า ม.1 บทไหนออกบ่อยที่สุด?" />
                                     </div>
-                                    <div><label className="block text-xs kh-ink3 mb-1">วิเคราะห์กี่ปี</label><input type="number" min={0} className="kh-input w-full" value={analysis.years || 0} onChange={(e) => setAnalysis({ ...analysis, years: Number(e.target.value) })} /></div>
-                                    <div><label className="block text-xs kh-ink3 mb-1">รวมกี่ข้อ</label><input type="number" min={0} className="kh-input w-full" value={analysis.totalQuestions || 0} onChange={(e) => setAnalysis({ ...analysis, totalQuestions: Number(e.target.value) })} /></div>
-                                    <div><label className="block text-xs kh-ink3 mb-1">ครอบคลุม (%)</label><input type="number" min={0} max={100} className="kh-input w-full" value={analysis.coverage || 0} onChange={(e) => setAnalysis({ ...analysis, coverage: Number(e.target.value) })} /></div>
+                                    <div><label className="block text-xs kh-ink3 mb-1">วิเคราะห์กี่ปี</label><input type="number" min={0} className="kh-input w-full" placeholder="0" value={analysis.years || ""} onChange={(e) => setAnalysis({ ...analysis, years: Number(e.target.value) || 0 })} /></div>
+                                    <div><label className="block text-xs kh-ink3 mb-1">รวมกี่ข้อ</label><input type="number" min={0} className="kh-input w-full" placeholder="0" value={analysis.totalQuestions || ""} onChange={(e) => setAnalysis({ ...analysis, totalQuestions: Number(e.target.value) || 0 })} /></div>
+                                    <div><label className="block text-xs kh-ink3 mb-1">ครอบคลุม (%)</label><input type="number" min={0} max={100} className="kh-input w-full" placeholder="0" value={analysis.coverage || ""} onChange={(e) => setAnalysis({ ...analysis, coverage: Number(e.target.value) || 0 })} /></div>
                                     <div><label className="block text-xs kh-ink3 mb-1">คำโปรยใต้ %</label><input className="kh-input w-full" value={analysis.note || ""} onChange={(e) => setAnalysis({ ...analysis, note: e.target.value })} placeholder="ฝึกตรงจุด ไม่เสียเวลา" /></div>
                                 </div>
 
@@ -537,7 +537,7 @@ export default function AdminExamPapersPage() {
                                         <div key={i} className="flex items-center gap-2">
                                             <input className="kh-input flex-1" style={{ padding: "6px 10px", fontSize: 13 }} value={c.name} onChange={(e) => setChapter(i, { name: e.target.value })} placeholder={`บทที่ ${i + 1} เช่น เศษส่วน`} />
                                             <div className="flex items-center gap-1 shrink-0">
-                                                <input type="number" min={0} max={100} className="kh-input" style={{ width: 68, padding: "6px 8px", fontSize: 13 }} value={c.percent || 0} onChange={(e) => setChapter(i, { percent: Number(e.target.value) })} />
+                                                <input type="number" min={0} max={100} className="kh-input" style={{ width: 68, padding: "6px 8px", fontSize: 13 }} placeholder="0" value={c.percent || ""} onChange={(e) => setChapter(i, { percent: Number(e.target.value) || 0 })} />
                                                 <span className="text-xs kh-ink3">%</span>
                                             </div>
                                             <button type="button" onClick={() => removeChapter(i)} aria-label="ลบบท" className="kh-btn-ghost shrink-0" style={{ color: "var(--danger)", padding: 6 }}><Trash2 size={14} /></button>
