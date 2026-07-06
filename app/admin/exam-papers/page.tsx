@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
 import { uploadPublicFile, uploadPrivateFile, deleteStorageFile } from "@/lib/pdfUpload";
 import { uploadImageToStorage } from "@/lib/upload";
@@ -69,6 +69,19 @@ export default function AdminExamPapersPage() {
     }, []);
 
     useEffect(() => { load(); }, [load]);
+
+    // Bust the public shop's ISR cache so admin changes show instantly instead of
+    // waiting out the 5-minute window. Best-effort — the change is already saved.
+    const bustShopCache = useCallback(async () => {
+        try {
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) return;
+            await fetch("/api/revalidate-exam-papers", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+        } catch { /* non-fatal */ }
+    }, []);
 
     const openCreate = () => {
         setEditingId(null);
@@ -205,6 +218,7 @@ export default function AdminExamPapersPage() {
             toast.success(editingId ? "บันทึกการแก้ไขแล้ว" : "เพิ่มชุดข้อสอบแล้ว");
             closeEditor();
             await load();
+            bustShopCache();
         } catch (err) {
             console.error(err);
             toast.error("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
@@ -232,6 +246,7 @@ export default function AdminExamPapersPage() {
                     await deleteDoc(doc(db, "examPapers", p.id));
                     toast.success("ลบแล้ว");
                     setPapers((prev) => prev.filter((x) => x.id !== p.id));
+                    bustShopCache();
                 } catch {
                     toast.error("ลบไม่สำเร็จ");
                 }
@@ -244,6 +259,7 @@ export default function AdminExamPapersPage() {
         try {
             await updateDoc(doc(db, "examPapers", p.id), { hidden: !p.hidden });
             setPapers((prev) => prev.map((x) => (x.id === p.id ? { ...x, hidden: !p.hidden } : x)));
+            bustShopCache();
         } catch {
             toast.error("อัปเดตไม่สำเร็จ");
         }
