@@ -97,8 +97,17 @@ export async function POST(req: NextRequest) {
         if (!ADMIN_STORAGE_BUCKET) {
             return NextResponse.json({ error: "storage not configured" }, { status: 500 });
         }
-        const rawName = target?.name || `${target?.label || paper.title || "exam"}.pdf`;
-        const safeName = rawName.replace(/["\\\r\n]/g, "");
+        // Give the buyer a clean, descriptive filename built from the PRODUCT
+        // title (+ the set label when the product has several sets) — regardless
+        // of how the raw file was named on upload. Thai is fully supported: we
+        // send an ASCII fallback (`filename=`) AND an RFC 5987 UTF-8 name
+        // (`filename*=`) so Thai-aware browsers show the Thai name and older
+        // clients still get a readable one.
+        const baseTitle = String(paper.title || target?.name || "ข้อสอบ").replace(/\.pdf$/i, "").trim();
+        const multiSet = files.length > 1 && target?.label ? ` - ${target.label}` : "";
+        const niceName = `${baseTitle}${multiSet}.pdf`.replace(/[\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+        const asciiName = niceName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "") || "exam.pdf";
+        const disposition = `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(niceName)}`;
         const [url] = await adminStorage
             .bucket(ADMIN_STORAGE_BUCKET)
             .file(pdfPath)
@@ -106,7 +115,7 @@ export async function POST(req: NextRequest) {
                 version: "v4",
                 action: "read",
                 expires: Date.now() + LINK_TTL_MS,
-                responseDisposition: `attachment; filename="${safeName}"`,
+                responseDisposition: disposition,
             });
 
         return NextResponse.json({ url }, { headers: { "Cache-Control": "no-store" } });
