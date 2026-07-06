@@ -23,6 +23,11 @@ function filesOf(p: ExamPaper): EditFile[] {
 
 const LEVELS = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6", "อื่นๆ"];
 const CATEGORIES = ["O-NET", "A-Level", "สอบกลางภาค", "สอบปลายภาค", "สอบเข้า", "แนวข้อสอบ", "อื่นๆ"];
+// The 3 standard parts of an exam set (+ extras). Used as the file-label
+// presets so ครูฮีม picks a type instead of typing it. First 3 files default
+// to ตัวข้อสอบ / กระดาษคำตอบ / เฉลย in order.
+const FILE_PARTS = ["ตัวข้อสอบ", "กระดาษคำตอบ", "เฉลย", "เอกสารวิเคราะห์"];
+const partForIndex = (i: number) => FILE_PARTS[i] || `ไฟล์ที่ ${i + 1}`;
 
 // Blank draft used by the editor.
 const emptyForm = {
@@ -164,8 +169,8 @@ export default function AdminExamPapersPage() {
         if (picked.length) {
             setFiles((prev) => {
                 const merged = [...prev, ...picked];
-                // Fill any blank label with a sensible "ชุดที่ N" default by position.
-                return merged.map((f, i) => ({ ...f, label: f.label || `ชุดที่ ${i + 1}` }));
+                // Default blank labels to the standard parts by position.
+                return merged.map((f, i) => ({ ...f, label: f.label || partForIndex(i) }));
             });
         }
     };
@@ -255,7 +260,7 @@ export default function AdminExamPapersPage() {
             const finalFiles: ExamPaperFile[] = [];
             for (let i = 0; i < files.length; i++) {
                 const f = files[i];
-                const label = f.label.trim() || `ชุดที่ ${i + 1}`;
+                const label = f.label.trim() || partForIndex(i);
                 if (f.file) {
                     setProgressLabel(`กำลังอัปโหลดไฟล์ ${i + 1}/${files.length}...`);
                     const path = `exam-pdfs/${paperId}/${Date.now()}_${i}_${f.file.name.replace(/[^\w.\-]/g, "_")}`;
@@ -476,23 +481,35 @@ export default function AdminExamPapersPage() {
 
                             {/* master pdf set — one or many files */}
                             <div className="kh-card p-4" style={{ background: "var(--accent-soft)", borderColor: "var(--accent)" }}>
-                                <label className="text-sm font-medium kh-ink flex items-center gap-1.5"><Lock size={14} style={{ color: "var(--accent-ink)" }} /> ไฟล์ข้อสอบในชุดนี้ (เพิ่มได้หลายไฟล์) *</label>
-                                <p className="text-xs kh-ink3 mt-1 mb-3">แต่ละไฟล์คือข้อสอบ 1 ชุด (รวมโจทย์ + เฉลย ในไฟล์เดียว) ลูกค้าจ่ายครั้งเดียวได้ครบทุกไฟล์ · สูงสุดไฟล์ละ 50MB</p>
+                                <label className="text-sm font-medium kh-ink flex items-center gap-1.5"><Lock size={14} style={{ color: "var(--accent-ink)" }} /> ไฟล์ในชุดนี้ · ตัวข้อสอบ / กระดาษคำตอบ / เฉลย *</label>
+                                <p className="text-xs kh-ink3 mt-1 mb-3">อัปโหลดทั้ง 3 ไฟล์ แล้วเลือกประเภทให้แต่ละไฟล์ ลูกค้าจ่ายครั้งเดียวได้ครบทุกไฟล์ · สูงสุดไฟล์ละ 50MB</p>
 
                                 {files.length > 0 && (
                                     <div className="space-y-2 mb-3">
-                                        {files.map((f, i) => (
+                                        {files.map((f) => (
                                             <div key={f.id} className="flex items-center gap-2 bg-[var(--card)] rounded-xl p-2 border" style={{ borderColor: "var(--line)" }}>
                                                 <GripVertical size={16} style={{ color: "var(--ink-3)" }} className="shrink-0" />
                                                 <FileText size={18} style={{ color: f.file ? "var(--warn)" : "var(--good)" }} className="shrink-0" />
-                                                <input
-                                                    className="kh-input flex-1 min-w-0"
-                                                    style={{ padding: "6px 10px", fontSize: 13 }}
-                                                    value={f.label}
-                                                    onChange={(e) => setFileLabel(f.id, e.target.value)}
-                                                    placeholder={`ชุดที่ ${i + 1}`}
-                                                />
-                                                <span className="text-xs kh-ink3 truncate max-w-[110px] hidden sm:block" title={f.name}>{f.name}</span>
+                                                <select
+                                                    className="kh-select shrink-0"
+                                                    style={{ width: 150, padding: "6px 8px", fontSize: 13 }}
+                                                    value={FILE_PARTS.includes(f.label) ? f.label : "__custom"}
+                                                    onChange={(e) => setFileLabel(f.id, e.target.value === "__custom" ? "" : e.target.value)}
+                                                >
+                                                    {FILE_PARTS.map((p) => <option key={p} value={p}>{p}</option>)}
+                                                    <option value="__custom">อื่นๆ (พิมพ์เอง)…</option>
+                                                </select>
+                                                {!FILE_PARTS.includes(f.label) && (
+                                                    <input
+                                                        className="kh-input flex-1 min-w-0"
+                                                        style={{ padding: "6px 10px", fontSize: 13 }}
+                                                        value={f.label}
+                                                        onChange={(e) => setFileLabel(f.id, e.target.value)}
+                                                        placeholder="พิมพ์ชื่อไฟล์"
+                                                        autoFocus
+                                                    />
+                                                )}
+                                                <span className="text-xs kh-ink3 truncate max-w-[100px] hidden sm:block flex-1" title={f.name}>{f.name}</span>
                                                 {!f.file && <span className="text-[10px] kh-pill kh-pill-good no-dot">อัปแล้ว</span>}
                                                 <button type="button" onClick={() => removeFile(f.id)} aria-label="ลบไฟล์" className="kh-btn-ghost shrink-0" style={{ color: "var(--danger)", padding: 6 }}><Trash2 size={15} /></button>
                                             </div>
