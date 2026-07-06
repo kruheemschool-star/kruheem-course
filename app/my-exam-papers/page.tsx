@@ -27,6 +27,8 @@ function accentFor(id: string) {
     return COVER_ACCENTS[h % COVER_ACCENTS.length];
 }
 
+interface PaperFileLite { id: string; label: string }
+
 interface PaperItem {
     id: string;         // enrollment id
     paperId: string;
@@ -34,6 +36,7 @@ interface PaperItem {
     level: string;
     category: string;
     questionCount: number;
+    files: PaperFileLite[];   // downloadable sets in this purchase
     status: "pending" | "approved" | "rejected" | "suspended";
 }
 
@@ -96,6 +99,10 @@ export default function MyExamPapersPage() {
                 .filter((d) => d.productType === "examPaper" && d.paperId)
                 .map((d) => {
                     const paper = paperById.get(d.paperId as string);
+                    // New products list their files; old ones have a single legacy file.
+                    const files: PaperFileLite[] = paper?.files?.length
+                        ? paper.files.map((f) => ({ id: f.id, label: f.label }))
+                        : (paper?.pdfPath ? [{ id: "legacy", label: "ดาวน์โหลด" }] : []);
                     return {
                         id: d.id as string,
                         paperId: d.paperId as string,
@@ -103,6 +110,7 @@ export default function MyExamPapersPage() {
                         level: paper?.level || "",
                         category: paper?.category || "",
                         questionCount: Number(paper?.questionCount || 0),
+                        files,
                         status: (d.status as PaperItem["status"]) || "pending",
                     };
                 });
@@ -133,15 +141,15 @@ export default function MyExamPapersPage() {
 
     const readyCount = items.filter((i) => i.status === "approved").length;
 
-    const download = async (paperId: string) => {
+    const download = async (paperId: string, fileId: string) => {
         if (!auth.currentUser) return;
-        setDownloadingId(paperId);
+        setDownloadingId(`${paperId}:${fileId}`);
         try {
             const idToken = await auth.currentUser.getIdToken();
             const res = await fetch("/api/download-pdf", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-                body: JSON.stringify({ paperId }),
+                body: JSON.stringify({ paperId, fileId }),
             });
             const data = await res.json();
             if (!res.ok || !data.url) {
@@ -250,7 +258,7 @@ export default function MyExamPapersPage() {
                                     return (
                                         <div
                                             key={it.id}
-                                            className="ep-card group flex items-center gap-4 sm:gap-5 rounded-[20px] border p-4 sm:p-5 transition-all"
+                                            className="ep-card group flex items-start gap-4 sm:gap-5 rounded-[20px] border p-4 sm:p-5 transition-all"
                                             style={{ background: "var(--ep-surface)", borderColor: "var(--ep-line)", boxShadow: "var(--ep-shadow-sm)", ["--ep-accent" as string]: accent.from }}
                                         >
                                             <PaperCover level={it.level} accent={accent} />
@@ -265,34 +273,45 @@ export default function MyExamPapersPage() {
                                                     )}
                                                 </div>
                                                 <h3 className="text-[17px] sm:text-[19px] font-bold mt-1.5 leading-snug line-clamp-2" style={{ color: "var(--ep-ink)", fontFamily: "var(--font-ibm-loop)" }}>{it.title}</h3>
-                                                {it.questionCount > 0 && (
-                                                    <div className="flex items-center gap-1.5 mt-1.5 text-[13px]" style={{ color: "var(--ep-ink3)" }}>
-                                                        <ListChecks size={14} /> {it.questionCount} ข้อ
-                                                    </div>
-                                                )}
-                                            </div>
+                                                <div className="flex items-center gap-3 mt-1.5 text-[13px]" style={{ color: "var(--ep-ink3)" }}>
+                                                    {it.questionCount > 0 && <span className="flex items-center gap-1.5"><ListChecks size={14} /> {it.questionCount} ข้อ</span>}
+                                                    {it.status === "approved" && it.files.length > 1 && <span className="flex items-center gap-1.5"><FileText size={14} /> {it.files.length} ชุด</span>}
+                                                </div>
 
-                                            <div className="shrink-0">
-                                                {it.status === "approved" ? (
-                                                    <button
-                                                        onClick={() => download(it.paperId)}
-                                                        disabled={downloadingId === it.paperId}
-                                                        className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60"
-                                                        style={{ borderColor: "var(--ep-line)", color: "var(--ep-ink)", background: "var(--ep-surface)" }}
-                                                    >
-                                                        {downloadingId === it.paperId
-                                                            ? <><Loader2 className="animate-spin" size={16} /> กำลังเตรียม...</>
-                                                            : <><Download size={16} style={{ color: "var(--ep-teal)" }} /> ดาวน์โหลด</>}
-                                                    </button>
-                                                ) : it.status === "rejected" ? (
-                                                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--ep-ink3)" }}>
-                                                        <XCircle size={16} /> ไม่อนุมัติ
-                                                    </span>
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold" style={{ background: "var(--ep-amber-soft)", color: "var(--ep-amber)" }}>
-                                                        <Clock size={16} /> รอครูอนุมัติ
-                                                    </span>
-                                                )}
+                                                <div className="mt-3">
+                                                    {it.status === "approved" ? (
+                                                        it.files.length === 0 ? (
+                                                            <span className="text-sm" style={{ color: "var(--ep-ink3)" }}>ไฟล์ยังไม่พร้อม</span>
+                                                        ) : (
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {it.files.map((f) => {
+                                                                    const busy = downloadingId === `${it.paperId}:${f.id}`;
+                                                                    return (
+                                                                        <button
+                                                                            key={f.id}
+                                                                            onClick={() => download(it.paperId, f.id)}
+                                                                            disabled={busy}
+                                                                            className="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors disabled:opacity-60"
+                                                                            style={{ borderColor: "var(--ep-line)", color: "var(--ep-ink)", background: "var(--ep-surface)" }}
+                                                                        >
+                                                                            {busy
+                                                                                ? <><Loader2 className="animate-spin" size={15} /> กำลังเตรียม...</>
+                                                                                : <><Download size={15} style={{ color: "var(--ep-teal)" }} /> {f.label}</>}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )
+                                                    ) : it.status === "rejected" ? (
+                                                        <span className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--ep-ink3)" }}>
+                                                            <XCircle size={16} /> ไม่อนุมัติ
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold" style={{ background: "var(--ep-amber-soft)", color: "var(--ep-amber)" }}>
+                                                            <Clock size={16} /> รอครูอนุมัติ
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     );

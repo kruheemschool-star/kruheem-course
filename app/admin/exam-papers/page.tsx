@@ -2,13 +2,24 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, deleteField } from "firebase/firestore";
 import { uploadPublicFile, uploadPrivateFile, deleteStorageFile } from "@/lib/pdfUpload";
 import { uploadImageToStorage } from "@/lib/upload";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
-import type { ExamPaper } from "@/types";
+import type { ExamPaper, ExamPaperFile } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
-import { Plus, FileText, Trash2, Pencil, Eye, EyeOff, ImagePlus, UploadCloud, FileCheck2, X, Loader2, Lock } from "lucide-react";
+import { Plus, FileText, Trash2, Pencil, Eye, EyeOff, ImagePlus, UploadCloud, FileCheck2, X, Loader2, Lock, GripVertical } from "lucide-react";
+
+// A file row in the editor: either already-uploaded (has `path`) or freshly
+// staged (has `file`, not yet uploaded).
+type EditFile = { id: string; label: string; name: string; path?: string; file?: File };
+
+// Read a paper's files, falling back to the legacy single-file fields.
+function filesOf(p: ExamPaper): EditFile[] {
+    if (p.files?.length) return p.files.map((f) => ({ id: f.id, label: f.label, name: f.name, path: f.path }));
+    if (p.pdfPath) return [{ id: "legacy", label: "ชุดที่ 1", name: p.pdfName || "ข้อสอบ.pdf", path: p.pdfPath }];
+    return [];
+}
 
 const LEVELS = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6", "อื่นๆ"];
 const CATEGORIES = ["O-NET", "A-Level", "สอบกลางภาค", "สอบปลายภาค", "สอบเข้า", "แนวข้อสอบ", "อื่นๆ"];
@@ -40,19 +51,21 @@ export default function AdminExamPapersPage() {
     const [coverPreview, setCoverPreview] = useState<string>("");   // existing url or objectURL
     const [previewFile, setPreviewFile] = useState<File | null>(null);
     const [previewName, setPreviewName] = useState<string>("");     // existing preview label
-    const [masterFile, setMasterFile] = useState<File | null>(null);
-    const [masterName, setMasterName] = useState<string>("");       // existing master filename
+
+    // The sellable PDF set(s). Each row is one complete exam ("ชุดที่ N").
+    const [files, setFiles] = useState<EditFile[]>([]);
+    const [origFilePaths, setOrigFilePaths] = useState<string[]>([]); // to delete removed files on save
 
     // Storage paths already on this paper, so we can delete the OLD file when
     // it gets replaced by a new upload (otherwise every edit leaves an orphan
     // behind in Storage, quietly growing usage/cost).
-    const [existingPaths, setExistingPaths] = useState<{ cover?: string; preview?: string; pdf?: string }>({});
+    const [existingPaths, setExistingPaths] = useState<{ cover?: string; preview?: string }>({});
 
     const [saving, setSaving] = useState(false);
     const [progressLabel, setProgressLabel] = useState("");
     const coverInputRef = useRef<HTMLInputElement>(null);
     const previewInputRef = useRef<HTMLInputElement>(null);
-    const masterInputRef = useRef<HTMLInputElement>(null);
+    const filesInputRef = useRef<HTMLInputElement>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -88,7 +101,7 @@ export default function AdminExamPapersPage() {
         setForm({ ...emptyForm });
         setCoverFile(null); setCoverPreview("");
         setPreviewFile(null); setPreviewName("");
-        setMasterFile(null); setMasterName("");
+        setFiles([]); setOrigFilePaths([]);
         setExistingPaths({});
         setEditorOpen(true);
     };
@@ -107,8 +120,10 @@ export default function AdminExamPapersPage() {
         });
         setCoverFile(null); setCoverPreview(p.coverUrl || "");
         setPreviewFile(null); setPreviewName(p.previewUrl ? "มีไฟล์ตัวอย่างแล้ว" : "");
-        setMasterFile(null); setMasterName(p.pdfName || (p.pdfPath ? "มีไฟล์ต้นฉบับแล้ว" : ""));
-        setExistingPaths({ cover: p.coverPath, preview: p.previewPath, pdf: p.pdfPath });
+        const existing = filesOf(p);
+        setFiles(existing);
+        setOrigFilePaths(existing.map((f) => f.path).filter(Boolean) as string[]);
+        setExistingPaths({ cover: p.coverPath, preview: p.previewPath });
         setEditorOpen(true);
     };
 
@@ -125,19 +140,37 @@ export default function AdminExamPapersPage() {
         setCoverPreview(URL.createObjectURL(f));
     };
 
-    const onPickPdf = (f: File | null, kind: "preview" | "master") => {
+    const onPickPreview = (f: File | null) => {
         if (!f) return;
         if (f.type !== "application/pdf") return toast.error("ต้องเป็นไฟล์ PDF เท่านั้น");
-        const maxMb = kind === "master" ? 50 : 10;
-        if (f.size > maxMb * 1024 * 1024) return toast.error(`ไฟล์ใหญ่เกิน ${maxMb}MB`);
-        if (kind === "master") { setMasterFile(f); setMasterName(f.name); }
-        else { setPreviewFile(f); setPreviewName(f.name); }
+        if (f.size > 10 * 1024 * 1024) return toast.error("ไฟล์ใหญ่เกิน 10MB");
+        setPreviewFile(f); setPreviewName(f.name);
     };
+
+    // Add one or more master PDFs to the set. Each defaults to a "ชุดที่ N" label.
+    const onAddFiles = (list: FileList | null) => {
+        if (!list?.length) return;
+        const picked: EditFile[] = [];
+        Array.from(list).forEach((f) => {
+            if (f.type !== "application/pdf") { toast.error(`"${f.name}" ไม่ใช่ไฟล์ PDF`); return; }
+            if (f.size > 50 * 1024 * 1024) { toast.error(`"${f.name}" ใหญ่เกิน 50MB`); return; }
+            picked.push({ id: crypto.randomUUID(), label: "", name: f.name, file: f });
+        });
+        if (picked.length) {
+            setFiles((prev) => {
+                const merged = [...prev, ...picked];
+                // Fill any blank label with a sensible "ชุดที่ N" default by position.
+                return merged.map((f, i) => ({ ...f, label: f.label || `ชุดที่ ${i + 1}` }));
+            });
+        }
+    };
+    const setFileLabel = (id: string, label: string) => setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, label } : f)));
+    const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
 
     const handleSave = async () => {
         if (!form.title.trim()) return toast.error("กรุณากรอกชื่อชุดข้อสอบ");
         if (form.price < 0) return toast.error("ราคาต้องไม่ติดลบ");
-        if (!editingId && !masterFile) return toast.error("กรุณาแนบไฟล์ PDF ต้นฉบับ");
+        if (files.length === 0) return toast.error("กรุณาแนบไฟล์ข้อสอบอย่างน้อย 1 ไฟล์");
 
         setSaving(true);
         try {
@@ -190,29 +223,39 @@ export default function AdminExamPapersPage() {
                 patch.previewPath = newPreviewPath;
             }
 
-            // 4. Master PDF (PRIVATE — store the path only, never a public URL).
-            let newPdfPath: string | undefined;
-            if (masterFile) {
-                setProgressLabel("กำลังอัปโหลดไฟล์ต้นฉบับ...");
-                newPdfPath = `exam-pdfs/${paperId}/${Date.now()}_${masterFile.name.replace(/[^\w.\-]/g, "_")}`;
-                patch.pdfPath = await uploadPrivateFile(
-                    masterFile,
-                    newPdfPath,
-                    (p) => setProgressLabel(`กำลังอัปโหลดไฟล์ต้นฉบับ... ${p}%`),
-                );
-                patch.pdfName = masterFile.name;
+            // 4. Master PDF set (PRIVATE — store paths only, never public URLs).
+            //    Upload any newly-staged files; keep already-uploaded ones as-is.
+            const finalFiles: ExamPaperFile[] = [];
+            for (let i = 0; i < files.length; i++) {
+                const f = files[i];
+                const label = f.label.trim() || `ชุดที่ ${i + 1}`;
+                if (f.file) {
+                    setProgressLabel(`กำลังอัปโหลดไฟล์ ${i + 1}/${files.length}...`);
+                    const path = `exam-pdfs/${paperId}/${Date.now()}_${i}_${f.file.name.replace(/[^\w.\-]/g, "_")}`;
+                    await uploadPrivateFile(f.file, path, (p) => setProgressLabel(`กำลังอัปโหลดไฟล์ ${i + 1}/${files.length}... ${p}%`));
+                    finalFiles.push({ id: f.id, label, name: f.file.name, path });
+                } else if (f.path) {
+                    finalFiles.push({ id: f.id, label, name: f.name, path: f.path });
+                }
             }
+            patch.files = finalFiles;
+            // Retire the legacy single-file fields — the app now reads `files`.
+            patch.pdfPath = deleteField();
+            patch.pdfName = deleteField();
 
             setProgressLabel("กำลังบันทึก...");
             await updateDoc(doc(db, "examPapers", paperId), patch);
 
             // 5. Only now that the doc points at the new files, delete whichever
-            //    OLD files got replaced — otherwise a crash between upload and
-            //    save could orphan the new file while the doc still needs it.
+            //    OLD files were removed/replaced — a crash between upload and save
+            //    would otherwise orphan a still-needed file. Compare original
+            //    paths against the ones we just saved.
+            const keptPaths = new Set(finalFiles.map((f) => f.path));
+            const removedFilePaths = origFilePaths.filter((p) => !keptPaths.has(p));
             await Promise.allSettled([
                 newCoverPath && existingPaths.cover ? deleteStorageFile(existingPaths.cover) : Promise.resolve(),
                 newPreviewPath && existingPaths.preview ? deleteStorageFile(existingPaths.preview) : Promise.resolve(),
-                newPdfPath && existingPaths.pdf ? deleteStorageFile(existingPaths.pdf) : Promise.resolve(),
+                ...removedFilePaths.map((p) => deleteStorageFile(p)),
             ]);
 
             toast.success(editingId ? "บันทึกการแก้ไขแล้ว" : "เพิ่มชุดข้อสอบแล้ว");
@@ -241,7 +284,7 @@ export default function AdminExamPapersPage() {
                     await Promise.allSettled([
                         deleteStorageFile(p.coverPath),
                         deleteStorageFile(p.previewPath),
-                        deleteStorageFile(p.pdfPath),
+                        ...filesOf(p).map((f) => deleteStorageFile(f.path)),
                     ]);
                     await deleteDoc(doc(db, "examPapers", p.id));
                     toast.success("ลบแล้ว");
@@ -309,7 +352,9 @@ export default function AdminExamPapersPage() {
                                     <FileText size={40} style={{ color: "var(--ink-3)" }} />
                                 )}
                                 {p.hidden && <span className="kh-pill kh-pill-danger no-dot absolute top-2 left-2">ซ่อนอยู่</span>}
-                                {!p.pdfPath && <span className="kh-pill kh-pill-warn no-dot absolute top-2 right-2">ยังไม่มีไฟล์</span>}
+                                {filesOf(p).length === 0
+                                    ? <span className="kh-pill kh-pill-warn no-dot absolute top-2 right-2">ยังไม่มีไฟล์</span>
+                                    : filesOf(p).length > 1 && <span className="kh-pill kh-pill-ink no-dot absolute top-2 right-2">{filesOf(p).length} ชุด</span>}
                             </div>
                             <div className="p-4 flex flex-col flex-1">
                                 <div className="flex items-center gap-2 mb-1">
@@ -402,15 +447,34 @@ export default function AdminExamPapersPage() {
                                 </div>
                             </div>
 
-                            {/* master pdf */}
+                            {/* master pdf set — one or many files */}
                             <div className="kh-card p-4" style={{ background: "var(--accent-soft)", borderColor: "var(--accent)" }}>
-                                <label className="text-sm font-medium kh-ink mb-1 flex items-center gap-1.5"><Lock size={14} style={{ color: "var(--accent-ink)" }} /> ไฟล์ PDF ต้นฉบับ (ที่ลูกค้าจะได้เมื่อจ่ายเงิน) *</label>
-                                <div className="flex items-center gap-3 mt-2">
-                                    <button type="button" className="kh-btn" onClick={() => masterInputRef.current?.click()}><UploadCloud size={16} /> เลือกไฟล์ PDF</button>
-                                    <input ref={masterInputRef} type="file" accept="application/pdf" hidden onChange={(e) => onPickPdf(e.target.files?.[0] || null, "master")} />
-                                    {masterName && <span className="text-sm kh-ink flex items-center gap-1.5"><FileCheck2 size={16} style={{ color: "var(--good)" }} /> {masterName}</span>}
-                                </div>
-                                <p className="text-xs kh-ink3 mt-2">ไฟล์นี้เก็บเป็นความลับ เปิดตรงๆ ไม่ได้ ลูกค้าดาวน์โหลดผ่านลิงก์ชั่วคราวหลังครูอนุมัติเท่านั้น (สูงสุด 50MB)</p>
+                                <label className="text-sm font-medium kh-ink flex items-center gap-1.5"><Lock size={14} style={{ color: "var(--accent-ink)" }} /> ไฟล์ข้อสอบในชุดนี้ (เพิ่มได้หลายไฟล์) *</label>
+                                <p className="text-xs kh-ink3 mt-1 mb-3">แต่ละไฟล์คือข้อสอบ 1 ชุด (รวมโจทย์ + เฉลย ในไฟล์เดียว) ลูกค้าจ่ายครั้งเดียวได้ครบทุกไฟล์ · สูงสุดไฟล์ละ 50MB</p>
+
+                                {files.length > 0 && (
+                                    <div className="space-y-2 mb-3">
+                                        {files.map((f, i) => (
+                                            <div key={f.id} className="flex items-center gap-2 bg-[var(--card)] rounded-xl p-2 border" style={{ borderColor: "var(--line)" }}>
+                                                <GripVertical size={16} style={{ color: "var(--ink-3)" }} className="shrink-0" />
+                                                <FileText size={18} style={{ color: f.file ? "var(--warn)" : "var(--good)" }} className="shrink-0" />
+                                                <input
+                                                    className="kh-input flex-1 min-w-0"
+                                                    style={{ padding: "6px 10px", fontSize: 13 }}
+                                                    value={f.label}
+                                                    onChange={(e) => setFileLabel(f.id, e.target.value)}
+                                                    placeholder={`ชุดที่ ${i + 1}`}
+                                                />
+                                                <span className="text-xs kh-ink3 truncate max-w-[110px] hidden sm:block" title={f.name}>{f.name}</span>
+                                                {!f.file && <span className="text-[10px] kh-pill kh-pill-good no-dot">อัปแล้ว</span>}
+                                                <button type="button" onClick={() => removeFile(f.id)} aria-label="ลบไฟล์" className="kh-btn-ghost shrink-0" style={{ color: "var(--danger)", padding: 6 }}><Trash2 size={15} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <button type="button" className="kh-btn" onClick={() => filesInputRef.current?.click()}><Plus size={16} /> เพิ่มไฟล์ข้อสอบ</button>
+                                <input ref={filesInputRef} type="file" accept="application/pdf" multiple hidden onChange={(e) => { onAddFiles(e.target.files); e.target.value = ""; }} />
                             </div>
 
                             {/* preview pdf */}
@@ -418,7 +482,7 @@ export default function AdminExamPapersPage() {
                                 <label className="block text-sm font-medium kh-ink mb-1">ไฟล์ตัวอย่างฟรี (PDF, ไม่บังคับ)</label>
                                 <div className="flex items-center gap-3">
                                     <button type="button" className="kh-btn-ghost" onClick={() => previewInputRef.current?.click()}><UploadCloud size={16} /> เลือกไฟล์ตัวอย่าง</button>
-                                    <input ref={previewInputRef} type="file" accept="application/pdf" hidden onChange={(e) => onPickPdf(e.target.files?.[0] || null, "preview")} />
+                                    <input ref={previewInputRef} type="file" accept="application/pdf" hidden onChange={(e) => onPickPreview(e.target.files?.[0] || null)} />
                                     {previewName && <span className="text-sm kh-ink flex items-center gap-1.5"><FileCheck2 size={16} style={{ color: "var(--good)" }} /> {previewName}</span>}
                                 </div>
                                 <p className="text-xs kh-ink3 mt-1">แนะนำให้ตัดมา 1–2 หน้าแรก ให้ลูกค้าดูก่อนซื้อ ช่วยเพิ่มยอดขาย</p>

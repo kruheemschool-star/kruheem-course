@@ -23,7 +23,9 @@ const LINK_TTL_MS = 10 * 60 * 1000; // signed URL valid for 10 minutes
  */
 export async function POST(req: NextRequest) {
     try {
-        const { paperId } = await req.json().catch(() => ({ paperId: null }));
+        const body = await req.json().catch(() => ({}));
+        const paperId: string | null = body?.paperId ?? null;
+        const fileId: string | null = body?.fileId ?? null;
         if (!paperId || typeof paperId !== "string") {
             return NextResponse.json({ error: "missing paperId" }, { status: 400 });
         }
@@ -51,9 +53,20 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "paper not found" }, { status: 404 });
         }
         const paper = paperSnap.data() || {};
-        const pdfPath: string | undefined = paper.pdfPath;
-        if (!pdfPath) {
+
+        // Resolve which file to sign. New products store an array of files; old
+        // ones only have the single pdfPath — treat that as a one-item list.
+        type PaperFile = { id?: string; path?: string; name?: string; label?: string };
+        const files: PaperFile[] = Array.isArray(paper.files) && paper.files.length
+            ? paper.files
+            : (paper.pdfPath ? [{ id: "legacy", path: paper.pdfPath, name: paper.pdfName }] : []);
+        if (!files.length) {
             return NextResponse.json({ error: "file not ready" }, { status: 409 });
+        }
+        const target = fileId ? files.find((f) => f.id === fileId) : files[0];
+        const pdfPath = target?.path;
+        if (!pdfPath) {
+            return NextResponse.json({ error: "file not found" }, { status: 404 });
         }
 
         // --- 3. Entitlement check ------------------------------------------
@@ -84,7 +97,8 @@ export async function POST(req: NextRequest) {
         if (!ADMIN_STORAGE_BUCKET) {
             return NextResponse.json({ error: "storage not configured" }, { status: 500 });
         }
-        const safeName = (paper.pdfName || `${paper.title || "exam"}.pdf`).replace(/["\\\r\n]/g, "");
+        const rawName = target?.name || `${target?.label || paper.title || "exam"}.pdf`;
+        const safeName = rawName.replace(/["\\\r\n]/g, "");
         const [url] = await adminStorage
             .bucket(ADMIN_STORAGE_BUCKET)
             .file(pdfPath)

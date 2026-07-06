@@ -73,9 +73,19 @@ export interface Enrollment {
 }
 
 // ========== Exam Papers (downloadable PDF products) ==========
-// A single sellable PDF exam. The master file lives in the private
-// `exam-pdfs/` Storage folder (never public); only a short-lived signed URL
-// minted by /api/download-pdf reaches a paid buyer. Cover + preview are public.
+// One downloadable file inside a paper. Each file is a complete, self-contained
+// PDF set (cover + analysis + questions + full solutions in one). A product
+// bundles several of these (e.g. "ชุดที่ 1", "ชุดที่ 2"). All live in the private
+// `exam-pdfs/` folder; the buyer reaches each via its own short-lived signed URL.
+export interface ExamPaperFile {
+    id: string;      // stable id — the download API signs the file matching this
+    label: string;   // buyer-facing name, e.g. "ชุดที่ 1"
+    name: string;    // original uploaded filename (used for the download attachment)
+    path: string;    // PRIVATE Storage path (never a public URL)
+}
+
+// A single sellable PDF exam product. Bundles one or more ExamPaperFile. Cover +
+// preview are public; the master files are private (signed URLs only).
 export interface ExamPaper {
     id: string;
     title: string;
@@ -88,6 +98,9 @@ export interface ExamPaper {
     coverPath?: string;      // Storage path of coverUrl — needed to delete it later
     previewUrl?: string;     // public — free sample (first 1–2 pages), optional
     previewPath?: string;    // Storage path of previewUrl — needed to delete it later
+    files?: ExamPaperFile[]; // the sellable PDF set(s) — one or many
+    // Legacy single-file fields (pre-multi-file). Read as a fallback so old
+    // products keep working; new/edited products write `files` instead.
     pdfPath?: string;        // PRIVATE Storage path of the master file (not a URL)
     pdfName?: string;        // original filename, used for the download attachment
     pageCount?: number;      // shown as "X หน้า" on the shop card
