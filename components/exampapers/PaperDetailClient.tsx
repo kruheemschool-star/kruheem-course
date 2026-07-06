@@ -98,11 +98,11 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
                 </div>
                 <h1 className="text-2xl font-black text-slate-900 dark:text-white">ส่งคำสั่งซื้อแล้ว!</h1>
                 <p className="text-slate-500 dark:text-slate-400 mt-3">
-                    ครูฮีมกำลังตรวจสอบสลิปของคุณ เมื่ออนุมัติแล้วคุณจะดาวน์โหลดไฟล์ได้ที่หน้า “ข้อสอบของฉัน” ทันที
+                    ครูฮีมกำลังตรวจสอบสลิปของคุณ เมื่ออนุมัติแล้วคุณจะดาวน์โหลดไฟล์ได้ที่หน้า “คอร์สเรียนของฉัน” ทันที
                 </p>
                 <div className="flex items-center justify-center gap-3 mt-7">
-                    <Link href="/my-exam-papers" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 transition">
-                        <Download size={17} /> ไปหน้าข้อสอบของฉัน
+                    <Link href="/my-courses" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 transition">
+                        <Download size={17} /> ไปหน้าคอร์สเรียนของฉัน
                     </Link>
                     <Link href="/exam-papers" className="inline-flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold px-5 py-2.5 transition hover:bg-slate-200 dark:hover:bg-slate-700">
                         เลือกซื้อชุดอื่น

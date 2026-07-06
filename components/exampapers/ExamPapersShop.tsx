@@ -35,7 +35,7 @@ export default function ExamPapersShop({ papers }: { papers: ExamPaper[] }) {
                 <p className="text-slate-500 dark:text-slate-400 mt-4 max-w-xl mx-auto">
                     ซื้อครั้งเดียว โหลดไฟล์เก็บไว้ได้ตลอด พร้อมเฉลยละเอียดทุกข้อ
                 </p>
-                <Link href="/my-exam-papers" className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-teal-600 dark:text-teal-400 hover:underline">
+                <Link href="/my-courses" className="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-teal-600 dark:text-teal-400 hover:underline">
                     <Download size={15} /> ข้อสอบที่ฉันซื้อไว้
                 </Link>
             </div>

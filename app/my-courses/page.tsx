@@ -3,13 +3,13 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { collection, query, where, getDocs, onSnapshot, QuerySnapshot, DocumentData } from "firebase/firestore";
 import { useTheme } from "next-themes";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { getCachedData } from "@/lib/dataCache";
 import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3, SlidersHorizontal, Sparkles, RotateCcw, Check, Clock, Lock, Sun, Moon } from "lucide-react";
+import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3, SlidersHorizontal, Sparkles, RotateCcw, Check, Clock, Lock, Sun, Moon, FileText, Download, Loader2 } from "lucide-react";
 import ReviewForm from "@/app/reviews/ReviewForm";
 
 /* ============================================================
@@ -606,6 +606,9 @@ export default function MyCoursesPage() {
                     c={c}
                     isDark={isDark}
                 />
+
+                {/* §7.6 — Downloadable PDF exams the student has bought */}
+                <MyPapersSection c={c} isDark={isDark} />
             </main>
 
             <div className="mc-content">
@@ -656,6 +659,137 @@ export default function MyCoursesPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+// ============================================================
+// §7.6 — Purchased PDF exams (so everything bought lives in one place)
+// ============================================================
+interface MyPaper {
+    paperId: string;
+    title: string;
+    level: string;
+    category: string;
+    files: { id: string; label: string }[];
+    status: string;
+}
+
+function MyPapersSection({ c, isDark }: { c: Pal; isDark: boolean }) {
+    const { user } = useUserAuth();
+    const [items, setItems] = useState<MyPaper[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [busyKey, setBusyKey] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!user) { setLoading(false); return; }
+        let cancelled = false;
+        (async () => {
+            try {
+                const [enrollSnap, papersSnap] = await Promise.all([
+                    getDocs(query(collection(db, "enrollments"), where("userId", "==", user.uid))),
+                    getDocs(collection(db, "examPapers")),
+                ]);
+                const byId = new Map<string, Record<string, unknown>>();
+                papersSnap.docs.forEach((d) => byId.set(d.id, d.data() as Record<string, unknown>));
+                const rows: MyPaper[] = enrollSnap.docs
+                    .map((d) => ({ id: d.id, ...d.data() } as Record<string, unknown>))
+                    .filter((d) => d.productType === "examPaper" && d.paperId)
+                    .map((d) => {
+                        const p = byId.get(d.paperId as string) || {};
+                        const pfiles = Array.isArray(p.files) ? (p.files as { id: string; label: string }[]) : [];
+                        const files = pfiles.length
+                            ? pfiles.map((f) => ({ id: f.id, label: f.label }))
+                            : (p.pdfPath ? [{ id: "legacy", label: "ดาวน์โหลด" }] : []);
+                        return {
+                            paperId: d.paperId as string,
+                            title: (p.title as string) || ((d.courseTitle as string) || "ข้อสอบ PDF").replace(/^ข้อสอบ PDF:\s*/, ""),
+                            level: (p.level as string) || "",
+                            category: (p.category as string) || "",
+                            files,
+                            status: (d.status as string) || "pending",
+                        };
+                    });
+                if (!cancelled) setItems(rows);
+            } catch { /* non-fatal */ }
+            finally { if (!cancelled) setLoading(false); }
+        })();
+        return () => { cancelled = true; };
+    }, [user]);
+
+    const download = async (paperId: string, fileId: string) => {
+        if (!auth.currentUser) return;
+        setBusyKey(`${paperId}:${fileId}`);
+        try {
+            const idToken = await auth.currentUser.getIdToken();
+            const res = await fetch("/api/download-pdf", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+                body: JSON.stringify({ paperId, fileId }),
+            });
+            const data = await res.json();
+            if (res.ok && data.url) window.location.href = data.url;
+        } catch { /* non-fatal */ }
+        finally { setBusyKey(null); }
+    };
+
+    // Nothing bought → render nothing (keeps the page clean for course-only users).
+    if (loading || items.length === 0) return null;
+
+    const tealTile = isDark ? "#0F2D2A" : "#E1F5EE";
+    const amberBg = isDark ? "#2A2011" : "#FBEFE0";
+    const amberFg = isDark ? "#FBBF24" : "#B45309";
+
+    return (
+        <section className="mb-10 mc-rise" style={{ marginTop: "2.25rem" }}>
+            <div className="flex items-center gap-2 mb-4">
+                <FileText size={18} style={{ color: "#0D9488" }} />
+                <h2 className="text-lg sm:text-xl font-bold mc-kanit" style={{ color: c.ink }}>ข้อสอบ PDF ของฉัน</h2>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+                {items.map((it) => (
+                    <div key={it.paperId} className="rounded-2xl border p-4 flex gap-3.5" style={{ background: c.card, borderColor: c.line, boxShadow: c.shadowSm }}>
+                        <div className="w-12 h-14 rounded-xl flex items-center justify-center shrink-0" style={{ background: tealTile, color: "#0D9488" }}>
+                            <FileText size={22} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                {it.level && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: tealTile, color: "#0D9488" }}>{it.level}</span>}
+                                {it.category && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: c.subtle, color: c.ink2 }}>{it.category}</span>}
+                            </div>
+                            <div className="font-bold leading-snug line-clamp-2" style={{ color: c.ink }}>{it.title}</div>
+                            <div className="mt-2.5">
+                                {it.status === "approved" ? (
+                                    it.files.length ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {it.files.map((f) => {
+                                                const busy = busyKey === `${it.paperId}:${f.id}`;
+                                                return (
+                                                    <button
+                                                        key={f.id}
+                                                        onClick={() => download(it.paperId, f.id)}
+                                                        disabled={busy}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-semibold transition-colors disabled:opacity-60"
+                                                        style={{ borderColor: c.line, color: c.ink, background: c.card }}
+                                                    >
+                                                        {busy ? <><Loader2 className="animate-spin" size={14} /> กำลังเตรียม...</> : <><Download size={14} style={{ color: "#0D9488" }} /> {f.label}</>}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : <span className="text-[13px]" style={{ color: c.ink3 }}>ไฟล์ยังไม่พร้อม</span>
+                                ) : it.status === "rejected" ? (
+                                    <span className="text-[13px] font-semibold" style={{ color: c.ink3 }}>ไม่อนุมัติ</span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: amberBg, color: amberFg }}>
+                                        <Clock size={14} /> รอครูอนุมัติ
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
     );
 }
 
