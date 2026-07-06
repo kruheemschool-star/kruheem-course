@@ -84,6 +84,21 @@ export interface ExamPaperFile {
     path: string;    // PRIVATE Storage path (never a public URL)
 }
 
+// "เก็งข้อสอบ" analysis shown on the sales page: which chapters appear how
+// often (from analysing past papers), and how much of that this set covers.
+export interface ExamAnalysisRow {
+    name: string;     // chapter/topic, e.g. "เศษส่วน · ทศนิยม"
+    percent: number;  // 0–100, how often it appears
+}
+export interface ExamPaperAnalysis {
+    headline?: string;       // e.g. "สอบเข้า ม.1 บทไหนออกบ่อยที่สุด?"
+    years?: number;          // number of past years analysed
+    totalQuestions?: number; // total past questions analysed
+    coverage?: number;       // 0–100, % of the common topics this set covers
+    note?: string;           // one-line caption under the coverage number
+    chapters?: ExamAnalysisRow[];
+}
+
 // A single sellable PDF exam product. Bundles one or more ExamPaperFile. Cover +
 // preview are public; the master files are private (signed URLs only).
 export interface ExamPaper {
@@ -105,6 +120,7 @@ export interface ExamPaper {
     pdfName?: string;        // original filename, used for the download attachment
     pageCount?: number;      // shown as "X หน้า" on the shop card
     questionCount?: number;  // shown as "X ข้อ" on the "my exam papers" card
+    analysis?: ExamPaperAnalysis; // optional "วิเคราะห์แนวข้อสอบ" sales section
     hidden?: boolean;        // draft / hidden from the public shop
     order?: number;          // manual sort (lower first)
     createdAt?: Timestamp | Date;

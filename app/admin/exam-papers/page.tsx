@@ -6,9 +6,9 @@ import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc,
 import { uploadPublicFile, uploadPrivateFile, deleteStorageFile } from "@/lib/pdfUpload";
 import { uploadImageToStorage } from "@/lib/upload";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
-import type { ExamPaper, ExamPaperFile } from "@/types";
+import type { ExamPaper, ExamPaperFile, ExamPaperAnalysis } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
-import { Plus, FileText, Trash2, Pencil, Eye, EyeOff, ImagePlus, UploadCloud, FileCheck2, X, Loader2, Lock, GripVertical } from "lucide-react";
+import { Plus, FileText, Trash2, Pencil, Eye, EyeOff, ImagePlus, UploadCloud, FileCheck2, X, Loader2, Lock, GripVertical, BarChart3 } from "lucide-react";
 
 // A file row in the editor: either already-uploaded (has `path`) or freshly
 // staged (has `file`, not yet uploaded).
@@ -56,6 +56,9 @@ export default function AdminExamPapersPage() {
     const [files, setFiles] = useState<EditFile[]>([]);
     const [origFilePaths, setOrigFilePaths] = useState<string[]>([]); // to delete removed files on save
 
+    // "วิเคราะห์แนวข้อสอบ" — optional sales section (bar chart of chapter %).
+    const [analysis, setAnalysis] = useState<ExamPaperAnalysis>({});
+
     // Storage paths already on this paper, so we can delete the OLD file when
     // it gets replaced by a new upload (otherwise every edit leaves an orphan
     // behind in Storage, quietly growing usage/cost).
@@ -102,6 +105,7 @@ export default function AdminExamPapersPage() {
         setCoverFile(null); setCoverPreview("");
         setPreviewFile(null); setPreviewName("");
         setFiles([]); setOrigFilePaths([]);
+        setAnalysis({});
         setExistingPaths({});
         setEditorOpen(true);
     };
@@ -123,6 +127,7 @@ export default function AdminExamPapersPage() {
         const existing = filesOf(p);
         setFiles(existing);
         setOrigFilePaths(existing.map((f) => f.path).filter(Boolean) as string[]);
+        setAnalysis(p.analysis || {});
         setExistingPaths({ cover: p.coverPath, preview: p.previewPath });
         setEditorOpen(true);
     };
@@ -167,6 +172,27 @@ export default function AdminExamPapersPage() {
     const setFileLabel = (id: string, label: string) => setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, label } : f)));
     const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
 
+    // --- analysis (วิเคราะห์แนวข้อสอบ) editing ---
+    const chapters = analysis.chapters || [];
+    const addChapter = () => setAnalysis((a) => ({ ...a, chapters: [...(a.chapters || []), { name: "", percent: 0 }] }));
+    const setChapter = (i: number, patch: Partial<{ name: string; percent: number }>) =>
+        setAnalysis((a) => ({ ...a, chapters: (a.chapters || []).map((c, idx) => (idx === i ? { ...c, ...patch } : c)) }));
+    const removeChapter = (i: number) =>
+        setAnalysis((a) => ({ ...a, chapters: (a.chapters || []).filter((_, idx) => idx !== i) }));
+
+    // Strip empty rows/fields so we never store a blank analysis object.
+    const cleanAnalysis = (): ExamPaperAnalysis | null => {
+        const rows = (analysis.chapters || []).filter((c) => c.name.trim() !== "").map((c) => ({ name: c.name.trim(), percent: Number(c.percent) || 0 }));
+        const out: ExamPaperAnalysis = {};
+        if (analysis.headline?.trim()) out.headline = analysis.headline.trim();
+        if (analysis.note?.trim()) out.note = analysis.note.trim();
+        if (Number(analysis.years) > 0) out.years = Number(analysis.years);
+        if (Number(analysis.totalQuestions) > 0) out.totalQuestions = Number(analysis.totalQuestions);
+        if (Number(analysis.coverage) > 0) out.coverage = Number(analysis.coverage);
+        if (rows.length) out.chapters = rows;
+        return Object.keys(out).length ? out : null;
+    };
+
     const handleSave = async () => {
         if (!form.title.trim()) return toast.error("กรุณากรอกชื่อชุดข้อสอบ");
         if (form.price < 0) return toast.error("ราคาต้องไม่ติดลบ");
@@ -197,6 +223,7 @@ export default function AdminExamPapersPage() {
                 pageCount: Number(form.pageCount) || 0,
                 questionCount: Number(form.questionCount) || 0,
                 hidden: form.hidden,
+                analysis: cleanAnalysis() ?? deleteField(),
                 updatedAt: serverTimestamp(),
             };
 
@@ -487,6 +514,38 @@ export default function AdminExamPapersPage() {
                                 </div>
                                 <p className="text-xs kh-ink3 mt-1">แนะนำให้ตัดมา 1–2 หน้าแรก ให้ลูกค้าดูก่อนซื้อ ช่วยเพิ่มยอดขาย</p>
                             </div>
+
+                            {/* วิเคราะห์แนวข้อสอบ — sales section (optional) */}
+                            <details className="kh-card p-4" style={{ background: "var(--card-2)" }}>
+                                <summary className="text-sm font-medium kh-ink cursor-pointer flex items-center gap-1.5"><BarChart3 size={15} style={{ color: "var(--accent)" }} /> วิเคราะห์แนวข้อสอบ (แสดงบนหน้าขาย · ไม่บังคับ)</summary>
+                                <p className="text-xs kh-ink3 mt-2 mb-3">กรอกว่าบทไหนออกกี่ % หน้าขายจะวาดกราฟให้อัตโนมัติ ปล่อยว่างไว้ก็ได้ (จะไม่แสดงส่วนนี้)</p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-xs kh-ink3 mb-1">หัวข้อ (headline)</label>
+                                        <input className="kh-input w-full" value={analysis.headline || ""} onChange={(e) => setAnalysis({ ...analysis, headline: e.target.value })} placeholder="เช่น สอบเข้า ม.1 บทไหนออกบ่อยที่สุด?" />
+                                    </div>
+                                    <div><label className="block text-xs kh-ink3 mb-1">วิเคราะห์กี่ปี</label><input type="number" min={0} className="kh-input w-full" value={analysis.years || 0} onChange={(e) => setAnalysis({ ...analysis, years: Number(e.target.value) })} /></div>
+                                    <div><label className="block text-xs kh-ink3 mb-1">รวมกี่ข้อ</label><input type="number" min={0} className="kh-input w-full" value={analysis.totalQuestions || 0} onChange={(e) => setAnalysis({ ...analysis, totalQuestions: Number(e.target.value) })} /></div>
+                                    <div><label className="block text-xs kh-ink3 mb-1">ครอบคลุม (%)</label><input type="number" min={0} max={100} className="kh-input w-full" value={analysis.coverage || 0} onChange={(e) => setAnalysis({ ...analysis, coverage: Number(e.target.value) })} /></div>
+                                    <div><label className="block text-xs kh-ink3 mb-1">คำโปรยใต้ %</label><input className="kh-input w-full" value={analysis.note || ""} onChange={(e) => setAnalysis({ ...analysis, note: e.target.value })} placeholder="ฝึกตรงจุด ไม่เสียเวลา" /></div>
+                                </div>
+
+                                <label className="block text-xs kh-ink3 mb-1.5">บท + เปอร์เซ็นต์ที่ออก</label>
+                                <div className="space-y-2">
+                                    {chapters.map((c, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <input className="kh-input flex-1" style={{ padding: "6px 10px", fontSize: 13 }} value={c.name} onChange={(e) => setChapter(i, { name: e.target.value })} placeholder={`บทที่ ${i + 1} เช่น เศษส่วน`} />
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <input type="number" min={0} max={100} className="kh-input" style={{ width: 68, padding: "6px 8px", fontSize: 13 }} value={c.percent || 0} onChange={(e) => setChapter(i, { percent: Number(e.target.value) })} />
+                                                <span className="text-xs kh-ink3">%</span>
+                                            </div>
+                                            <button type="button" onClick={() => removeChapter(i)} aria-label="ลบบท" className="kh-btn-ghost shrink-0" style={{ color: "var(--danger)", padding: 6 }}><Trash2 size={14} /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button type="button" className="kh-btn-ghost mt-2" onClick={addChapter}><Plus size={15} /> เพิ่มบท</button>
+                            </details>
 
                             <label className="flex items-center gap-2 cursor-pointer select-none">
                                 <input type="checkbox" checked={form.hidden} onChange={(e) => setForm({ ...form, hidden: e.target.checked })} />

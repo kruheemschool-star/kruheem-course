@@ -23,6 +23,7 @@ async function getPaper(id: string): Promise<ExamPaper | null> {
             coverUrl: (d.coverUrl as string) || "",
             previewUrl: (d.previewUrl as string) || "",
             pageCount: Number(d.pageCount ?? 0),
+            analysis: (d.analysis as ExamPaper["analysis"]) || undefined,
         };
     } catch {
         return null;

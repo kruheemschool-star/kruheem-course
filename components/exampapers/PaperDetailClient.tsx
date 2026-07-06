@@ -10,6 +10,7 @@ import { useUserAuth } from "@/context/AuthContext";
 import type { ExamPaper } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
 import { FileText, Eye, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, X, UploadCloud, Loader2 } from "lucide-react";
+import ExamAnalysisSection from "@/components/exampapers/ExamAnalysisSection";
 
 const PHONE_RE = /^[0-9]{9,10}$/;
 
@@ -162,6 +163,9 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
                     </div>
                 </div>
             </div>
+
+            {/* วิเคราะห์แนวข้อสอบ — the sales section (shows only if data is filled in) */}
+            <ExamAnalysisSection analysis={paper.analysis} />
 
             {/* checkout modal */}
             {checkoutOpen && (
