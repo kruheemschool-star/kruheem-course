@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
-import { GraduationCap, PlayCircle, FileText, Target, ClipboardList, ArrowRight, Star, Download } from "lucide-react";
+import { GraduationCap, PlayCircle, FileText, Target, ClipboardList, ArrowRight, Star } from "lucide-react";
 
 // "เริ่มต้นตรงนี้" wayfinding — Liquid Glass (design 2a). Frosted cards over
 // ambient colour blobs with a cursor-following specular highlight. Sits right
@@ -62,9 +62,6 @@ export default function StartHereNav() {
                             <Link href="/my-courses" className="inline-flex items-center gap-1.5 rounded-full text-white font-bold text-sm px-4 py-2.5 transition-transform hover:-translate-y-0.5" style={{ background: "var(--teal)" }}>
                                 <PlayCircle className="w-4 h-4" /> เข้าห้องเรียน
                             </Link>
-                            <Link href="/my-exam-papers" className="shn-glass inline-flex items-center gap-1.5 rounded-full font-bold text-sm px-4 py-2.5 transition-transform hover:-translate-y-0.5" style={{ color: "var(--teal-deep)", borderRadius: "999px" }}>
-                                <Download className="w-4 h-4" /> ข้อสอบที่ซื้อไว้
-                            </Link>
                         </div>
                     </div>
 
@@ -99,7 +96,7 @@ export default function StartHereNav() {
 
                         <Link href="/exam-papers" className="shn-glass shn-rise group p-5 flex flex-col gap-3" style={{ animationDelay: "0.14s" }}>
                             <div className="shn-icon w-11 h-11 rounded-xl flex items-center justify-center" style={{ color: "var(--amber)" }}><FileText className="w-6 h-6" /></div>
-                            <div className="font-mero text-[19px] font-semibold" style={{ color: "var(--ink)" }}>ซื้อข้อสอบ PDF</div>
+                            <div className="font-mero text-[19px] font-semibold" style={{ color: "var(--ink)" }}>แนวข้อสอบเข้า (ปีล่าสุด)</div>
                             <div className="text-sm flex-1 leading-relaxed" style={{ color: "var(--ink2)" }}>พร้อมเฉลย ซื้อครั้งเดียว โหลดได้ตลอด</div>
                             <div className="text-sm font-bold flex items-center gap-1 group-hover:gap-2 transition-all" style={{ color: "var(--amber)" }}>เลือกซื้อ <ArrowRight className="w-4 h-4" /></div>
                         </Link>
