@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { uploadPublicFile } from "@/lib/pdfUpload";
@@ -18,6 +18,7 @@ const PHONE_RE = /^[0-9]{9,10}$/;
 export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
     const { user } = useUserAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
 
     const [checkoutOpen, setCheckoutOpen] = useState(false);
     const [done, setDone] = useState(false);
@@ -32,13 +33,24 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
 
     const openCheckout = () => {
         if (!user) {
-            toast("กรุณาเข้าสู่ระบบก่อนสั่งซื้อ");
-            router.push(`/login?redirect=/exam-papers/${paper.id}`);
+            // Not signed in: send to login/register (the file must land in an
+            // account to download). `returnUrl` is the param the login page reads;
+            // `buy=1` re-opens this checkout automatically when they come back.
+            toast("สมัคร/เข้าสู่ระบบก่อนสั่งซื้อ เพื่อเก็บไฟล์ไว้ในบัญชี");
+            router.push(`/login?returnUrl=${encodeURIComponent(`/exam-papers/${paper.id}?buy=1`)}`);
             return;
         }
         setFullName(user.displayName || "");
         setCheckoutOpen(true);
     };
+
+    // Returning from login/register with ?buy=1 → open the checkout for them.
+    useEffect(() => {
+        if (searchParams.get("buy") === "1" && user) {
+            setFullName(user.displayName || "");
+            setCheckoutOpen(true);
+        }
+    }, [user, searchParams]);
 
     const pickSlip = (f: File | null) => {
         if (!f) return;
