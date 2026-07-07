@@ -97,6 +97,7 @@ export interface ExamPaperAnalysis {
     coverage?: number;       // 0–100, % of the common topics this set covers
     note?: string;           // one-line caption under the coverage number
     chapters?: ExamAnalysisRow[];
+    article?: string;        // full "บทวิเคราะห์" write-up in Markdown, rendered under the chart
 }
 
 // A single sellable PDF exam product. Bundles one or more ExamPaperFile. Cover +

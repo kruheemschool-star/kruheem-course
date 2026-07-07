@@ -11,6 +11,7 @@ import type { ExamPaper } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
 import { FileText, Eye, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, X, UploadCloud, Loader2 } from "lucide-react";
 import ExamAnalysisSection from "@/components/exampapers/ExamAnalysisSection";
+import ExamAnalysisArticle from "@/components/exampapers/ExamAnalysisArticle";
 import PaymentTransferInfo from "@/components/payment/PaymentTransferInfo";
 
 const PHONE_RE = /^[0-9]{9,10}$/;
@@ -179,6 +180,9 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
 
             {/* วิเคราะห์แนวข้อสอบ — the sales section (shows only if data is filled in) */}
             <ExamAnalysisSection analysis={paper.analysis} />
+
+            {/* บทวิเคราะห์ฉบับเต็ม — long-form Markdown write-up (optional) */}
+            <ExamAnalysisArticle article={paper.analysis?.article} />
 
             {/* checkout modal */}
             {checkoutOpen && (

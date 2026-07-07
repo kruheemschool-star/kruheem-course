@@ -74,6 +74,7 @@ export default function AdminExamPapersPage() {
     const coverInputRef = useRef<HTMLInputElement>(null);
     const previewInputRef = useRef<HTMLInputElement>(null);
     const filesInputRef = useRef<HTMLInputElement>(null);
+    const articleInputRef = useRef<HTMLInputElement>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -185,6 +186,19 @@ export default function AdminExamPapersPage() {
     const removeChapter = (i: number) =>
         setAnalysis((a) => ({ ...a, chapters: (a.chapters || []).filter((_, idx) => idx !== i) }));
 
+    // Load a .md file straight into the article textarea (kept editable after).
+    const onPickArticle = async (f: File | null) => {
+        if (!f) return;
+        if (f.size > 400 * 1024) return toast.error("ไฟล์ใหญ่เกิน 400KB");
+        try {
+            const text = await f.text();
+            setAnalysis((a) => ({ ...a, article: text }));
+            toast.success(`อ่านไฟล์ "${f.name}" เรียบร้อย`);
+        } catch {
+            toast.error("อ่านไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+        }
+    };
+
     // Strip empty rows/fields so we never store a blank analysis object.
     const cleanAnalysis = (): ExamPaperAnalysis | null => {
         const rows = (analysis.chapters || []).filter((c) => c.name.trim() !== "").map((c) => ({ name: c.name.trim(), percent: Number(c.percent) || 0 }));
@@ -195,6 +209,7 @@ export default function AdminExamPapersPage() {
         if (Number(analysis.totalQuestions) > 0) out.totalQuestions = Number(analysis.totalQuestions);
         if (Number(analysis.coverage) > 0) out.coverage = Number(analysis.coverage);
         if (rows.length) out.chapters = rows;
+        if (analysis.article?.trim()) out.article = analysis.article.trim();
         return Object.keys(out).length ? out : null;
     };
 
@@ -562,6 +577,27 @@ export default function AdminExamPapersPage() {
                                     ))}
                                 </div>
                                 <button type="button" className="kh-btn-ghost mt-2" onClick={addChapter}><Plus size={15} /> เพิ่มบท</button>
+
+                                {/* บทวิเคราะห์ฉบับเต็ม — Markdown, rendered under the chart on the sales page */}
+                                <div className="mt-4 pt-4 border-t" style={{ borderColor: "var(--line)" }}>
+                                    <label className="block text-xs kh-ink3 mb-1.5">บทวิเคราะห์ฉบับเต็ม (Markdown · แสดงต่อจากกราฟบนหน้าขาย)</label>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <button type="button" className="kh-btn-ghost" onClick={() => articleInputRef.current?.click()}><UploadCloud size={15} /> อัปโหลดไฟล์ .md</button>
+                                        <input ref={articleInputRef} type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden onChange={(e) => { onPickArticle(e.target.files?.[0] || null); e.target.value = ""; }} />
+                                        {analysis.article?.trim() ? (
+                                            <button type="button" className="kh-btn-ghost" style={{ color: "var(--danger)" }} onClick={() => setAnalysis((a) => ({ ...a, article: "" }))}><Trash2 size={14} /> ล้างข้อความ</button>
+                                        ) : null}
+                                    </div>
+                                    <textarea
+                                        className="kh-input w-full font-mono"
+                                        rows={10}
+                                        style={{ fontSize: 12.5, lineHeight: 1.6 }}
+                                        value={analysis.article || ""}
+                                        onChange={(e) => setAnalysis((a) => ({ ...a, article: e.target.value }))}
+                                        placeholder={"อัปโหลดไฟล์ .md หรือวางเนื้อหาตรงนี้ได้เลย เช่น\n\n# บทวิเคราะห์แนวข้อสอบ\n## บทไหนออกบ่อยที่สุด\nเนื้อหา **ตัวหนา** ได้\n> 💡 **อ๋อ!:** ข้อความนี้จะกลายเป็นกล่องไฮไลต์บนหน้าขาย"}
+                                    />
+                                    <p className="text-xs kh-ink3 mt-1">รองรับหัวข้อ (#, ##), ตัวหนา (**...**), รายการข้อ, ตาราง และกล่องไฮไลต์ (&gt; ตามด้วยอิโมจิ เช่น 💡 ⚠️ 🔧) — หน้าขายจัดรูปแบบให้อัตโนมัติ</p>
+                                </div>
                             </details>
 
                             <label className="flex items-center gap-2 cursor-pointer select-none">
