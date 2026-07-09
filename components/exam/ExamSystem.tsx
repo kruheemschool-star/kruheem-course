@@ -6,7 +6,7 @@ import { ExamQuestion } from '@/types/exam';
 import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
-import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -232,6 +232,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const questionTimes = React.useRef<Record<number, number>>({});
     const elapsedBeforeRef = React.useRef<number>(0); // active time before this session (resume-safe)
     const [stopwatchTick, setStopwatchTick] = useState(0); // bump once per second to re-render the live timer
+    const [isPaused, setIsPaused] = useState(false); // student paused the clock (rest / bathroom / snack)
+    const isPausedRef = useRef(false); // mirror of isPaused for the timing helpers (no re-render dep)
     const autoSubmittedRef = useRef(false); // guards exactly-once auto-submit when the countdown hits 0
     const handleFinishExamRef = useRef<(auto?: boolean) => void>(() => {}); // latest handleFinishExam (for the auto-submit effect)
 
@@ -250,7 +252,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     // === Timing: helpers shared by the live stopwatch, autosave and results ===
     // Total active exam time (seconds), correct across save → resume.
     const getElapsedSeconds = useCallback(
-        () => elapsedBeforeRef.current + Math.max(0, Math.round((Date.now() - examStartTime.current) / 1000)),
+        () => isPausedRef.current
+            ? elapsedBeforeRef.current // frozen: paused time doesn't count
+            : elapsedBeforeRef.current + Math.max(0, Math.round((Date.now() - examStartTime.current) / 1000)),
         []
     );
 
@@ -271,6 +275,27 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         questionStartTime.current = Date.now();
     }, [currentQuestionIndex]);
 
+    // Pause / resume the clock — lets a student rest, use the bathroom or grab a
+    // snack without it counting against their time. On pause we fold the active
+    // seconds into elapsedBeforeRef and freeze; on resume we restart the clock
+    // from "now" so the paused stretch is skipped for both the total and the
+    // current question.
+    const togglePause = useCallback(() => {
+        if (isPausedRef.current) {
+            // Resume
+            examStartTime.current = Date.now();
+            questionStartTime.current = Date.now();
+            isPausedRef.current = false;
+            setIsPaused(false);
+        } else {
+            // Pause: commit current-question time, freeze the accumulated total
+            commitTimeForCurrentQuestion();
+            elapsedBeforeRef.current = getElapsedSeconds();
+            isPausedRef.current = true;
+            setIsPaused(true);
+        }
+    }, [commitTimeForCurrentQuestion, getElapsedSeconds]);
+
     // Jump to a specific question (from the question-map grid), counting time first.
     const goToQuestion = useCallback((idx: number) => {
         commitTimeForCurrentQuestion();
@@ -279,10 +304,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     // Tick the live stopwatch once per second while the exam is in progress.
     useEffect(() => {
-        if (isFinished || finalScore || totalQuestions === 0) return;
+        if (isFinished || finalScore || totalQuestions === 0 || isPaused) return;
         const id = setInterval(() => setStopwatchTick((t) => t + 1), 1000);
         return () => clearInterval(id);
-    }, [isFinished, finalScore, totalQuestions]);
+    }, [isFinished, finalScore, totalQuestions, isPaused]);
 
     // Auto-submit when a timed exam's countdown reaches zero. Fires exactly once
     // (autoSubmittedRef); re-runs each second because it depends on stopwatchTick.
@@ -985,6 +1010,31 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     return (
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 font-sans flex flex-col lg:flex-row gap-8 items-start">
 
+            {/* Paused overlay — the clock is frozen; questions are hidden so the
+                student can truly rest, use the bathroom or grab a snack. */}
+            {isPaused && !finalScore && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-6 animate-in fade-in">
+                    <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-800 shadow-2xl border border-slate-100 dark:border-slate-700 px-8 py-10 text-center">
+                        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/30">
+                            <Coffee size={30} className="text-amber-500 dark:text-amber-400" />
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">พักก่อนได้เลย</h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">เวลาหยุดเดินแล้ว ไปเข้าห้องน้ำ ดื่มน้ำ หรือกินขนมได้ตามสบาย</p>
+                        <p className="text-lg font-black tabular-nums text-slate-700 dark:text-slate-200 mb-6">
+                            {isCountdown
+                                ? `เวลาคงเหลือ ${formatDuration(getCountdownState(getElapsedSeconds(), timeLimitMinutes ?? 0).remainingSeconds)}`
+                                : `เวลาที่ใช้ไป ${formatDuration(getElapsedSeconds())}`}
+                        </p>
+                        <button
+                            onClick={togglePause}
+                            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-lg font-black py-3.5 transition-colors shadow-lg shadow-emerald-500/20"
+                        >
+                            <Play size={20} /> พร้อมแล้ว เล่นต่อ
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Sidebar: Question Grid (Desktop) */}
             <div className="hidden lg:block w-72 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 sticky top-24">
                 {isTrial && (
@@ -1143,19 +1193,31 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         const iconWrapCls = critical ? 'bg-rose-500/10 dark:bg-rose-500/20' : warn ? 'bg-amber-500/10 dark:bg-amber-500/20' : 'bg-indigo-500/10 dark:bg-indigo-500/20';
                         const iconCls = critical ? 'text-rose-500 dark:text-rose-400' : warn ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-500 dark:text-indigo-400';
                         const valueCls = critical ? 'text-rose-600 dark:text-rose-400' : warn ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-100';
+                        const pausedShell = 'border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-800/60';
                         return (
-                            <div className={`flex items-center gap-2.5 self-start md:self-auto rounded-2xl border px-4 py-2.5 shadow-sm ${shellCls}`}>
-                                <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${iconWrapCls}`}>
-                                    {critical
-                                        ? <AlertTriangle size={18} className={`${iconCls} animate-pulse`} />
-                                        : <Clock size={18} className={`${iconCls} animate-pulse`} />}
+                            <div className={`flex items-center gap-2.5 self-start md:self-auto rounded-2xl border px-3 py-2.5 shadow-sm ${isPaused ? pausedShell : shellCls}`}>
+                                <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${isPaused ? 'bg-slate-500/10 dark:bg-slate-500/20' : iconWrapCls}`}>
+                                    {isPaused
+                                        ? <Coffee size={18} className="text-slate-500 dark:text-slate-400" />
+                                        : critical
+                                            ? <AlertTriangle size={18} className={`${iconCls} animate-pulse`} />
+                                            : <Clock size={18} className={`${iconCls} animate-pulse`} />}
                                 </div>
                                 <div className="leading-tight">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{isCountdown ? 'เวลาคงเหลือ' : 'เวลาที่ใช้'}</div>
-                                    <div className={`text-xl font-black tabular-nums ${valueCls} ${critical ? 'animate-pulse' : ''}`}>
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{isPaused ? 'พักอยู่' : isCountdown ? 'เวลาคงเหลือ' : 'เวลาที่ใช้'}</div>
+                                    <div className={`text-xl font-black tabular-nums ${isPaused ? 'text-slate-500 dark:text-slate-400' : valueCls} ${critical && !isPaused ? 'animate-pulse' : ''}`}>
                                         {isCountdown && cd ? formatDuration(cd.remainingSeconds) : formatDuration(getElapsedSeconds())}
                                     </div>
                                 </div>
+                                <button
+                                    onClick={togglePause}
+                                    aria-label={isPaused ? 'เล่นต่อ' : 'หยุดพักชั่วคราว'}
+                                    className={`ml-1 flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-bold transition-colors ${isPaused
+                                        ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'}`}
+                                >
+                                    {isPaused ? <><Play size={16} /> เล่นต่อ</> : <><Pause size={16} /> พัก</>}
+                                </button>
                             </div>
                         );
                     })()}
