@@ -7,12 +7,10 @@ import { Search, ArrowRight, FileText, Lightbulb, Loader2, BookOpen, BarChart3, 
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import ExamCountdown, { type CalendarTrack } from "@/components/exam/ExamCountdown";
 
 interface ExamListClientProps {
     initialExams: any[];
     enrollmentCount?: number;
-    calendarTracks?: CalendarTrack[];
 }
 
 interface SearchMatch {
@@ -82,7 +80,7 @@ const FALLBACK_SECTION: ExamSection = {
     badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
 
-export default function ExamListClient({ initialExams, enrollmentCount: initialEnrollmentCount = 0, calendarTracks = [] }: ExamListClientProps) {
+export default function ExamListClient({ initialExams, enrollmentCount: initialEnrollmentCount = 0 }: ExamListClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
 
@@ -453,9 +451,6 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                             </div>
                         </div>
                     </div>
-
-                    {/* นับถอยหลังวันสอบ — countdown card (ใต้ hero เหนือกล่องสถิติ) */}
-                    <ExamCountdown tracks={calendarTracks} />
 
                     {/* Stats Banner — 3 cards (removed activeUsers to save Firestore reads) */}
                     <div className="grid grid-cols-3 gap-3 md:gap-4 mt-8 max-w-3xl mx-auto">
