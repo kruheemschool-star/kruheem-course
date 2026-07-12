@@ -1,16 +1,16 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
-import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks, Tag, Search, X, GripVertical } from "lucide-react";
+import { Save, ArrowLeft, HelpCircle, UploadCloud, Loader2, Image as ImageIcon, FileJson as FileJsonIcon, Wrench, XCircle, Target, Plus, Trash2, ChevronDown, ChevronUp, Copy, Blocks, Tag, Search, X, GripVertical, FileUp, ListPlus, Replace } from "lucide-react";
 import ImageUploadHelper from "@/components/admin/ImageUploadHelper";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
-import { thaiLetterToIndex, extractAnswerFromExplanation, transformExamQuestion, isValidExamQuestion } from "@/lib/exam-utils";
+import { thaiLetterToIndex, extractAnswerFromExplanation, transformExamQuestion, isValidExamQuestion, estimateExamDocSize, FIRESTORE_DOC_LIMIT_BYTES, EXAM_SAFE_DOC_BYTES } from "@/lib/exam-utils";
 import { detectTagsFromQuestion, getAllAvailableTags, type DetectionResult } from "@/lib/tag-detector";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -298,6 +298,12 @@ export default function ExamEditorPage() {
     const [bulkJson, setBulkJson] = useState("");
     const [collapsedBlocks, setCollapsedBlocks] = useState<Record<number, boolean>>({});
     const isManualUpdate = useRef(false);
+    // Upload-a-JSON-file flow. The teacher can pick a .json exam file (the exact
+    // schema the exam factory exports) instead of copy-pasting into the textarea.
+    // After a file is read+validated we hold the parsed questions here and pop a
+    // small preview modal so she chooses แทนที่ทั้งหมด vs เพิ่มต่อท้าย.
+    const jsonFileInputRef = useRef<HTMLInputElement>(null);
+    const [importPreview, setImportPreview] = useState<{ fileName: string; questions: ReturnType<typeof transformExamQuestion>[]; skipped: number } | null>(null);
 
     // Smart Editor Synchronization
     useEffect(() => {
@@ -390,35 +396,78 @@ export default function ExamEditorPage() {
     };
 
 
-    // Bulk import multiple questions at once
+    // Shared parser for both the paste-textarea and the file-upload flows.
+    // Tolerates ```json fences, accepts a single object or an array, keeps only
+    // valid MCQ items (question + ≥2 options), and runs every item through
+    // transformExamQuestion so correctIndex/tags/answer-badges are normalised.
+    // Throws on malformed JSON so callers can surface the syntax error.
+    const parseRawQuestions = (raw: string): { valid: ReturnType<typeof transformExamQuestion>[]; skipped: number } => {
+        const cleanJson = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        const parsed = JSON.parse(cleanJson);
+        const items = (Array.isArray(parsed) ? parsed : [parsed]).flat();
+        const validItems = items.filter((item) => item && item.question && item.options && Array.isArray(item.options) && item.options.length >= 2);
+        return { valid: validItems.map(transformExamQuestion), skipped: items.length - validItems.length };
+    };
+
+    // Bulk import multiple questions at once (paste-into-textarea flow)
     const bulkImportQuestions = () => {
         const raw = bulkJson.trim();
         if (!raw) return;
         try {
-            let cleanJson = raw
-                .replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-            const parsed = JSON.parse(cleanJson);
-            const items = Array.isArray(parsed) ? parsed : [parsed];
-            const valid = items.filter(item => item.question && item.options && Array.isArray(item.options) && item.options.length >= 2);
+            const { valid, skipped } = parseRawQuestions(raw);
             if (valid.length === 0) {
                 alert("❌ ไม่พบข้อสอบที่ถูกต้อง (ต้องมี question และ options)");
                 return;
             }
-            const transformed = valid.map(transformExamQuestion);
-            const newBlockStrings = transformed.map(q => JSON.stringify(q, null, 2));
+            const newBlockStrings = valid.map(q => JSON.stringify(q, null, 2));
             const allBlocks = [...smartBlocks, ...newBlockStrings];
             isManualUpdate.current = true;
             setSmartBlocks(allBlocks);
             setJsonContent(`[\n${allBlocks.join(',\n')}\n]`);
             setBulkJson("");
             setIsBulkImporting(false);
-            const skipped = items.length - valid.length;
             let msg = `✅ เพิ่ม ${valid.length} ข้อเรียบร้อย!`;
             if (skipped > 0) msg += `\n⚠️ ข้าม ${skipped} ข้อที่ไม่ถูกต้อง`;
             alert(msg);
         } catch (e: any) {
             alert(`❌ JSON ไม่ถูกต้อง: ${e.message}`);
         }
+    };
+
+    // File-upload flow: read a picked .json file, validate it, then hand off to
+    // the preview modal (below) so the teacher chooses replace vs append. We do
+    // NOT mutate the editor here — only after she confirms in the modal.
+    const handleJsonFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        // Reset the input immediately so picking the SAME file again re-fires onChange.
+        e.target.value = "";
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const { valid, skipped } = parseRawQuestions(text);
+            if (valid.length === 0) {
+                alert("❌ ไม่พบข้อสอบที่ถูกต้องในไฟล์นี้\n(แต่ละข้อต้องมี \"question\" และ \"options\" อย่างน้อย 2 ตัวเลือก)");
+                return;
+            }
+            setImportPreview({ fileName: file.name, questions: valid, skipped });
+        } catch (err) {
+            const detail = err instanceof Error ? err.message : String(err);
+            alert(`❌ อ่านไฟล์ไม่สำเร็จ — ไฟล์อาจไม่ใช่ JSON ที่ถูกต้อง\n\nรายละเอียด: ${detail}`);
+        }
+    };
+
+    // Commit the previewed file into the editor.
+    const applyImport = (mode: 'replace' | 'append') => {
+        if (!importPreview) return;
+        const incoming = importPreview.questions.map(q => JSON.stringify(q, null, 2));
+        const allBlocks = mode === 'replace' ? incoming : [...smartBlocks, ...incoming];
+        isManualUpdate.current = true;
+        setSmartBlocks(allBlocks);
+        setJsonContent(`[\n${allBlocks.join(',\n')}\n]`);
+        setSelectedBlocks(new Set());
+        setCollapsedBlocks({});
+        showToast(`✅ ${mode === 'replace' ? 'แทนที่ข้อสอบเป็น' : 'เพิ่มต่อท้ายอีก'} ${importPreview.questions.length} ข้อเรียบร้อย`, 'success');
+        setImportPreview(null);
     };
 
     const deleteSmartQuestion = (index: number) => {
@@ -838,7 +887,7 @@ export default function ExamEditorPage() {
             // NOTE: category/level are intentionally NOT written here. They
             // are managed centrally on /admin/exams; writing them from this
             // editor previously reverted the clean taxonomy on every save.
-            await updateDoc(docRef, {
+            const payload = {
                 title,
                 description,
                 coverImage,
@@ -850,7 +899,34 @@ export default function ExamEditorPage() {
                 questions: parsedQuestions,
                 questionCount: parsedQuestions.length,
                 updatedAt: serverTimestamp()
-            });
+            };
+
+            // Pre-flight size guard. Every exam lives in ONE Firestore document,
+            // which is hard-capped at 1 MiB. A large set of rich questions can
+            // cross that ceiling and Firestore rejects the WHOLE write — which
+            // used to surface only as a cryptic "เกิดข้อผิดพลาดในการบันทึก".
+            // Measure the payload first and, if it won't fit, stop and tell the
+            // teacher exactly how big it is and what to do (split into 2 sets).
+            const docBytes = estimateExamDocSize(payload);
+            if (docBytes > EXAM_SAFE_DOC_BYTES) {
+                const kb = Math.round(docBytes / 1024);
+                const limitKb = Math.round(FIRESTORE_DOC_LIMIT_BYTES / 1024);
+                const perQ = parsedQuestions.length ? Math.round(docBytes / parsedQuestions.length) : 0;
+                const fit = perQ ? Math.max(1, Math.floor(EXAM_SAFE_DOC_BYTES / perQ)) : parsedQuestions.length;
+                alert(
+                    `⚠️ ข้อสอบชุดนี้ใหญ่เกินกว่าที่ฐานข้อมูลจะบันทึกได้\n\n` +
+                    `• ตอนนี้มี ${parsedQuestions.length} ข้อ ขนาดประมาณ ${kb.toLocaleString()} KB\n` +
+                    `• ฐานข้อมูล (Firestore) รับได้สูงสุด ${limitKb.toLocaleString()} KB ต่อ 1 ชุดข้อสอบ\n\n` +
+                    `เนื้อหาส่วนใหญ่มาจาก "เฉลยละเอียด" ที่ยาว จึงทำให้ข้อสอบชุดใหญ่เต็มโควตา\n\n` +
+                    `วิธีแก้: แบ่งเป็น 2 ชุด (ประมาณชุดละ ${fit.toLocaleString()} ข้อ) แล้วบันทึกทีละชุด\n` +
+                    `เช่น "…(ชุดที่ 1)" และ "…(ชุดที่ 2)" — เหมือนชุดสอบเข้า ม.1 ที่มีหลายชุด\n\n` +
+                    `(ถ้าอยากเก็บไว้ชุดเดียวจริง ๆ แจ้งครูฮีมให้ทีมพัฒนาเปิดระบบบีบอัดได้)`
+                );
+                setSaving(false);
+                return;
+            }
+
+            await updateDoc(docRef, payload);
 
             // Bust the student-facing exam caches (listing, exam pages, search
             // index, homepage carousel) so this edit shows up immediately —
@@ -872,9 +948,23 @@ export default function ExamEditorPage() {
             // alert("บันทึกข้อมูลเรียบร้อยแล้ว!"); // Remove alert to make it smoother
             showToast("บันทึกข้อมูลเรียบร้อยแล้ว!", "success");
             // router.push("/admin/exams"); // Optional: Don't redirect immediately if they want to keep editing
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error updating exam:", error);
-            alert("เกิดข้อผิดพลาดในการบันทึก");
+            const raw = String(error?.message || error || "");
+            // Firestore surfaces the 1 MiB overflow as a message mentioning the
+            // maximum size / "longer than ... bytes". Catch it explicitly so the
+            // teacher sees WHY, not just that it failed.
+            if (/exceeds the maximum|longer than|1048576|maximum allowed size/i.test(raw)) {
+                alert(
+                    `⚠️ บันทึกไม่สำเร็จ เพราะข้อสอบชุดนี้ใหญ่เกินขีดจำกัด 1 MB ของฐานข้อมูล\n\n` +
+                    `วิธีแก้: แบ่งข้อสอบออกเป็น 2 ชุด แล้วบันทึกทีละชุด`
+                );
+            } else if (/permission|insufficient|unauthenticated|PERMISSION_DENIED/i.test(raw)) {
+                // Long editing sessions can outlive the login session.
+                alert("บันทึกไม่สำเร็จ: หมดสิทธิ์/เซสชันหมดอายุ กรุณารีเฟรชหน้าแล้วเข้าสู่ระบบใหม่อีกครั้ง");
+            } else {
+                alert(`เกิดข้อผิดพลาดในการบันทึก\n\nรายละเอียด: ${raw || "ไม่ทราบสาเหตุ"}`);
+            }
         } finally {
             setSaving(false);
         }
@@ -899,11 +989,63 @@ export default function ExamEditorPage() {
         setTimeout(() => setToast(null), 3000);
     };
 
+    // Live document-size gauge. The whole exam is one Firestore doc capped at
+    // 1 MiB, so show how full it is as the teacher edits — before they hit save.
+    // Debounced (~350ms) because parsing a ~900 KB payload on every keystroke
+    // would make typing feel laggy on big exam sets.
+    const [docBytes, setDocBytes] = useState(0);
+    useEffect(() => {
+        const t = setTimeout(() => {
+            let questions: any[] = [];
+            try {
+                const parsed = JSON.parse(jsonContent);
+                if (Array.isArray(parsed)) questions = parsed.flat();
+            } catch { /* mid-edit invalid JSON — keep last good measurement */ return; }
+            setDocBytes(estimateExamDocSize({
+                title, description, coverImage,
+                timeLimit: Number(timeLimit),
+                recommendedSecondsPerQuestion: Number(recommendedSecondsPerQuestion),
+                timedMode, difficulty, themeColor,
+                questions, questionCount: questions.length,
+                updatedAt: null,
+            }));
+        }, 350);
+        return () => clearTimeout(t);
+    }, [jsonContent, title, description, coverImage, timeLimit, recommendedSecondsPerQuestion, timedMode, difficulty, themeColor]);
+    const docSize = useMemo(() => ({
+        bytes: docBytes,
+        pct: Math.round((docBytes / FIRESTORE_DOC_LIMIT_BYTES) * 100),
+        kb: Math.round(docBytes / 1024),
+        over: docBytes > EXAM_SAFE_DOC_BYTES,
+    }), [docBytes]);
+
     return (
         <div className="space-y-6">
             <div className="kh-card overflow-hidden">
                 {/* Toolbar */}
                 <div className="p-4 flex items-center justify-end gap-3 border-b border-[var(--line)]">
+                    {/* Live size gauge — the whole exam is one Firestore doc (1 MB cap) */}
+                    <div
+                        className="hidden sm:flex flex-col items-end mr-auto"
+                        title={`ขนาดข้อมูลของชุดข้อสอบนี้ ~${docSize.kb.toLocaleString()} KB จากที่ฐานข้อมูลรับได้ 1,024 KB`}
+                    >
+                        <div className="flex items-center gap-2 text-xs font-bold" style={{ color: docSize.over ? '#dc2626' : docSize.pct >= 80 ? '#d97706' : 'var(--ink-3)' }}>
+                            <span>ขนาด {docSize.kb.toLocaleString()} KB / 1,024 KB</span>
+                            <span>({docSize.pct}%)</span>
+                        </div>
+                        <div className="w-40 h-1.5 rounded-full bg-slate-200 overflow-hidden mt-1">
+                            <div
+                                className="h-full rounded-full transition-all"
+                                style={{
+                                    width: `${Math.min(100, docSize.pct)}%`,
+                                    backgroundColor: docSize.over ? '#dc2626' : docSize.pct >= 80 ? '#d97706' : '#16a34a',
+                                }}
+                            />
+                        </div>
+                        {docSize.over && (
+                            <span className="text-[10px] font-bold text-red-600 mt-0.5">ใหญ่เกินไป — ต้องแบ่งเป็น 2 ชุด</span>
+                        )}
+                    </div>
                     <Link href="/admin/exams" className="kh-btn-ghost">
                         <ArrowLeft size={16} /> กลับคลังข้อสอบ
                     </Link>
@@ -1158,6 +1300,13 @@ export default function ExamEditorPage() {
                                                 className="px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30 transition-colors flex items-center gap-1.5"
                                             >
                                                 <Copy size={12} /> เพิ่มหลายข้อ
+                                            </button>
+                                            <button
+                                                onClick={() => jsonFileInputRef.current?.click()}
+                                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 border border-sky-500/30 transition-colors flex items-center gap-1.5"
+                                                title="เลือกไฟล์ .json (เช่นไฟล์ที่ได้จากโรงงานผลิตข้อสอบ) แล้วอัปโหลดขึ้นได้เลย"
+                                            >
+                                                <FileUp size={12} /> อัปโหลดไฟล์ JSON
                                             </button>
                                             {selectedBlocks.size > 0 && (
                                                 <button
@@ -1474,6 +1623,77 @@ export default function ExamEditorPage() {
                     {toast.msg}
                 </div>
             )}
+            {/* Hidden picker for the "อัปโหลดไฟล์ JSON" button. Kept at the root so
+                it's mounted regardless of which tab is active. */}
+            <input
+                ref={jsonFileInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleJsonFileSelected}
+            />
+
+            {/* Import preview modal — shown after a JSON file is read & validated.
+                Lets the teacher choose to replace all questions or append. */}
+            {importPreview && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+                    <div className="w-full max-w-md bg-[#1e1e1e] border border-[#3d3d3d] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+                        <div className="p-5 border-b border-[#3d3d3d] flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-300 flex items-center justify-center flex-shrink-0">
+                                <FileUp size={18} />
+                            </div>
+                            <div className="min-w-0">
+                                <h3 className="text-slate-100 font-bold text-base">อัปโหลดไฟล์ข้อสอบ</h3>
+                                <p className="text-slate-400 text-xs mt-0.5 font-mono break-all">{importPreview.fileName}</p>
+                            </div>
+                            <button onClick={() => setImportPreview(null)} className="ml-auto text-slate-500 hover:text-rose-400 transition-colors flex-shrink-0">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="p-5 space-y-3">
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold">พบ {importPreview.questions.length} ข้อ</span>
+                                {importPreview.skipped > 0 && (
+                                    <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 text-xs">ข้ามที่ไม่ถูกต้อง {importPreview.skipped} ข้อ</span>
+                                )}
+                            </div>
+                            <p className="text-slate-400 text-xs leading-relaxed">
+                                {smartBlocks.length > 0
+                                    ? `ตอนนี้ในชุดข้อสอบมีอยู่แล้ว ${smartBlocks.length} ข้อ — ต้องการแทนที่ทั้งหมด หรือเพิ่มต่อท้าย?`
+                                    : "ชุดข้อสอบนี้ยังว่างอยู่ กดปุ่มด้านล่างเพื่อนำข้อสอบเข้าได้เลย"}
+                            </p>
+                            <p className="text-[11px] text-slate-500">* ยังไม่บันทึกลงเว็บจนกว่าจะกด &ldquo;บันทึก&rdquo; อีกที ตรวจทานได้ก่อน</p>
+                        </div>
+
+                        <div className="p-4 bg-[#252526] border-t border-[#3d3d3d] flex flex-col gap-2">
+                            {smartBlocks.length > 0 && (
+                                <button
+                                    onClick={() => applyImport('append')}
+                                    className="w-full py-2.5 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <ListPlus size={16} /> เพิ่มต่อท้าย (รวมเป็น {smartBlocks.length + importPreview.questions.length} ข้อ)
+                                </button>
+                            )}
+                            <button
+                                onClick={() => applyImport('replace')}
+                                className={`w-full py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 ${smartBlocks.length > 0
+                                    ? 'bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 border border-rose-500/40'
+                                    : 'bg-sky-500 text-white hover:bg-sky-600'}`}
+                            >
+                                <Replace size={16} /> {smartBlocks.length > 0 ? `แทนที่ทั้งหมดด้วย ${importPreview.questions.length} ข้อ` : `นำเข้า ${importPreview.questions.length} ข้อ`}
+                            </button>
+                            <button
+                                onClick={() => setImportPreview(null)}
+                                className="w-full py-2 rounded-xl text-slate-400 hover:text-slate-200 text-sm transition-colors"
+                            >
+                                ยกเลิก
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <ConfirmDialog />
         </div>
     );

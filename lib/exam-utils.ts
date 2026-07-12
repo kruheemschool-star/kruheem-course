@@ -88,6 +88,51 @@ export const isValidExamQuestion = (q: any): boolean => {
 export const getValidQuestionCount = (questions: any): number =>
     Array.isArray(questions) ? questions.filter(isValidExamQuestion).length : 0;
 
+// ── Firestore document-size estimation ────────────────────────────────────
+// Firestore hard-caps every single document at 1,048,576 bytes (1 MiB). An
+// exam stores ALL its questions in one document field, so a big set (250 rich
+// word-problem questions with long explanations) can silently cross the ceiling
+// and the whole save is rejected. These helpers let the editor measure the
+// payload BEFORE writing and warn the teacher with an exact, actionable number
+// instead of a cryptic "save failed".
+//
+// The byte math follows Google's documented storage-size rules so the estimate
+// tracks what the server actually enforces:
+//   string  → UTF-8 byte length + 1      bool/null → 1      number → 8
+//   array   → sum of element sizes        map/object → 32 + Σ(keyBytes+1 + valueSize)
+export const FIRESTORE_DOC_LIMIT_BYTES = 1_048_576; // 1 MiB, Firestore hard limit
+// Leave headroom below the hard limit: writes that land in the last few % also
+// get slow/flaky over unstable connections, so we treat ~96% as "too big".
+export const EXAM_SAFE_DOC_BYTES = 1_000_000;
+
+const utf8Len = (s: string): number => {
+    // Byte length of a JS string in UTF-8, without needing Buffer (runs in the browser).
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(s).length;
+    return unescape(encodeURIComponent(s)).length;
+};
+
+export const firestoreValueSize = (v: any): number => {
+    if (v === null || v === undefined) return 1;
+    const t = typeof v;
+    if (t === 'string') return utf8Len(v) + 1;
+    if (t === 'boolean') return 1;
+    if (t === 'number') return 8;
+    if (Array.isArray(v)) return v.reduce((s, e) => s + firestoreValueSize(e), 0);
+    if (t === 'object') {
+        let s = 32;
+        for (const [k, val] of Object.entries(v)) s += utf8Len(k) + 1 + firestoreValueSize(val);
+        return s;
+    }
+    return 8;
+};
+
+// Estimated bytes the exam document will occupy once written (root map + fields).
+export const estimateExamDocSize = (fields: Record<string, any>): number => {
+    let total = 32; // root map overhead
+    for (const [k, v] of Object.entries(fields)) total += utf8Len(k) + 1 + firestoreValueSize(v);
+    return total;
+};
+
 // ── Fill-in (เติมคำ) support ──────────────────────────────────────────────
 // A question is "fill-in" when it explicitly sets type:'fill', OR it carries an
 // accepted-answers list and has no multiple-choice options. Everything else is MCQ.
