@@ -837,8 +837,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 </div>
                             )}
 
-                            {/* ⏱️ Pacing Analysis Overview */}
-                            {hasTimingData && (
+                            {/* ⏱️ Pacing Analysis Overview — hidden on สแกนจุดอ่อน sets
+                                (diagnostic results focus on the 4-angle weakness map, not timing) */}
+                            {!isDiagnostic && hasTimingData && (
                                 <div className="mb-10 rounded-3xl border border-indigo-100 dark:border-slate-700 bg-gradient-to-br from-indigo-50/60 to-white dark:from-slate-800 dark:to-slate-800/40 p-6 md:p-8">
                                     <div className="flex items-start gap-4 mb-5">
                                         <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-300/50 dark:shadow-indigo-900/50">
@@ -870,8 +871,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 </div>
                             )}
 
-                            {/* ⏱️ Per-question time bar chart */}
-                            {hasTimingData && (() => {
+                            {/* ⏱️ Per-question time bar chart — hidden on สแกนจุดอ่อน sets */}
+                            {!isDiagnostic && hasTimingData && (() => {
                                 const maxSec = Math.max(paceTarget, ...perQuestionTiming.map(p => p.seconds), 1);
                                 const targetLeft = Math.min(100, (paceTarget / maxSec) * 100);
                                 return (
@@ -1015,8 +1016,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         </div>
                     )}
 
-                    {/* ⏱️ Questions to review — slow+wrong, or unusually slow for this attempt */}
-                    {showAnswerChecking && reviewQuestions.length > 0 && (
+                    {/* ⏱️ Questions to review (timing) — hidden on สแกนจุดอ่อน sets */}
+                    {!isDiagnostic && showAnswerChecking && reviewQuestions.length > 0 && (
                         <div className="mt-2 rounded-3xl border border-rose-100 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-900/10 p-6 md:p-8">
                             <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
                                 <Clock size={20} className="text-rose-500" /> ข้อที่ควรทบทวน (เรื่องเวลา)
