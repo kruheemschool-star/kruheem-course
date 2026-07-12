@@ -93,10 +93,39 @@ async function getExams() {
 }
 
 
-// Countdown tracks for the "นับถอยหลังวันสอบ" card. Tiny collection (7 docs),
-// same REST + ISR pattern as getExams. Returns [] on any failure — the card
-// falls back to its built-in track list (state A still works).
+// Countdown tracks for the "นับถอยหลังวันสอบ" card. The source of truth is the
+// `examCalendar` collection, but its security rule is still waiting on a
+// `firebase deploy` — so we read the admin-maintained MIRROR at
+// `public_stats/examCalendar` (public_stats/* is already world-readable).
+// scripts/sync-exam-calendar.js refreshes the mirror after any calendar edit.
+// Returns [] on any failure — the card falls back to its built-in track list.
+type RawTrack = Record<string, unknown>;
+const toTrack = (d: RawTrack) => ({
+    trackId: (d.trackId as string) || (d.id as string) || "",
+    label: (d.label as string) || "",
+    // Both the REST decoder and the mirror store timestamps as ISO strings.
+    examAtIso: (d.examAt as string) || null,
+    sourceUrl: (d.sourceUrl as string) || "",
+    isEstimate: (d.isEstimate as boolean) ?? true,
+    chaptersToMaster: (d.chaptersToMaster as number) || 9,
+    hoursPerWeek: (d.hoursPerWeek as number) || 3,
+    hasContent: (d.hasContent as boolean) || false,
+    order: (d.order as number | undefined) ?? 99,
+});
+
 async function getExamCalendar() {
+    // 1) Mirror doc — readable today under the existing public_stats rule.
+    try {
+        const doc = await getDocument("public_stats/examCalendar", { revalidate: 300 });
+        const tracks = (doc?.tracks as RawTrack[] | undefined) ?? [];
+        if (tracks.length > 0) {
+            return tracks.map(toTrack).filter((t) => t.trackId && t.label)
+                .sort((a, b) => a.order - b.order);
+        }
+    } catch (error) {
+        console.error("Error fetching exam calendar mirror:", error);
+    }
+    // 2) Direct collection read — works once the examCalendar rule is deployed.
     try {
         const docs = await listCollection(
             "examCalendar",
@@ -106,20 +135,7 @@ async function getExamCalendar() {
             ],
             { revalidate: 300 }
         );
-        return docs
-            .map((d) => ({
-                trackId: (d.trackId as string) || d.id,
-                label: (d.label as string) || "",
-                // REST returns timestamps as ISO 8601 strings already.
-                examAtIso: (d.examAt as string) || null,
-                sourceUrl: (d.sourceUrl as string) || "",
-                isEstimate: (d.isEstimate as boolean) ?? true,
-                chaptersToMaster: (d.chaptersToMaster as number) || 9,
-                hoursPerWeek: (d.hoursPerWeek as number) || 3,
-                hasContent: (d.hasContent as boolean) || false,
-                order: (d.order as number | undefined) ?? 99,
-            }))
-            .filter((t) => t.label)
+        return docs.map(toTrack).filter((t) => t.trackId && t.label)
             .sort((a, b) => a.order - b.order);
     } catch (error) {
         console.error("Error fetching exam calendar:", error);
