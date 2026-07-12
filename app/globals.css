@@ -1857,3 +1857,14 @@ h6 {
 @media (max-width: 640px) {
     .shn-panel { padding: 22px 16px; border-radius: 26px; }
 }
+
+/* Exam-countdown card entrance (components/exam/ExamCountdown.tsx) */
+@keyframes khc-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.khc-rise { animation: khc-rise .6s cubic-bezier(.2, .7, .2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+    .khc-rise { animation: none; }
+}

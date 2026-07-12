@@ -2,10 +2,11 @@
 
 /**
  * นับถอยหลังวันสอบ — การ์ดบนหน้า /exam (ใต้ hero เหนือกล่องสถิติ)
+ * สไตล์: โทน amber/orange ตามแบรนด์ (Exam Countdown Redesign - Design Spec.md)
  *
  * 3 สถานะหลัก:
  *   A ยังไม่เลือกสนาม  → กล่องคำถาม + ชิปให้กด
- *   B เลือกแล้ว+มีชุด   → นาฬิกาเต็ม + ปุ่ม "เริ่มตะลุยโจทย์"
+ *   B เลือกแล้ว+มีชุด   → นาฬิกาเต็ม + แผงเวลาฝึก + ปุ่ม "เริ่มตะลุยโจทย์"
  *   C เลือกแล้ว+ไม่มีชุด → นาฬิกา + ฟอร์มรับแจ้งเตือน
  * สถานะกันเหนียว: pending (ยังไม่ประกาศวัน/ไม่มี sourceUrl — ห้ามโชว์นาฬิกา),
  *   expired (สอบไปแล้ว → กลับ A), school-exam (ไม่มีวันสอบกลาง)
@@ -19,8 +20,9 @@
  *   6 sourceUrl ว่าง — ไม่เรนเดอร์นาฬิกาของ track นั้น (การ์ด pending แทน)
  */
 
-import React, { useState, useEffect, useCallback, useSyncExternalStore, memo } from 'react';
+import { useState, useEffect, useCallback, useSyncExternalStore, memo, type ComponentType } from 'react';
 import Link from 'next/link';
+import { AlarmClock, Hourglass, Clock } from 'lucide-react';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -39,6 +41,8 @@ export interface CalendarTrack {
 const LS_KEY = 'kh_track';
 const SCHOOL_TRACK = 'school-exam';
 const TRACK_EVENT = 'kh_track_change';
+// จำนวนวันเตรียมตัวโดยรวม — ใช้คำนวณแถบ "เตรียมตัวมาแล้ว X%" บนแผงนาฬิกา
+const PREP_TOTAL_DAYS = 180;
 
 // ── localStorage เป็น external store (hydration-safe ผ่าน useSyncExternalStore) ──
 // SSR ได้ null เสมอ (สถานะ A) แล้ว React sync ค่าจริงหลัง hydration เอง — กับดัก 2 จบในตัว
@@ -90,9 +94,21 @@ const hoursPerChapter = (days: number, hoursPerWeek: number, chapters: number): 
 
 const fmtHours = (h: number): string => (h >= 10 ? String(Math.floor(h)) : h.toFixed(1));
 
+// ── ไอคอนวงกลม gradient ส้ม/อำพัน (ใช้ในหัวการ์ด + แผงเวลาฝึก) ──────────────
+function IconChip({ icon: Icon, size }: { icon: ComponentType<{ size?: number }>; size: number }) {
+    return (
+        <div
+            className="flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#EA580C] text-white shadow-sm dark:from-[#D97706] dark:to-[#B45309]"
+            style={{ width: size, height: size }}
+        >
+            <Icon size={Math.round(size * 0.48)} />
+        </div>
+    );
+}
+
 // ── นาฬิกา + โมเดลชั่วโมง (คอมโพเนนต์เดียวที่ re-render ทุกวินาที) ──────────
-const ClockAndModel = memo(function ClockAndModel({ targetMs, hoursPerWeek, chapters, showWarn }: {
-    targetMs: number; hoursPerWeek: number; chapters: number; showWarn: boolean;
+const ClockAndModel = memo(function ClockAndModel({ targetMs, hoursPerWeek, chapters, showComparison }: {
+    targetMs: number; hoursPerWeek: number; chapters: number; showComparison: boolean;
 }) {
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {
@@ -114,46 +130,91 @@ const ClockAndModel = memo(function ClockAndModel({ targetMs, hoursPerWeek, chap
     const daysCeil = Math.ceil(diff / 86400000);        // โมเดลชั่วโมงใช้ ceil ตามสเปก
     const perNow = hoursPerChapter(daysCeil, hoursPerWeek, chapters);
     const perMonth = hoursPerChapter(Math.max(0, daysCeil - 30), hoursPerWeek, chapters);
+    const preparedPct = Math.max(0, Math.min(100, Math.round(((PREP_TOTAL_DAYS - daysCeil) / PREP_TOTAL_DAYS) * 100)));
 
-    const cells: [string, string][] = [
-        [String(dDays), 'วัน'], [pad2(dHours), 'ชม.'], [pad2(dMins), 'นาที'], [pad2(dSecs), 'วิ'],
+    const tiles: { val: string; unit: string; emphasize?: boolean }[] = [
+        { val: String(dDays), unit: 'วัน' },
+        { val: pad2(dHours), unit: 'ชม.' },
+        { val: pad2(dMins), unit: 'นาที' },
+        { val: pad2(dSecs), unit: 'วิ', emphasize: true },
     ];
 
     return (
         <>
-            {/* ชั้น 2: แผงนาฬิกา */}
             <p className="sr-only" aria-live="polite">เหลืออีก {daysCeil} วันก่อนวันสอบ</p>
-            <div aria-hidden="true" className="rounded-[18px] bg-[rgba(124,29,43,0.04)] dark:bg-[rgba(240,165,174,0.05)] py-[clamp(14px,3.6cqw,22px)] px-2">
-                <div className="flex items-start justify-center gap-[clamp(4px,1.6cqw,10px)]">
-                    {cells.map(([val, unit], i) => (
-                        <React.Fragment key={unit}>
-                            {i > 0 && (
-                                <span className="text-[clamp(1.4rem,7cqw,2.4rem)] font-bold leading-none mt-[0.28em] text-[rgba(124,29,43,0.28)] dark:text-[rgba(240,165,174,0.32)]">:</span>
-                            )}
-                            <span className="flex flex-col items-center min-w-[3.2ch]">
-                                <span className="text-[clamp(1.95rem,11cqw,3.5rem)] font-extrabold leading-none tracking-[-0.02em] [font-variant-numeric:tabular-nums] text-[#7C1D2B] dark:text-[#F0A5AE]">{val}</span>
-                                <span className="mt-1.5 text-[clamp(10px,2.6cqw,13px)] font-semibold text-slate-400 dark:text-slate-500">{unit}</span>
-                            </span>
-                        </React.Fragment>
-                    ))}
+
+            {/* Clock board — gradient ส้ม + ลาย graph-paper + วงแสงเรือง */}
+            <div
+                aria-hidden="true"
+                className="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-[#F59E0B] via-[#EA580C] to-[#9A3412] px-[clamp(12px,3cqw,18px)] pb-[clamp(16px,4cqw,22px)] pt-[clamp(18px,4.4cqw,24px)] dark:from-[#B45309] dark:via-[#9A3412] dark:to-[#431407]"
+            >
+                <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.07)_0px,rgba(255,255,255,0.07)_1px,transparent_1px,transparent_24px)]" />
+                <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-3xl" />
+
+                <div className="relative">
+                    <p className="text-center text-[11px] font-extrabold tracking-[0.14em] text-[#FFF7ED]/90">เหลือเวลาอีก</p>
+
+                    <div className="mt-3 flex justify-center gap-[10px]">
+                        {tiles.map(t => (
+                            <div
+                                key={t.unit}
+                                className={`flex min-w-[3.4rem] flex-col items-center rounded-[14px] border py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] ${t.emphasize
+                                    ? 'border-[rgba(255,247,237,0.35)] bg-white/20'
+                                    : 'border-[rgba(255,247,237,0.22)] bg-white/10'
+                                    }`}
+                            >
+                                <span className={`font-mero text-[clamp(1.7rem,9cqw,2.875rem)] font-semibold leading-none tracking-[-0.02em] [font-variant-numeric:tabular-nums] ${t.emphasize ? 'text-white' : 'text-[#FFF7ED]'}`}>
+                                    {t.val}
+                                </span>
+                                <span className="mt-1.5 text-[11px] font-semibold text-[#FDE68A]">{t.unit}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-4 flex items-center gap-2">
+                        <span className="shrink-0 text-[11px] font-semibold text-[#FFF7ED]/80">เตรียมตัวมาแล้ว</span>
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/15">
+                            <div
+                                className="h-full rounded-full bg-gradient-to-r from-[#FDE68A] to-white dark:from-[#FBBF24] dark:to-[#FDE68A]"
+                                style={{ width: `${preparedPct}%` }}
+                            />
+                        </div>
+                        <span className="shrink-0 text-[11px] font-bold text-white [font-variant-numeric:tabular-nums]">{preparedPct}%</span>
+                    </div>
                 </div>
             </div>
 
-            {/* ชั้น 3: ชั่วโมง/บท (พ่อแม่) */}
-            <p className="mt-[clamp(16px,4cqw,22px)] text-center text-[clamp(15px,4.6cqw,20px)] font-bold text-slate-900 dark:text-slate-50">
-                เหลือเวลาฝึกจริง <span className="font-extrabold text-[#7C1D2B] dark:text-[#F0A5AE] [font-variant-numeric:tabular-nums]">{fmtHours(perNow)} ชั่วโมง</span> ต่อ 1 บท
-            </p>
-            {/* ชั้น 4: สูตร (จาง) */}
-            <p className="mt-1.5 text-center text-[clamp(12px,3.4cqw,14px)] font-medium text-slate-400 dark:text-slate-500">
-                สัปดาห์ละ {hoursPerWeek} ชม. × {chapters} บทที่ต้องแม่น
-            </p>
-
-            {/* ชั้น 5: แถบเตือน amber (ไม่ใช่แดง) — เฉพาะเมื่อยังเหลือเกิน 30 วัน */}
-            {showWarn && daysCeil > 30 && (
-                <div className="mt-[clamp(14px,3.4cqw,18px)] rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] dark:border-[rgba(180,83,9,0.45)] dark:bg-[rgba(120,53,15,0.24)] px-4 py-2.5 text-center text-[clamp(12px,3.4cqw,14px)] font-semibold text-[#B45309] dark:text-[#FCD34D]">
-                    ⏳ ถ้ารออีก 1 เดือน — เหลือ {fmtHours(perMonth)} ชม./บท
+            {/* Practice-time panel — รวมสต็อกหลักกับส่วนเปรียบเทียบเป็นแผงเดียว */}
+            <div className="mt-[clamp(14px,3.4cqw,18px)] rounded-[20px] border border-[#FDE68A] bg-[#FFFBEB] p-[clamp(16px,4cqw,20px)] dark:border-[rgba(251,191,36,0.24)] dark:bg-[rgba(180,83,9,0.20)]">
+                <div className="flex items-center gap-3">
+                    <IconChip icon={Hourglass} size={50} />
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-extrabold tracking-[0.08em] text-[#C2410C]/80 dark:text-[#FBBF24]/80">เวลาฝึกจริงที่เหลือ</p>
+                        <p className="font-mero text-[clamp(1.5rem,7cqw,2rem)] font-semibold leading-tight text-slate-900 dark:text-slate-50 [font-variant-numeric:tabular-nums]">
+                            {fmtHours(perNow)}{' '}
+                            <span className="text-[clamp(13px,3.6cqw,15px)] font-bold text-slate-500 dark:text-slate-400">ชม. ต่อ 1 บท</span>
+                        </p>
+                    </div>
                 </div>
-            )}
+                <p className="mt-1.5 text-[clamp(12px,3.4cqw,13px)] font-medium text-slate-500 dark:text-slate-400">
+                    สัปดาห์ละ {hoursPerWeek} ชม. × {chapters} บทที่ต้องแม่น
+                </p>
+
+                {showComparison && daysCeil > 30 && (
+                    <>
+                        <div className="my-[clamp(12px,3cqw,16px)] border-t border-dashed border-[#F7D69B] dark:border-[rgba(251,191,36,0.3)]" />
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="flex items-center gap-1.5 text-[clamp(12px,3.4cqw,14px)] font-semibold text-slate-600 dark:text-slate-300">
+                                <Clock size={16} className="text-[#EA580C] dark:text-[#FBBF24]" />
+                                ถ้ารออีก 1 เดือน
+                            </span>
+                            <span className="rounded-full bg-[#FBE0C4] px-3 py-1 text-[clamp(12px,3.4cqw,14px)] font-bold text-[#B4530A] [font-variant-numeric:tabular-nums] dark:bg-[rgba(251,191,36,0.2)] dark:text-[#FCD34D]">
+                                เหลือแค่ {fmtHours(perMonth)} ชม./บท
+                            </span>
+                        </div>
+                    </>
+                )}
+            </div>
         </>
     );
 });
@@ -163,15 +224,21 @@ function TrackHeader({ label, dateLabel, isEstimate, onChange }: {
     label: string; dateLabel?: string | null; isEstimate?: boolean; onChange: () => void;
 }) {
     return (
-        <div className="flex items-center justify-between gap-3">
-            <p className="min-w-0 text-[clamp(12px,3.4cqw,14px)] font-semibold text-slate-500 dark:text-slate-400 truncate">
-                <span className="text-[#7C1D2B] dark:text-[#F0A5AE]">●</span> {label}
-                {dateLabel && <> · {dateLabel}{isEstimate && <span className="text-slate-400 dark:text-slate-500"> (โดยประมาณ)</span>}</>}
-            </p>
+        <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+                <IconChip icon={AlarmClock} size={40} />
+                <div className="min-w-0">
+                    <p className="text-[11px] font-extrabold tracking-[0.1em] text-[#EA580C] dark:text-[#FBBF24]">นับถอยหลังวันสอบ</p>
+                    <p className="mt-0.5 truncate text-[clamp(13px,3.6cqw,15px)] font-bold text-slate-800 dark:text-slate-100">
+                        {label}
+                        {dateLabel && <> · {dateLabel}{isEstimate && <span className="font-medium text-slate-400 dark:text-slate-500"> (โดยประมาณ)</span>}</>}
+                    </p>
+                </div>
+            </div>
             <button
                 onClick={onChange}
                 aria-label="เปลี่ยนสนามสอบ"
-                className="shrink-0 rounded-full bg-slate-100 dark:bg-[#334155] px-3.5 py-1.5 text-[clamp(11px,3cqw,13px)] font-bold text-slate-600 dark:text-[#CBD5E1] hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors min-h-[32px]"
+                className="shrink-0 rounded-full bg-slate-100 dark:bg-[#334155] px-3.5 py-1.5 text-[clamp(11px,3cqw,13px)] font-bold text-slate-600 dark:text-[#CBD5E1] hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors min-h-[36px]"
             >
                 เปลี่ยน
             </button>
@@ -183,7 +250,7 @@ function StartButton({ onStart }: { onStart: () => void }) {
     return (
         <button
             onClick={onStart}
-            className="mt-[clamp(14px,3.4cqw,18px)] w-full rounded-full bg-[#7C1D2B] hover:bg-[#5E1521] dark:bg-[#B0333F] dark:hover:bg-[#C24552] py-3.5 text-[clamp(14px,4cqw,16px)] font-bold text-white transition-colors min-h-[44px]"
+            className="font-mero mt-[clamp(14px,3.4cqw,18px)] min-h-[44px] w-full rounded-full bg-gradient-to-r from-[#F59E0B] to-[#EA580C] py-3.5 text-[clamp(14px,4cqw,16px)] font-semibold text-white shadow-md shadow-orange-500/25 transition-all hover:brightness-105 active:brightness-95 dark:from-[#D97706] dark:to-[#B45309] dark:shadow-none"
         >
             เริ่มตะลุยโจทย์ →
         </button>
@@ -194,7 +261,7 @@ function SourceLink({ url }: { url: string }) {
     return (
         <div className="mt-3 text-right">
             <a href={url} target="_blank" rel="noopener noreferrer"
-                className="text-[clamp(12px,3.4cqw,13px)] font-semibold text-slate-500 dark:text-slate-400 hover:text-[#7C1D2B] dark:hover:text-[#F0A5AE] underline-offset-2 hover:underline transition-colors">
+                className="text-[clamp(12px,3.4cqw,13px)] font-semibold text-slate-500 dark:text-slate-400 hover:text-[#EA580C] dark:hover:text-[#FBBF24] underline-offset-2 hover:underline transition-colors">
                 ดูประกาศวันสอบจริง ↗
             </a>
         </div>
@@ -246,7 +313,7 @@ export default function ExamCountdown({ tracks }: { tracks: CalendarTrack[] }) {
     const expired = !!(selected && selected.examAtIso && selected.sourceUrl
         && Date.parse(selected.examAtIso) <= mountNow);
 
-    const cardBase = 'rounded-[24px] border border-[#EEF1F5] dark:border-[#334155] bg-white dark:bg-[#1E293B] shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)] text-left [container-type:inline-size]';
+    const cardBase = 'khc-rise rounded-[28px] border border-[#EEF1F5] dark:border-[#334155] bg-white dark:bg-[#1E293B] shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)] text-left [container-type:inline-size]';
 
     // ═══ สถานะ A — ยังไม่เลือกสนาม (รวมเคสสนามที่สอบผ่านไปแล้ว) ═══
     if (!selected || expired) {
@@ -268,7 +335,7 @@ export default function ExamCountdown({ tracks }: { tracks: CalendarTrack[] }) {
                         <button
                             key={t.trackId}
                             onClick={() => selectTrack(t)}
-                            className={`rounded-full bg-white dark:bg-[#0F172A] px-4 py-2.5 min-h-[44px] text-[clamp(13px,3.6cqw,14px)] font-semibold text-slate-600 dark:text-[#CBD5E1] border transition-colors hover:border-[#7C1D2B] hover:text-[#7C1D2B] hover:bg-[#FDF2F3] dark:hover:border-[#F0A5AE] dark:hover:text-[#F0A5AE] dark:hover:bg-[#1E293B] ${t.trackId === SCHOOL_TRACK ? 'border-dashed border-slate-300 dark:border-slate-600' : 'border-[#E2E8F0] dark:border-[#334155]'}`}
+                            className={`rounded-full bg-white dark:bg-[#0F172A] px-4 py-2.5 min-h-[44px] text-[clamp(13px,3.6cqw,14px)] font-semibold text-slate-600 dark:text-[#CBD5E1] border transition-colors hover:border-[#EA580C] hover:text-[#C2410C] hover:bg-[#FFFBEB] dark:hover:border-[#FBBF24] dark:hover:text-[#FBBF24] dark:hover:bg-[#1E293B] ${t.trackId === SCHOOL_TRACK ? 'border-dashed border-slate-300 dark:border-slate-600' : 'border-[#E2E8F0] dark:border-[#334155]'}`}
                         >
                             {t.label}
                         </button>
@@ -319,7 +386,7 @@ export default function ExamCountdown({ tracks }: { tracks: CalendarTrack[] }) {
             <div className={`${cardBase} p-[clamp(18px,5cqw,30px)] mb-8`}>
                 <TrackHeader label={selected.label} dateLabel={dateLabel} isEstimate={selected.isEstimate} onChange={clearTrack} />
                 <div className="mt-[clamp(16px,4cqw,24px)]">
-                    <ClockAndModel targetMs={targetMs} hoursPerWeek={selected.hoursPerWeek} chapters={selected.chaptersToMaster} showWarn={true} />
+                    <ClockAndModel targetMs={targetMs} hoursPerWeek={selected.hoursPerWeek} chapters={selected.chaptersToMaster} showComparison={true} />
                 </div>
                 <StartButton onStart={startPractice} />
                 <SourceLink url={selected.sourceUrl} />
@@ -332,11 +399,11 @@ export default function ExamCountdown({ tracks }: { tracks: CalendarTrack[] }) {
         <div className={`${cardBase} p-[clamp(18px,5cqw,30px)] mb-8`}>
             <TrackHeader label={selected.label} dateLabel={dateLabel} isEstimate={selected.isEstimate} onChange={clearTrack} />
             <div className="mt-[clamp(16px,4cqw,24px)]">
-                <ClockAndModel targetMs={targetMs} hoursPerWeek={selected.hoursPerWeek} chapters={selected.chaptersToMaster} showWarn={false} />
+                <ClockAndModel targetMs={targetMs} hoursPerWeek={selected.hoursPerWeek} chapters={selected.chaptersToMaster} showComparison={false} />
             </div>
             <div className="mt-[clamp(14px,3.4cqw,18px)] border-t border-dashed border-slate-200 dark:border-slate-600 pt-[clamp(14px,3.4cqw,18px)]">
                 <p className="text-[clamp(14px,3.8cqw,16px)] font-bold text-slate-900 dark:text-slate-50">
-                    ครูฮีมกำลังทำชุด <span className="text-[#7C1D2B] dark:text-[#F0A5AE]">{selected.label}</span> อยู่ครับ
+                    ครูฮีมกำลังทำชุด <span className="text-[#EA580C] dark:text-[#FBBF24]">{selected.label}</span> อยู่ครับ
                 </p>
                 {notifyState === 'sent' ? (
                     <p className="mt-3 text-[clamp(13px,3.6cqw,14px)] font-semibold text-[#1F8A5B]">
@@ -351,12 +418,12 @@ export default function ExamCountdown({ tracks }: { tracks: CalendarTrack[] }) {
                             onKeyDown={e => { if (e.key === 'Enter') submitNotify(selected); }}
                             placeholder="LINE ID หรือเบอร์โทร"
                             aria-label="LINE ID หรือเบอร์โทร สำหรับรับแจ้งเตือน"
-                            className="flex-1 min-w-[180px] rounded-full border border-[#E2E8F0] dark:border-[#334155] bg-white dark:bg-[#0F172A] px-4 py-2.5 min-h-[44px] text-[clamp(13px,3.6cqw,14px)] font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-[#7C1D2B] dark:focus:border-[#F0A5AE] transition-colors"
+                            className="flex-1 min-w-[180px] rounded-full border border-[#E2E8F0] dark:border-[#334155] bg-white dark:bg-[#0F172A] px-4 py-2.5 min-h-[44px] text-[clamp(13px,3.6cqw,14px)] font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-[#EA580C] dark:focus:border-[#FBBF24] transition-colors"
                         />
                         <button
                             onClick={() => submitNotify(selected)}
                             disabled={contact.trim().length < 3}
-                            className="rounded-full bg-[#7C1D2B] hover:bg-[#5E1521] dark:bg-[#B0333F] dark:hover:bg-[#C24552] disabled:opacity-40 disabled:cursor-not-allowed px-5 py-2.5 min-h-[44px] text-[clamp(13px,3.6cqw,14px)] font-bold text-white transition-colors"
+                            className="rounded-full bg-[#EA580C] hover:bg-[#C2410C] dark:bg-[#D97706] dark:hover:bg-[#B45309] disabled:opacity-40 disabled:cursor-not-allowed px-5 py-2.5 min-h-[44px] text-[clamp(13px,3.6cqw,14px)] font-bold text-white transition-colors"
                         >
                             รับแจ้งเตือน
                         </button>
@@ -370,7 +437,7 @@ export default function ExamCountdown({ tracks }: { tracks: CalendarTrack[] }) {
                         <Link
                             key={tag}
                             href={`/exam/practice?q=${encodeURIComponent(tag)}`}
-                            className="rounded-full bg-[#FDF2F3] dark:bg-[#0F172A] border border-[#F6DCDF] dark:border-[#334155] px-3.5 py-2 text-[clamp(12px,3.4cqw,13px)] font-semibold text-[#7C1D2B] dark:text-[#F0A5AE] hover:border-[#7C1D2B] dark:hover:border-[#F0A5AE] transition-colors"
+                            className="rounded-full bg-[#FFFBEB] dark:bg-[#0F172A] border border-[#FDE68A] dark:border-[#334155] px-3.5 py-2 text-[clamp(12px,3.4cqw,13px)] font-semibold text-[#C2410C] dark:text-[#FBBF24] hover:border-[#EA580C] dark:hover:border-[#FBBF24] transition-colors"
                         >
                             {tag}
                         </Link>
