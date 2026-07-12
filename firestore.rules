@@ -209,6 +209,36 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // === Exam Calendar (public read, admin write) ===
+    // Countdown tracks for the "นับถอยหลังวันสอบ" card on /exam.
+    // Read server-side via the Firestore REST API (lib/firestoreRest).
+    match /examCalendar/{trackId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // === Track clicks (anonymous create-only analytics) ===
+    // One doc per chip click on the exam-countdown card — tells us which exam
+    // tracks students actually care about. Create-only + size-bounded, same
+    // trust model as /visitors. Nobody can read or edit them except admin.
+    match /trackClicks/{clickId} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.size() <= 4;
+      allow update, delete: if isAdmin();
+    }
+
+    // === Track notify requests (anonymous create-only) ===
+    // State C of the countdown card: "แจ้งเตือนเมื่อชุดข้อสอบ track นี้มาแล้ว".
+    // Contains contact info (LINE id / phone) so reads stay admin-only.
+    match /trackNotifyRequests/{reqId} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.size() <= 4
+                    && request.resource.data.contact is string
+                    && request.resource.data.contact.size() >= 3
+                    && request.resource.data.contact.size() <= 100;
+      allow update, delete: if isAdmin();
+    }
+
     // === Course Categories (public read, admin write) ===
     // Used by /admin/courses page for grouping courses into categories.
     // Public read because the course list / catalog shows category names.

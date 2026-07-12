@@ -7,10 +7,12 @@ import { Search, ArrowRight, FileText, Lightbulb, Loader2, BookOpen, BarChart3, 
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import ExamCountdown, { type CalendarTrack } from "@/components/exam/ExamCountdown";
 
 interface ExamListClientProps {
     initialExams: any[];
     enrollmentCount?: number;
+    calendarTracks?: CalendarTrack[];
 }
 
 interface SearchMatch {
@@ -80,7 +82,7 @@ const FALLBACK_SECTION: ExamSection = {
     badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
 
-export default function ExamListClient({ initialExams, enrollmentCount: initialEnrollmentCount = 0 }: ExamListClientProps) {
+export default function ExamListClient({ initialExams, enrollmentCount: initialEnrollmentCount = 0, calendarTracks = [] }: ExamListClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
 
@@ -452,6 +454,9 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                         </div>
                     </div>
 
+                    {/* นับถอยหลังวันสอบ — countdown card (ใต้ hero เหนือกล่องสถิติ) */}
+                    <ExamCountdown tracks={calendarTracks} />
+
                     {/* Stats Banner — 3 cards (removed activeUsers to save Firestore reads) */}
                     <div className="grid grid-cols-3 gap-3 md:gap-4 mt-8 max-w-3xl mx-auto">
                         {/* Card 1: ชุดข้อสอบพร้อมฝึก */}
@@ -818,7 +823,7 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                 ) : (
                     /* Normal Grid Mode (No Search Query) */
                     filteredExams.length > 0 ? (
-                        <div className="space-y-14">
+                        <div id="exam-sections" className="space-y-14 scroll-mt-24">
                             {[...displaySections, FALLBACK_SECTION].map((sec) => {
                                 const items = groupedSections.get(sec.id);
                                 if (!items || items.length === 0) return null;
