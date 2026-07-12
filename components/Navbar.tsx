@@ -43,10 +43,26 @@ export default function Navbar() {
         }
     };
 
+    // Logo click → reliably go to a FRESH homepage.
+    // Why not just <Link href="/">? Two problems the teacher actually hits:
+    //  1) When you're already on "/", a Link to the same route is a no-op — it
+    //     doesn't reload or scroll to top, so the logo feels "dead".
+    //  2) After the tab has been left open for hours, the App Router client cache
+    //     can go stale and soft navigations serve old content.
+    // A full navigation to "/" fixes both — it always lands on a fresh homepage.
+    // We still keep href="/" on the Link (accessibility + open-in-new-tab), and
+    // bail out here for cmd/ctrl/shift-click so those keep opening a new tab.
+    const goHome = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey) return;
+        e.preventDefault();
+        setMobileMenuOpen(false);
+        window.location.assign("/");
+    };
+
     return (
         <>
             <nav className="fixed top-0 left-0 right-0 z-50 bg-white/60 dark:bg-slate-950/80 backdrop-blur-xl border-b border-white/40 dark:border-slate-800 py-4 px-6 md:px-12 flex justify-between items-center transition-all">
-                <Link href="/" className="flex items-center gap-3 group">
+                <Link href="/" onClick={goHome} className="flex items-center gap-3 group">
                     {/* Logo: Math Teacher Concept */}
                     <div className="relative w-12 h-12 group-hover:scale-110 transition-transform duration-300 animate-heartbeat">
                         <Image src="/logo.png" alt="KruHeem Logo" width={48} height={48} priority className="object-contain drop-shadow-md rounded-xl" />
