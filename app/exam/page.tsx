@@ -93,9 +93,61 @@ async function getExams() {
 }
 
 
+// Countdown tracks for the "นับถอยหลังวันสอบ" card. The source of truth is the
+// `examCalendar` collection, but its security rule is still waiting on a
+// `firebase deploy` — so we read the admin-maintained MIRROR at
+// `public_stats/examCalendar` (public_stats/* is already world-readable).
+// scripts/sync-exam-calendar.js refreshes the mirror after any calendar edit.
+// Returns [] on any failure — the card falls back to its built-in track list.
+type RawTrack = Record<string, unknown>;
+const toTrack = (d: RawTrack) => ({
+    trackId: (d.trackId as string) || (d.id as string) || "",
+    label: (d.label as string) || "",
+    // Both the REST decoder and the mirror store timestamps as ISO strings.
+    examAtIso: (d.examAt as string) || null,
+    sourceUrl: (d.sourceUrl as string) || "",
+    isEstimate: (d.isEstimate as boolean) ?? true,
+    chaptersToMaster: (d.chaptersToMaster as number) || 9,
+    hoursPerWeek: (d.hoursPerWeek as number) || 3,
+    hasContent: (d.hasContent as boolean) || false,
+    order: (d.order as number | undefined) ?? 99,
+});
+
+async function getExamCalendar() {
+    // 1) Mirror doc — readable today under the existing public_stats rule.
+    try {
+        const doc = await getDocument("public_stats/examCalendar", { revalidate: 300 });
+        const tracks = (doc?.tracks as RawTrack[] | undefined) ?? [];
+        if (tracks.length > 0) {
+            return tracks.map(toTrack).filter((t) => t.trackId && t.label)
+                .sort((a, b) => a.order - b.order);
+        }
+    } catch (error) {
+        console.error("Error fetching exam calendar mirror:", error);
+    }
+    // 2) Direct collection read — works once the examCalendar rule is deployed.
+    try {
+        const docs = await listCollection(
+            "examCalendar",
+            [
+                "trackId", "label", "examAt", "sourceUrl", "isEstimate",
+                "chaptersToMaster", "hoursPerWeek", "hasContent", "order",
+            ],
+            { revalidate: 300 }
+        );
+        return docs.map(toTrack).filter((t) => t.trackId && t.label)
+            .sort((a, b) => a.order - b.order);
+    } catch (error) {
+        console.error("Error fetching exam calendar:", error);
+        return [];
+    }
+}
+
 export default async function ExamHubPage() {
     // 2. Await Data
-    const [exams, enrollmentCount] = await Promise.all([getExams(), getEnrollmentCount()]);
+    const [exams, enrollmentCount, calendarTracks] = await Promise.all([
+        getExams(), getEnrollmentCount(), getExamCalendar(),
+    ]);
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans flex flex-col transition-colors">
@@ -103,7 +155,7 @@ export default async function ExamHubPage() {
 
             {/* 3. Pass Data to Client Component for Interactivity */}
             <div className="pt-24">
-                <ExamListClient initialExams={exams} enrollmentCount={enrollmentCount} />
+                <ExamListClient initialExams={exams} enrollmentCount={enrollmentCount} calendarTracks={calendarTracks} />
             </div>
 
             {/* Netflix-style Hero Banner (Moved to Bottom) */}
