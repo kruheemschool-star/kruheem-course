@@ -586,3 +586,82 @@ export const percentileFromBuckets = (buckets: number[], count: number, yourPerc
     below += (buckets[yb] || 0) / 2; // ties share the bucket
     return Math.max(0, Math.min(99, Math.round((below / count) * 100))); // cap at 99 — can't beat everyone
 };
+
+/* ============================================================
+   Weakness-diagnostic exams ("สแกนจุดอ่อน") — 4-angle analysis.
+   These free funnel sets tag every question along 4 dimensions:
+     tags = [ สาระ/บท, ชั้นต้นทาง, ทักษะ, ระดับ, <ชั้นรวม> ]
+   e.g. ["เศษส่วน", "ป.5", "แปลโจทย์", "ยาก", "สอบเข้า ม.1"].
+   We classify each tag by VOCABULARY (not position, so order is robust) so the
+   result screen can show one clean radar per สาระ plus separate ทักษะ / ชั้นต้นทาง
+   breakdowns — instead of one radar with all dimensions jumbled together.
+   ============================================================ */
+
+export const DIAG_SKILL_TAGS = ['คิดเลข', 'เข้าใจ', 'แปลโจทย์'] as const;
+export const DIAG_LEVEL_TAGS = ['ง่าย', 'กลาง', 'ยาก', 'ยากมาก'] as const;
+
+export type DiagDimension = 'topic' | 'skill' | 'origin' | 'level' | 'grade';
+
+/** Classify a single tag into one of the diagnostic dimensions. */
+export const classifyDiagnosticTag = (tag: string): DiagDimension => {
+    if ((DIAG_LEVEL_TAGS as readonly string[]).includes(tag)) return 'level';
+    if ((DIAG_SKILL_TAGS as readonly string[]).includes(tag)) return 'skill';
+    // grade-origin: ป.4/5/6 · "…ท.1/ท.2" · "พื้นฐาน…"
+    if (/^ป\.[456]$/.test(tag) || / ท\.[12]$/.test(tag) || tag.startsWith('พื้นฐาน')) return 'origin';
+    // the set's overall grade tag (constant across the file) — excluded from breakdowns
+    if (/^สอบเข้า/.test(tag) || /^ม\.[1-6]$/.test(tag)) return 'grade';
+    return 'topic';
+};
+
+/**
+ * An exam is a "weakness diagnostic" when most of its questions carry BOTH a
+ * skill tag (คิดเลข/เข้าใจ/แปลโจทย์) AND a level tag (ง่าย/กลาง/ยาก) — the shape
+ * only these funnel sets have. Normal exam banks never tag this way, so their
+ * result screen is left completely untouched.
+ */
+export const isDiagnosticExam = (questions: { tags?: string[] }[]): boolean => {
+    const tagged = (questions || []).filter(q => Array.isArray(q.tags) && q.tags.length > 0);
+    if (tagged.length < 6) return false;
+    const shaped = tagged.filter(q => {
+        const dims = new Set((q.tags || []).map(classifyDiagnosticTag));
+        return dims.has('skill') && dims.has('level');
+    }).length;
+    return shaped / tagged.length >= 0.6;
+};
+
+export interface DiagStat { tag: string; correct: number; total: number; percent: number; }
+export interface DiagnosticBreakdown { topics: DiagStat[]; skills: DiagStat[]; origins: DiagStat[]; }
+
+/**
+ * Aggregate % correct per dimension for a diagnostic attempt. `items` pairs each
+ * answered question's tags with whether it was answered correctly. Topics &
+ * origins are sorted weakest-first; skills follow the canonical order.
+ */
+export const buildDiagnosticBreakdown = (
+    items: { tags?: string[]; isCorrect: boolean }[]
+): DiagnosticBreakdown => {
+    const buckets: Record<'topic' | 'skill' | 'origin', Record<string, { correct: number; total: number }>> = {
+        topic: {}, skill: {}, origin: {},
+    };
+    for (const it of items || []) {
+        if (!Array.isArray(it.tags)) continue;
+        for (const tag of it.tags) {
+            const dim = classifyDiagnosticTag(tag);
+            if (dim !== 'topic' && dim !== 'skill' && dim !== 'origin') continue;
+            const b = buckets[dim];
+            if (!b[tag]) b[tag] = { correct: 0, total: 0 };
+            b[tag].total++;
+            if (it.isCorrect) b[tag].correct++;
+        }
+    }
+    const toStats = (rec: Record<string, { correct: number; total: number }>): DiagStat[] =>
+        Object.entries(rec).map(([tag, s]) => ({
+            tag, correct: s.correct, total: s.total,
+            percent: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+        }));
+    const topics = toStats(buckets.topic).sort((a, b) => a.percent - b.percent || a.tag.localeCompare(b.tag, 'th'));
+    const origins = toStats(buckets.origin).sort((a, b) => a.percent - b.percent || a.tag.localeCompare(b.tag, 'th'));
+    const skillOrder = DIAG_SKILL_TAGS as readonly string[];
+    const skills = toStats(buckets.skill).sort((a, b) => skillOrder.indexOf(a.tag) - skillOrder.indexOf(b.tag));
+    return { topics, skills, origins };
+};

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee } from 'lucide-react';
@@ -593,6 +593,12 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     if (isFinished && finalScore) {
         const wrongCount = finalScore.total - finalScore.score;
 
+        // Weakness-diagnostic ("สแกนจุดอ่อน") funnel sets tag every question along
+        // 4 dimensions (สาระ · ชั้นต้นทาง · ทักษะ · ระดับ). When detected, the result
+        // screen shows a clean per-สาระ radar plus separate ทักษะ / ชั้นต้นทาง
+        // breakdowns and a CTA into the full paid bank. Normal exams stay untouched.
+        const isDiagnostic = isDiagnosticExam(sanitizedExamData.slice(0, finalScore.total));
+
         // Identify the topics (tags) the student answered worst on.
         // Per-tag: count attempts on that tag + wrong attempts. A tag is
         // "weak" if there were >=2 attempts on it AND >=40% of those were
@@ -611,6 +617,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 });
             });
             return Object.entries(stats)
+                // For diagnostic sets, only surface สาระ chips (not ทักษะ/ระดับ/ชั้น tags).
+                .filter(([tag]) => !isDiagnostic || classifyDiagnosticTag(tag) === 'topic')
                 .filter(([, s]) => s.total >= 2 && s.wrong / s.total >= 0.4)
                 .map(([tag, s]) => ({
                     tag,
@@ -672,6 +680,31 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const radarData = Object.entries(radarStats).map(([tag, s]) => ({ tag, percent: Math.round((s.correct / s.total) * 100) }));
         const radarColors = { grid: isDark ? '#334155' : '#e2e8f0', tick: isDark ? '#cbd5e1' : '#475569', stroke: isDark ? '#a5b4fc' : '#6366f1' };
 
+        // === 4-angle diagnostic breakdown (only for สแกนจุดอ่อน sets) ===
+        const diag = isDiagnostic
+            ? buildDiagnosticBreakdown(
+                sanitizedExamData.slice(0, finalScore.total).map((q, idx) => ({
+                    tags: q.tags,
+                    isCorrect: answers[idx] === q.correctIndex,
+                }))
+              )
+            : null;
+        // In diagnostic mode the radar shows one clean spoke per สาระ (not all tags mixed).
+        const topicRadarData = diag ? diag.topics.map(t => ({ tag: t.tag, percent: t.percent })) : [];
+        const displayRadarData = isDiagnostic ? topicRadarData : radarData;
+        // Friendly meta for the ทักษะ breakdown labels.
+        const skillMeta: Record<string, { label: string; hint: string }> = {
+            'คิดเลข': { label: 'คิดเลขแม่น', hint: 'บวกลบคูณหาร/ทำตามขั้นตอน' },
+            'เข้าใจ': { label: 'เข้าใจมโนทัศน์', hint: 'รู้ว่าทำไปทำไม ไม่ใช่ท่องจำ' },
+            'แปลโจทย์': { label: 'แปลโจทย์ปัญหา', hint: 'อ่านโจทย์ยาวแล้วตั้งต้นถูก' },
+        };
+        // A shared color scale for the % bars (green → amber → rose).
+        const pctBar = (p: number) => p >= 75
+            ? { bar: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', track: 'bg-emerald-100 dark:bg-emerald-900/30' }
+            : p >= 50
+            ? { bar: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', track: 'bg-amber-100 dark:bg-amber-900/30' }
+            : { bar: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400', track: 'bg-rose-100 dark:bg-rose-900/30' };
+
         return (
             <div className="max-w-4xl mx-auto py-12 px-6">
                 <div className="bg-white dark:bg-slate-800 rounded-[3rem] shadow-xl p-8 md:p-12 border border-stone-100 dark:border-slate-700 relative overflow-hidden">
@@ -729,12 +762,65 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 </div>
                             </div>
 
-                            {/* 📊 เรดาร์จุดแข็ง-จุดอ่อนรายหัวข้อ (F2) */}
-                            {radarData.length >= 3 && (
+                            {/* 📊 เรดาร์จุดแข็ง-จุดอ่อนราย(สาระ|หัวข้อ) (F2) */}
+                            {displayRadarData.length >= 3 && (
                                 <div className="mb-10 rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-6 md:p-8">
-                                    <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">📊 จุดแข็ง-จุดอ่อนรายหัวข้อ</h3>
-                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">ยิ่งกางออกไกล = ยิ่งเก่งหัวข้อนั้น (เต็ม 100%)</p>
-                                    <TopicRadarChart data={radarData} colors={radarColors} />
+                                    <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">📊 {isDiagnostic ? 'จุดอ่อนรายสาระ' : 'จุดแข็ง-จุดอ่อนรายหัวข้อ'}</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">ยิ่งกางออกไกล = ยิ่งแม่นสาระนั้น (เต็ม 100%){isDiagnostic ? ' · สาระที่หุบเข้า = จุดที่ควรซ่อมก่อน' : ''}</p>
+                                    <TopicRadarChart data={displayRadarData} colors={radarColors} />
+                                </div>
+                            )}
+
+                            {/* 🧠🔍 4-angle diagnostic breakdown — ทักษะ + ชั้นต้นทาง (diagnostic sets only) */}
+                            {isDiagnostic && diag && (diag.skills.length > 0 || diag.origins.length > 0) && (
+                                <div className="mb-10 grid gap-6 md:grid-cols-2">
+                                    {diag.skills.length > 0 && (
+                                        <div className="rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-6 md:p-7">
+                                            <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🧠 อ่อนทักษะไหน</h3>
+                                            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">แยกว่าพลาดเพราะคิดเลข เข้าใจ หรือแปลโจทย์</p>
+                                            <div className="flex flex-col gap-4">
+                                                {diag.skills.map((s) => {
+                                                    const c = pctBar(s.percent);
+                                                    const meta = skillMeta[s.tag] || { label: s.tag, hint: '' };
+                                                    return (
+                                                        <div key={s.tag}>
+                                                            <div className="flex items-baseline justify-between mb-1">
+                                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{meta.label}</span>
+                                                                <span className={`text-sm font-black tabular-nums ${c.text}`}>{s.percent}%</span>
+                                                            </div>
+                                                            <div className={`h-2.5 rounded-full ${c.track} overflow-hidden`}>
+                                                                <div className={`h-full rounded-full ${c.bar} transition-all`} style={{ width: `${s.percent}%` }}></div>
+                                                            </div>
+                                                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{meta.hint} · ถูก {s.correct}/{s.total}</p>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {diag.origins.length > 0 && (
+                                        <div className="rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-6 md:p-7">
+                                            <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🔍 รูรั่วอยู่ชั้นไหน</h3>
+                                            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">บอกว่าจุดอ่อนเป็นของเก่าติดมา หรือเนื้อชั้นปัจจุบัน</p>
+                                            <div className="flex flex-col gap-4">
+                                                {diag.origins.map((o) => {
+                                                    const c = pctBar(o.percent);
+                                                    return (
+                                                        <div key={o.tag}>
+                                                            <div className="flex items-baseline justify-between mb-1">
+                                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{o.tag}</span>
+                                                                <span className={`text-sm font-black tabular-nums ${c.text}`}>{o.percent}%</span>
+                                                            </div>
+                                                            <div className={`h-2.5 rounded-full ${c.track} overflow-hidden`}>
+                                                                <div className={`h-full rounded-full ${c.bar} transition-all`} style={{ width: `${o.percent}%` }}></div>
+                                                            </div>
+                                                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">ถูก {o.correct}/{o.total}</p>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -906,6 +992,26 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                     </Link>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* 🎯 Diagnostic funnel CTA → full paid bank (weakness sets only, non-trial) */}
+                    {isDiagnostic && !isTrial && (
+                        <div className="mt-6 mb-2 rounded-3xl border-2 border-indigo-200 dark:border-indigo-700/50 bg-gradient-to-br from-indigo-50 via-violet-50 to-white dark:from-indigo-900/30 dark:via-violet-900/20 dark:to-slate-800/40 p-8 text-center shadow-lg relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                            <div className="text-4xl mb-3">🎯</div>
+                            <h3 className="text-2xl font-black text-indigo-800 dark:text-indigo-300 mb-2">
+                                {finalScore.percent >= 75 ? 'เก่งแล้ว! เก็บจุดที่ยังพลาดให้ครบด้วยคลังเต็ม' : 'รู้จุดอ่อนแล้ว — ซ่อมให้แน่นด้วยคลังข้อสอบเต็ม'}
+                            </h3>
+                            <div className="text-indigo-700 dark:text-indigo-400 mb-5 max-w-lg mx-auto space-y-2 text-left">
+                                <p className="flex items-start gap-2"><span>✅</span><span>สาระที่ยัง<strong>แดง</strong> มีข้อสอบเต็มบทให้ฝึก <strong>ไล่จากง่ายถึงยากมาก</strong></span></p>
+                                <p className="flex items-start gap-2"><span>✅</span><span>เฉลยละเอียด<strong>ทุกข้อ</strong> อธิบายวิธีคิดเป็นขั้น สไตล์ครูฮีม</span></p>
+                                <p className="flex items-start gap-2"><span>✅</span><span>ครบ<strong>ทุกชั้น ทุกสนามสอบ</strong> ทั้งสอบเข้า ม.1/ม.4, O-NET, A-Level</span></p>
+                            </div>
+                            <a href="/payment?course=vip" className="inline-block bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-indigo-200 dark:shadow-indigo-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                                สมัครคลังข้อสอบเต็ม
+                            </a>
+                            <p className="text-xs text-indigo-500/80 dark:text-indigo-600 mt-3 font-medium">จ่ายครั้งเดียว ใช้ได้ยาว • เริ่มซ่อมจุดอ่อนได้ทันที</p>
                         </div>
                     )}
 
