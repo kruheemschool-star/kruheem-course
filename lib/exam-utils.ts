@@ -519,6 +519,37 @@ export const getProficiencyLevel = (percent: number, paceRatio = 1): Proficiency
 };
 
 /* ============================================================
+   Per-question tags — shared by sub-topic weakness analysis (ExamRunner)
+   and (later) per-topic mastery tracking. Kept here so both use identical
+   tag resolution + constant-tag filtering.
+   ============================================================ */
+
+/** Resolve a question's tag list from tags[] / tag / topic (in that order). */
+export const extractQuestionTags = (q: any): string[] =>
+    Array.isArray(q?.tags) ? q.tags.filter((t: any) => typeof t === 'string' && t.trim()).map((t: string) => t.trim())
+        : (typeof q?.tag === 'string' && q.tag.trim()) ? [q.tag.trim()]
+            : (typeof q?.topic === 'string' && q.topic.trim()) ? [q.topic.trim()] : [];
+
+/**
+ * Tags that blanket (nearly) every question in a set — the set-wide labels like
+ * "สอบเข้า ม.1" / "พีชคณิต" attached to ALL questions. They describe the whole
+ * set, not a sub-topic, so per-topic weakness analysis must drop them (otherwise
+ * a weak attempt reports "you're weak at สอบเข้า ม.1", which says nothing).
+ * "Constant" = appears on >= threshold (default 90%) of questions.
+ */
+export const getConstantTags = (perQuestionTags: string[][], threshold = 0.9): Set<string> => {
+    const n = perQuestionTags.length;
+    if (n === 0) return new Set();
+    const counts: Record<string, number> = {};
+    for (const tags of perQuestionTags) {
+        for (const t of new Set(tags)) counts[t] = (counts[t] || 0) + 1;
+    }
+    const constant = new Set<string>();
+    for (const [t, c] of Object.entries(counts)) if (c >= threshold * n) constant.add(t);
+    return constant;
+};
+
+/* ============================================================
    Goal projection — "how many more attempts to reach X%".
    ============================================================ */
 

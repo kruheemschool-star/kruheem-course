@@ -11,6 +11,9 @@ import {
     percentileFromBuckets,
     isFillQuestion,
     isFillCorrect,
+    extractQuestionTags,
+    getConstantTags,
+    classifyDiagnosticTag,
 } from "@/lib/exam-utils";
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
@@ -457,15 +460,20 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         const maxSec = Math.max(paceTarget, ...perQ.map((p) => p.seconds), 1);
         const wrongQs = questions.filter((q, i) => answers[i] === undefined || !isAnswerCorrect(q, answers[i]));
 
-        // Phase 4.3: sub-topic weak analysis — active ONLY when questions carry
-        // a tag/tags/topic field. A tag is "weak" with >=2 attempts and >=40% wrong.
+        // Phase 4.3 + P1: sub-topic weak analysis — active ONLY when questions
+        // carry a tag/tags/topic field. Only genuine sub-topics count: set-wide
+        // constant tags (สอบเข้า ม.1, พีชคณิต) and non-topic dimensions
+        // (ระดับ/ทักษะ/ชั้นต้นทาง) are excluded so this card shows หัวข้อย่อย only —
+        // the ระดับ/ทักษะ angles get their own diagnostic breakdown elsewhere.
+        // A tag is "weak" with >=2 attempts and >=40% wrong.
+        const perQuestionTags = questions.map(extractQuestionTags);
+        const constantTags = getConstantTags(perQuestionTags);
         const tagStats: Record<string, { wrong: number; total: number }> = {};
         questions.forEach((q, i) => {
             const correct = answers[i] !== undefined && isAnswerCorrect(q, answers[i]);
-            const tags: string[] = Array.isArray(q.tags) ? q.tags.filter(Boolean)
-                : (typeof q.tag === 'string' && q.tag.trim()) ? [q.tag.trim()]
-                    : (typeof q.topic === 'string' && q.topic.trim()) ? [q.topic.trim()] : [];
-            tags.forEach((t) => {
+            perQuestionTags[i].forEach((t) => {
+                if (constantTags.has(t)) return;                 // set-wide label
+                if (classifyDiagnosticTag(t) !== 'topic') return; // ระดับ/ทักษะ/ชั้น
                 if (!tagStats[t]) tagStats[t] = { wrong: 0, total: 0 };
                 tagStats[t].total++;
                 if (!correct) tagStats[t].wrong++;
