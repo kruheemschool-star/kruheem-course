@@ -19,7 +19,7 @@ import {
     isDiagnosticExam,
     buildDiagnosticBreakdown,
 } from "@/lib/exam-utils";
-import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown } from 'lucide-react';
+import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown, Pause, Play, Coffee } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
@@ -168,15 +168,25 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     // P2: questions still in the mistake notebook (สมุดข้อผิด) for this set —
     // offered as a focused run from the start screen.
     const [wrongBook, setWrongBook] = useState<any[] | null>(null);
+    // หยุดเวลาชั่วคราว (พักเข้าห้องน้ำ/ดื่มน้ำ) — ใช้ได้ทั้งโหมดสอบและโหมดฝึก
+    const [isPaused, setIsPaused] = useState(false);
 
-    const startTime = useRef<number>(0);   // exam start (ms)
+    const startTime = useRef<number>(0);   // start of the current running stretch (ms)
     const qStartTime = useRef<number>(0);  // current question start (ms)
     const qTimes = useRef<Record<number, number>>({}); // accumulated seconds per question
+    // Pause bookkeeping (mirrors the exam bank): elapsedBeforeRef banks active
+    // seconds before the current running stretch; isPausedRef freezes the clock
+    // without waiting for a re-render.
+    const isPausedRef = useRef(false);
+    const elapsedBeforeRef = useRef(0);
 
     const total = questions.length;
-    const paceTarget = DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION; // 90s/question
-    // Time budget for exam mode = total questions × target pace (rounded up to a minute).
-    const timeLimitMinutes = Math.max(1, Math.ceil((total * paceTarget) / 60));
+    const paceTarget = DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION; // 90s — "เป้าความเร็ว" ที่ใช้วิเคราะห์ในหน้าผล
+    // เวลานับถอยหลังโหมดจำลองสอบ = จำนวนข้อ × เวลาต่อข้อ (ครูฮีมตั้ง 3 นาที/ข้อ อิงเวลา
+    // สอบเข้าจริงแนวปรนัย) — คนละตัวกับ paceTarget ที่เป็นเป้าความเร็วในการวิเคราะห์
+    const EXAM_SECONDS_PER_QUESTION = 180; // 3 นาที/ข้อ
+    const examMinutesPerQuestion = Math.round(EXAM_SECONDS_PER_QUESTION / 60);
+    const timeLimitMinutes = Math.max(1, Math.ceil((total * EXAM_SECONDS_PER_QUESTION) / 60));
 
     /* ── Answer-key resolution (explanation wins, then stored fields) ── */
     const extractAnswerFromExplanation = (explanation: string): number | null => {
@@ -225,11 +235,15 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         return idx;
     };
 
-    /* ── Timing ── */
-    const elapsedNow = () => startTime.current ? Math.max(0, Math.round((Date.now() - startTime.current) / 1000)) : 0;
+    /* ── Timing (pause-aware) ── */
+    const elapsedNow = () => {
+        if (!startTime.current) return 0;
+        if (isPausedRef.current) return elapsedBeforeRef.current; // frozen while paused
+        return elapsedBeforeRef.current + Math.max(0, Math.round((Date.now() - startTime.current) / 1000));
+    };
 
     const commitQuestionTime = () => {
-        if (!startTime.current) return;
+        if (!startTime.current || isPausedRef.current) return;
         const spent = Math.max(0, Math.round((Date.now() - qStartTime.current) / 1000));
         qTimes.current[currentIndex] = (qTimes.current[currentIndex] || 0) + spent;
         qStartTime.current = Date.now();
@@ -243,16 +257,35 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
 
     const start = (m: Mode) => {
         setMode(m);
+        elapsedBeforeRef.current = 0;
         startTime.current = Date.now();
         qStartTime.current = Date.now();
     };
 
-    // Live timer tick (stops once submitted)
+    // หยุด/เล่นต่อ นาฬิกา — เด็กพักได้โดยเวลาไม่เดิน (เข้าห้องน้ำ/ดื่มน้ำ/กินขนม)
+    // ใช้ได้ทั้งโหมดจำลองสอบ (นับถอยหลัง) และโหมดฝึก (นับขึ้น)
+    const togglePause = () => {
+        if (isPausedRef.current) {
+            // เล่นต่อ: เริ่มจับเวลาช่วงใหม่จาก "ตอนนี้" ช่วงที่พักจึงถูกข้าม
+            startTime.current = Date.now();
+            qStartTime.current = Date.now();
+            isPausedRef.current = false;
+            setIsPaused(false);
+        } else {
+            // พัก: เก็บเวลาข้อปัจจุบัน + พับเวลาที่เดินมาแล้ว แล้วแช่แข็ง
+            commitQuestionTime();
+            elapsedBeforeRef.current = elapsedNow();
+            isPausedRef.current = true;
+            setIsPaused(true);
+        }
+    };
+
+    // Live timer tick (stops once submitted or while paused)
     useEffect(() => {
-        if (!mode || isSubmitted) return;
+        if (!mode || isSubmitted || isPaused) return;
         const id = setInterval(() => setTick((t) => t + 1), 1000);
         return () => clearInterval(id);
-    }, [mode, isSubmitted]);
+    }, [mode, isSubmitted, isPaused]);
 
     // P2: load this set's leftover mistake notebook once, so the start screen
     // can offer "ฝึกข้อที่เคยผิด". Matches stored keys against the FULL question
@@ -273,12 +306,12 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.uid, lessonId]);
 
-    // Auto-submit when the countdown runs out (exam mode only)
+    // Auto-submit when the countdown runs out (exam mode only; never while paused)
     useEffect(() => {
-        if (mode !== 'exam' || isSubmitted || !startTime.current) return;
+        if (mode !== 'exam' || isSubmitted || !startTime.current || isPaused) return;
         if (getCountdownState(elapsedNow(), timeLimitMinutes).expired) doSubmit(true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tick, mode, isSubmitted]);
+    }, [tick, mode, isSubmitted, isPaused]);
 
     // Auto-scroll to the question when it changes
     useEffect(() => {
@@ -468,6 +501,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         setWeakLessons([]);
         persistedRef.current = false;
         qTimes.current = {};
+        elapsedBeforeRef.current = 0;
+        isPausedRef.current = false;
+        setIsPaused(false);
         startTime.current = Date.now();
         qStartTime.current = Date.now();
         setMode('practice');
@@ -500,7 +536,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                         >
                             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center text-3xl shadow-lg shadow-indigo-500/20 mb-4">⏱️</div>
                             <h3 className="text-lg font-black text-slate-800 dark:text-white mb-1">โหมดจำลองสอบ</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">นับถอยหลัง <b className="text-indigo-600 dark:text-indigo-400">{timeLimitMinutes} นาที</b> · ส่งอัตโนมัติเมื่อหมดเวลา · จำลองห้องสอบจริง</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">นับถอยหลัง <b className="text-indigo-600 dark:text-indigo-400">{timeLimitMinutes} นาที</b> <span className="text-slate-400 dark:text-slate-500">({total} ข้อ × {examMinutesPerQuestion} นาที)</span> · หยุดพักได้ · ส่งอัตโนมัติเมื่อหมดเวลา</p>
                         </button>
                     </div>
 
@@ -909,24 +945,55 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
 
     return (
         <div className="w-full min-h-full flex flex-col items-center py-6 px-4 bg-slate-50 dark:bg-slate-900">
+            {/* ⏸ Overlay ตอนพัก — บังโจทย์ไว้เพื่อไม่ให้ทำต่อระหว่างพัก เวลาหยุดเดิน */}
+            {isPaused && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-6">
+                    <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-800 shadow-2xl border border-slate-100 dark:border-slate-700 px-8 py-10 text-center">
+                        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/30">
+                            <Coffee size={30} className="text-amber-500 dark:text-amber-400" />
+                        </div>
+                        <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2">พักก่อนได้เลย</h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">เวลาหยุดเดินแล้ว ไปเข้าห้องน้ำ ดื่มน้ำ หรือกินขนมได้ตามสบาย</p>
+                        <p className="text-lg font-black tabular-nums text-slate-700 dark:text-slate-200 mb-6">
+                            {isExam ? `เวลาคงเหลือ ${formatDuration(cd.remainingSeconds)}` : `เวลาที่ใช้ไป ${formatDuration(elapsed)}`}
+                        </p>
+                        <button
+                            onClick={togglePause}
+                            className="w-full flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-lg font-black py-3.5 transition-colors shadow-lg shadow-emerald-500/20"
+                        >
+                            <Play size={20} /> พร้อมแล้ว เล่นต่อ
+                        </button>
+                    </div>
+                </div>
+            )}
             <div className="w-full max-w-4xl space-y-5">
 
                 {/* ⏱ Live timer bar */}
                 <div className="sticky top-2 z-30 bg-white dark:bg-slate-800 rounded-2xl px-5 py-3 shadow-md border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isExam ? 'bg-indigo-500' : 'bg-emerald-500'} text-white`}>
-                            {isExam ? <Clock size={18} /> : <Zap size={18} />}
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isPaused ? 'bg-slate-400' : isExam ? 'bg-indigo-500' : 'bg-emerald-500'} text-white`}>
+                            {isPaused ? <Coffee size={18} /> : isExam ? <Clock size={18} /> : <Zap size={18} />}
                         </div>
                         <div>
-                            <div className={`text-xl font-black tabular-nums leading-none ${timerColor}`}>
+                            <div className={`text-xl font-black tabular-nums leading-none ${isPaused ? 'text-slate-400 dark:text-slate-500' : timerColor}`}>
                                 {isExam ? formatDuration(cd.remainingSeconds) : formatDuration(elapsed)}
                             </div>
-                            <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">{isExam ? `เหลือเวลา · จาก ${timeLimitMinutes} นาที` : 'โหมดฝึก · นับเวลาขึ้น'}</div>
+                            <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">{isPaused ? 'พักอยู่ · เวลาหยุดเดิน' : isExam ? `เหลือเวลา · จาก ${timeLimitMinutes} นาที` : 'โหมดฝึก · นับเวลาขึ้น'}</div>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <div className={`text-sm font-black ${pace.color}`}>{pace.label}</div>
-                        <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500">ทำแล้ว {answeredCount}/{total} ข้อ</div>
+                    <div className="flex items-center gap-3">
+                        <div className="text-right">
+                            <div className={`text-sm font-black ${pace.color}`}>{pace.label}</div>
+                            <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500">ทำแล้ว {answeredCount}/{total} ข้อ</div>
+                        </div>
+                        {/* ⏸ ปุ่มหยุด/เล่นต่อ (ทั้งสองโหมด) */}
+                        <button
+                            onClick={togglePause}
+                            aria-label={isPaused ? 'เล่นต่อ' : 'หยุดพักชั่วคราว'}
+                            className={`flex-shrink-0 flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-bold transition-colors ${isPaused ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
+                        >
+                            {isPaused ? <><Play size={16} /> เล่นต่อ</> : <><Pause size={16} /> พัก</>}
+                        </button>
                     </div>
                 </div>
 

@@ -261,10 +261,15 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         []
     );
 
-    // Timed (countdown) mode: active only when explicitly enabled AND a budget is set,
-    // so existing exams with a stray timeLimit stay in count-up mode.
-    const isCountdown = timedMode && (timeLimitMinutes ?? 0) > 0;
-    const timeLimitSeconds = (timeLimitMinutes ?? 0) * 60;
+    // เวลานับถอยหลัง = จำนวนข้อ × 3 นาที (สอดคล้องกับคอร์สตะลุยโจทย์). แอดมินตั้ง
+    // timeLimit เองต่อชุดได้ (เช่นข้อสอบเก่าที่มีเวลาทางการ) — เมื่อเปิด timedMode
+    // จะใช้ค่านั้นแทนค่าอัตโนมัติ. ทุกชุดนับถอยหลังเป็นค่าเริ่มต้น (มีปุ่มพักให้หยุดได้).
+    const EXAM_SECONDS_PER_QUESTION = 180; // 3 นาที/ข้อ
+    const countdownQuestionCount = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
+    const autoCountdownMinutes = Math.max(1, Math.ceil((countdownQuestionCount * EXAM_SECONDS_PER_QUESTION) / 60));
+    const effectiveTimeLimitMinutes = (timedMode && (timeLimitMinutes ?? 0) > 0) ? (timeLimitMinutes as number) : autoCountdownMinutes;
+    const isCountdown = totalQuestions > 0;
+    const timeLimitSeconds = effectiveTimeLimitMinutes * 60;
 
     // Accumulate the time spent on the current question, then restart its clock.
     // Called whenever the student leaves a question (prev / next / jump / finish)
@@ -1178,7 +1183,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">เวลาหยุดเดินแล้ว ไปเข้าห้องน้ำ ดื่มน้ำ หรือกินขนมได้ตามสบาย</p>
                         <p className="text-lg font-black tabular-nums text-slate-700 dark:text-slate-200 mb-6">
                             {isCountdown
-                                ? `เวลาคงเหลือ ${formatDuration(getCountdownState(getElapsedSeconds(), timeLimitMinutes ?? 0).remainingSeconds)}`
+                                ? `เวลาคงเหลือ ${formatDuration(getCountdownState(getElapsedSeconds(), effectiveTimeLimitMinutes).remainingSeconds)}`
                                 : `เวลาที่ใช้ไป ${formatDuration(getElapsedSeconds())}`}
                         </p>
                         <button
@@ -1308,7 +1313,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
                 {/* Countdown low-time warning */}
                 {!finalScore && isCountdown && (() => {
-                    const cd = getCountdownState(getElapsedSeconds(), timeLimitMinutes ?? 0);
+                    const cd = getCountdownState(getElapsedSeconds(), effectiveTimeLimitMinutes);
                     if (cd.warnLevel === 'none') return null;
                     const crit = cd.warnLevel === 'critical';
                     return (
@@ -1338,7 +1343,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
                     {/* Live timer — countdown (timed mode) or count-up — hidden once finished */}
                     {!finalScore && (() => {
-                        const cd = isCountdown ? getCountdownState(getElapsedSeconds(), timeLimitMinutes ?? 0) : null;
+                        const cd = isCountdown ? getCountdownState(getElapsedSeconds(), effectiveTimeLimitMinutes) : null;
                         const critical = cd?.warnLevel === 'critical';
                         const warn = cd?.warnLevel === 'warn';
                         const shellCls = critical
@@ -1360,7 +1365,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                             : <Clock size={18} className={`${iconCls} animate-pulse`} />}
                                 </div>
                                 <div className="leading-tight">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{isPaused ? 'พักอยู่' : isCountdown ? 'เวลาคงเหลือ' : 'เวลาที่ใช้'}</div>
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">{isPaused ? 'พักอยู่' : isCountdown ? `เวลาคงเหลือ · จาก ${effectiveTimeLimitMinutes} นาที` : 'เวลาที่ใช้'}</div>
                                     <div className={`text-xl font-black tabular-nums ${isPaused ? 'text-slate-500 dark:text-slate-400' : valueCls} ${critical && !isPaused ? 'animate-pulse' : ''}`}>
                                         {isCountdown && cd ? formatDuration(cd.remainingSeconds) : formatDuration(getElapsedSeconds())}
                                     </div>
