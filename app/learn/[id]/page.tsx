@@ -12,6 +12,9 @@ import { LearnPageSkeleton } from "@/components/skeletons/LearnPageSkeleton";
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { LessonSidebar } from "@/components/learn/LessonSidebar";
 import { LessonContent } from "@/components/learn/LessonContent";
+import { ExamRunner } from "@/components/learn/ExamRunner";
+import { tryParseQuestions } from "@/components/learn/utils";
+import { collectTopicQuestions } from "@/lib/exam-utils";
 import dynamic from "next/dynamic";
 
 // Chart-heavy dashboard loads on demand so recharts stays out of the learn
@@ -69,6 +72,9 @@ function CoursePlayer() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showCertificate, setShowCertificate] = useState(false);
     const [showProgress, setShowProgress] = useState(false);
+    // P3.2: cross-set topic drill — pooled questions of one weak sub-topic
+    const [drill, setDrill] = useState<{ tag: string; questions: any[] } | null>(null);
+    const [drillLoading, setDrillLoading] = useState(false);
 
     // Toast Timer
     useEffect(() => {
@@ -321,6 +327,40 @@ function CoursePlayer() {
     const examLessons = useMemo(() => {
         return visibleLessons.filter(l => l.type === 'html');
     }, [visibleLessons]);
+
+    // P3.2: cross-set topic drill — pool questions of one weak sub-topic across
+    // ALL exam sets in this course, biased to previously-wrong/unseen, then run
+    // them through ExamRunner in a "topic-drill" doc (mastery grows, set stats stay clean).
+    const startTopicDrill = async (tag: string) => {
+        if (!user || drillLoading) return;
+        setDrillLoading(true);
+        try {
+            const arrays = examLessons
+                .map((l) => tryParseQuestions((l as any).content || "") || [])
+                .filter((a): a is any[] => Array.isArray(a) && a.length > 0);
+            const wrongKeys = new Set<string>();
+            const seenKeys = new Set<string>();
+            try {
+                const snap = await getDocs(collection(db, "users", user.uid, "lessonExamResults"));
+                snap.docs.forEach((d) => {
+                    const r = d.data() as any;
+                    if ((r.courseId || "") !== courseId) return;
+                    Object.keys(r.wrongQuestions || {}).forEach((k) => wrongKeys.add(k));
+                    Object.keys(r.seen || {}).forEach((k) => seenKeys.add(k));
+                });
+            } catch { /* bias is best-effort — proceed unbiased */ }
+            const qs = collectTopicQuestions(arrays, tag, 10, wrongKeys, seenKeys);
+            if (qs.length === 0) {
+                setToast({ msg: "ยังไม่มีข้อในหัวข้อนี้ให้ฝึกเพิ่ม", type: "error" });
+                return;
+            }
+            setShowProgress(false);
+            setIsMobileMenuOpen(false);
+            setDrill({ tag, questions: qs });
+        } finally {
+            setDrillLoading(false);
+        }
+    };
 
     // ✅ Group lessons by header (Exclude Exams from main list)
     const groupedLessons = useMemo(() => {
@@ -626,6 +666,7 @@ function CoursePlayer() {
                     onVideoProgress={saveProgress}
                     initialTime={initialTimestamp}
                     docUrl={course?.docUrl}
+                    onTopicDrill={startTopicDrill}
                 />
             </main>
             {/* Toast Notification */}
@@ -648,7 +689,36 @@ function CoursePlayer() {
                         if (l) changeLesson(l);
                         setIsMobileMenuOpen(false);
                     }}
+                    onStartTopicDrill={startTopicDrill}
                 />
+            )}
+
+            {/* 🎯 ฝึกเจาะหัวข้อ (cross-set topic drill) — P3.2 */}
+            {drill && user && (
+                <div className="fixed inset-0 z-[80] bg-white dark:bg-slate-950 flex flex-col">
+                    <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 md:px-8 h-14 md:h-16 border-b border-slate-100 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md">
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-bold text-indigo-500 dark:text-indigo-300 uppercase tracking-wide">ฝึกเจาะหัวข้อ · {drill.questions.length} ข้อ</p>
+                            <h2 className="text-sm md:text-lg font-black text-slate-800 dark:text-white truncate">🎯 {drill.tag}</h2>
+                        </div>
+                        <button
+                            onClick={() => setDrill(null)}
+                            className="flex-shrink-0 inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        >
+                            ✕ ปิด
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                        <ExamRunner
+                            key={`drill-${drill.tag}`}
+                            questions={drill.questions}
+                            onComplete={() => { }}
+                            lessonId="topic-drill"
+                            lessonTitle={`ฝึกหัวข้อ: ${drill.tag}`}
+                            topicDrillTag={drill.tag}
+                        />
+                    </div>
+                </div>
             )}
         </div>
     );

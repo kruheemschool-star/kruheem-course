@@ -10,6 +10,7 @@ import Link from "next/link";
 import {
     ArrowLeft, ChevronDown, Clock, CheckCircle2, PlayCircle, Lock, Award, Target,
     TrendingUp, TrendingDown, Sparkles, GraduationCap, Flame, BarChart3, Trophy, Layers,
+    BookOpen, ListChecks,
 } from "lucide-react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 import { useTheme } from "next-themes";
@@ -76,6 +77,28 @@ interface ExamSummary {
     recent: ExamResultLite[];
     trend: TrendPoint[];
     bands: { A: number; B: number; C: number; D: number };
+}
+
+// ── ตะลุยโจทย์ในคอร์ส (lessonExamResults) — เฟส 4 ────────────────────────────
+interface LessonAttempt { percent: number; durationSeconds?: number; at?: number }
+interface LessonResultDoc {
+    lessonId?: string;
+    lessonTitle?: string;
+    courseId?: string;
+    attempts?: number;
+    bestPercent?: number;
+    history?: LessonAttempt[];
+    topicStats?: Record<string, { c: number; t: number }>;
+}
+interface TopicReadiness { tag: string; percent: number; c: number; t: number; status: 'strong' | 'ok' | 'weak' }
+interface LessonSummary {
+    setsPracticed: number;
+    totalSets: number;
+    totalAttempts: number;
+    totalTimeSeconds: number;
+    sets: { lessonId: string; lessonTitle: string; bestPercent: number; attempts: number }[];
+    trend: { idx: number; percent: number }[];
+    topicReadiness: TopicReadiness[];
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -158,6 +181,7 @@ export default function ParentDashboard() {
     const [courseProgressMap, setCourseProgressMap] = useState<Record<string, CourseProgress>>({});
     const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
     const [examSummary, setExamSummary] = useState<ExamSummary | null>(null);
+    const [lessonSummary, setLessonSummary] = useState<LessonSummary | null>(null);
 
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
@@ -214,6 +238,7 @@ export default function ParentDashboard() {
 
                 // 4. Fetch lessons for each course and calculate progress
                 const progressMap: Record<string, CourseProgress> = {};
+                let examSetCount = 0; // ชุดตะลุยโจทย์ทั้งหมด (บทเรียนชนิด html ที่เป็น JSON โจทย์)
 
                 for (const course of filteredCourses) {
                     // Cached per-course — shared with my-courses and learn/[id]
@@ -226,6 +251,12 @@ export default function ParentDashboard() {
                         .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
                     const videoLessons = lessonList.filter(l => l.type === 'video' && !l.isHidden);
+                    // นับชุดตะลุยโจทย์ในคอร์ส (html + เนื้อหาเป็น JSON array ของโจทย์)
+                    examSetCount += lessonList.filter((l) => {
+                        if (l.type !== 'html' || l.isHidden) return false;
+                        const raw = ((l as any).content || (l as any).htmlCode || '').trim();
+                        return raw.startsWith('[') || raw.startsWith('{');
+                    }).length;
                     const progressData = progressDataMap[course.id] || { completed: [], lastUpdated: null };
                     const completedVideos = progressData.completed.filter(id => videoLessons.some(l => l.id === id));
                     const percent = videoLessons.length > 0
@@ -310,6 +341,67 @@ export default function ParentDashboard() {
                 } catch (examErr) {
                     console.warn("Exam summary fetch failed (non-blocking):", examErr);
                 }
+
+                // 6. ตะลุยโจทย์ในคอร์ส (lessonExamResults) — เฟส 4.1 + 4.2
+                //    อ่านทั้ง collection (เอกสารน้อย) → สรุปชุดที่ทำ + ความพร้อมรายหัวข้อ
+                try {
+                    const lessonSnap = await getDocs(collection(db, "users", uid, "lessonExamResults"));
+                    if (!lessonSnap.empty) {
+                        const docs = lessonSnap.docs.map(d => ({ id: d.id, ...(d.data() as LessonResultDoc) }));
+                        // เอกสารพิเศษ (topic-drill ฯลฯ) — mastery นับ แต่ไม่ใช่ "ชุด"
+                        const SPECIAL = new Set(['topic-drill']);
+                        const setDocs = docs.filter(d => !SPECIAL.has(d.lessonId || d.id));
+
+                        const sets = setDocs
+                            .map(d => ({
+                                lessonId: d.lessonId || d.id,
+                                lessonTitle: d.lessonTitle || 'ชุดข้อสอบ',
+                                bestPercent: Math.round(d.bestPercent || 0),
+                                attempts: d.attempts || 1,
+                            }))
+                            .sort((a, b) => a.bestPercent - b.bestPercent);
+
+                        const totalAttempts = setDocs.reduce((s, d) => s + (d.attempts || 1), 0);
+                        const totalTimeSeconds = docs.reduce((s, d) =>
+                            s + (Array.isArray(d.history) ? d.history.reduce((a, h) => a + (h.durationSeconds || 0), 0) : 0), 0);
+
+                        // แนวโน้ม: ทุกครั้งที่ฝึก (รวมทุกชุด) เรียงตามเวลา
+                        const trend = docs
+                            .flatMap(d => Array.isArray(d.history) ? d.history : [])
+                            .filter(h => typeof h.at === 'number' && typeof h.percent === 'number')
+                            .sort((a, b) => (a.at || 0) - (b.at || 0))
+                            .map((h, i) => ({ idx: i + 1, percent: h.percent }));
+
+                        // ความพร้อมรายหัวข้อ — รวม topicStats จากทุกเอกสาร (รวม topic-drill)
+                        // topicStats ถูกกรองตอนเขียนแล้ว (เฉพาะหัวข้อจริง) → รวมได้ตรงๆ
+                        const agg: Record<string, { c: number; t: number }> = {};
+                        docs.forEach(d => Object.entries(d.topicStats || {}).forEach(([tag, s]) => {
+                            if (!s || typeof s.t !== 'number') return;
+                            const a = agg[tag] || { c: 0, t: 0 };
+                            agg[tag] = { c: a.c + (s.c || 0), t: a.t + s.t };
+                        }));
+                        const topicReadiness: TopicReadiness[] = Object.entries(agg)
+                            .filter(([, s]) => s.t >= 10) // ต้องมีข้อมูลพอ (≥10 ข้อ) จึงตัดสิน
+                            .map(([tag, s]) => {
+                                const percent = Math.round((s.c / s.t) * 100);
+                                const status: TopicReadiness['status'] = percent >= 75 ? 'strong' : percent >= 55 ? 'ok' : 'weak';
+                                return { tag, percent, c: s.c, t: s.t, status };
+                            })
+                            .sort((a, b) => a.percent - b.percent);
+
+                        setLessonSummary({
+                            setsPracticed: setDocs.length,
+                            totalSets: examSetCount,
+                            totalAttempts,
+                            totalTimeSeconds,
+                            sets,
+                            trend,
+                            topicReadiness,
+                        });
+                    }
+                } catch (lessonErr) {
+                    console.warn("Lesson summary fetch failed (non-blocking):", lessonErr);
+                }
             } catch (error) {
                 console.error("Error fetching data:", error);
             } finally {
@@ -329,6 +421,7 @@ export default function ParentDashboard() {
     }, [courseProgressMap]);
 
     const hasExams = !!(examSummary && examSummary.totalAttempts > 0);
+    const hasLessons = !!(lessonSummary && lessonSummary.setsPracticed > 0);
     const prof = hasExams ? getProficiencyLevel(examSummary!.avgPercent) : null;
     const projection = hasExams && examSummary!.trend.length >= 2
         ? projectAttemptsToGoal(examSummary!.trend.map(t => t.percent), 80)
@@ -581,8 +674,105 @@ export default function ParentDashboard() {
                     </motion.div>
                 )}
 
-                {/* ── No-exam empty hint ────────────────────────────────────── */}
-                {!hasExams && (
+                {/* ── 📚 ตะลุยโจทย์ในคอร์ส (lessonExamResults) — เฟส 4.1 ───────── */}
+                {hasLessons && (
+                    <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show"
+                        className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 mb-5">
+                        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
+                            <BookOpen size={18} className="text-indigo-500" /> ตะลุยโจทย์ในคอร์ส
+                        </h3>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">การฝึกทำโจทย์ในบทเรียน — คนละส่วนกับคลังข้อสอบด้านบน</p>
+
+                        {/* mini KPI แถว */}
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                            <div className="text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl py-3">
+                                <div className="text-xl font-black text-slate-800 dark:text-slate-100 tabular-nums">
+                                    {lessonSummary!.setsPracticed}{lessonSummary!.totalSets > 0 && <span className="text-sm text-slate-400">/{lessonSummary!.totalSets}</span>}
+                                </div>
+                                <div className="text-[11px] text-slate-400 mt-0.5">ชุดที่ฝึกแล้ว</div>
+                            </div>
+                            <div className="text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl py-3">
+                                <div className="text-xl font-black text-slate-800 dark:text-slate-100 tabular-nums">{lessonSummary!.totalAttempts}</div>
+                                <div className="text-[11px] text-slate-400 mt-0.5">ครั้งที่ฝึก</div>
+                            </div>
+                            <div className="text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl py-3">
+                                <div className="text-xl font-black text-slate-800 dark:text-slate-100 tabular-nums">
+                                    {Math.round(lessonSummary!.totalTimeSeconds / 60)}<span className="text-sm text-slate-400"> นาที</span>
+                                </div>
+                                <div className="text-[11px] text-slate-400 mt-0.5">เวลาฝึกรวม</div>
+                            </div>
+                        </div>
+
+                        {/* per-set best% */}
+                        <div className="space-y-2">
+                            {lessonSummary!.sets.slice(0, 8).map((s) => {
+                                const p = s.bestPercent;
+                                return (
+                                    <div key={s.lessonId} className="flex items-center gap-3">
+                                        <span className="flex-1 text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{s.lessonTitle}</span>
+                                        <div className="w-24 sm:w-32 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0">
+                                            <div className={`h-full rounded-full ${p >= 80 ? 'bg-emerald-500' : p >= 60 ? 'bg-blue-500' : p >= 40 ? 'bg-amber-500' : 'bg-rose-500'}`} style={{ width: `${p}%` }} />
+                                        </div>
+                                        <span className={`text-sm font-black tabular-nums w-11 text-right flex-shrink-0 ${ringColor(p).replace('500', '600')}`}>{p}%</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* ── 🎯 ความพร้อมสอบเข้ารายหัวข้อ (ภาษาพ่อแม่) — เฟส 4.2 ───────── */}
+                {hasLessons && lessonSummary!.topicReadiness.length > 0 && (
+                    <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show"
+                        className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 mb-5">
+                        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
+                            <ListChecks size={18} className="text-emerald-500" /> ความพร้อมรายหัวข้อ
+                        </h3>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">สรุปจากทุกข้อที่ลูกเคยทำในแต่ละหัวข้อ — ดูได้เลยว่าหัวข้อไหนแน่นแล้ว หัวข้อไหนต้องเร่ง</p>
+
+                        {/* สรุปสถานะ 3 กลุ่ม */}
+                        <div className="grid grid-cols-3 gap-2 mb-4">
+                            {([
+                                { key: 'strong', emoji: '🟢', label: 'แน่นแล้ว', tint: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' },
+                                { key: 'ok', emoji: '🟡', label: 'พอใช้', tint: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' },
+                                { key: 'weak', emoji: '🔴', label: 'ต้องเร่ง', tint: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20' },
+                            ] as const).map((g) => {
+                                const n = lessonSummary!.topicReadiness.filter(t => t.status === g.key).length;
+                                return (
+                                    <div key={g.key} className={`rounded-2xl py-3 text-center ${g.tint}`}>
+                                        <div className="text-lg">{g.emoji}</div>
+                                        <div className="text-xl font-black tabular-nums leading-none mt-0.5">{n}</div>
+                                        <div className="text-[11px] font-bold mt-1">{g.label}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* รายหัวข้อ พร้อมคำแนะนำสั้นๆ */}
+                        <div className="space-y-2">
+                            {lessonSummary!.topicReadiness.map((t) => {
+                                const meta = t.status === 'strong'
+                                    ? { emoji: '🟢', advice: 'แม่นแล้ว เก่งมาก', color: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-100 dark:border-emerald-900/40' }
+                                    : t.status === 'ok'
+                                        ? { emoji: '🟡', advice: 'เข้าใจแล้วบางส่วน ฝึกเพิ่มอีกนิดจะแน่น', color: 'text-amber-600 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-900/40' }
+                                        : { emoji: '🔴', advice: 'ยังพลาดบ่อย ควรกลับไปทบทวนหัวข้อนี้', color: 'text-rose-600 dark:text-rose-400', border: 'border-rose-100 dark:border-rose-900/40' };
+                                return (
+                                    <div key={t.tag} className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 border ${meta.border} bg-white dark:bg-slate-900/40`}>
+                                        <span className="text-base flex-shrink-0">{meta.emoji}</span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{t.tag}</p>
+                                            <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{meta.advice}</p>
+                                        </div>
+                                        <span className={`text-sm font-black tabular-nums flex-shrink-0 ${meta.color}`}>{t.percent}%</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* ── No-data empty hint ────────────────────────────────────── */}
+                {!hasExams && !hasLessons && (
                     <motion.div custom={2} variants={fadeUp} initial="hidden" animate="show"
                         className="bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-sm border border-slate-100 dark:border-slate-800 mb-5 text-center">
                         <div className="text-4xl mb-2">📝</div>

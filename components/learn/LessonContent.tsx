@@ -27,6 +27,8 @@ interface LessonContentProps {
     initialTime?: number;
     // ✅ Course-level document URL (ย้ายมาเป็นปุ่มลอย)
     docUrl?: string;
+    // P3.2: bubble a "ฝึกหัวข้อนี้เพิ่ม" request up to the page (cross-set drill)
+    onTopicDrill?: (tag: string) => void;
 }
 
 export const LessonContent: React.FC<LessonContentProps> = ({
@@ -45,7 +47,8 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     handleNextLesson,
     onVideoProgress,
     initialTime,
-    docUrl
+    docUrl,
+    onTopicDrill
 }) => {
     const [showSummary, setShowSummary] = React.useState(false);
     const [showCorrection, setShowCorrection] = React.useState(false);
@@ -344,7 +347,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                         (() => {
                             const practiceQuestions = tryParseQuestions(activeLesson.content || "");
                             if (practiceQuestions) {
-                                return <ExamRunner key={activeLesson.id} questions={practiceQuestions} onComplete={() => markAsComplete(activeLesson.id)} onNext={() => handleNextLesson()} lessonId={activeLesson.id} lessonTitle={activeLesson.title} />;
+                                return <ExamRunner key={activeLesson.id} questions={practiceQuestions} onComplete={() => markAsComplete(activeLesson.id)} onNext={() => handleNextLesson()} lessonId={activeLesson.id} lessonTitle={activeLesson.title} onTopicDrill={onTopicDrill} />;
                             }
                             return (
                                 <div className="w-full min-h-[60vh] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 text-center">
@@ -368,7 +371,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                         (() => {
                             const examQuestions = tryParseQuestions(activeLesson.content || "");
                             if (examQuestions) {
-                                return <ExamRunner key={activeLesson.id} questions={examQuestions} onComplete={() => markAsComplete(activeLesson.id)} onNext={() => handleNextLesson()} lessonId={activeLesson.id} lessonTitle={activeLesson.title} />;
+                                return <ExamRunner key={activeLesson.id} questions={examQuestions} onComplete={() => markAsComplete(activeLesson.id)} onNext={() => handleNextLesson()} lessonId={activeLesson.id} lessonTitle={activeLesson.title} onTopicDrill={onTopicDrill} />;
                             }
                             return (
                                 <div className="w-full min-h-full bg-white dark:bg-slate-900">
