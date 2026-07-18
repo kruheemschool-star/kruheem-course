@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee } from 'lucide-react';
@@ -225,6 +225,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const [wasRestored, setWasRestored] = useState(false); // Show "resumed" banner
     const [cloudSaveState, setCloudSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [restoredFromCloud, setRestoredFromCloud] = useState(false);
+    // P3 parity: leftover mistake-notebook size for this set after settling the
+    // current attempt (null = not saved / logged out). Shown on the result page.
+    const [notebookLeft, setNotebookLeft] = useState<number | null>(null);
 
     // Time tracking
     const examStartTime = React.useRef<number>(Date.now());
@@ -523,9 +526,42 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 questionTimes: questionTimes.current,
             };
             console.log('[ExamSystem] Result doc:', resultDoc);
-            setDoc(doc(db, 'users', user.uid, 'examResults', examId), resultDoc)
-                .then(() => console.log('[ExamSystem] Exam result saved successfully'))
-                .catch(err => console.error('[ExamSystem] Failed to save exam result:', err));
+            // P3 parity with the classroom runner: read the previous result and
+            // accumulate persistent per-topic mastery + mistake notebook + seen
+            // set, instead of overwriting them away on every attempt.
+            (async () => {
+                try {
+                    const ref = doc(db, 'users', user.uid, 'examResults', examId);
+                    const prevSnap = await getDoc(ref);
+                    const prev = prevSnap.exists() ? (prevSnap.data() as any) : null;
+                    const attempted = sanitizedExamData.slice(0, answerableCount);
+                    const perAttempt = attempted.map((q, idx) => ({
+                        tags: extractQuestionTags(q),
+                        isCorrect: answers[idx] === q.correctIndex,
+                    }));
+                    const topicStats = accumulateTopicStats(prev?.topicStats, perAttempt);
+                    const wrongQuestions: Record<string, { at: number }> = { ...(prev?.wrongQuestions || {}) };
+                    const seen: Record<string, number> = { ...(prev?.seen || {}) };
+                    attempted.forEach((q, idx) => {
+                        const k = getQuestionKey(q);
+                        seen[k] = 1;
+                        if (perAttempt[idx].isCorrect) delete wrongQuestions[k];
+                        else wrongQuestions[k] = { at: Date.now() };
+                    });
+                    await setDoc(ref, {
+                        ...resultDoc,
+                        attempts: (prev?.attempts || 0) + 1,
+                        bestPercent: Math.max(typeof prev?.bestPercent === 'number' ? prev.bestPercent : 0, percent),
+                        topicStats,
+                        wrongQuestions,
+                        seen,
+                    });
+                    setNotebookLeft(Object.keys(wrongQuestions).length);
+                    console.log('[ExamSystem] Exam result saved successfully');
+                } catch (err) {
+                    console.error('[ExamSystem] Failed to save exam result:', err);
+                }
+            })();
         } else {
             console.log('[ExamSystem] Not saving result - user:', !!user, 'examId:', !!examId, 'isTrial:', isTrial);
         }
@@ -834,6 +870,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                     </p>
                                     <ScoreDistributionChart buckets={percentile.buckets} yourBucket={percentile.yourBucket} isDark={isDark} height={150} />
                                     <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-1">การกระจายคะแนนของทุกคน · <span className="text-amber-500 font-bold">แท่งสีส้ม</span> = ช่วงคะแนนของคุณ ({finalScore.percent}%)</p>
+                                </div>
+                            )}
+
+                            {/* ✍️ สมุดข้อผิดของชุดนี้ (P3 — สะสมข้ามครั้ง) */}
+                            {notebookLeft !== null && notebookLeft > 0 && (
+                                <div className="mb-10 rounded-3xl border border-amber-100 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-900/10 p-6 md:p-7">
+                                    <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">✍️ สมุดข้อผิดของชุดนี้ — ค้างอยู่ {notebookLeft} ข้อ</h3>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                                        {notebookLeft > wrongCount
+                                            ? `รอบนี้ผิด ${wrongCount} ข้อ และยังมีข้อค้างจากรอบก่อนอีก ${notebookLeft - wrongCount} ข้อ — `
+                                            : ''}
+                                        ระบบจดข้อที่ยังตอบผิดไว้ให้ถาวร กลับมาทำชุดนี้อีกครั้งแล้วตอบข้อพวกนี้ให้ถูก ข้อจะหลุดจากสมุดอัตโนมัติ
+                                    </p>
                                 </div>
                             )}
 

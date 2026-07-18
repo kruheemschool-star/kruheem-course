@@ -16,6 +16,8 @@ import {
     classifyDiagnosticTag,
     getQuestionKey,
     accumulateTopicStats,
+    isDiagnosticExam,
+    buildDiagnosticBreakdown,
 } from "@/lib/exam-utils";
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
@@ -577,6 +579,27 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
             .sort((a, b) => b.pct - a.pct || b.wrong - a.wrong)
             .slice(0, 3);
 
+        // P3 (parity with exam bank): 4-angle diagnostic breakdown — lights up
+        // when the set carries the content standard's skill+level tags. Skipped
+        // for focused runs (a wrong-only subset would skew every angle).
+        const diag = (!isFocused && isDiagnosticExam(questions))
+            ? buildDiagnosticBreakdown(questions.map((q, i) => ({ tags: extractQuestionTags(q), isCorrect: perQ[i].isCorrect })))
+            : null;
+        const skillMeta: Record<string, { label: string; hint: string }> = {
+            'คิดเลข': { label: 'คิดเลขแม่น', hint: 'บวกลบคูณหาร/ทำตามขั้นตอน' },
+            'เข้าใจ': { label: 'เข้าใจมโนทัศน์', hint: 'รู้ว่าทำไปทำไม ไม่ใช่ท่องจำ' },
+            'แปลโจทย์': { label: 'แปลโจทย์ปัญหา', hint: 'อ่านโจทย์ยาวแล้วตั้งต้นถูก' },
+        };
+        const levelMeta: Record<string, string> = {
+            'ง่าย': 'พื้นฐาน — ต้องเก็บให้ครบ', 'กลาง': 'สนามจริงออกเยอะสุด',
+            'ยาก': 'ตัวตัดสินอันดับ', 'ยากมาก': 'โจทย์ท้าเซียน พลาดได้ไม่บาป',
+        };
+        const pctBar = (p: number) => p >= 75
+            ? { bar: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', track: 'bg-emerald-100 dark:bg-emerald-900/30' }
+            : p >= 50
+                ? { bar: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', track: 'bg-amber-100 dark:bg-amber-900/30' }
+                : { bar: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400', track: 'bg-rose-100 dark:bg-rose-900/30' };
+
         return (
             <div className="w-full min-h-full py-10 px-4 bg-slate-50 dark:bg-slate-900">
                 {celebration && (
@@ -731,6 +754,82 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                                     </span>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* 🧠📶🔍 4 มุมวินิจฉัย (P3 — parity กับคลังข้อสอบ, ชุดที่ tag ครบมาตรฐานเท่านั้น) */}
+                    {diag && (diag.skills.length > 0 || diag.levels.length > 0) && (
+                        <div className="mb-8 grid gap-4 md:grid-cols-2">
+                            {diag.skills.length > 0 && (
+                                <div className="rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-5 md:p-6">
+                                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🧠 อ่อนทักษะไหน</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">แยกว่าพลาดเพราะคิดเลข เข้าใจ หรือแปลโจทย์</p>
+                                    <div className="flex flex-col gap-4">
+                                        {diag.skills.map((s) => {
+                                            const c = pctBar(s.percent);
+                                            const meta = skillMeta[s.tag] || { label: s.tag, hint: '' };
+                                            return (
+                                                <div key={s.tag}>
+                                                    <div className="flex items-baseline justify-between mb-1">
+                                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{meta.label}</span>
+                                                        <span className={`text-sm font-black tabular-nums ${c.text}`}>{s.percent}%</span>
+                                                    </div>
+                                                    <div className={`h-2.5 rounded-full ${c.track} overflow-hidden`}>
+                                                        <div className={`h-full rounded-full ${c.bar} transition-all`} style={{ width: `${s.percent}%` }}></div>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{meta.hint} · ถูก {s.correct}/{s.total}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            {diag.levels.length > 0 && (
+                                <div className="rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-5 md:p-6">
+                                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">📶 อ่อนระดับไหน</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">ดูว่าหลุดตั้งแต่ข้อพื้นฐาน หรือไปตายตรงข้อยาก</p>
+                                    <div className="flex flex-col gap-4">
+                                        {diag.levels.map((l) => {
+                                            const c = pctBar(l.percent);
+                                            return (
+                                                <div key={l.tag}>
+                                                    <div className="flex items-baseline justify-between mb-1">
+                                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{l.tag}</span>
+                                                        <span className={`text-sm font-black tabular-nums ${c.text}`}>{l.percent}%</span>
+                                                    </div>
+                                                    <div className={`h-2.5 rounded-full ${c.track} overflow-hidden`}>
+                                                        <div className={`h-full rounded-full ${c.bar} transition-all`} style={{ width: `${l.percent}%` }}></div>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{levelMeta[l.tag] || ''} · ถูก {l.correct}/{l.total}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            {diag.origins.length >= 2 && (
+                                <div className="rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-5 md:p-6 md:col-span-2">
+                                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🔍 รูรั่วอยู่ชั้นไหน</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">บอกว่าจุดอ่อนเป็นของเก่าติดมา หรือเนื้อหาชั้นปัจจุบัน</p>
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        {diag.origins.map((o) => {
+                                            const c = pctBar(o.percent);
+                                            return (
+                                                <div key={o.tag}>
+                                                    <div className="flex items-baseline justify-between mb-1">
+                                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{o.tag}</span>
+                                                        <span className={`text-sm font-black tabular-nums ${c.text}`}>{o.percent}%</span>
+                                                    </div>
+                                                    <div className={`h-2.5 rounded-full ${c.track} overflow-hidden`}>
+                                                        <div className={`h-full rounded-full ${c.bar} transition-all`} style={{ width: `${o.percent}%` }}></div>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">ถูก {o.correct}/{o.total}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
