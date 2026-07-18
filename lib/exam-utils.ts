@@ -609,6 +609,45 @@ export const sampleDiagnosticQuiz = (
 };
 
 /**
+ * Cross-set topic drill (ฝึกหัวข้อนี้เพิ่ม) — pool every question that carries
+ * `tag` from ALL of a course's exam sets, dedupe by stable key, then pick `count`
+ * biased toward the questions worth re-drilling: previously-WRONG first, then
+ * UNSEEN, then seen-ok. `questionArrays` is the parsed question list of each set
+ * (the caller parses lesson content). Returns a shuffled subset (fewer than
+ * `count` if the pool is small; [] if nothing carries the tag).
+ */
+export const collectTopicQuestions = (
+    questionArrays: any[][], tag: string, count: number,
+    wrongKeys?: Set<string>, seenKeys?: Set<string>,
+): any[] => {
+    const shuffle = <T,>(a: T[]): T[] => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const pool: any[] = [];
+    const dedup = new Set<string>();
+    for (const arr of questionArrays || []) {
+        if (!Array.isArray(arr)) continue;
+        for (const q of arr) {
+            if (!extractQuestionTags(q).includes(tag)) continue;
+            const k = getQuestionKey(q);
+            if (dedup.has(k)) continue; // identical question across sets → keep one
+            dedup.add(k);
+            pool.push(q);
+        }
+    }
+    if (pool.length === 0) return [];
+    const wrongS = wrongKeys || new Set<string>();
+    const seenS = seenKeys || new Set<string>();
+    const prio = (q: any) => {
+        const k = getQuestionKey(q);
+        if (wrongS.has(k)) return 0; // เคยผิด — ฝึกซ้ำก่อน
+        if (!seenS.has(k)) return 1;  // ยังไม่เคยทำ
+        return 2;                      // เคยทำถูกแล้ว
+    };
+    shuffle(pool);
+    pool.sort((a, b) => prio(a) - prio(b));
+    return shuffle(pool.slice(0, count));
+};
+
+/**
  * Stable per-question key — the anchor for the mistake notebook (สมุดข้อผิด)
  * and seen-question tracking. Prefers the question's own `id` (the exam
  * content standard requires stable, unique ids per set); falls back to a hash

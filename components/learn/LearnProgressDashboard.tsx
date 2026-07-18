@@ -34,12 +34,13 @@ const getGrade = (p: number) => {
 const pctColor = (p: number) => p >= 80 ? 'text-emerald-600 dark:text-emerald-400' : p >= 60 ? 'text-blue-600 dark:text-blue-400' : p >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
 
 // Container: fetch the user's results for this course, then render the view.
-export default function LearnProgressDashboard({ courseId, userId, examLessons, onClose, onSelectLesson }: {
+export default function LearnProgressDashboard({ courseId, userId, examLessons, onClose, onSelectLesson, onStartTopicDrill }: {
     courseId: string;
     userId: string;
     examLessons: Lesson[];
     onClose: () => void;
     onSelectLesson: (lessonId: string) => void;
+    onStartTopicDrill?: (tag: string) => void;
 }) {
     const [loading, setLoading] = useState(true);
     const [byLesson, setByLesson] = useState<Record<string, StoredResult>>({});
@@ -62,16 +63,17 @@ export default function LearnProgressDashboard({ courseId, userId, examLessons, 
         })();
     }, [userId, courseId]);
 
-    return <ProgressDashboardView examLessons={examLessons} byLesson={byLesson} loading={loading} onClose={onClose} onSelectLesson={onSelectLesson} />;
+    return <ProgressDashboardView examLessons={examLessons} byLesson={byLesson} loading={loading} onClose={onClose} onSelectLesson={onSelectLesson} onStartTopicDrill={onStartTopicDrill} />;
 }
 
 // Presentational view — computes the summary from byLesson + renders. Pure (testable).
-export function ProgressDashboardView({ examLessons, byLesson, loading, onClose, onSelectLesson }: {
+export function ProgressDashboardView({ examLessons, byLesson, loading, onClose, onSelectLesson, onStartTopicDrill }: {
     examLessons: Lesson[];
     byLesson: Record<string, StoredResult>;
     loading: boolean;
     onClose: () => void;
     onSelectLesson: (lessonId: string) => void;
+    onStartTopicDrill?: (tag: string) => void;
 }) {
     // Real exam sets only (content parses to questions)
     const examSets = examLessons.filter((l) => tryParseQuestions(l.content || ''));
@@ -100,8 +102,10 @@ export function ProgressDashboardView({ examLessons, byLesson, loading, onClose,
     // P2: per-TOPIC mastery across every set (from cumulative topicStats).
     // Only topics with enough evidence (>=5 answers) are shown — no verdicts
     // from thin data.
+    // Aggregate across EVERY result doc of the course (incl. the special
+    // "topic-drill" doc) so cross-set drills feed topic mastery too.
     const topicAgg: Record<string, { c: number; t: number }> = {};
-    done.forEach((x) => Object.entries(x.r.topicStats || {}).forEach(([tag, s]) => {
+    Object.values(byLesson).forEach((r) => Object.entries(r.topicStats || {}).forEach(([tag, s]) => {
         if (!s || typeof s.t !== 'number') return;
         const a = topicAgg[tag] || { c: 0, t: 0 };
         topicAgg[tag] = { c: a.c + (s.c || 0), t: a.t + s.t };
@@ -212,8 +216,18 @@ export function ProgressDashboardView({ examLessons, byLesson, loading, onClose,
                                     <div className="space-y-2">
                                         {weakestTopics.map((w) => (
                                             <div key={w.tag} className="flex items-center justify-between gap-3 bg-white dark:bg-slate-900/40 rounded-xl px-4 py-2.5 border border-slate-100 dark:border-slate-700">
-                                                <span className="font-bold text-sm text-slate-700 dark:text-slate-200 truncate">{w.tag}</span>
-                                                <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">ถูก {w.c}/{w.t} ข้อ · <span className={`text-sm font-black tabular-nums ${pctColor(w.percent)}`}>{w.percent}%</span></span>
+                                                <div className="min-w-0 flex-1">
+                                                    <span className="font-bold text-sm text-slate-700 dark:text-slate-200 truncate block">{w.tag}</span>
+                                                    <span className="text-xs text-slate-400 dark:text-slate-500">ถูก {w.c}/{w.t} ข้อ · <span className={`font-black tabular-nums ${pctColor(w.percent)}`}>{w.percent}%</span></span>
+                                                </div>
+                                                {onStartTopicDrill && (
+                                                    <button
+                                                        onClick={() => onStartTopicDrill(w.tag)}
+                                                        className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-indigo-500 to-blue-500 hover:scale-[1.03] active:scale-95 transition shadow-sm"
+                                                    >
+                                                        🎯 ฝึก 10 ข้อ
+                                                    </button>
+                                                )}
                                             </div>
                                         ))}
                                     </div>

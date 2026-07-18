@@ -539,18 +539,26 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     const ref = doc(db, 'users', user.uid, 'examResults', examId);
                     const prevSnap = await getDoc(ref);
                     const prev = prevSnap.exists() ? (prevSnap.data() as any) : null;
-                    const attempted = sanitizedExamData.slice(0, answerableCount);
-                    const perAttempt = attempted.map((q, idx) => ({
-                        tags: extractQuestionTags(q),
-                        isCorrect: answers[idx] === q.correctIndex,
+                    // P3.1 parity with the classroom runner: cumulative mastery /
+                    // mistake notebook / seen must count ONLY the questions the
+                    // student actually answered. A skipped question (e.g. an early
+                    // submit on a 250-question set) is NOT "wrong" — recording it as
+                    // wrong would balloon the notebook with unseen questions and skew
+                    // every topic's mastery downward on every partial submit.
+                    const answeredAttempt = sanitizedExamData.slice(0, answerableCount)
+                        .map((q, idx) => ({ q, answered: answers[idx] !== undefined, isCorrect: answers[idx] === q.correctIndex }))
+                        .filter((x) => x.answered);
+                    const perAttempt = answeredAttempt.map((x) => ({
+                        tags: extractQuestionTags(x.q),
+                        isCorrect: x.isCorrect,
                     }));
                     const topicStats = accumulateTopicStats(prev?.topicStats, perAttempt);
                     const wrongQuestions: Record<string, { at: number }> = { ...(prev?.wrongQuestions || {}) };
                     const seen: Record<string, number> = { ...(prev?.seen || {}) };
-                    attempted.forEach((q, idx) => {
-                        const k = getQuestionKey(q);
+                    answeredAttempt.forEach((x) => {
+                        const k = getQuestionKey(x.q);
                         seen[k] = 1;
-                        if (perAttempt[idx].isCorrect) delete wrongQuestions[k];
+                        if (x.isCorrect) delete wrongQuestions[k];
                         else wrongQuestions[k] = { at: Date.now() };
                     });
                     await setDoc(ref, {
@@ -649,6 +657,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             if (!showAnswerChecking) return [];
             const stats: Record<string, { wrong: number; total: number }> = {};
             sanitizedExamData.slice(0, finalScore.total).forEach((q, idx) => {
+                if (answers[idx] === undefined) return; // ข้อที่ข้าม ไม่นับเป็นผิด
                 if (!q.tags || q.tags.length === 0) return;
                 const isCorrect = answers[idx] === q.correctIndex;
                 q.tags.forEach((tag: string) => {
@@ -710,6 +719,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         // === Topic radar (F2) — % correct per tag for this exam ===
         const radarStats: Record<string, { correct: number; total: number }> = {};
         sanitizedExamData.slice(0, finalScore.total).forEach((q, idx) => {
+            if (answers[idx] === undefined) return; // ข้อที่ข้าม ไม่นับในเรดาร์
             if (!q.tags || q.tags.length === 0) return;
             const isCorrect = answers[idx] === q.correctIndex;
             q.tags.forEach((tag: string) => {
@@ -724,10 +734,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         // === 4-angle diagnostic breakdown (only for สแกนจุดอ่อน sets) ===
         const diag = isDiagnostic
             ? buildDiagnosticBreakdown(
-                sanitizedExamData.slice(0, finalScore.total).map((q, idx) => ({
-                    tags: q.tags,
-                    isCorrect: answers[idx] === q.correctIndex,
-                }))
+                sanitizedExamData.slice(0, finalScore.total)
+                    .map((q, idx) => ({ tags: q.tags, isCorrect: answers[idx] === q.correctIndex, answered: answers[idx] !== undefined }))
+                    .filter((x) => x.answered) // วิเคราะห์ 4 มุมเฉพาะข้อที่ตอบจริง
               )
             : null;
         // In diagnostic mode the radar shows one clean spoke per สาระ (not all tags mixed).

@@ -42,6 +42,13 @@ interface ExamRunnerProps {
     onNext?: () => void;
     lessonId?: string;
     lessonTitle?: string;
+    // P3.2: emitted when the student taps "ฝึกหัวข้อนี้เพิ่ม" on a weak sub-topic —
+    // the page pools questions of that tag across sets and launches a drill.
+    onTopicDrill?: (tag: string) => void;
+    // P3.2: set on a topic-drill run — its questions all share this one tag, so
+    // the save effect records mastery for it explicitly (the constant-tag filter
+    // would otherwise drop a tag that's on 100% of the questions).
+    topicDrillTag?: string;
 }
 
 type Mode = 'practice' | 'exam';
@@ -135,7 +142,7 @@ export const WeakTopicsCard: React.FC<{ items: { title: string; percent: number 
     </div>
 );
 
-export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuestions, onComplete, onNext, lessonId, lessonTitle }) => {
+export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuestions, onComplete, onNext, lessonId, lessonTitle, onTopicDrill, topicDrillTag }) => {
     // `questions` is the ACTIVE set — normally all questions, but shrinks to the
     // previously-wrong ones during "ฝึกเฉพาะข้อที่ผิด" (focused practice).
     const [questions, setQuestions] = useState(initialQuestions);
@@ -420,6 +427,13 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                     .filter((x) => x.answered);
                 const topicStats = accumulateTopicStats(prev?.topicStats,
                     answeredItems.map((x) => ({ tags: extractQuestionTags(x.q), isCorrect: x.isCorrect })));
+                // topic-drill: every question shares topicDrillTag, so accumulateTopicStats
+                // (which drops constant tags) skips it — record that one tag explicitly.
+                if (topicDrillTag && answeredItems.length > 0) {
+                    const c = answeredItems.filter((x) => x.isCorrect).length;
+                    const p0 = topicStats[topicDrillTag] || { c: 0, t: 0 };
+                    topicStats[topicDrillTag] = { c: p0.c + c, t: p0.t + answeredItems.length };
+                }
                 const wrongQuestions = { ...(prev?.wrongQuestions || {}) };
                 const seen = { ...(prev?.seen || {}) };
                 answeredItems.forEach((x) => {
@@ -449,7 +463,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                 const allSnap = await getDocs(collection(db, 'users', user.uid, 'lessonExamResults'));
                 const weak = allSnap.docs
                     .map((d) => d.data() as StoredResult)
-                    .filter((d) => (d.courseId || '') === courseId && d.lessonId !== lessonId && !!d.lessonTitle && typeof d.bestPercent === 'number' && d.bestPercent < 70)
+                    .filter((d) => (d.courseId || '') === courseId && d.lessonId !== lessonId && d.lessonId !== 'topic-drill' && !!d.lessonTitle && typeof d.bestPercent === 'number' && d.bestPercent < 70)
                     .sort((a, b) => (a.bestPercent || 0) - (b.bestPercent || 0))
                     .slice(0, 3)
                     .map((d) => ({ title: d.lessonTitle as string, percent: d.bestPercent as number }));
@@ -861,11 +875,21 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                         <div className="mb-8 rounded-3xl border border-rose-100 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-900/10 p-5 md:p-6">
                             <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🏷️ หัวข้อย่อยที่ควรเก็บ (ในชุดนี้)</h3>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">หัวข้อที่ตอบผิดบ่อยในชุดนี้ — โฟกัสทบทวนตรงนี้ก่อน</p>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="space-y-2">
                                 {weakTags.map((w) => (
-                                    <span key={w.tag} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-900/40 border border-rose-100 dark:border-rose-900/40 text-slate-700 dark:text-slate-200">
-                                        {w.tag} <span className="text-rose-500 dark:text-rose-400">ผิด {w.wrong}/{w.total} ({w.pct}%)</span>
-                                    </span>
+                                    <div key={w.tag} className="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900/40 border border-rose-100 dark:border-rose-900/40">
+                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 min-w-0">
+                                            <span className="truncate">{w.tag}</span> <span className="text-rose-500 dark:text-rose-400 whitespace-nowrap">ผิด {w.wrong}/{w.total} ({w.pct}%)</span>
+                                        </span>
+                                        {onTopicDrill && !topicDrillTag && (
+                                            <button
+                                                onClick={() => onTopicDrill(w.tag)}
+                                                className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-indigo-500 to-blue-500 hover:scale-[1.03] active:scale-95 transition shadow-sm"
+                                            >
+                                                🎯 ฝึกเพิ่ม 10 ข้อ
+                                            </button>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         </div>
