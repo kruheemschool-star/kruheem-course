@@ -18,6 +18,7 @@ import {
     accumulateTopicStats,
     isDiagnosticExam,
     buildDiagnosticBreakdown,
+    sampleDiagnosticQuiz,
 } from "@/lib/exam-utils";
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown, Pause, Play, Coffee } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
@@ -170,6 +171,14 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     const [wrongBook, setWrongBook] = useState<any[] | null>(null);
     // หยุดเวลาชั่วคราว (พักเข้าห้องน้ำ/ดื่มน้ำ) — ใช้ได้ทั้งโหมดสอบและโหมดฝึก
     const [isPaused, setIsPaused] = useState(false);
+    // ควิซวินิจฉัย (P3): ทำชุดย่อยสุ่มครอบทุกหัวข้อ แทนการทำทั้งชุด → เห็นจุดอ่อนเร็ว
+    const [isMini, setIsMini] = useState(false);
+    // ส่งเท่าที่ทำ (P3): ดูจุดอ่อนตอนนี้โดยไม่ต้องทำครบ — คิดคะแนนจากข้อที่ตอบเท่านั้น
+    const [isPartial, setIsPartial] = useState(false);
+    // seen/wrong keys ของนักเรียน (โหลดตอน mount) — ใช้เอียงการสุ่มควิซวินิจฉัย
+    const seenRef = useRef<Set<string>>(new Set());
+    const wrongRef = useRef<Set<string>>(new Set());
+    const MINI_QUIZ_SIZE = 20;
 
     const startTime = useRef<number>(0);   // start of the current running stretch (ms)
     const qStartTime = useRef<number>(0);  // current question start (ms)
@@ -257,9 +266,40 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
 
     const start = (m: Mode) => {
         setMode(m);
+        setIsMini(false);
+        setIsPartial(false);
         elapsedBeforeRef.current = 0;
         startTime.current = Date.now();
         qStartTime.current = Date.now();
+    };
+
+    // ควิซวินิจฉัยสุ่ม (P3): หยิบ ~20 ข้อครอบทุกหัวข้อจากทั้งชุด แล้วรันเป็น attempt จริง
+    // (บันทึก+สะสม topicStats เหมือนทำเต็มชุด แต่ใช้เวลาน้อย). ไม่ใช่ focused run.
+    const startMiniQuiz = () => {
+        const subset = sampleDiagnosticQuiz(initialQuestions, MINI_QUIZ_SIZE, seenRef.current, wrongRef.current);
+        if (subset.length === 0) return;
+        setQuestions(subset);
+        setIsFocused(false);
+        setIsMini(true);
+        setIsPartial(false);
+        setCurrentIndex(0);
+        setAnswers({});
+        setRevealed({});
+        setReviewingIndex(null);
+        setScore(0);
+        setFinalDuration(0);
+        setIsSubmitted(false);
+        persistedRef.current = false;
+        celebratedRef.current = false;
+        percentileFetchedRef.current = false;
+        qTimes.current = {};
+        elapsedBeforeRef.current = 0;
+        isPausedRef.current = false;
+        setIsPaused(false);
+        startTime.current = Date.now();
+        qStartTime.current = Date.now();
+        setMode('exam'); // ควิซวินิจฉัย = โหมดจำลองสอบ (วัดจริง ไม่เปิดเฉลยระหว่างทำ)
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     // หยุด/เล่นต่อ นาฬิกา — เด็กพักได้โดยเวลาไม่เดิน (เข้าห้องน้ำ/ดื่มน้ำ/กินขนม)
@@ -296,8 +336,11 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
             try {
                 const snap = await getDoc(doc(db, 'users', user.uid, 'lessonExamResults', lessonId));
                 if (!snap.exists()) return;
-                const wrongMap = (snap.data() as StoredResult).wrongQuestions || {};
-                const keys = new Set(Object.keys(wrongMap));
+                const data = snap.data() as StoredResult;
+                const wrongMap = data.wrongQuestions || {};
+                wrongRef.current = new Set(Object.keys(wrongMap));
+                seenRef.current = new Set(Object.keys(data.seen || {}));
+                const keys = wrongRef.current;
                 if (keys.size === 0) return;
                 const subset = initialQuestions.filter((q) => keys.has(getQuestionKey(q)));
                 if (subset.length > 0) setWrongBook(subset);
@@ -369,18 +412,20 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                 setBestPercent(newBest);
                 const history = [...(Array.isArray(prev?.history) ? prev.history : []), nowSummary].slice(-12);
 
-                // P2: cumulative per-topic mastery + mistake notebook + seen set.
-                const perAttempt = questions.map((q, i) => ({
-                    tags: extractQuestionTags(q),
-                    isCorrect: answers[i] !== undefined && isAnswerCorrect(q, answers[i]),
-                }));
-                const topicStats = accumulateTopicStats(prev?.topicStats, perAttempt);
+                // P2/P3: cumulative per-topic mastery + mistake notebook + seen set.
+                // นับเฉพาะข้อที่ "ตอบแล้ว" — ข้อที่ข้าม (เช่นกดส่งเท่าที่ทำ) ไม่ถือว่าทำ
+                // จึงไม่ลงสถิติหัวข้อ/สมุดข้อผิด/seen (การวินิจฉัยสะท้อนเฉพาะที่ลงมือทำจริง)
+                const answeredItems = questions
+                    .map((q, i) => ({ q, answered: answers[i] !== undefined, isCorrect: answers[i] !== undefined && isAnswerCorrect(q, answers[i]) }))
+                    .filter((x) => x.answered);
+                const topicStats = accumulateTopicStats(prev?.topicStats,
+                    answeredItems.map((x) => ({ tags: extractQuestionTags(x.q), isCorrect: x.isCorrect })));
                 const wrongQuestions = { ...(prev?.wrongQuestions || {}) };
                 const seen = { ...(prev?.seen || {}) };
-                questions.forEach((q, i) => {
-                    const k = getQuestionKey(q);
+                answeredItems.forEach((x) => {
+                    const k = getQuestionKey(x.q);
                     seen[k] = 1;
-                    if (perAttempt[i].isCorrect) delete wrongQuestions[k];
+                    if (x.isCorrect) delete wrongQuestions[k];
                     else wrongQuestions[k] = { at: Date.now() };
                 });
 
@@ -485,6 +530,16 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    // P3: "ส่งเท่าที่ทำ · ดูจุดอ่อน" — จบก่อนโดยไม่ต้องทำครบ. คิดคะแนน/วิเคราะห์เฉพาะ
+    // ข้อที่ตอบแล้ว (ข้อที่ข้ามไม่นับ). งานที่ทำไปสะสมลง topicStats ตามปกติ.
+    const submitPartial = () => {
+        if (isSubmitted) return;
+        const answered = Object.keys(answers).length;
+        if (!confirm(`ดูจุดอ่อนจาก ${answered} ข้อที่ทำไปเลยไหม?\n(ข้อที่ยังไม่ได้ทำจะไม่ถูกนับ · ทำต่อทีหลังได้ ระบบสะสมให้)`)) return;
+        setIsPartial(true);
+        doSubmit(true);
+    };
+
     // Re-run a subset of questions (used by "ฝึกเฉพาะข้อที่ผิด"). Always starts
     // in practice mode; focused runs are review-only and never saved as an attempt.
     const restartWith = (subset: any[], focused: boolean) => {
@@ -500,6 +555,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         setPreviousAttempt(null);
         setWeakLessons([]);
         persistedRef.current = false;
+        setIsMini(false);
+        setIsPartial(false);
         qTimes.current = {};
         elapsedBeforeRef.current = 0;
         isPausedRef.current = false;
@@ -519,6 +576,19 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                         <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white mb-2">เลือกโหมดทำข้อสอบ</h2>
                         <p className="text-slate-500 dark:text-slate-400">ทั้งหมด {total} ข้อ — เลือกแบบที่เหมาะกับตอนนี้</p>
                     </div>
+                    {/* ⚡ ควิซวินิจฉัย (P3) — สำหรับชุดใหญ่: ทำ ~20 ข้อครอบทุกหัวข้อ รู้จุดอ่อนเร็ว */}
+                    {total > MINI_QUIZ_SIZE + 5 && (
+                        <button
+                            onClick={startMiniQuiz}
+                            className="group mb-4 w-full text-left bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-900/20 dark:to-fuchsia-900/20 rounded-3xl p-5 border-2 border-violet-200 dark:border-violet-700/50 hover:border-violet-400 dark:hover:border-violet-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                        >
+                            <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-violet-500/20">⚡</div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">ควิซวินิจฉัยเร็ว — {MINI_QUIZ_SIZE} ข้อ รู้จุดอ่อนใน ~30 นาที</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">สุ่มให้ครอบทุกหัวข้อจากทั้ง {total} ข้อ · ไม่ต้องทำครบก็เห็นจุดอ่อนครบ · ทำซ้ำได้เจอข้อใหม่เรื่อยๆ</p>
+                            </div>
+                        </button>
+                    )}
                     <div className="grid md:grid-cols-2 gap-4">
                         {/* Practice */}
                         <button
@@ -560,9 +630,12 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
 
     /* ════════════════════ 2) RESULT SCREEN ════════════════════ */
     if (isSubmitted && reviewingIndex === null) {
-        const percent = total > 0 ? Math.round((score / total) * 100) : 0;
+        // ส่งเท่าที่ทำ (P3): คิดคะแนนจากข้อที่ตอบเท่านั้น (ข้อที่ข้ามไม่นับ)
+        const answeredTotal = questions.filter((_, i) => answers[i] !== undefined).length;
+        const scoreDenom = isPartial ? Math.max(1, answeredTotal) : total;
+        const percent = scoreDenom > 0 ? Math.round((score / scoreDenom) * 100) : 0;
         const g = getGrade(percent);
-        const wrongCount = total - score;
+        const wrongCount = scoreDenom - score;
 
         const perQ = questions.map((q, idx) => ({
             idx,
@@ -600,7 +673,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         const constantTags = getConstantTags(perQuestionTags);
         const tagStats: Record<string, { wrong: number; total: number }> = {};
         questions.forEach((q, i) => {
-            const correct = answers[i] !== undefined && isAnswerCorrect(q, answers[i]);
+            if (answers[i] === undefined) return;                 // ข้อที่ข้าม ไม่นับในการวินิจฉัย
+            const correct = isAnswerCorrect(q, answers[i]);
             perQuestionTags[i].forEach((t) => {
                 if (constantTags.has(t)) return;                 // set-wide label
                 if (classifyDiagnosticTag(t) !== 'topic') return; // ระดับ/ทักษะ/ชั้น
@@ -619,7 +693,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         // when the set carries the content standard's skill+level tags. Skipped
         // for focused runs (a wrong-only subset would skew every angle).
         const diag = (!isFocused && isDiagnosticExam(questions))
-            ? buildDiagnosticBreakdown(questions.map((q, i) => ({ tags: extractQuestionTags(q), isCorrect: perQ[i].isCorrect })))
+            ? buildDiagnosticBreakdown(questions
+                .map((q, i) => ({ tags: extractQuestionTags(q), isCorrect: perQ[i].isCorrect, answered: perQ[i].answered }))
+                .filter((x) => x.answered))
             : null;
         const skillMeta: Record<string, { label: string; hint: string }> = {
             'คิดเลข': { label: 'คิดเลขแม่น', hint: 'บวกลบคูณหาร/ทำตามขั้นตอน' },
@@ -653,12 +729,14 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                             </svg>
                             <div className="absolute inset-0 flex flex-col items-center justify-center">
                                 <span className={`text-4xl font-black ${g.color}`}>{percent}%</span>
-                                <span className="text-slate-400 dark:text-slate-500 text-sm font-bold">{score}/{total} ข้อ</span>
+                                <span className="text-slate-400 dark:text-slate-500 text-sm font-bold">{score}/{scoreDenom} ข้อ</span>
                             </div>
                         </div>
                         <div className={`px-7 py-2.5 rounded-2xl ${g.bg} text-white font-black text-xl shadow-lg mb-2`}>Grade {g.grade}</div>
                         <p className={`text-lg font-bold ${g.color}`}>{g.label}</p>
                         {isFocused && <p className="mt-2 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-full">🔁 ทบทวนเฉพาะข้อที่ผิด · ไม่นับเป็นคะแนนของชุด</p>}
+                        {isMini && !isFocused && <p className="mt-2 text-xs font-bold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 px-3 py-1.5 rounded-full">⚡ ควิซวินิจฉัย {total} ข้อ (สุ่มครอบทุกหัวข้อ) · จุดอ่อนสะสมต่อเนื่อง</p>}
+                        {isPartial && !isFocused && <p className="mt-2 text-xs font-bold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 px-3 py-1.5 rounded-full">📊 วิเคราะห์จาก {answeredTotal} ข้อที่ทำ · ที่เหลือยังทำต่อได้ ระบบสะสมให้</p>}
                     </div>
 
                     {/* 🎯 ระดับความพร้อม (L-F1) */}
@@ -1048,6 +1126,15 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                         <button onClick={() => goTo(Math.min(total - 1, currentIndex + 1))} className="px-6 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg transition flex items-center gap-2">ข้อต่อไป <span>→</span></button>
                     )}
                 </div>
+
+                {/* 📊 ส่งเท่าที่ทำ · ดูจุดอ่อน (P3) — ทำชุดใหญ่ไม่ต้องครบก็เห็นจุดอ่อนได้ */}
+                {!isFocused && answeredCount >= 5 && answeredCount < total && (
+                    <div className="flex justify-center -mt-14 pb-6">
+                        <button onClick={submitPartial} className="text-sm font-bold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-800/50 rounded-full px-4 py-2 transition">
+                            📊 ส่งเท่าที่ทำ · ดูจุดอ่อนตอนนี้ ({answeredCount} ข้อ)
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

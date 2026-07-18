@@ -554,6 +554,61 @@ export const getConstantTags = (perQuestionTags: string[][], threshold = 0.9): S
 };
 
 /**
+ * Smart diagnostic sampler (ควิซวินิจฉัย) — pick ~`size` questions that COVER every
+ * topic in the set, so a short session yields the same weakness map as doing all
+ * N. Works for both mixed all-chapter exams (strata = บท/สาระ) and single-chapter
+ * sets (strata = หัวข้อย่อย) — it stratifies by whatever real topic tags exist.
+ * Within each stratum it prefers UNSEEN questions, then previously-WRONG ones
+ * (มาจากสมุดข้อผิด), so repeated quizzes broaden coverage instead of repeating.
+ * Returns a shuffled subset; if the set is already <= size it returns a shuffled copy.
+ */
+export const sampleDiagnosticQuiz = (
+    questions: any[], size: number, seen?: Set<string>, wrong?: Set<string>,
+): any[] => {
+    const shuffle = <T,>(a: T[]): T[] => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; };
+    if (!Array.isArray(questions) || questions.length === 0) return [];
+    if (questions.length <= size) return shuffle([...questions]);
+
+    const perQ = questions.map(extractQuestionTags);
+    const constant = getConstantTags(perQ);
+    const seenS = seen || new Set<string>();
+    const wrongS = wrong || new Set<string>();
+    // stratum = first genuine sub-topic tag (non-constant, topic-class); else "อื่นๆ"
+    const stratumOf = (i: number) =>
+        perQ[i].find((t) => !constant.has(t) && classifyDiagnosticTag(t) === 'topic') || 'อื่นๆ';
+
+    const groups = new Map<string, number[]>();
+    questions.forEach((_, i) => {
+        const s = stratumOf(i);
+        if (!groups.has(s)) groups.set(s, []);
+        groups.get(s)!.push(i);
+    });
+    // priority: unseen (0) → wrong (1) → seen-ok (2), random tiebreak within a tier
+    const prio = (i: number) => {
+        const k = getQuestionKey(questions[i]);
+        if (!seenS.has(k)) return 0;
+        if (wrongS.has(k)) return 1;
+        return 2;
+    };
+    for (const idxs of groups.values()) {
+        shuffle(idxs);
+        idxs.sort((a, b) => prio(a) - prio(b));
+    }
+    // round-robin across shuffled group order → breadth-first coverage, then depth
+    const order = shuffle([...groups.keys()]);
+    const picked: number[] = [];
+    for (let round = 0; picked.length < size; round++) {
+        let added = false;
+        for (const s of order) {
+            const idxs = groups.get(s)!;
+            if (idxs.length > round) { picked.push(idxs[round]); added = true; if (picked.length >= size) break; }
+        }
+        if (!added) break; // every group exhausted
+    }
+    return shuffle(picked.map((i) => questions[i]));
+};
+
+/**
  * Stable per-question key — the anchor for the mistake notebook (สมุดข้อผิด)
  * and seen-question tracking. Prefers the question's own `id` (the exam
  * content standard requires stable, unique ids per set); falls back to a hash
