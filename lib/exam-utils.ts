@@ -230,6 +230,9 @@ export const transformExamQuestion = (q: any) => {
     // answers list verbatim and skip all the MCQ answer-resolution below.
     if (isFillQuestion(q)) {
         return {
+            // Preserve the source id — the mistake-notebook/seen tracking keys on
+            // it, so import must never strip it (missing ids get assigned on save).
+            ...(q.id !== undefined && q.id !== null ? { id: q.id } : {}),
             type: 'fill' as const,
             question: q.question || "",
             image: q.image,
@@ -311,6 +314,7 @@ export const transformExamQuestion = (q: any) => {
     }
 
     return {
+        ...(q.id !== undefined && q.id !== null ? { id: q.id } : {}),
         type: 'choice' as const,
         question: q.question || "",
         image: q.image,
@@ -703,7 +707,7 @@ export const isDiagnosticExam = (questions: { tags?: string[] }[]): boolean => {
 };
 
 export interface DiagStat { tag: string; correct: number; total: number; percent: number; }
-export interface DiagnosticBreakdown { topics: DiagStat[]; skills: DiagStat[]; origins: DiagStat[]; }
+export interface DiagnosticBreakdown { topics: DiagStat[]; skills: DiagStat[]; origins: DiagStat[]; levels: DiagStat[]; }
 
 /**
  * Aggregate % correct per dimension for a diagnostic attempt. `items` pairs each
@@ -713,14 +717,14 @@ export interface DiagnosticBreakdown { topics: DiagStat[]; skills: DiagStat[]; o
 export const buildDiagnosticBreakdown = (
     items: { tags?: string[]; isCorrect: boolean }[]
 ): DiagnosticBreakdown => {
-    const buckets: Record<'topic' | 'skill' | 'origin', Record<string, { correct: number; total: number }>> = {
-        topic: {}, skill: {}, origin: {},
+    const buckets: Record<'topic' | 'skill' | 'origin' | 'level', Record<string, { correct: number; total: number }>> = {
+        topic: {}, skill: {}, origin: {}, level: {},
     };
     for (const it of items || []) {
         if (!Array.isArray(it.tags)) continue;
         for (const tag of it.tags) {
             const dim = classifyDiagnosticTag(tag);
-            if (dim !== 'topic' && dim !== 'skill' && dim !== 'origin') continue;
+            if (dim === 'grade') continue;
             const b = buckets[dim];
             if (!b[tag]) b[tag] = { correct: 0, total: 0 };
             b[tag].total++;
@@ -736,5 +740,7 @@ export const buildDiagnosticBreakdown = (
     const origins = toStats(buckets.origin).sort((a, b) => a.percent - b.percent || a.tag.localeCompare(b.tag, 'th'));
     const skillOrder = DIAG_SKILL_TAGS as readonly string[];
     const skills = toStats(buckets.skill).sort((a, b) => skillOrder.indexOf(a.tag) - skillOrder.indexOf(b.tag));
-    return { topics, skills, origins };
+    const levelOrder = DIAG_LEVEL_TAGS as readonly string[];
+    const levels = toStats(buckets.level).sort((a, b) => levelOrder.indexOf(a.tag) - levelOrder.indexOf(b.tag));
+    return { topics, skills, origins, levels };
 };

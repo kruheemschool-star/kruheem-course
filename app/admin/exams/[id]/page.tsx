@@ -817,6 +817,22 @@ export default function ExamEditorPage() {
                     // Optional: remove legacy 'answer' field if you want to normalize fully, but keeping it is safer for now.
                 }));
 
+                // Stable per-question ids (exam content standard): keep existing
+                // ids untouched, assign max+1 to missing/duplicate ones. The
+                // student-side mistake notebook keys on these ids, so an id must
+                // never change once saved — only gaps get filled here.
+                let maxId = parsedQuestions.reduce((m: number, q: any) => {
+                    const n = Number(q.id);
+                    return Number.isFinite(n) && n > m ? n : m;
+                }, 0);
+                const seenIds = new Set<number>();
+                parsedQuestions = parsedQuestions.map((q: any) => {
+                    let qid = Number(q.id);
+                    if (!Number.isFinite(qid) || qid <= 0 || seenIds.has(qid)) { maxId++; qid = maxId; }
+                    seenIds.add(qid);
+                    return { ...q, id: qid };
+                });
+
                 // Strip blank/corrupt questions before persisting. Uses the
                 // shared isValidExamQuestion predicate (same one used at render
                 // + audit cleanup) so the {correctIndex:0, options:[]} records
