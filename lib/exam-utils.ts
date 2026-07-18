@@ -549,6 +549,48 @@ export const getConstantTags = (perQuestionTags: string[][], threshold = 0.9): S
     return constant;
 };
 
+/**
+ * Stable per-question key — the anchor for the mistake notebook (สมุดข้อผิด)
+ * and seen-question tracking. Prefers the question's own `id` (the exam
+ * content standard requires stable, unique ids per set); falls back to a hash
+ * of the question text for legacy items. Deliberately NOT index-based:
+ * focused-practice subsets reorder/shrink the array, and an id must survive
+ * that. Keys are safe as Firestore map keys (no dots/slashes).
+ */
+export const getQuestionKey = (q: any): string => {
+    const id = q?.id;
+    if (id !== undefined && id !== null && String(id).trim() !== '') {
+        return `q${String(id).trim().replace(/[.~/*\[\]]/g, '_')}`;
+    }
+    const s = String(q?.question || '');
+    let h = 5381; // djb2
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return `h${(h >>> 0).toString(36)}`;
+};
+
+/**
+ * Accumulate per-topic mastery for one attempt into an existing stats map
+ * (pure — returns a new map). Only genuine sub-topics count: set-wide constant
+ * tags and non-topic dimensions (ระดับ/ทักษะ/ชั้น) are excluded, mirroring the
+ * result-screen weakness card so both always agree.
+ */
+export const accumulateTopicStats = (
+    prevStats: Record<string, { c: number; t: number }> | undefined,
+    items: { tags: string[]; isCorrect: boolean }[],
+): Record<string, { c: number; t: number }> => {
+    const next: Record<string, { c: number; t: number }> = { ...(prevStats || {}) };
+    const constant = getConstantTags(items.map((it) => it.tags));
+    for (const it of items) {
+        for (const tag of it.tags) {
+            if (constant.has(tag)) continue;
+            if (classifyDiagnosticTag(tag) !== 'topic') continue;
+            const s = next[tag] || { c: 0, t: 0 };
+            next[tag] = { c: s.c + (it.isCorrect ? 1 : 0), t: s.t + 1 };
+        }
+    }
+    return next;
+};
+
 /* ============================================================
    Goal projection — "how many more attempts to reach X%".
    ============================================================ */

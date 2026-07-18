@@ -19,6 +19,9 @@ interface StoredResult {
     last?: AttemptSummary;
     previous?: AttemptSummary | null;
     history?: AttemptSummary[];
+    // P2: cumulative per-topic mastery + mistake notebook (written by ExamRunner)
+    topicStats?: Record<string, { c: number; t: number }>;
+    wrongQuestions?: Record<string, { at?: number }>;
 }
 
 const getGrade = (p: number) => {
@@ -94,6 +97,29 @@ export function ProgressDashboardView({ examLessons, byLesson, loading, onClose,
         .map((h, i) => ({ idx: i + 1, percent: h.percent }));
     const projection = projectAttemptsToGoal(trendData.map((d) => d.percent), 80);
 
+    // P2: per-TOPIC mastery across every set (from cumulative topicStats).
+    // Only topics with enough evidence (>=5 answers) are shown — no verdicts
+    // from thin data.
+    const topicAgg: Record<string, { c: number; t: number }> = {};
+    done.forEach((x) => Object.entries(x.r.topicStats || {}).forEach(([tag, s]) => {
+        if (!s || typeof s.t !== 'number') return;
+        const a = topicAgg[tag] || { c: 0, t: 0 };
+        topicAgg[tag] = { c: a.c + (s.c || 0), t: a.t + s.t };
+    }));
+    const topicRows = Object.entries(topicAgg)
+        .filter(([, s]) => s.t >= 5)
+        .map(([tag, s]) => ({ tag, c: s.c, t: s.t, percent: Math.round((s.c / s.t) * 100) }));
+    const topicRadarData = [...topicRows].sort((a, b) => b.t - a.t).slice(0, 8)
+        .map((r) => ({ topic: r.tag.length > 16 ? r.tag.slice(0, 15) + '…' : r.tag, percent: r.percent }));
+    const weakestTopics = topicRows.filter((r) => r.percent < 70)
+        .sort((a, b) => a.percent - b.percent).slice(0, 3);
+    // P2: mistake-notebook summary — leftover wrong questions per set.
+    const wrongBySet = rows
+        .map(({ lesson, r }) => ({ lesson, n: r?.wrongQuestions ? Object.keys(r.wrongQuestions).length : 0 }))
+        .filter((x) => x.n > 0)
+        .sort((a, b) => b.n - a.n);
+    const totalWrongLeft = wrongBySet.reduce((s, x) => s + x.n, 0);
+
     const go = (id: string) => { onSelectLesson(id); onClose(); };
 
     return (
@@ -159,6 +185,57 @@ export function ProgressDashboardView({ examLessons, byLesson, loading, onClose,
                                             <Radar dataKey="percent" stroke={cc.primary} fill={cc.fill} fillOpacity={0.35} strokeWidth={2} />
                                         </RadarChart>
                                     </ResponsiveContainer>
+                                </div>
+                            )}
+
+                            {/* 🎯 เรดาร์รายหัวข้อข้ามชุด (P2) — from cumulative topicStats */}
+                            {topicRadarData.length >= 3 && (
+                                <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-5 shadow-sm">
+                                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🎯 จุดแข็ง-จุดอ่อนรายหัวข้อ</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">สะสมจากทุกครั้งที่ฝึก ทุกชุดรวมกัน — ยิ่งกางออกไกล = ยิ่งแม่นหัวข้อนั้น</p>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <RadarChart data={topicRadarData} outerRadius="68%">
+                                            <PolarGrid stroke={cc.grid} />
+                                            <PolarAngleAxis dataKey="topic" tick={{ fontSize: 11, fill: cc.axis, fontWeight: 600 }} />
+                                            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                                            <Radar dataKey="percent" stroke={cc.primary} fill={cc.fill} fillOpacity={0.35} strokeWidth={2} />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+
+                            {/* 🔻 3 หัวข้ออ่อนสุดตอนนี้ (P2) */}
+                            {weakestTopics.length > 0 && (
+                                <div className="rounded-3xl border border-rose-100 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-900/10 p-5">
+                                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🔻 หัวข้อที่อ่อนสุดของคุณตอนนี้</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">คิดจากทุกข้อที่เคยทำในหัวข้อนั้น (อย่างน้อย 5 ข้อ) — โฟกัสซ่อมตรงนี้ก่อน คะแนนรวมจะขยับเร็วสุด</p>
+                                    <div className="space-y-2">
+                                        {weakestTopics.map((w) => (
+                                            <div key={w.tag} className="flex items-center justify-between gap-3 bg-white dark:bg-slate-900/40 rounded-xl px-4 py-2.5 border border-slate-100 dark:border-slate-700">
+                                                <span className="font-bold text-sm text-slate-700 dark:text-slate-200 truncate">{w.tag}</span>
+                                                <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">ถูก {w.c}/{w.t} ข้อ · <span className={`text-sm font-black tabular-nums ${pctColor(w.percent)}`}>{w.percent}%</span></span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ✍️ สมุดข้อผิดทั้งคอร์ส (P2) */}
+                            {totalWrongLeft > 0 && (
+                                <div className="rounded-3xl border border-amber-100 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-900/10 p-5">
+                                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">✍️ สมุดข้อผิด — ค้างอยู่ {totalWrongLeft} ข้อ</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">ข้อที่ยังตอบผิดค้างในแต่ละชุด — กดเข้าไปที่ชุด แล้วเลือก &quot;สมุดข้อผิด&quot; เพื่อเก็บให้หมด</p>
+                                    <div className="space-y-2">
+                                        {wrongBySet.map((x) => (
+                                            <button key={x.lesson.id} onClick={() => go(x.lesson.id)} className="w-full flex items-center justify-between gap-3 bg-white dark:bg-slate-900/40 rounded-xl px-4 py-2.5 border border-slate-100 dark:border-slate-700 hover:border-amber-300 hover:-translate-y-0.5 transition text-left">
+                                                <span className="font-bold text-sm text-slate-700 dark:text-slate-200 truncate">{x.lesson.title}</span>
+                                                <span className="flex items-center gap-1 flex-shrink-0">
+                                                    <span className="text-sm font-black text-amber-600 dark:text-amber-400 tabular-nums">{x.n} ข้อ</span>
+                                                    <ChevronRight size={16} className="text-slate-300" />
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 

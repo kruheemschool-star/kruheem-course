@@ -14,11 +14,13 @@ import {
     extractQuestionTags,
     getConstantTags,
     classifyDiagnosticTag,
+    getQuestionKey,
+    accumulateTopicStats,
 } from "@/lib/exam-utils";
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
@@ -59,6 +61,15 @@ interface StoredResult {
     best?: AttemptSummary;
     last?: AttemptSummary;
     history?: AttemptSummary[];
+    // P2: persistent per-topic mastery (สาระ/หัวข้อย่อย only, cumulative) —
+    // feeds the cross-set topic radar + "หัวข้ออ่อนสุด" card in the dashboard.
+    topicStats?: Record<string, { c: number; t: number }>;
+    // P2: mistake notebook — questions still answered wrong. Added on a wrong
+    // answer, removed once answered correctly (any mode, incl. focused runs).
+    wrongQuestions?: Record<string, { at: number }>;
+    // P2: every question key this student has ever been served (for the
+    // upcoming mini-quiz sampler to prefer unseen questions).
+    seen?: Record<string, number>;
 }
 
 const getGrade = (p: number) => {
@@ -152,6 +163,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     const percentileFetchedRef = useRef(false);
     const [celebration, setCelebration] = useState<{ emoji: string; title: string; message: string } | null>(null);
     const celebratedRef = useRef(false);
+    // P2: questions still in the mistake notebook (สมุดข้อผิด) for this set —
+    // offered as a focused run from the start screen.
+    const [wrongBook, setWrongBook] = useState<any[] | null>(null);
 
     const startTime = useRef<number>(0);   // exam start (ms)
     const qStartTime = useRef<number>(0);  // current question start (ms)
@@ -238,6 +252,25 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         return () => clearInterval(id);
     }, [mode, isSubmitted]);
 
+    // P2: load this set's leftover mistake notebook once, so the start screen
+    // can offer "ฝึกข้อที่เคยผิด". Matches stored keys against the FULL question
+    // list (not the active subset). Degrades silently when logged out / error.
+    useEffect(() => {
+        if (!user?.uid || !lessonId) return;
+        (async () => {
+            try {
+                const snap = await getDoc(doc(db, 'users', user.uid, 'lessonExamResults', lessonId));
+                if (!snap.exists()) return;
+                const wrongMap = (snap.data() as StoredResult).wrongQuestions || {};
+                const keys = new Set(Object.keys(wrongMap));
+                if (keys.size === 0) return;
+                const subset = initialQuestions.filter((q) => keys.has(getQuestionKey(q)));
+                if (subset.length > 0) setWrongBook(subset);
+            } catch { /* non-fatal: button just won't show */ }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid, lessonId]);
+
     // Auto-submit when the countdown runs out (exam mode only)
     useEffect(() => {
         if (mode !== 'exam' || isSubmitted || !startTime.current) return;
@@ -256,10 +289,36 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     // On submit: save this attempt, read the previous one to compare, and find
     // weak topics across other lessons in the same course. Runs once; skips
     // gracefully when logged out or no lessonId (e.g. preview/test).
+    // Focused runs (ฝึกเฉพาะข้อที่ผิด/สมุดข้อผิด) don't count as attempts, but
+    // they DO settle the mistake notebook: answer a wrong question correctly
+    // and it drops out of wrongQuestions.
     useEffect(() => {
         if (!isSubmitted || persistedRef.current) return;
-        if (!user?.uid || !lessonId || isFocused) return; // focused practice = review only, don't save
+        if (!user?.uid || !lessonId) return;
         persistedRef.current = true;
+
+        if (isFocused) {
+            (async () => {
+                try {
+                    const ref = doc(db, 'users', user.uid, 'lessonExamResults', lessonId);
+                    const snap = await getDoc(ref);
+                    if (!snap.exists()) return; // no prior real attempt → nothing to settle
+                    const wrong = { ...((snap.data() as StoredResult).wrongQuestions || {}) };
+                    questions.forEach((q, i) => {
+                        const k = getQuestionKey(q);
+                        if (answers[i] !== undefined && isAnswerCorrect(q, answers[i])) delete wrong[k];
+                        else wrong[k] = { at: Date.now() };
+                    });
+                    // updateDoc replaces the whole map (setDoc+merge would deep-merge
+                    // and resurrect cleared keys).
+                    await updateDoc(ref, { wrongQuestions: wrong, updatedAt: serverTimestamp() });
+                } catch (e) {
+                    console.warn('[ExamRunner] could not settle mistake notebook:', e);
+                }
+            })();
+            return;
+        }
+
         const courseId = (typeof params?.id === 'string' ? params.id : Array.isArray(params?.id) ? params.id[0] : '') || '';
         const pct = total > 0 ? Math.round((score / total) * 100) : 0;
         const nowSummary: AttemptSummary = { percent: pct, score, total, durationSeconds: finalDuration, mode: mode || 'practice', at: Date.now() };
@@ -274,6 +333,22 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                 setAttemptNumber((prev?.attempts || 0) + 1);
                 setBestPercent(newBest);
                 const history = [...(Array.isArray(prev?.history) ? prev.history : []), nowSummary].slice(-12);
+
+                // P2: cumulative per-topic mastery + mistake notebook + seen set.
+                const perAttempt = questions.map((q, i) => ({
+                    tags: extractQuestionTags(q),
+                    isCorrect: answers[i] !== undefined && isAnswerCorrect(q, answers[i]),
+                }));
+                const topicStats = accumulateTopicStats(prev?.topicStats, perAttempt);
+                const wrongQuestions = { ...(prev?.wrongQuestions || {}) };
+                const seen = { ...(prev?.seen || {}) };
+                questions.forEach((q, i) => {
+                    const k = getQuestionKey(q);
+                    seen[k] = 1;
+                    if (perAttempt[i].isCorrect) delete wrongQuestions[k];
+                    else wrongQuestions[k] = { at: Date.now() };
+                });
+
                 await setDoc(ref, {
                     lessonId,
                     lessonTitle: lessonTitle || '',
@@ -286,6 +361,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                     best: pct >= prevBestPct ? nowSummary : (prev?.best || nowSummary),
                     bestPercent: newBest,
                     history,
+                    topicStats,
+                    wrongQuestions,
+                    seen,
                     updatedAt: serverTimestamp(),
                 });
                 const allSnap = await getDocs(collection(db, 'users', user.uid, 'lessonExamResults'));
@@ -423,6 +501,20 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">นับถอยหลัง <b className="text-indigo-600 dark:text-indigo-400">{timeLimitMinutes} นาที</b> · ส่งอัตโนมัติเมื่อหมดเวลา · จำลองห้องสอบจริง</p>
                         </button>
                     </div>
+
+                    {/* ✍️ สมุดข้อผิด (P2) — leftover wrong questions from past attempts */}
+                    {wrongBook && wrongBook.length > 0 && (
+                        <button
+                            onClick={() => restartWith(wrongBook, true)}
+                            className="group mt-4 w-full text-left bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-3xl p-5 border-2 border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                        >
+                            <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20">✍️</div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">สมุดข้อผิด — ฝึกข้อที่เคยผิด ({wrongBook.length} ข้อ)</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">ข้อที่ยังตอบผิดค้างอยู่จากรอบก่อนๆ · ทำถูกเมื่อไหร่ ข้อจะหลุดจากสมุดอัตโนมัติ</p>
+                            </div>
+                        </button>
+                    )}
                 </div>
             </div>
         );
