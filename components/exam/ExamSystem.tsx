@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
-import { doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useTheme } from 'next-themes';
 import dynamic from 'next/dynamic';
@@ -228,6 +228,13 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     // P3 parity: leftover mistake-notebook size for this set after settling the
     // current attempt (null = not saved / logged out). Shown on the result page.
     const [notebookLeft, setNotebookLeft] = useState<number | null>(null);
+    // Parity with the classroom runner: a "subset run" replaces the working set
+    // with a smaller list — ควิซย่อย (mini) or ทำเฉพาะข้อที่ผิด (wrong). null = full exam.
+    // Subset runs are ephemeral: they never touch the full exam's saved progress
+    // (cloud/local) and don't fetch the peer percentile (a 20-q % isn't comparable).
+    const [activeSubset, setActiveSubset] = useState<ExamQuestion[] | null>(null);
+    const [subsetKind, setSubsetKind] = useState<'mini' | 'wrong' | null>(null);
+    const [miniQuizDismissed, setMiniQuizDismissed] = useState(false);
 
     // Time tracking
     const examStartTime = React.useRef<number>(Date.now());
@@ -242,14 +249,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     // Sanitize Data using shared utility
     const sanitizedExamData = React.useMemo(() => sanitizeExamData(examData), [examData]);
+    // The set the student is actually working on: the full exam, or a subset run.
+    // Defaults to the full data (identical reference), so full-exam behavior is
+    // completely unchanged when no subset is active.
+    const activeQuestions = React.useMemo(() => activeSubset ?? sanitizedExamData, [activeSubset, sanitizedExamData]);
+    const isSubset = activeSubset !== null;
 
-    const totalQuestions = sanitizedExamData.length;
+    const totalQuestions = activeQuestions.length;
     // Clamp index into range — guards a stale localStorage / ?q= index that
     // points past the end (e.g. after corrupt questions were filtered out).
     const safeIndex = totalQuestions > 0
         ? Math.min(Math.max(0, currentQuestionIndex), totalQuestions - 1)
         : 0;
-    const currentQuestion = sanitizedExamData[safeIndex];
+    const currentQuestion = activeQuestions[safeIndex];
     const questionCardRef = useRef<HTMLDivElement>(null);
 
     // === Timing: helpers shared by the live stopwatch, autosave and results ===
@@ -265,6 +277,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     // timeLimit เองต่อชุดได้ (เช่นข้อสอบเก่าที่มีเวลาทางการ) — เมื่อเปิด timedMode
     // จะใช้ค่านั้นแทนค่าอัตโนมัติ. ทุกชุดนับถอยหลังเป็นค่าเริ่มต้น (มีปุ่มพักให้หยุดได้).
     const EXAM_SECONDS_PER_QUESTION = 180; // 3 นาที/ข้อ
+    const MINI_QUIZ_SIZE = 20; // ควิซย่อย: จำนวนข้อที่สุ่มครอบทุกหัวข้อ
     const countdownQuestionCount = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
     const autoCountdownMinutes = Math.max(1, Math.ceil((countdownQuestionCount * EXAM_SECONDS_PER_QUESTION) / 60));
     const effectiveTimeLimitMinutes = (timedMode && (timeLimitMinutes ?? 0) > 0) ? (timeLimitMinutes as number) : autoCountdownMinutes;
@@ -339,7 +352,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     // F4: fetch peer score distribution → percentile rank (once, when results show)
     useEffect(() => {
-        if (!isFinished || !finalScore || !examId || !showAnswerChecking || isTrial || percentileFetchedRef.current) return;
+        if (!isFinished || !finalScore || !examId || !showAnswerChecking || isTrial || isSubset || percentileFetchedRef.current) return;
         percentileFetchedRef.current = true;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -408,7 +421,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     // === Auto-Save: Debounced save to localStorage ===
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const debouncedSave = useCallback(() => {
-        if (!examId || isTrial || isFinished) return;
+        if (!examId || isTrial || isFinished || isSubset) return; // subset runs never overwrite the full exam's saved progress
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(() => {
             const data: SavedExamProgress = {
@@ -421,7 +434,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             };
             saveProgressToLocal(examId, data);
         }, 500); // Debounce 500ms
-    }, [examId, isTrial, isFinished, answers, checkedQuestions, currentQuestionIndex, getElapsedSeconds]);
+    }, [examId, isTrial, isFinished, isSubset, answers, checkedQuestions, currentQuestionIndex, getElapsedSeconds]);
 
     useEffect(() => {
         debouncedSave();
@@ -458,11 +471,13 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         }
     };
 
-    const handleFinishExam = (auto = false) => {
+    const handleFinishExam = (auto = false, partial = false) => {
         const answerableCount = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
-        const unansweredCount = answerableCount - Object.keys(answers).length;
-        // Auto-submit (countdown expired) skips the confirm() prompts.
-        if (!auto) {
+        const answeredCount = Object.keys(answers).filter((k) => Number(k) < answerableCount).length;
+        const unansweredCount = answerableCount - answeredCount;
+        // Auto-submit (countdown expired) skips the confirm() prompts. "ส่งเท่าที่ทำ"
+        // (partial) is an intentional early submit → skip the "ยังทำไม่ครบ" prompt.
+        if (!auto && !partial) {
             if (unansweredCount > 0) {
                 if (!confirm(`คุณยังทำข้อสอบไม่ครบ ${unansweredCount} ข้อ\nต้องการส่งคำตอบเลยหรือไม่?`)) return;
             } else if (!confirm("ยืนยันการส่งคำตอบ?")) {
@@ -476,16 +491,18 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
         // Calculate Score with NEW Clean Logic
         let score = 0;
-        sanitizedExamData.slice(0, answerableCount).forEach((q, index) => {
+        activeQuestions.slice(0, answerableCount).forEach((q, index) => {
             if (answers[index] === q.correctIndex) score++;
         });
 
-        // Calculate Grade
-        const percent = answerableCount > 0 ? Math.round((score / answerableCount) * 100) : 0;
+        // Partial submit ("ส่งเท่าที่ทำ") scores over the questions the student
+        // actually answered, so the % reflects performance — not "12/250 = 5%".
+        const scoreDenom = partial ? answeredCount : answerableCount;
+        const percent = scoreDenom > 0 ? Math.round((score / scoreDenom) * 100) : 0;
         const gradeInfo = getGradeFromPercent(percent);
         setFinalScore({
             score,
-            total: answerableCount,
+            total: scoreDenom,
             percent,
             durationSeconds: totalDurationSec,
             ...gradeInfo
@@ -498,28 +515,54 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
         setIsFinished(true);
 
-        // Clear localStorage progress after finishing
-        if (examId) clearProgressFromLocal(examId);
-        // Also clear cloud progress (non-blocking) if it was used
-        if (examId && user?.uid) clearProgressFromCloud(user.uid, examId);
+        // Clear saved progress after finishing — but a subset run must NOT touch
+        // the full exam's saved progress (it's a side excursion, not the real attempt).
+        if (examId && !isSubset) clearProgressFromLocal(examId);
+        if (examId && user?.uid && !isSubset) clearProgressFromCloud(user.uid, examId);
+
+        // ทำเฉพาะข้อที่เคยผิด (wrong-subset / focused run): settle the mistake
+        // notebook ONLY — answer a wrong question correctly and it drops out.
+        // Does NOT count as an attempt / touch topicStats / bestPercent.
+        if (subsetKind === 'wrong' && user && examId && !isTrial) {
+            (async () => {
+                try {
+                    const ref = doc(db, 'users', user.uid, 'examResults', examId);
+                    const snap = await getDoc(ref);
+                    if (!snap.exists()) return;
+                    const wrong = { ...((snap.data() as any).wrongQuestions || {}) };
+                    activeQuestions.slice(0, answerableCount).forEach((q, idx) => {
+                        if (answers[idx] === undefined) return;
+                        const k = getQuestionKey(q);
+                        if (answers[idx] === q.correctIndex) delete wrong[k];
+                        else wrong[k] = { at: Date.now() };
+                    });
+                    await updateDoc(ref, { wrongQuestions: wrong, updatedAt: serverTimestamp() });
+                    setNotebookLeft(Object.keys(wrong).length);
+                } catch (err) {
+                    console.warn('[ExamSystem] could not settle mistake notebook:', err);
+                }
+            })();
+            if (onComplete) onComplete(score, answeredCount);
+            return;
+        }
 
         // Save exam result to Firestore (only if logged in and not trial)
         if (user && examId && !isTrial) {
             console.log('[ExamSystem] Saving exam result for user:', user.uid, 'exam:', examId);
             const wrongIndices: number[] = [];
             const allTags = new Set<string>();
-            sanitizedExamData.slice(0, answerableCount).forEach((q, idx) => {
-                if (answers[idx] !== q.correctIndex) wrongIndices.push(idx);
+            activeQuestions.slice(0, answerableCount).forEach((q, idx) => {
+                if (answers[idx] !== undefined && answers[idx] !== q.correctIndex) wrongIndices.push(idx);
                 if (q.tags) q.tags.forEach((t: string) => allTags.add(t));
             });
-            const avgTimePerQuestion = answerableCount > 0 ? Math.round(totalDurationSec / answerableCount) : 0;
+            const avgTimePerQuestion = scoreDenom > 0 ? Math.round(totalDurationSec / scoreDenom) : 0;
             const resultDoc = {
                 examId,
                 examTitle,
                 category: category || '',
                 level: level || '',
                 score,
-                total: answerableCount,
+                total: scoreDenom, // partial: จำนวนข้อที่ตอบ (ให้ % กับ total สอดคล้องกัน)
                 percent,
                 grade: gradeInfo.grade,
                 answers,
@@ -545,7 +588,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     // submit on a 250-question set) is NOT "wrong" — recording it as
                     // wrong would balloon the notebook with unseen questions and skew
                     // every topic's mastery downward on every partial submit.
-                    const answeredAttempt = sanitizedExamData.slice(0, answerableCount)
+                    const answeredAttempt = activeQuestions.slice(0, answerableCount)
                         .map((q, idx) => ({ q, answered: answers[idx] !== undefined, isCorrect: answers[idx] === q.correctIndex }))
                         .filter((x) => x.answered);
                     const perAttempt = answeredAttempt.map((x) => ({
@@ -586,7 +629,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     // Find first wrong answer for review
     const handleReviewWrongAnswers = () => {
-        const wrongIndex = sanitizedExamData.findIndex((q, idx) =>
+        const wrongIndex = activeQuestions.findIndex((q, idx) =>
             answers[idx] !== undefined && answers[idx] !== q.correctIndex
         );
         if (wrongIndex !== -1) {
@@ -595,19 +638,56 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         }
     };
 
-    const handleRestart = () => {
+    // Reset the in-progress run state (answers/timer/finish). Shared by restart +
+    // entering/leaving a subset run so every fresh run starts clean.
+    const resetRunState = () => {
         setCurrentQuestionIndex(0);
         setAnswers({});
         setCheckedQuestions({});
         setIsFinished(false);
         setFinalScore(null);
         setWasRestored(false);
+        setIsPaused(false);
+        isPausedRef.current = false;
+        setPercentile(null);
+        percentileFetchedRef.current = false;
+        autoSubmittedRef.current = false;
         questionTimes.current = {};
         elapsedBeforeRef.current = 0;
         examStartTime.current = Date.now();
         questionStartTime.current = Date.now();
-        // Clear localStorage
-        if (examId) clearProgressFromLocal(examId);
+    };
+
+    const handleRestart = () => {
+        const wasSubset = isSubset;
+        resetRunState();
+        if (wasSubset) { setActiveSubset(null); setSubsetKind(null); }
+        // Only the full exam owns the saved progress — clear it when restarting that.
+        if (examId && !wasSubset) clearProgressFromLocal(examId);
+    };
+
+    // Start a subset run (ควิซย่อย / ทำเฉพาะข้อที่ผิด) — replaces the working set
+    // with `qs`, resets the run, and never touches the full exam's saved progress.
+    const startSubset = (qs: ExamQuestion[], kind: 'mini' | 'wrong') => {
+        if (!qs || qs.length === 0) return;
+        resetRunState();
+        setActiveSubset(qs);
+        setSubsetKind(kind);
+        if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // ⚡ ควิซย่อย — สุ่มแบบครอบทุกหัวข้อ (stratified) จากชุดเต็ม เพื่อได้แผนที่จุดอ่อน
+    // เร็วๆ โดยไม่ต้องทำครบทั้งชุด (แก้ปัญหาชุด 250 ข้อไม่มีใครทำจบ).
+    const startMiniQuiz = () => {
+        const sample = sampleDiagnosticQuiz(sanitizedExamData, MINI_QUIZ_SIZE);
+        startSubset(sample, 'mini');
+    };
+
+    // 🔁 ทำเฉพาะข้อที่ตอบผิดในรอบนี้ — ดริลล์เก็บให้หมด (settle สมุดข้อผิด).
+    const startWrongReplay = () => {
+        const wrongQs = activeQuestions.slice(0, isTrial ? Math.min(5, totalQuestions) : totalQuestions)
+            .filter((q, idx) => answers[idx] !== undefined && answers[idx] !== q.correctIndex);
+        startSubset(wrongQs, 'wrong');
     };
 
     // Reset handler for sidebar button (same as restart but with confirmation)
@@ -641,12 +721,20 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     if (isFinished && finalScore) {
         const wrongCount = finalScore.total - finalScore.score;
+        // The set of questions to analyse on the result screen. Decoupled from
+        // finalScore.total (which shrinks for a partial submit) so a "ส่งเท่าที่ทำ"
+        // with scattered answers still analyses ALL questions (answered ones are
+        // kept; skipped ones are filtered out per-block) instead of a wrong prefix.
+        const rAnswerable = isTrial ? Math.min(5, activeQuestions.length) : activeQuestions.length;
+        const rSlice = activeQuestions.slice(0, rAnswerable);
+        // ข้อที่ "ตอบแล้วแต่ผิด" (ไม่รวมข้อที่ข้าม) — ชุดสำหรับปุ่มทำเฉพาะข้อที่ผิด
+        const answeredWrongCount = rSlice.filter((q, idx) => answers[idx] !== undefined && answers[idx] !== q.correctIndex).length;
 
         // Weakness-diagnostic ("สแกนจุดอ่อน") funnel sets tag every question along
         // 4 dimensions (สาระ · ชั้นต้นทาง · ทักษะ · ระดับ). When detected, the result
         // screen shows a clean per-สาระ radar plus separate ทักษะ / ชั้นต้นทาง
         // breakdowns and a CTA into the full paid bank. Normal exams stay untouched.
-        const isDiagnostic = isDiagnosticExam(sanitizedExamData.slice(0, finalScore.total));
+        const isDiagnostic = isDiagnosticExam(rSlice);
 
         // Identify the topics (tags) the student answered worst on.
         // Per-tag: count attempts on that tag + wrong attempts. A tag is
@@ -656,7 +744,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const weakTopics: { tag: string; wrong: number; total: number; pct: number }[] = (() => {
             if (!showAnswerChecking) return [];
             const stats: Record<string, { wrong: number; total: number }> = {};
-            sanitizedExamData.slice(0, finalScore.total).forEach((q, idx) => {
+            rSlice.forEach((q, idx) => {
                 if (answers[idx] === undefined) return; // ข้อที่ข้าม ไม่นับเป็นผิด
                 if (!q.tags || q.tags.length === 0) return;
                 const isCorrect = answers[idx] === q.correctIndex;
@@ -684,7 +772,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const paceTarget = (recommendedSecondsPerQuestion && recommendedSecondsPerQuestion > 0)
             ? recommendedSecondsPerQuestion
             : DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION;
-        const perQuestionTiming = sanitizedExamData.slice(0, finalScore.total).map((q, idx) => ({
+        const perQuestionTiming = rSlice.map((q, idx) => ({
             idx,
             seconds: questionTimes.current[idx] ?? 0,
             answered: answers[idx] !== undefined,
@@ -718,7 +806,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
         // === Topic radar (F2) — % correct per tag for this exam ===
         const radarStats: Record<string, { correct: number; total: number }> = {};
-        sanitizedExamData.slice(0, finalScore.total).forEach((q, idx) => {
+        rSlice.forEach((q, idx) => {
             if (answers[idx] === undefined) return; // ข้อที่ข้าม ไม่นับในเรดาร์
             if (!q.tags || q.tags.length === 0) return;
             const isCorrect = answers[idx] === q.correctIndex;
@@ -734,7 +822,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         // === 4-angle diagnostic breakdown (only for สแกนจุดอ่อน sets) ===
         const diag = isDiagnostic
             ? buildDiagnosticBreakdown(
-                sanitizedExamData.slice(0, finalScore.total)
+                rSlice
                     .map((q, idx) => ({ tags: q.tags, isCorrect: answers[idx] === q.correctIndex, answered: answers[idx] !== undefined }))
                     .filter((x) => x.answered) // วิเคราะห์ 4 มุมเฉพาะข้อที่ตอบจริง
               )
@@ -1000,6 +1088,15 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
                     {/* Action Buttons */}
                     <div className="flex flex-col sm:flex-row justify-center gap-4 mb-10">
+                        {/* 🔁 ดริลล์เก็บเฉพาะข้อที่ตอบผิด (settle สมุดข้อผิด) */}
+                        {showAnswerChecking && answeredWrongCount > 0 && (
+                            <button
+                                onClick={startWrongReplay}
+                                className="px-8 py-4 rounded-full font-bold text-white bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-amber-500/25 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                            >
+                                🔁 ทำเฉพาะข้อที่ตอบผิด ({answeredWrongCount} ข้อ)
+                            </button>
+                        )}
                         {showAnswerChecking && wrongCount > 0 && (
                             <button
                                 onClick={handleReviewWrongAnswers}
@@ -1019,7 +1116,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             className="px-8 py-4 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
                         >
                             <RotateCcw size={20} />
-                            ทำข้อสอบใหม่
+                            {isSubset ? 'กลับไปทำชุดเต็ม' : 'ทำข้อสอบใหม่'}
                         </button>
                     </div>
 
@@ -1115,7 +1212,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 <div className="mt-8 bg-white dark:bg-slate-800 rounded-3xl shadow-sm p-6 border border-slate-100 dark:border-slate-700">
                     <h3 className="font-bold text-slate-700 dark:text-slate-300 mb-4">แผนที่ข้อสอบ{showAnswerChecking ? ' - ผลลัพธ์' : ''}</h3>
                     <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
-                        {sanitizedExamData.slice(0, finalScore.total).map((q, idx) => {
+                        {rSlice.map((q, idx) => {
                             const isUnanswered = answers[idx] === undefined;
                             const isCorrect = !isUnanswered && answers[idx] === q.correctIndex;
                             const secs = questionTimes.current[idx] ?? 0;
@@ -1217,7 +1314,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     <span className="text-xs bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded text-slate-500 dark:text-slate-400">{currentQuestionIndex + 1}/{totalQuestions}</span>
                 </h3>
                 <div className="grid grid-cols-5 gap-2">
-                    {sanitizedExamData.map((q, idx) => {
+                    {activeQuestions.map((q, idx) => {
                         const isAnswered = answers[idx] !== undefined;
                         const isCurrent = currentQuestionIndex === idx;
                         const isChecked = checkedQuestions[idx];
@@ -1317,6 +1414,30 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         >
                             ✕
                         </button>
+                    </div>
+                )}
+
+                {/* ⚡ ควิซย่อย — ชวนทำแบบสั้นบนชุดใหญ่ (ยังไม่เริ่มทำ) */}
+                {!isSubset && !isFinished && !miniQuizDismissed && !isTrial && sanitizedExamData.length > MINI_QUIZ_SIZE + 5 && Object.keys(answers).length === 0 && (
+                    <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3.5 rounded-2xl border border-violet-200 dark:border-violet-800 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 animate-in slide-in-from-top-2">
+                        <div className="min-w-0">
+                            <p className="text-sm font-black text-violet-700 dark:text-violet-300">⚡ ชุดนี้ยาว {sanitizedExamData.length} ข้อ — ลองควิซย่อยไหม?</p>
+                            <p className="text-xs text-violet-600/80 dark:text-violet-400/80 mt-0.5">สุ่ม {MINI_QUIZ_SIZE} ข้อครอบทุกหัวข้อ รู้จุดอ่อนเร็วโดยไม่ต้องทำครบทั้งชุด</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button onClick={startMiniQuiz} className="px-4 py-2 rounded-full text-sm font-bold text-white bg-gradient-to-r from-violet-500 to-indigo-500 hover:scale-105 active:scale-95 transition shadow-sm">เริ่มควิซย่อย</button>
+                            <button onClick={() => setMiniQuizDismissed(true)} aria-label="ปิด" className="w-8 h-8 rounded-full flex items-center justify-center text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition">✕</button>
+                        </div>
+                    </div>
+                )}
+
+                {/* แถบบอกว่ากำลังอยู่ในโหมดย่อย (ควิซย่อย / ทำข้อที่ผิด) + ปุ่มออก */}
+                {isSubset && !isFinished && (
+                    <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 animate-in slide-in-from-top-2">
+                        <p className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
+                            {subsetKind === 'mini' ? `⚡ กำลังทำควิซย่อย ${totalQuestions} ข้อ` : `🔁 กำลังทำเฉพาะข้อที่ตอบผิด ${totalQuestions} ข้อ`}
+                        </p>
+                        <button onClick={handleRestart} className="flex-shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-slate-800 transition">← กลับชุดเต็ม</button>
                     </div>
                 )}
 
@@ -1583,6 +1704,17 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                     }`}
                             >
                                 {answers[currentQuestionIndex] !== undefined ? "ตรวจข้อนี้" : "ดูเฉลย"}
+                            </button>
+                        )}
+
+                        {/* ส่งเท่าที่ทำ · ดูจุดอ่อนตอนนี้ — ตอบแล้ว ≥5 แต่ยังไม่ครบ (ชุดยาว) */}
+                        {showAnswerChecking && !isTrial && Object.keys(answers).length >= 5 && Object.keys(answers).length < totalQuestions && (
+                            <button
+                                onClick={() => handleFinishExam(false, true)}
+                                className="px-4 sm:px-5 py-3 rounded-full font-bold text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/30 border-2 border-violet-200 dark:border-violet-800 hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-all active:scale-95 flex items-center gap-2 text-sm sm:text-base"
+                            >
+                                📊<span className="hidden sm:inline">ส่งเท่าที่ทำ · ดูจุดอ่อน ({Object.keys(answers).length})</span>
+                                <span className="sm:hidden">ดูจุดอ่อน ({Object.keys(answers).length})</span>
                             </button>
                         )}
 
