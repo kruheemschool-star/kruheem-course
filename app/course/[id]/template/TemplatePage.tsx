@@ -1,10 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { SalesPageConfig, SectionContext } from "./types";
+import type { HeroChapter, HeroData, SalesPageConfig, SectionContext } from "./types";
 import { renderSection } from "./sectionRegistry";
 import KhThemeChrome from "./KhThemeChrome";
 import StickyCTA from "./boosters/StickyCTA";
@@ -18,6 +18,7 @@ interface Props {
     coursePrice: number;
     courseFullPrice?: number;
     courseImage?: string;
+    courseCategory?: string;
     user: any;
     enrollmentStatus: "none" | "pending" | "approved";
     onLogin: () => Promise<void>;
@@ -32,6 +33,7 @@ export default function TemplatePage({
     coursePrice,
     courseFullPrice,
     courseImage,
+    courseCategory,
     user,
     enrollmentStatus,
     onLogin,
@@ -40,6 +42,43 @@ export default function TemplatePage({
 }: Props) {
     const router = useRouter();
     const [previewNotice, setPreviewNotice] = useState(false);
+
+    // ---- Live exam-bank table-of-contents --------------------------------
+    // The exam-bank sales page shows a live, auto-scrolling list of every real
+    // exam set (คลังข้อสอบ) instead of a hand-authored/example chapter list.
+    // Trigger: the course is the exam bank (category "คลังข้อสอบ"), or a hero
+    // section explicitly opts in via data.chaptersSource === "exams".
+    const heroData = config.sections.find((s) => s.type === "hero")?.data as HeroData | undefined;
+    const wantExamChapters =
+        courseCategory === "คลังข้อสอบ" || heroData?.chaptersSource === "exams";
+    const [liveChapters, setLiveChapters] = useState<HeroChapter[] | undefined>(undefined);
+
+    useEffect(() => {
+        if (!wantExamChapters) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch("/api/exam-toc");
+                if (!res.ok) return;
+                const data = (await res.json()) as {
+                    exams?: { title: string; level: string; questionCount: number; isFree: boolean }[];
+                };
+                const chapters: HeroChapter[] = (data.exams || [])
+                    .filter((e) => e.title)
+                    .map((e) => ({
+                        title: e.title,
+                        desc: e.questionCount > 0 ? `${e.questionCount.toLocaleString("en-US")} ข้อ` : (e.level || undefined),
+                        free: e.isFree,
+                    }));
+                if (!cancelled && chapters.length) setLiveChapters(chapters);
+            } catch {
+                // fail soft — the card keeps its default list
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [wantExamChapters]);
 
     const handleCTAClick = async () => {
         // "ปิดการขายชั่วคราว": course not yet released — show a notice, don't go to checkout.
@@ -121,6 +160,7 @@ export default function TemplatePage({
         onCTAClick: handleCTAClick,
         previewVideoId,
         totalStudents,
+        liveChapters,
     };
 
     const boosters = config.boosters;

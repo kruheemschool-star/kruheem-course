@@ -112,6 +112,11 @@ export interface HeroData {
     chaptersTitle?: string;      // "สารบัญทั้งหมด · 40 บท"
     chaptersScrollLabel?: string;// "เลื่อนต่อเนื่อง"
     chapters?: HeroChapter[];    // auto-scrolling chapter list (default: built-in Gifted ม.1 syllabus)
+    // Opt a hero into a LIVE, auto-updating chapter list pulled from real data.
+    // "exams" → the full คลังข้อสอบ (all non-hidden exam sets, via /api/exam-toc).
+    // The exam-bank course also auto-enables this by its category, so the flag is
+    // mainly for reuse on other courses. Live chapters override `chapters` above.
+    chaptersSource?: "exams";
     cardStats?: HeroCardStat[];  // footer stat strip
     cardViewAllText?: string;    // "ดูทั้งหมด →"
 }
@@ -436,4 +441,8 @@ export interface SectionContext {
     /** Live total registrations across ALL courses (whole enrollments collection).
      *  Used to auto-fill student-count stats via the {students} token. */
     totalStudents?: number;
+    /** Live chapter list resolved from real data (e.g. the exam bank's exam sets).
+     *  When present, the hero course card renders these instead of its static/default
+     *  chapters. Populated by TemplatePage for exam-bank / chaptersSource:"exams" heroes. */
+    liveChapters?: HeroChapter[];
 }

@@ -163,6 +163,7 @@ export default function CourseSalesPage() {
                 coursePrice={course.price}
                 courseFullPrice={course.fullPrice}
                 courseImage={course.image}
+                courseCategory={course.category}
                 user={user}
                 enrollmentStatus={enrollmentStatus}
                 onLogin={handleLogin}

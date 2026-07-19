@@ -52,6 +52,9 @@ interface CourseCardProps {
     previewVideoId?: string;
     /** Live total registrations across all courses — fills the {students} token in stats. */
     totalStudents?: number;
+    /** Live chapter list from real data (e.g. every exam set in the คลังข้อสอบ).
+     *  When non-empty, overrides data.chapters / the built-in default list. */
+    liveChapters?: HeroChapter[];
 }
 
 /**
@@ -59,10 +62,17 @@ interface CourseCardProps {
  * Pure presentational component — driven entirely by HeroData props so it can
  * be reused in both the live hero and the admin live-preview.
  */
-export default function CourseCard({ data, courseId, courseTitle, interactive = true, previewVideoId, totalStudents }: CourseCardProps) {
+export default function CourseCard({ data, courseId, courseTitle, interactive = true, previewVideoId, totalStudents, liveChapters }: CourseCardProps) {
     const cardMainText = data.cardMainText || courseTitle || "Gifted ม.1";
     const cardTags = data.cardTags ?? ["40 บท", "5 ปี", "HD"];
-    const chapters = data.chapters?.length ? data.chapters : DEFAULT_CHAPTERS;
+    // Live data (e.g. real exam sets) wins over the admin-set list, which wins
+    // over the built-in placeholder syllabus.
+    const usingLiveChapters = !!liveChapters?.length;
+    const chapters = usingLiveChapters
+        ? liveChapters!
+        : data.chapters?.length
+            ? data.chapters
+            : DEFAULT_CHAPTERS;
     // Resolve the live {students} count; drop any stat left empty (e.g. count unavailable).
     const stats = (data.cardStats?.length ? data.cardStats : DEFAULT_STATS)
         .map((s) => ({ ...s, value: resolveStudentToken(s.value, totalStudents) }))
@@ -388,7 +398,7 @@ export default function CourseCard({ data, courseId, courseTitle, interactive = 
                     className="flex justify-between items-center text-[11.5px] font-bold mb-1.5"
                     style={{ letterSpacing: "1px", color: "var(--kh-mut)" }}
                 >
-                    <span>{data.chaptersTitle || `สารบัญทั้งหมด · ${chapters.length} บท`}</span>
+                    <span>{data.chaptersTitle || (usingLiveChapters ? `สารบัญข้อสอบ · ${chapters.length} ชุด` : `สารบัญทั้งหมด · ${chapters.length} บท`)}</span>
                     <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: "var(--kh-urgText)" }}>
                         <span className="w-1.5 h-1.5 rounded-full a3-pulse" style={{ background: "var(--kh-urg)" }} />
                         {data.chaptersScrollLabel || "เลื่อนต่อเนื่อง"}
