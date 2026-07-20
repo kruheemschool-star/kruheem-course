@@ -19,7 +19,8 @@ import { db } from "@/lib/firebase";
 export interface CountdownConfig {
     examName: string;
     targetDate: string;  // ISO-ish "YYYY-MM-DDTHH:mm:ss" (ตีความเป็นเวลาไทย)
-    startDate: string;   // ว่าง = วันสอบลบ 120 วัน (จุดเริ่มแถบ progress)
+    startDaysBefore: number; // เริ่มแถบ progress กี่วันก่อนสอบ (ค่าเริ่มต้น 120)
+    startDate: string;   // (ทางเลือก) วันเริ่มแบบเจาะจง — ถ้าใส่ จะชนะ startDaysBefore
     showProgress: boolean;
     showQuote: boolean;
     quotes: string[];
@@ -37,6 +38,7 @@ export const DEFAULT_QUOTES = [
 export const DEFAULT_COUNTDOWN: CountdownConfig = {
     examName: "สอบเข้ามหาวิทยาลัย",
     targetDate: "2027-03-06T09:00:00",
+    startDaysBefore: 120,
     startDate: "",
     showProgress: true,
     showQuote: true,
@@ -63,6 +65,7 @@ export default function ExamCountdownHero() {
                 setConfig((prev) => ({
                     examName: typeof d.examName === "string" && d.examName.trim() ? d.examName : prev.examName,
                     targetDate: typeof d.targetDate === "string" && d.targetDate.trim() ? d.targetDate : prev.targetDate,
+                    startDaysBefore: typeof d.startDaysBefore === "number" && d.startDaysBefore > 0 ? d.startDaysBefore : prev.startDaysBefore,
                     startDate: typeof d.startDate === "string" ? d.startDate : prev.startDate,
                     showProgress: typeof d.showProgress === "boolean" ? d.showProgress : prev.showProgress,
                     showQuote: typeof d.showQuote === "boolean" ? d.showQuote : prev.showQuote,
@@ -92,8 +95,11 @@ export default function ExamCountdownHero() {
 
     const targetMs = (() => { const t = Date.parse(config.targetDate); return Number.isNaN(t) ? Date.parse(DEFAULT_COUNTDOWN.targetDate) : t; })();
     const startMs = (() => {
+        // วันเริ่มแบบเจาะจง (ถ้าใส่) ชนะ; ไม่งั้นใช้ "กี่วันก่อนสอบ"; สุดท้าย 120 วัน
         const s = config.startDate ? Date.parse(config.startDate) : NaN;
-        return Number.isNaN(s) ? targetMs - 120 * DAY_MS : s;
+        if (!Number.isNaN(s)) return s;
+        const daysBefore = config.startDaysBefore > 0 ? config.startDaysBefore : 120;
+        return targetMs - daysBefore * DAY_MS;
     })();
 
     const diff = Math.max(0, targetMs - now);

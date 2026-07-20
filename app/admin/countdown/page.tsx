@@ -16,7 +16,7 @@ export default function AdminCountdownPage() {
 
     const [examName, setExamName] = useState(DEFAULT_COUNTDOWN.examName);
     const [targetDate, setTargetDate] = useState(DEFAULT_COUNTDOWN.targetDate.slice(0, 16));
-    const [startDate, setStartDate] = useState("");
+    const [startDaysBefore, setStartDaysBefore] = useState(String(DEFAULT_COUNTDOWN.startDaysBefore));
     const [showProgress, setShowProgress] = useState(true);
     const [showQuote, setShowQuote] = useState(true);
     const [quotesText, setQuotesText] = useState(DEFAULT_QUOTES.join("\n"));
@@ -29,7 +29,7 @@ export default function AdminCountdownPage() {
                     const d = snap.data() as any;
                     if (typeof d.examName === "string") setExamName(d.examName);
                     if (typeof d.targetDate === "string" && d.targetDate) setTargetDate(d.targetDate.slice(0, 16));
-                    if (typeof d.startDate === "string") setStartDate(d.startDate.slice(0, 16));
+                    if (typeof d.startDaysBefore === "number" && d.startDaysBefore > 0) setStartDaysBefore(String(d.startDaysBefore));
                     if (typeof d.showProgress === "boolean") setShowProgress(d.showProgress);
                     if (typeof d.showQuote === "boolean") setShowQuote(d.showQuote);
                     if (Array.isArray(d.quotes) && d.quotes.length) setQuotesText(d.quotes.join("\n"));
@@ -52,10 +52,12 @@ export default function AdminCountdownPage() {
         setSaving(true);
         try {
             const quotes = quotesText.split("\n").map((q) => q.trim()).filter(Boolean);
+            const daysBefore = Math.max(1, Math.round(Number(startDaysBefore) || DEFAULT_COUNTDOWN.startDaysBefore));
             await setDoc(doc(db, "settings", "homeCountdown"), {
                 examName: examName.trim() || DEFAULT_COUNTDOWN.examName,
                 targetDate,
-                startDate: startDate || "",
+                startDaysBefore: daysBefore,
+                startDate: "", // ใช้ "กี่วันก่อนสอบ" เป็นหลัก — เคลียร์วันเจาะจงเดิม (ถ้ามี)
                 showProgress,
                 showQuote,
                 quotes: quotes.length ? quotes : DEFAULT_QUOTES,
@@ -123,9 +125,12 @@ export default function AdminCountdownPage() {
                         <p className="kh-ink3 text-[11.5px] mt-1">นาฬิกาจะนับถอยหลังไปถึงเวลานี้</p>
                     </div>
                     <div>
-                        <label className="block text-[13px] font-semibold kh-ink mb-1.5">วันเริ่มนับ (แถบความคืบหน้า)</label>
-                        <input type="datetime-local" className={inputCls} style={inputStyle} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                        <p className="kh-ink3 text-[11.5px] mt-1">เว้นว่าง = ใช้ 120 วันก่อนวันสอบ</p>
+                        <label className="block text-[13px] font-semibold kh-ink mb-1.5">เริ่มนับกี่วันก่อนสอบ (แถบความคืบหน้า)</label>
+                        <div className="flex items-center gap-2">
+                            <input type="number" min={1} max={730} className={inputCls} style={inputStyle} value={startDaysBefore} onChange={(e) => setStartDaysBefore(e.target.value)} />
+                            <span className="text-[13px] kh-ink2 whitespace-nowrap">วันก่อนสอบ</span>
+                        </div>
+                        <p className="kh-ink3 text-[11.5px] mt-1">เช่น 90 = แถบเริ่มจับ 90 วันก่อนสอบ แล้วเต็ม 100% ในวันสอบ</p>
                     </div>
                 </div>
 
