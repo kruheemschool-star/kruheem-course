@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Printer, ArrowLeft, Lock, Loader2 } from 'lucide-react';
 import MathRenderer from './MathRenderer';
+import { convertThaiLettersToNumbers, formatExplanation } from './QuestionCard';
 import { sanitizeExamData, isFillQuestion, sampleDiagnosticQuiz, getQuestionKey } from '@/lib/exam-utils';
 import { ExamQuestion } from '@/types/exam';
 import { useUserAuth } from '@/context/AuthContext';
@@ -96,6 +97,34 @@ const fmtMinutes = (m: number): string => {
     return r > 0 ? `${h} ชม. ${r} นาที` : `${h} ชม.`;
 };
 
+// ── บล็อกเฉลยวิธีทำละเอียดต่อข้อ: โจทย์ → คำตอบ → วิธีทำ (ใช้ทั้งกล่องวัดและแผ่นจริง) ──
+const SolutionBlock: React.FC<{ q: ExamQuestion; idx: number }> = ({ q, idx }) => {
+    const fill = isFillQuestion(q);
+    const ci = q.correctIndex ?? 0;
+    const answerText = fill
+        ? String(((q as any).answers?.[0] ?? ''))
+        : (Array.isArray(q.options) && typeof q.options[ci] === 'string' ? (q.options[ci] as string) : '');
+    return (
+        <article className="psol">
+            <div className="psol-q">
+                <span className="psol-no">ข้อ {idx + 1}</span>
+                <div className="psol-qtext"><MathRenderer text={typeof q.question === 'string' ? q.question : ''} /></div>
+            </div>
+            {q.svg && typeof q.svg === 'string' && q.svg.trim().startsWith('<svg') && (
+                <div className="psol-fig" dangerouslySetInnerHTML={{ __html: q.svg }} />
+            )}
+            <div className="psol-ans">
+                ✓ คำตอบ: {fill ? answerText : `ข้อ ${ci + 1}`}{!fill && answerText ? <> — <MathRenderer text={answerText.replace(/^\s*(?:[1-4][\.\)]\s*|[กขคง][\.\)\s]\s*)/, '')} /></> : null}
+            </div>
+            {(q as any).explanation && (
+                <div className="psol-exp">
+                    <MathRenderer text={formatExplanation(convertThaiLettersToNumbers((q as any).explanation))} />
+                </div>
+            )}
+        </article>
+    );
+};
+
 const SheetHeader: React.FC<{ examTitle: string; total: number; level?: string; category?: string; minutes: number }> = ({ examTitle, total, level, category, minutes }) => (
     <header className="khp-head">
         <div className="khp-brand">คลังข้อสอบครูฮีม · kruheemmath.com</div>
@@ -126,6 +155,8 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
     const resultDocId = resultDocIdProp ?? examId;
     const [showAnswers, setShowAnswers] = useState(true);
     const [showSheet, setShowSheet] = useState(true); // แนบกระดาษคำตอบ
+    const [showExam, setShowExam] = useState(true);   // แนบชุดโจทย์ (ปิด = ไฟล์เฉลยล้วน)
+    const [showSolutions, setShowSolutions] = useState(false); // แนบเฉลยวิธีทำละเอียด
     const sanitized = useMemo(() => sanitizeExamData(questions as ExamQuestion[]), [questions]);
     const total = sanitized.length;
 
@@ -172,6 +203,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
     // ผลการจัดหน้า: pages = ลำดับ index ของข้อในแต่ละแผ่น (+ธงแผ่นสูงเกิน) / ansChunks = เฉลยต่อแผ่น
     const [pages, setPages] = useState<{ items: number[]; oversize: boolean }[] | null>(null);
     const [ansChunks, setAnsChunks] = useState<number[][]>([]);
+    const [solPages, setSolPages] = useState<{ items: number[]; oversize: boolean }[]>([]);
     const measureRef = useRef<HTMLDivElement>(null);
 
     // ── เฟสวัดขนาด → บรรจุลงแผ่น (รันใหม่ทุกครั้งที่สลับชุดที่พิมพ์) ──
@@ -181,6 +213,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
         // สลับชุด → ล้างแผ่นเดิมก่อน (กล่องวัดจะกลับมา mount ใน render ถัดไป)
         setPages(null);
         setAnsChunks([]);
+        setSolPages([]);
         (async () => {
             // รอฟอนต์ (รวมฟอนต์สูตรคณิต KaTeX) พร้อมก่อน — ความสูงถึงจะนิ่ง
             try { await (document as any).fonts?.ready; } catch { /* เบราว์เซอร์เก่า */ }
@@ -204,12 +237,14 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
             const probe = root.querySelector<HTMLElement>('.khp-probe');
             const headEl = root.querySelector<HTMLElement>('.khp-head');
             const qEls = Array.from(root.querySelectorAll<HTMLElement>('.pq'));
+            const solEls = Array.from(root.querySelectorAll<HTMLElement>('.psol'));
+            const solHeadEl = root.querySelector<HTMLElement>('.khp-sol-head');
             if (!probe || !headEl || qEls.length === 0) return;
 
             // วัดซ้ำจนความสูงนิ่ง (กันฟอนต์มาช้าแล้วความสูงเลื่อนหลังวัด)
             // หมายเหตุ: ห้ามใช้ requestAnimationFrame ตรงนี้ — แท็บที่ไม่โฟกัส/ซ่อนอยู่
             // จะไม่ยิง rAF เลย ทำให้จัดหน้าค้างถาวร (setTimeout ยังเดินเสมอ)
-            const readHeights = () => qEls.map((el) => el.offsetHeight);
+            const readHeights = () => [...qEls, ...solEls].map((el) => el.offsetHeight);
             let heights = readHeights();
             for (let pass = 0; pass < 3; pass++) {
                 await new Promise((r) => setTimeout(r, 90));
@@ -229,7 +264,9 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
             let cur: number[] = [];
             let used = headerH;
             const cap = contentH - SAFETY;
-            heights.forEach((h, i) => {
+            const qHeights = heights.slice(0, qEls.length);
+            const solHeights = heights.slice(qEls.length);
+            qHeights.forEach((h, i) => {
                 if (cur.length > 0 && used + h > cap) {
                     bins.push({ items: cur, oversize: false }); cur = []; used = 0;
                 }
@@ -239,7 +276,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
             // แผ่นที่มีข้อเดียวสูงเกินพื้นที่ทั้งแผ่น → ตีธง oversize: ปล่อยให้ไหล
             // ต่อแผ่นถัดไปตอนพิมพ์ (เนื้อหาไม่หาย) แทนการโดน overflow ตัดทิ้ง
             bins.forEach((b, bi) => {
-                const h = b.items.reduce((s, qi) => s + heights[qi], 0) + (bi === 0 ? headerH : 0);
+                const h = b.items.reduce((s, qi) => s + qHeights[qi], 0) + (bi === 0 ? headerH : 0);
                 if (h > cap) {
                     b.oversize = true;
                     console.warn(`[ExamPrint] แผ่นที่ ${bi + 1} สูงเกิน A4 (ข้อ ${b.items.map((x) => x + 1).join(',')}) — ปล่อยให้ไหลต่อแผ่นถัดไป`);
@@ -257,7 +294,24 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                 for (let i = 0; i < n; i += per) chunks.push(Array.from({ length: Math.min(per, n - i) }, (_, k) => i + k));
             }
 
-            if (!cancelled) { setPages(bins); setAnsChunks(chunks); }
+            // เฉลยวิธีทำละเอียด: บรรจุลงแผ่นด้วยวิธีเดียวกับโจทย์ (แผ่นแรกหักหัว section)
+            const solBins: { items: number[]; oversize: boolean }[] = [];
+            if (solEls.length > 0) {
+                const solHeaderH = (solHeadEl?.offsetHeight ?? 40) + 8;
+                let sCur: number[] = [];
+                let sUsed = solHeaderH;
+                solHeights.forEach((h, i) => {
+                    if (sCur.length > 0 && sUsed + h > cap) { solBins.push({ items: sCur, oversize: false }); sCur = []; sUsed = 0; }
+                    sCur.push(i); sUsed += h;
+                });
+                if (sCur.length > 0) solBins.push({ items: sCur, oversize: false });
+                solBins.forEach((b, bi) => {
+                    const h = b.items.reduce((s2, qi) => s2 + solHeights[qi], 0) + (bi === 0 ? solHeaderH : 0);
+                    if (h > cap) b.oversize = true;
+                });
+            }
+
+            if (!cancelled) { setPages(bins); setAnsChunks(chunks); setSolPages(solBins); }
         })();
         return () => { cancelled = true; };
     }, [activeSet, isTrial]);
@@ -299,9 +353,11 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
     }
 
     // ลำดับแผ่น: ข้อสอบ → กระดาษคำตอบ → เฉลย (เลขหน้าไล่ต่อเนื่อง)
-    const examPageCount = pages?.length ?? 0;
+    const examPageCount = showExam ? (pages?.length ?? 0) : 0;
     const sheetPageCount = showSheet ? sheetChunks.length : 0;
-    const totalPages = examPageCount + sheetPageCount + (showAnswers ? ansChunks.length : 0);
+    const keyPageCount = showAnswers ? ansChunks.length : 0;
+    const totalPages = examPageCount + sheetPageCount + keyPageCount + (showSolutions ? solPages.length : 0);
+    const nothingSelected = totalPages === 0;
 
     return (
         <div className="khprint-screen">
@@ -310,14 +366,22 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                 <div className="khprint-controls-inner">
                     <Link href={backHref} className="khp-back"><ArrowLeft size={16} /> กลับไปทำข้อสอบ</Link>
                     <label className="khp-toggle">
+                        <input type="checkbox" checked={showExam} onChange={(e) => setShowExam(e.target.checked)} />
+                        ชุดโจทย์
+                    </label>
+                    <label className="khp-toggle" style={{ marginLeft: 0 }}>
                         <input type="checkbox" checked={showSheet} onChange={(e) => setShowSheet(e.target.checked)} />
-                        แนบกระดาษคำตอบ
+                        กระดาษคำตอบ
                     </label>
                     <label className="khp-toggle" style={{ marginLeft: 0 }}>
                         <input type="checkbox" checked={showAnswers} onChange={(e) => setShowAnswers(e.target.checked)} />
-                        แนบเฉลยไว้หน้าสุดท้าย
+                        เฉลย (ตารางคำตอบ)
                     </label>
-                    <button onClick={() => window.print()} disabled={!pages} className="khp-print-btn">
+                    <label className="khp-toggle" style={{ marginLeft: 0 }}>
+                        <input type="checkbox" checked={showSolutions} onChange={(e) => setShowSolutions(e.target.checked)} />
+                        เฉลยวิธีทำละเอียด
+                    </label>
+                    <button onClick={() => window.print()} disabled={!pages || nothingSelected} className="khp-print-btn">
                         <Printer size={18} /> พิมพ์ / บันทึกเป็น PDF
                     </button>
                 </div>
@@ -340,7 +404,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                 </div>
                 <p className="khp-hint">
                     {pages
-                        ? <>จัดหน้าเสร็จแล้ว {totalPages} หน้า A4 — สิ่งที่เห็นด้านล่างคือหน้ากระดาษจริงทีละแผ่น · กดปุ่มแล้วเลือก “บันทึกเป็น PDF” (Save as PDF) ได้เลย · <b>ทำบนกระดาษเสร็จแล้ว กลับไปกด “📝 กรอกคำตอบจากกระดาษ” ที่หน้าเริ่มทำข้อสอบ เพื่อรับผลวิเคราะห์จุดอ่อน</b></>
+                        ? <>{nothingSelected ? 'ยังไม่ได้เลือกส่วนที่จะพิมพ์ — ติ๊กอย่างน้อย 1 อย่างด้านบน' : `จัดหน้าเสร็จแล้ว ${totalPages} หน้า A4`} — สิ่งที่เห็นด้านล่างคือหน้ากระดาษจริงทีละแผ่น · กดปุ่มแล้วเลือก “บันทึกเป็น PDF” (Save as PDF) ได้เลย · <b>ทำบนกระดาษเสร็จแล้ว กลับไปกด “📝 กรอกคำตอบจากกระดาษ” ที่หน้าเริ่มทำข้อสอบ เพื่อรับผลวิเคราะห์จุดอ่อน</b> · อยากได้ “ไฟล์เฉลยวิธีทำ” แยกต่างหาก: ติ๊กเฉพาะ “เฉลยวิธีทำละเอียด” แล้วบันทึกเป็นอีกไฟล์</>
                         : 'กำลังวัดขนาดทุกข้อและจัดลงหน้ากระดาษ A4...'}
                 </p>
             </div>
@@ -360,6 +424,11 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                                 ))}
                             </div>
                         </section>
+                        <div className="khp-sol-head">
+                            <h2>เฉลยวิธีทำละเอียด — {displayTitle}</h2>
+                            <div className="khp-rule" />
+                        </div>
+                        {activeSet.map((q, idx) => <SolutionBlock key={`ms-${idx}`} q={q} idx={idx} />)}
                     </div>
                 </div>
             )}
@@ -381,7 +450,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
             {pages && (
                 <div className="khp-scroll">
                 <div id="print-root">
-                    {pages.map((bin, pi) => (
+                    {showExam && pages.map((bin, pi) => (
                         <section key={pi} className={`page${bin.oversize ? ' oversize' : ''}`}>
                             {/* หัวกระดาษประจำแผ่น (แผ่น 2+ — แผ่นแรกมีหัวใหญ่อยู่แล้ว): ชุด+ระดับ / เว็บ */}
                             {pi > 0 && (
@@ -472,6 +541,29 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                             <div className="khp-foot">
                                 <span>© คลังข้อสอบครูฮีม · kruheemmath.com · สำหรับสมาชิกเท่านั้น ห้ามคัดลอก ดัดแปลง หรือจำหน่ายต่อ</span>
                                 <span className="khp-foot-no">หน้า {examPageCount + sheetPageCount + ci + 1} / {totalPages}</span>
+                            </div>
+                        </section>
+                    ))}
+                    {/* ── เฉลยวิธีทำละเอียด: โจทย์ + คำตอบ + วิธีทำ ทีละข้อ ── */}
+                    {showSolutions && solPages.map((bin, si) => (
+                        <section key={`sol-${si}`} className={`page${bin.oversize ? ' oversize' : ''}`}>
+                            <div className="khp-runhead">
+                                <span className="khp-runhead-title">{displayTitle}{levelCategoryLabel(level, category)} · เฉลยวิธีทำ</span>
+                                <span>kruheemmath.com</span>
+                            </div>
+                            <div className="khp-watermark" aria-hidden>คลังข้อสอบครูฮีม · kruheemmath.com</div>
+                            <div className="khp-content">
+                                {si === 0 && (
+                                    <div className="khp-sol-head">
+                                        <h2>เฉลยวิธีทำละเอียด — {displayTitle}</h2>
+                                        <div className="khp-rule" />
+                                    </div>
+                                )}
+                                {bin.items.map((qi) => <SolutionBlock key={`sol-${qi}`} q={activeSet[qi]} idx={qi} />)}
+                            </div>
+                            <div className="khp-foot">
+                                <span>© คลังข้อสอบครูฮีม · kruheemmath.com · สำหรับสมาชิกเท่านั้น ห้ามคัดลอก ดัดแปลง หรือจำหน่ายต่อ</span>
+                                <span className="khp-foot-no">หน้า {examPageCount + sheetPageCount + keyPageCount + si + 1} / {totalPages}</span>
                             </div>
                         </section>
                     ))}
@@ -581,6 +673,16 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                 }
                 .khp-as-line { flex: 1; border-bottom: 1px dotted #888; height: 5mm; margin-right: 6px; }
 
+                /* ── เฉลยวิธีทำละเอียด ── */
+                .khp-sol-head h2 { font-size: 18px; font-weight: 800; text-align: center; margin-bottom: 8px; color: #111; }
+                .psol { padding: 12px 0 10px; border-bottom: 1px dashed #e5e5e5; }
+                .psol-q { display: flex; gap: 8px; align-items: baseline; font-size: 14px; line-height: 1.6; color: #111; }
+                .psol-no { flex-shrink: 0; font-weight: 800; background: #f0f0ee; border-radius: 6px; padding: 1px 8px; font-size: 12.5px; }
+                .psol-qtext { flex: 1; min-width: 0; }
+                .psol-fig { margin: 6px 0 2px 8px; }
+                .psol-fig svg { max-width: 300px; max-height: 170px; width: auto; height: auto; display: block; }
+                .psol-ans { margin: 7px 0 5px; font-size: 13.5px; font-weight: 700; color: #111; }
+                .psol-exp { font-size: 13px; line-height: 1.7; color: #333; border-left: 3px solid #ddd; padding-left: 10px; white-space: pre-wrap; }
                 .khp-answers { padding-top: 4px; }
                 .khp-answers h2 { font-size: 17px; font-weight: 800; text-align: center; margin-bottom: 12px; color: #111; border-bottom: 2px solid #111; padding-bottom: 9px; }
                 .khp-answer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 5px 10px; font-size: 13px; color: #111; }

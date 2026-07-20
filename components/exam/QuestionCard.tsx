@@ -24,7 +24,7 @@ interface QuestionCardProps {
 
 // Convert Thai letter references (ก ข ค ง) to numbers (1 2 3 4) in explanation text
 // Note: \b doesn't work with Thai Unicode, so we use explicit character patterns
-const convertThaiLettersToNumbers = (text: any): any => {
+export const convertThaiLettersToNumbers = (text: any): any => {
     // 🛡️ Type guard: explanation can be a string, object, or null.
     // When it's an object (structured {principle, steps, pitfall}), pass it
     // through untouched so MathRenderer can handle it via its object branch.
@@ -49,7 +49,7 @@ const convertThaiLettersToNumbers = (text: any): any => {
 // replaced with placeholders BEFORE any formatting is applied. This prevents patterns
 // like "- " (list items) from matching subtraction operators inside math expressions,
 // which would insert \n inside $...$ and break the MathRenderer regex.
-const formatExplanation = (text: any): any => {
+export const formatExplanation = (text: any): any => {
     if (!text || typeof text !== 'string') return text;
 
     // ═══ STEP 1: PROTECT LaTeX blocks from modification ═══
