@@ -191,11 +191,11 @@ export default function ExamCountdownHero() {
                     --bg: #fbfbf9; --border: #ececec; --accent: #c2410c;
                     --num: #1a1a1a; --exam: #1a1a1a; --kicker: #b5ac97;
                     --left: #9c9384; --track: #efeadf; --quote: #8a8172;
-                    width: 100%; max-width: 720px; min-height: 440px;
+                    width: 100%; max-width: 1120px; min-height: clamp(420px, 38vw, 600px);
                     background: var(--bg); border: 1px solid var(--border);
-                    border-radius: 32px; padding: 52px 48px;
+                    border-radius: clamp(26px, 2.5vw, 40px); padding: clamp(40px, 5vw, 76px) clamp(24px, 5vw, 84px);
                     display: flex; flex-direction: column; align-items: center; justify-content: center;
-                    gap: 22px; text-align: center;
+                    gap: clamp(18px, 2.2vw, 32px); text-align: center;
                     font-family: var(--font-ibm-loop), "IBM Plex Sans Thai", system-ui, sans-serif;
                 }
                 :global(.dark) .khcd {
@@ -205,27 +205,22 @@ export default function ExamCountdownHero() {
                 }
                 .khcd-kicker {
                     display: inline-flex; align-items: center; gap: 9px;
-                    font-size: 13px; font-weight: 500; letter-spacing: 4px;
+                    font-size: clamp(12px, 1.05vw, 15px); font-weight: 500; letter-spacing: 4px;
                     color: var(--kicker); text-transform: none;
                 }
                 .khcd-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); display: inline-block; }
-                .khcd-exam { font-size: 40px; font-weight: 600; letter-spacing: -0.5px; color: var(--exam); line-height: 1.15; margin: 0; }
-                .khcd-left { font-size: 15px; color: var(--left); margin: 0; }
-                .khcd-units { display: flex; align-items: flex-start; justify-content: center; gap: 18px; }
-                .khcd-progress-wrap { width: 100%; max-width: 460px; }
-                .khcd-track { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
+                .khcd-exam { font-size: clamp(28px, 4.6vw, 58px); font-weight: 600; letter-spacing: -0.5px; color: var(--exam); line-height: 1.15; margin: 0; }
+                .khcd-left { font-size: clamp(14px, 1.3vw, 18px); color: var(--left); margin: 0; }
+                .khcd-units { display: flex; align-items: flex-start; justify-content: center; gap: clamp(14px, 3.2vw, 48px); }
+                .khcd-progress-wrap { width: 100%; max-width: min(680px, 92%); }
+                .khcd-track { height: clamp(6px, 0.6vw, 9px); border-radius: 999px; background: var(--track); overflow: hidden; }
                 .khcd-fill { height: 100%; border-radius: 999px; background: var(--accent); transition: width .6s ease; }
-                .khcd-progress-label { margin-top: 10px; font-size: 12px; letter-spacing: 1px; color: var(--kicker); }
+                .khcd-progress-label { margin-top: 10px; font-size: clamp(12px, 1.1vw, 14px); letter-spacing: 1px; color: var(--kicker); }
                 .khcd-quote {
-                    font-size: 16px; font-style: italic; color: var(--quote); margin: 0; max-width: 460px;
+                    font-size: clamp(15px, 1.5vw, 21px); font-style: italic; color: var(--quote); margin: 0; max-width: min(640px, 92%);
                     animation: khcdQuoteFade 1.1s cubic-bezier(.22,1,.36,1);
                 }
-                .khcd-reached { font-size: 38px; font-weight: 700; color: var(--accent); }
-                @media (max-width: 520px) {
-                    .khcd { padding: 40px 24px; border-radius: 26px; min-height: 380px; }
-                    .khcd-exam { font-size: 30px; }
-                    .khcd-units { gap: 10px; }
-                }
+                .khcd-reached { font-size: clamp(30px, 5vw, 56px); font-weight: 700; color: var(--accent); }
                 @keyframes khcdQuoteFade { 0% { opacity: 0; filter: blur(5px); transform: translateY(8px); } 100% { opacity: 1; filter: blur(0); transform: translateY(0); } }
             `}</style>
         </section>
@@ -242,17 +237,16 @@ function Unit({ value, label, accent = false, anim }: { value: string; label: st
             </span>
             <span className="khcd-unit-label">{label}</span>
             <style jsx>{`
-                .khcd-unit { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 2ch; }
+                .khcd-unit { display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1vw, 14px); min-width: 2ch; }
                 .khcd-num-clip { display: block; overflow: hidden; line-height: 1; }
                 .khcd-num {
-                    display: inline-block; font-size: 72px; font-weight: 300; letter-spacing: -2px;
+                    display: inline-block; font-size: clamp(44px, 8.4vw, 116px); font-weight: 300; letter-spacing: -2px;
                     line-height: 1; color: var(--num); font-variant-numeric: tabular-nums;
                 }
                 .khcd-num.is-accent { color: var(--accent); }
                 .a-flip { animation: khcdFlipIn .55s ease; }
                 .a-tick { animation: khcdTick .55s ease; }
-                .khcd-unit-label { font-size: 11px; font-weight: 500; letter-spacing: 3px; color: var(--kicker); }
-                @media (max-width: 520px) { .khcd-num { font-size: 44px; letter-spacing: -1px; } }
+                .khcd-unit-label { font-size: clamp(10px, 1vw, 13px); font-weight: 500; letter-spacing: 3px; color: var(--kicker); }
                 @keyframes khcdFlipIn { 0% { transform: translateY(-78%); opacity: 0; } 55% { opacity: 1; } 100% { transform: translateY(0); opacity: 1; } }
                 @keyframes khcdTick { 0% { transform: translateY(-78%); opacity: .15; } 100% { transform: translateY(0); opacity: 1; } }
             `}</style>
