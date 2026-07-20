@@ -35,6 +35,7 @@ const ScoreDistributionChart = dynamic(() => import("@/components/exam/ScoreDist
     loading: () => <div style={{ height: 140 }} />,
 });
 import CelebrationModal from "@/components/gamification/CelebrationModal";
+import ConfirmDialog from "@/components/exam/ConfirmDialog";
 import { AnalysisPreview } from "@/components/exam/AnalysisPreview";
 
 interface ExamRunnerProps {
@@ -210,6 +211,9 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     const [wrongBook, setWrongBook] = useState<any[] | null>(null);
     // ทำต่อกลางคัน: ความคืบหน้าที่ค้างไว้ (โหลดตอน mount) — เสนอปุ่ม "ทำต่อ" บนหน้าเริ่ม
     const [resumable, setResumable] = useState<LessonExamProgress | null>(null);
+    // ยืนยันการส่งด้วย modal ในหน้า — window.confirm โดนบางเบราว์เซอร์บล็อก
+    // (FB/LINE in-app, Chrome "ป้องกันกล่องโต้ตอบ") แล้วปุ่มส่งจะกดแล้วเงียบ
+    const [confirmDialog, setConfirmDialog] = useState<{ title: string; detail?: string; confirmLabel: string; action: () => void } | null>(null);
     // หยุดเวลาชั่วคราว (พักเข้าห้องน้ำ/ดื่มน้ำ) — ใช้ได้ทั้งโหมดสอบและโหมดฝึก
     const [isPaused, setIsPaused] = useState(false);
     // ควิซวินิจฉัย (P3): ทำชุดย่อยสุ่มครอบทุกหัวข้อ แทนการทำทั้งชุด → เห็นจุดอ่อนเร็ว
@@ -619,7 +623,18 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
 
     const doSubmit = (force = false) => {
         if (isSubmitted) return;
-        if (!force && !confirm("ยืนยันส่งคำตอบหรือไม่?")) return;
+        // ยืนยันผ่าน modal ในหน้า (ห้ามใช้ window.confirm — โดนบล็อกได้ในบางเบราว์เซอร์
+        // แล้วปุ่มส่งจะกลายเป็นปุ่มตาย). force=true = ยืนยันแล้ว / auto-submit หมดเวลา.
+        if (!force) {
+            setConfirmDialog({
+                title: 'ยืนยันส่งคำตอบหรือไม่?',
+                detail: 'ส่งแล้วระบบจะตรวจและวิเคราะห์ผลให้ทันที',
+                confirmLabel: 'ส่งคำตอบ',
+                action: () => doSubmit(true),
+            });
+            return;
+        }
+        setConfirmDialog(null);
         commitQuestionTime();
         let s = 0;
         questions.forEach((q, i) => { if (isAnswerCorrect(q, answers[i])) s++; });
@@ -637,9 +652,12 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     const submitPartial = () => {
         if (isSubmitted) return;
         const answered = Object.keys(answers).length;
-        if (!confirm(`ดูจุดอ่อนจาก ${answered} ข้อที่ทำไปเลยไหม?\n(ข้อที่ยังไม่ได้ทำจะไม่ถูกนับ · ทำต่อทีหลังได้ ระบบสะสมให้)`)) return;
-        setIsPartial(true);
-        doSubmit(true);
+        setConfirmDialog({
+            title: `ดูจุดอ่อนจาก ${answered} ข้อที่ทำไปเลยไหม?`,
+            detail: 'ข้อที่ยังไม่ได้ทำจะไม่ถูกนับ · ทำต่อทีหลังได้ ระบบสะสมให้',
+            confirmLabel: 'ส่งเท่าที่ทำ · ดูจุดอ่อน',
+            action: () => { setIsPartial(true); doSubmit(true); },
+        });
     };
 
     // Re-run a subset of questions (used by "ฝึกเฉพาะข้อที่ผิด"). Always starts
@@ -1158,6 +1176,15 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
 
     return (
         <div className="w-full min-h-full flex flex-col items-center py-6 px-4 bg-slate-50 dark:bg-slate-900">
+            {/* ✋ In-page confirm (ส่งคำตอบ / ส่งเท่าที่ทำ) — ไม่ใช้ window.confirm ที่บล็อกได้ */}
+            <ConfirmDialog
+                open={!!confirmDialog}
+                title={confirmDialog?.title ?? ''}
+                detail={confirmDialog?.detail}
+                confirmLabel={confirmDialog?.confirmLabel ?? 'ยืนยัน'}
+                onCancel={() => setConfirmDialog(null)}
+                onConfirm={() => { const act = confirmDialog?.action; setConfirmDialog(null); act?.(); }}
+            />
             {/* ⏸ Overlay ตอนพัก — บังโจทย์ไว้เพื่อไม่ให้ทำต่อระหว่างพัก เวลาหยุดเดิน */}
             {isPaused && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-6">

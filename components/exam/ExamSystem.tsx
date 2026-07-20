@@ -7,6 +7,7 @@ import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, g
 import { QuestionCard } from './QuestionCard';
 import { AnalysisPreview, AnalysisPreviewLastResult } from './AnalysisPreview';
 import CelebrationModal from '@/components/gamification/CelebrationModal';
+import ConfirmDialog from './ConfirmDialog';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { History, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee } from 'lucide-react';
@@ -35,6 +36,7 @@ interface SavedExamProgress {
     currentQuestionIndex: number;
     questionTimes: Record<number, number>;
     elapsedBeforeSeconds?: number; // accumulated active exam time (sec) up to this save — resume-safe
+    mode?: 'practice' | 'exam'; // resume in the same mode (legacy saves default to 'exam')
     savedAt: number; // timestamp
 }
 
@@ -111,6 +113,7 @@ const loadProgressFromCloud = async (uid: string, examId: string): Promise<Saved
             currentQuestionIndex: data.currentQuestionIndex || 0,
             questionTimes: data.questionTimes || {},
             elapsedBeforeSeconds: data.elapsedBeforeSeconds || 0,
+            mode: (data.mode === 'practice' || data.mode === 'exam') ? data.mode : undefined,
             savedAt,
         };
     } catch (e) {
@@ -252,6 +255,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     // G1 parity: celebrate great results (A / perfect) with confetti — once per run.
     const [celebration, setCelebration] = useState<{ emoji: string; title: string; message: string } | null>(null);
     const celebratedRef = useRef(false);
+    // In-page confirmation (submit / clear) — replaces window.confirm, which some
+    // browsers suppress (FB/LINE in-app, Chrome "prevent additional dialogs")
+    // making the submit button silently dead.
+    const [confirmDialog, setConfirmDialog] = useState<{ title: string; detail?: string; confirmLabel: string; cancelLabel?: string; tone?: 'primary' | 'danger'; action: () => void } | null>(null);
 
     // Time tracking
     const examStartTime = React.useRef<number>(Date.now());
@@ -411,6 +418,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             setAnswers(local.answers);
             setCheckedQuestions(local.checkedQuestions || {});
             setCurrentQuestionIndex(local.currentQuestionIndex || 0);
+            if (local.mode === 'practice' || local.mode === 'exam') setMode(local.mode);
             questionTimes.current = local.questionTimes || {};
             elapsedBeforeRef.current = local.elapsedBeforeSeconds || 0;
             examStartTime.current = Date.now();
@@ -427,6 +435,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 setAnswers(cloud.answers);
                 setCheckedQuestions(cloud.checkedQuestions || {});
                 setCurrentQuestionIndex(cloud.currentQuestionIndex || 0);
+                if (cloud.mode === 'practice' || cloud.mode === 'exam') setMode(cloud.mode);
                 questionTimes.current = cloud.questionTimes || {};
                 elapsedBeforeRef.current = cloud.elapsedBeforeSeconds || 0;
                 examStartTime.current = Date.now();
@@ -477,11 +486,12 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 currentQuestionIndex,
                 questionTimes: questionTimes.current,
                 elapsedBeforeSeconds: getElapsedSeconds(),
+                mode,
                 savedAt: Date.now(),
             };
             saveProgressToLocal(examId, data);
         }, 500); // Debounce 500ms
-    }, [examId, isTrial, isFinished, isSubset, answers, checkedQuestions, currentQuestionIndex, getElapsedSeconds]);
+    }, [examId, isTrial, isFinished, isSubset, answers, checkedQuestions, currentQuestionIndex, mode, getElapsedSeconds]);
 
     useEffect(() => {
         debouncedSave();
@@ -539,19 +549,29 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         }
     };
 
-    const handleFinishExam = (auto = false, partial = false) => {
+    // ยืนยันการส่งผ่าน modal ในหน้าเว็บ — ห้ามใช้ window.confirm ตรงนี้เด็ดขาด:
+    // in-app browser (Facebook/LINE) และ Chrome ที่ผู้ใช้ติ๊ก "ป้องกันกล่องโต้ตอบ"
+    // จะกด confirm ทิ้งเงียบๆ (คืน false) ทำให้ปุ่มส่งคำตอบกดแล้วไม่ไปไหน.
+    const requestFinishExam = () => {
         const answerableCount = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
         const answeredCount = Object.keys(answers).filter((k) => Number(k) < answerableCount).length;
         const unansweredCount = answerableCount - answeredCount;
-        // Auto-submit (countdown expired) skips the confirm() prompts. "ส่งเท่าที่ทำ"
-        // (partial) is an intentional early submit → skip the "ยังทำไม่ครบ" prompt.
-        if (!auto && !partial) {
-            if (unansweredCount > 0) {
-                if (!confirm(`คุณยังทำข้อสอบไม่ครบ ${unansweredCount} ข้อ\nต้องการส่งคำตอบเลยหรือไม่?`)) return;
-            } else if (!confirm("ยืนยันการส่งคำตอบ?")) {
-                return;
-            }
-        }
+        setConfirmDialog({
+            title: unansweredCount > 0 ? `ยังทำไม่ครบ ${unansweredCount} ข้อ` : 'ยืนยันการส่งคำตอบ?',
+            detail: unansweredCount > 0
+                ? 'ข้อที่ยังไม่ได้ตอบจะไม่ถูกนับคะแนน — จะส่งเลยหรือกลับไปทำต่อ?'
+                : 'ส่งแล้วระบบจะตรวจและวิเคราะห์ผลให้ทันที',
+            confirmLabel: 'ส่งคำตอบ',
+            action: () => handleFinishExam(false),
+        });
+    };
+
+    const handleFinishExam = (auto = false, partial = false) => {
+        const answerableCount = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
+        const answeredCount = Object.keys(answers).filter((k) => Number(k) < answerableCount).length;
+        // Confirmation happens in requestFinishExam (in-page modal). Reaching here
+        // means the submit is already confirmed (or auto / partial — no prompt).
+        setConfirmDialog(null);
 
         // Freeze timing at submit: count the current question's dwell, then snapshot total time.
         commitTimeForCurrentQuestion();
@@ -786,21 +806,26 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         startSubset(wrongQs, 'wrong');
     };
 
-    // Reset handler for sidebar button (same as restart but with confirmation)
+    // Reset handler for sidebar button (same as restart but with confirmation).
+    // Uses the in-page modal — window.confirm can be suppressed by the browser.
     const handleClearProgress = () => {
         const answeredCount = Object.keys(answers).length;
         if (answeredCount === 0) return;
-        if (!confirm(`คุณตอบไปแล้ว ${answeredCount} ข้อ\nต้องการล้างคำตอบทั้งหมดแล้วเริ่มทำใหม่หรือไม่?`)) return;
-        handleRestart();
+        setConfirmDialog({
+            title: `ล้างคำตอบทั้งหมด ${answeredCount} ข้อ?`,
+            detail: 'คำตอบที่ทำไว้จะหายทั้งหมด แล้วเริ่มทำชุดนี้ใหม่ตั้งแต่ต้น',
+            confirmLabel: 'ล้างคำตอบ ทำใหม่',
+            cancelLabel: 'ยกเลิก',
+            tone: 'danger',
+            action: handleRestart,
+        });
     };
 
     // Explicit "save to cloud" action — user-triggered only, exactly 1 write
     const handleSaveToCloud = async () => {
         if (!user?.uid || !examId || isTrial || isFinished) return;
-        if (Object.keys(answers).length === 0) {
-            alert("ยังไม่มีคำตอบให้บันทึก");
-            return;
-        }
+        // ปุ่มแสดงเฉพาะเมื่อมีคำตอบแล้ว — กันเงียบๆ พอ (ไม่ใช้ alert ที่บางเบราว์เซอร์บล็อก)
+        if (Object.keys(answers).length === 0) return;
         setCloudSaveState('saving');
         const ok = await saveProgressToCloud(user.uid, examId, {
             answers,
@@ -808,6 +833,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             currentQuestionIndex,
             questionTimes: questionTimes.current,
             elapsedBeforeSeconds: getElapsedSeconds(),
+            mode,
             savedAt: Date.now(),
         });
         setCloudSaveState(ok ? 'saved' : 'error');
@@ -1490,6 +1516,18 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     return (
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 font-sans flex flex-col lg:flex-row gap-8 items-start">
 
+            {/* ✋ In-page confirm (submit / clear) — never window.confirm (blockable) */}
+            <ConfirmDialog
+                open={!!confirmDialog}
+                title={confirmDialog?.title ?? ''}
+                detail={confirmDialog?.detail}
+                confirmLabel={confirmDialog?.confirmLabel ?? 'ยืนยัน'}
+                cancelLabel={confirmDialog?.cancelLabel}
+                tone={confirmDialog?.tone}
+                onCancel={() => setConfirmDialog(null)}
+                onConfirm={() => { const act = confirmDialog?.action; setConfirmDialog(null); act?.(); }}
+            />
+
             {/* Paused overlay — the clock is frozen; questions are hidden so the
                 student can truly rest, use the bathroom or grab a snack. */}
             {isPaused && !finalScore && (
@@ -1937,7 +1975,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         {/* Submit Button - always visible when at least 1 answer */}
                         {Object.keys(answers).length > 0 && !isTrial && (
                             <button
-                                onClick={() => handleFinishExam(false)}
+                                onClick={requestFinishExam}
                                 className="px-5 sm:px-6 py-3 rounded-full font-bold text-white bg-green-600 shadow-lg hover:bg-green-700 hover:shadow-xl hover:-translate-y-0.5 transition-all transform active:scale-95 flex items-center gap-2 text-sm sm:text-base"
                             >
                                 <CheckCircle size={18} />
