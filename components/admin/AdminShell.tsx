@@ -20,7 +20,7 @@ import {
     BookOpen, ClipboardList, ScrollText, Newspaper, FileText,
     Users, Smile, Activity,
     MessageCircle, LifeBuoy, Megaphone, Star, BarChart3,
-    Menu, Search, Bell, Sun, Moon, LogOut, Home, GripVertical,
+    Menu, Search, Bell, Sun, Moon, LogOut, Home, GripVertical, Timer,
     type LucideIcon,
 } from "lucide-react";
 
@@ -49,6 +49,7 @@ const NAV: NavGroup[] = [
             { href: "/admin/enrollments", label: "ตรวจสอบชำระเงิน", icon: Wallet, badge: "pending" },
             { href: "/admin/coupons", label: "จัดการคูปอง", icon: Ticket },
             { href: "/admin/promotions", label: "โปรโมชันหน้าแรก", icon: Gift, match: ["/admin/banners"] },
+            { href: "/admin/countdown", label: "นับถอยหลังหน้าแรก", icon: Timer },
             { href: "/admin/reports", label: "ส่งออกรายงาน", icon: Download, match: ["/admin/backup"] },
         ],
     },
@@ -98,6 +99,7 @@ const PAGE_META: { prefix: string; exact?: boolean; title: string; subtitle: str
     { prefix: "/admin/enrollments", title: "ตรวจสอบชำระเงิน", subtitle: "ตรวจสลิปและอนุมัติการสมัครเรียน" },
     { prefix: "/admin/coupons", title: "จัดการคูปอง", subtitle: "สร้างและติดตามโค้ดส่วนลด" },
     { prefix: "/admin/promotions", title: "โปรโมชันหน้าแรก", subtitle: "แบนเนอร์โปรโมชันเหนือ Hero" },
+    { prefix: "/admin/countdown", title: "นับถอยหลังหน้าแรก", subtitle: "ตั้งวันสอบ ชื่อสอบ และคำคมบนการ์ดนับถอยหลัง" },
     { prefix: "/admin/banners", title: "แบนเนอร์คอร์ส", subtitle: "จัดการแบนเนอร์การ์ดคอร์ส" },
     { prefix: "/admin/reports", title: "ส่งออกรายงาน", subtitle: "Export รายงานให้ AI ช่วยวิเคราะห์" },
     { prefix: "/admin/backup", title: "สำรองข้อมูล", subtitle: "ดาวน์โหลดข้อมูลระบบเป็น JSON" },
