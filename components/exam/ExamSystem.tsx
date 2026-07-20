@@ -752,6 +752,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             ...(Array.isArray(prev?.history) ? prev.history.slice(-11) : []),
                             { percent, score, total: scoreDenom, durationSeconds: totalDurationSec, at: Date.now(), mode: paperEntry ? 'paper' : mode },
                         ],
+                        // รักษา percentileHistory ไว้ (เขียนโดย effect เปอร์เซ็นไทล์แยกกัน)
+                        // — ถ้าไม่ยกมา setDoc นี้จะเขียนทับทั้ง doc แล้วประวัติหาย
+                        percentileHistory: Array.isArray(prev?.percentileHistory) ? prev.percentileHistory : [],
                     });
                     setNotebookLeft(Object.keys(wrongQuestions).length);
                     console.log('[ExamSystem] Exam result saved successfully');
@@ -1307,13 +1310,14 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <div className="mb-10 rounded-3xl border border-indigo-100 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/70 to-white dark:from-indigo-900/20 dark:to-slate-800/40 p-6 md:p-8">
                                     <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🏆 อันดับของคุณ</h3>
                                     <p className="text-slate-600 dark:text-slate-300 mb-3">
-                                        คุณทำได้ <span className="text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 align-middle">เก่งกว่า {percentile.percentile}%</span>{' '}
+                                        คุณทำได้ <span className="text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 align-middle">เก่งกว่า {roundPercentileForN(percentile.percentile, percentile.count)}%</span>{' '}
                                         <span className="text-sm">ของคนที่ทำชุดนี้ ({percentile.count} ครั้ง)</span>
                                     </p>
-                                    {/* 📈 เทรนด์อันดับในฝูง (เฟส 1) — ขยับจากครั้งก่อนกี่อันดับ */}
+                                    {/* 📈 เทรนด์อันดับในฝูง (เฟส 1) — ขยับจากครั้งก่อนกี่อันดับ (ปัดขั้นตาม n กันแม่นปลอม) */}
                                     {prevPercentileRef.current && (() => {
-                                        const prev = prevPercentileRef.current!.percentile;
-                                        const delta = percentile.percentile - prev;
+                                        const now = roundPercentileForN(percentile.percentile, percentile.count);
+                                        const prev = roundPercentileForN(prevPercentileRef.current!.percentile, prevPercentileRef.current!.peerCount);
+                                        const delta = now - prev;
                                         if (Math.abs(delta) < 1) return (
                                             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-slate-100 dark:bg-slate-700/50 px-4 py-1.5 text-sm font-bold text-slate-500 dark:text-slate-400">รักษาอันดับไว้ได้ — เท่าครั้งก่อน (เก่งกว่า {prev}%)</div>
                                         );
@@ -1321,7 +1325,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                         return (
                                             <div className={`mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-black ${up ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300'}`}>
                                                 {up ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                                                {up ? `แซงขึ้นมา ${Math.round(delta)} อันดับ` : `ตกลง ${Math.abs(Math.round(delta))} อันดับ`} จากครั้งก่อน (เคยเก่งกว่า {prev}%)
+                                                {up ? `แซงขึ้นมา ${delta}` : `ตกลง ${Math.abs(delta)}`} อันดับ จากครั้งก่อน (เคยเก่งกว่า {prev}%)
                                             </div>
                                         );
                                     })()}
