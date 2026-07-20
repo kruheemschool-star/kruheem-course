@@ -72,6 +72,14 @@ const QuestionBlock: React.FC<{ q: ExamQuestion; idx: number }> = ({ q, idx }) =
     );
 };
 
+// ป้ายระดับ/หมวด: บางชุด level = category (เช่น "ม.1" ทั้งคู่) — ไม่แสดงซ้ำ
+const levelCategoryLabel = (level?: string, category?: string): string => {
+    const parts: string[] = [];
+    if (level) parts.push(level);
+    if (category && category !== level) parts.push(category);
+    return parts.length ? ` · ${parts.join(' · ')}` : '';
+};
+
 // "750 นาที" อ่านยาก — เกิน 2 ชม. แปลงเป็น ชม.+นาที (ชุดใหญ่ 250 ข้อไม่ได้นั่งทำรวดเดียว)
 const fmtMinutes = (m: number): string => {
     if (m < 120) return `${m} นาที`;
@@ -83,7 +91,7 @@ const SheetHeader: React.FC<{ examTitle: string; total: number; level?: string; 
     <header className="khp-head">
         <div className="khp-brand">คลังข้อสอบครูฮีม · kruheemmath.com</div>
         <h1 className="khp-title">{examTitle}</h1>
-        <div className="khp-meta">จำนวน {total} ข้อ{level ? ` · ระดับ ${level}` : ''}{category ? ` · ${category}` : ''} · เวลาแนะนำ {fmtMinutes(minutes)}</div>
+        <div className="khp-meta">จำนวน {total} ข้อ{levelCategoryLabel(level, category)} · เวลาแนะนำ {fmtMinutes(minutes)}</div>
         <div className="khp-fields">
             <span>ชื่อ-นามสกุล ................................................................</span>
             <span>ชั้น ..................</span>
@@ -271,15 +279,32 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                 <div id="print-root">
                     {pages.map((bin, pi) => (
                         <section key={pi} className={`page${bin.oversize ? ' oversize' : ''}`}>
+                            {/* หัวกระดาษประจำแผ่น (แผ่น 2+ — แผ่นแรกมีหัวใหญ่อยู่แล้ว): ชุด+ระดับ / เว็บ */}
+                            {pi > 0 && (
+                                <div className="khp-runhead">
+                                    <span className="khp-runhead-title">{examTitle}{levelCategoryLabel(level, category)}</span>
+                                    <span>kruheemmath.com</span>
+                                </div>
+                            )}
+                            {/* ลายน้ำทแยงทุกแผ่น — เป็นตัวหนังสือจริง (ไม่ใช่ภาพพื้นหลัง) พิมพ์ติดเสมอ */}
+                            <div className="khp-watermark" aria-hidden>คลังข้อสอบครูฮีม · kruheemmath.com</div>
                             <div className="khp-content">
                                 {pi === 0 && <SheetHeader examTitle={examTitle} total={total} level={level} category={category} minutes={suggestedMinutes} />}
                                 {bin.items.map((qi) => <QuestionBlock key={sanitized[qi].id ?? qi} q={sanitized[qi]} idx={qi} />)}
                             </div>
-                            <div className="khp-pageno">หน้า {pi + 1} / {totalPages}</div>
+                            <div className="khp-foot">
+                                <span>© คลังข้อสอบครูฮีม · kruheemmath.com · สำหรับสมาชิกเท่านั้น ห้ามคัดลอก ดัดแปลง หรือจำหน่ายต่อ</span>
+                                <span className="khp-foot-no">หน้า {pi + 1} / {totalPages}</span>
+                            </div>
                         </section>
                     ))}
                     {showAnswers && ansChunks.map((chunk, ci) => (
                         <section key={`ans-${ci}`} className="page">
+                            <div className="khp-runhead">
+                                <span className="khp-runhead-title">{examTitle}{levelCategoryLabel(level, category)}</span>
+                                <span>kruheemmath.com</span>
+                            </div>
+                            <div className="khp-watermark" aria-hidden>คลังข้อสอบครูฮีม · kruheemmath.com</div>
                             <div className="khp-content">
                                 <section className="khp-answers">
                                     <h2>เฉลย — {examTitle}{ansChunks.length > 1 ? ` (${ci + 1}/${ansChunks.length})` : ''}</h2>
@@ -290,7 +315,10 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                                     </div>
                                 </section>
                             </div>
-                            <div className="khp-pageno">หน้า {(pages?.length ?? 0) + ci + 1} / {totalPages}</div>
+                            <div className="khp-foot">
+                                <span>© คลังข้อสอบครูฮีม · kruheemmath.com · สำหรับสมาชิกเท่านั้น ห้ามคัดลอก ดัดแปลง หรือจำหน่ายต่อ</span>
+                                <span className="khp-foot-no">หน้า {(pages?.length ?? 0) + ci + 1} / {totalPages}</span>
+                            </div>
                         </section>
                     ))}
                 </div>
@@ -321,8 +349,31 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                 /* แผ่นที่มีข้อเดียวสูงเกิน A4: ยอมสูงกว่าแผ่น (ตอนพิมพ์เนื้อไหลต่อแผ่นถัดไป
                    ดีกว่าโดน overflow ตัดเนื้อหาทิ้ง) */
                 .page.oversize { height: auto; min-height: 297mm; overflow: visible; }
-                .khp-content { width: 100%; }
-                .khp-pageno { position: absolute; bottom: 7mm; right: 14mm; font-size: 10.5px; color: #aaa; }
+                .khp-content { width: 100%; position: relative; z-index: 1; } /* เนื้อหาลอยเหนือลายน้ำ */
+
+                /* ── สัญลักษณ์ครูฮีมทุกแผ่น: หัวกระดาษ / ท้ายกระดาษ / ลายน้ำ ──
+                   ทั้งหมดวางแบบ absolute ในโซนขอบกระดาษ (padding 13/11mm)
+                   จึงไม่กินพื้นที่เนื้อหาและไม่กระทบการจัดหน้าที่วัดไว้ */
+                .khp-runhead {
+                    position: absolute; top: 4.5mm; left: 14mm; right: 14mm;
+                    display: flex; justify-content: space-between; gap: 12px;
+                    font-size: 10px; color: #999; letter-spacing: .3px;
+                }
+                .khp-runhead-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+                .khp-foot {
+                    position: absolute; bottom: 4mm; left: 14mm; right: 14mm;
+                    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+                    font-size: 9.5px; color: #aaa;
+                }
+                .khp-foot-no { flex-shrink: 0; color: #999; }
+                .khp-watermark {
+                    position: absolute; inset: 0; z-index: 0;
+                    display: flex; align-items: center; justify-content: center;
+                    transform: rotate(-32deg);
+                    font-size: 38px; font-weight: 700; letter-spacing: 4px;
+                    color: rgba(0, 0, 0, 0.05);
+                    pointer-events: none; user-select: none; white-space: nowrap;
+                }
                 /* จอเล็ก/มือถือ: แผ่น A4 กว้างกว่าจอ — เลื่อนดูเฉพาะโซนแผ่น (แถบปุ่มไม่เลื่อนตาม) */
                 .khp-scroll { overflow-x: auto; }
                 /* ใบแจ้งตอนกำลังจัดหน้า: ซ่อนบนจอ โผล่เฉพาะถ้าใครดันกดพิมพ์กลางคัน */
