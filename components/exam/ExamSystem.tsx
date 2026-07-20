@@ -1511,16 +1511,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     </button>
                 </div>
 
-                {/* 🖨️ พิมพ์ชุดนี้เป็น PDF — สมาชิก/ชุดฟรีเท่านั้น (ทดลองฟรีไปเจอหน้าล็อก) */}
+                {/* 🖨️ พิมพ์ชุดนี้เป็น PDF — ปุ่มชัดเจน (สมาชิก/ชุดฟรีเท่านั้น; ทดลองฟรีไปเจอหน้าล็อก) */}
                 {examId && !isTrial && (
-                    <div className="mb-6 text-center">
-                        <Link
-                            href={`/exam/${examId}/print`}
-                            className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors underline-offset-4 hover:underline"
-                        >
-                            <Printer size={16} /> ดาวน์โหลด / พิมพ์ชุดนี้เป็น PDF
-                        </Link>
-                    </div>
+                    <Link
+                        href={`/exam/${examId}/print`}
+                        className="group mb-4 w-full text-left bg-gradient-to-r from-sky-50 to-cyan-50 dark:from-sky-900/20 dark:to-cyan-900/20 rounded-3xl p-5 border-2 border-sky-200 dark:border-sky-700/50 hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                    >
+                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/20"><Printer size={26} /></div>
+                        <div className="min-w-0 flex-1">
+                            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">ดาวน์โหลด / พิมพ์เป็น PDF</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">พิมพ์ชุดนี้ลงกระดาษ หรือบันทึกเป็นไฟล์ PDF พร้อมเฉลย — จัดหน้าให้ข้อไม่ขาดกลางหน้า</p>
+                        </div>
+                        <ChevronRight className="flex-shrink-0 text-sky-400 group-hover:translate-x-1 transition-transform" size={22} />
+                    </Link>
                 )}
 
                 {/* ✍️ สมุดข้อผิด — ทำข้อที่เคยตอบผิด (parity กับหน้าเริ่มของคอร์ส) */}
