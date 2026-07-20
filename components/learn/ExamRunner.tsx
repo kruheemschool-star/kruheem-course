@@ -19,6 +19,9 @@ import {
     isDiagnosticExam,
     buildDiagnosticBreakdown,
     sampleDiagnosticQuiz,
+    computeRepairShop,
+    computeTimeSinks,
+    computeErrorProfile,
 } from "@/lib/exam-utils";
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown, Pause, Play, Coffee } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
@@ -1003,6 +1006,15 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         })();
         const paceRatio = (paceTarget > 0 && avgPaceAll > 0) ? avgPaceAll / paceTarget : 1;
         const proficiency = getProficiencyLevel(percent, paceRatio);
+
+        // === เฟส 1 วิเคราะห์ลึก (parity กับคลัง) ===
+        const isDiag = !isFocused && isDiagnosticExam(questions);
+        const repairShop = computeRepairShop(
+            questions.map((q, idx) => ({ tags: extractQuestionTags(q), answered: answers[idx] !== undefined, isCorrect: isAnswerCorrect(q, answers[idx]) })),
+            score, scoreDenom, isDiag);
+        const timeSinks = (!isDiag && hasTiming) ? computeTimeSinks(perQ, paceTarget) : { sinks: [], totalSinkSeconds: 0, unansweredCount: 0 };
+        const errorProfile = hasTiming ? computeErrorProfile(perQ, paceTarget) : null;
+
         const reviewList = perQ.filter((p) =>
             !p.answered || getCombinedVerdict(p.seconds, paceTarget, p.isCorrect, p.answered).shouldReview
         );
@@ -1095,6 +1107,82 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                             <div className="inline-flex items-start gap-2 text-left bg-white/70 dark:bg-slate-900/40 rounded-2xl px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 max-w-md">
                                 <span className="flex-shrink-0">👉</span><span>{proficiency.nextStep}</span>
                             </div>
+                        </div>
+                    )}
+
+                    {/* 🔧 ร้านซ่อมคะแนน (เฟส 1) */}
+                    {!isFocused && repairShop.items.length > 0 && (
+                        <div className="mb-8 rounded-3xl border-2 border-emerald-200 dark:border-emerald-800/60 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/10 p-5 md:p-6">
+                            <div className="flex items-start gap-3 mb-1">
+                                <div className="flex-shrink-0 w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center text-2xl shadow-md">🔧</div>
+                                <div className="min-w-0">
+                                    <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100">ร้านซ่อมคะแนน</h3>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">เก็บเรื่องพวกนี้ให้แน่น คะแนนขยับจาก <b className="text-slate-700 dark:text-slate-200">{percent}%</b> เป็นราว <b className="text-emerald-600 dark:text-emerald-400">{repairShop.projectedLow}–{repairShop.projectedHigh}%</b></p>
+                                </div>
+                            </div>
+                            <div className="mt-4 flex flex-col gap-2.5">
+                                {repairShop.items.map((it) => {
+                                    const inner = (
+                                        <>
+                                            <span className="flex-shrink-0 w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-black">🔧</span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block font-black text-slate-800 dark:text-slate-100 truncate">ซ่อมเรื่อง “{it.tag}”</span>
+                                                <span className="block text-xs text-slate-500 dark:text-slate-400">รอบนี้เสียไป {it.lost} คะแนน — เก็บได้คืนราว <b className="text-emerald-600 dark:text-emerald-400">+{it.gainLow}–{it.gainHigh} คะแนน</b></span>
+                                            </span>
+                                            {onTopicDrill && <span className="flex-shrink-0 text-sm font-black text-emerald-600 dark:text-emerald-400">ซ่อมเลย →</span>}
+                                        </>
+                                    );
+                                    const cls = "group flex items-center gap-3 rounded-2xl bg-white dark:bg-slate-800 border border-emerald-100 dark:border-emerald-800/50 px-4 py-3 hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-md transition-all w-full text-left";
+                                    return onTopicDrill
+                                        ? <button key={it.tag} onClick={() => onTopicDrill(it.tag)} className={cls}>{inner}</button>
+                                        : <div key={it.tag} className={cls}>{inner}</div>;
+                                })}
+                            </div>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3">* ประเมินจากคะแนนที่เสียรอบนี้ ตัวเลขจริงขึ้นกับการฝึก</p>
+                        </div>
+                    )}
+
+                    {/* 🎯 แยกชนิดความผิด: พลาดเอง/พื้นไม่แน่น/เดา (เฟส 1) */}
+                    {!isFocused && errorProfile && errorProfile.hasEnoughData && errorProfile.totalWrong >= 3 && (errorProfile.careless + errorProfile.concept + errorProfile.guess) > 0 && (
+                        <div className="mb-8 rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-5 md:p-6">
+                            <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1">รอบนี้พลาดแบบไหน</h3>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">ดูจากเวลาที่ใช้เทียบกับจังหวะปกติของน้องเอง — เป็นแนวโน้มของรอบนี้</p>
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                                <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 p-3"><div className="text-2xl font-black text-amber-600 dark:text-amber-400">{errorProfile.careless}</div><div className="text-xs font-bold text-amber-700/80 dark:text-amber-400/80 mt-0.5">💨 พลาดเอง</div></div>
+                                <div className="rounded-2xl bg-rose-50 dark:bg-rose-900/20 p-3"><div className="text-2xl font-black text-rose-600 dark:text-rose-400">{errorProfile.concept}</div><div className="text-xs font-bold text-rose-700/80 dark:text-rose-400/80 mt-0.5">🧱 พื้นไม่แน่น</div></div>
+                                <div className="rounded-2xl bg-slate-100 dark:bg-slate-700/40 p-3"><div className="text-2xl font-black text-slate-600 dark:text-slate-300">{errorProfile.guess}</div><div className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-0.5">🎲 เดา/หมดเวลา</div></div>
+                            </div>
+                            {errorProfile.careless > 0 && (
+                                <p className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-3 text-center">ตัด “พลาดเอง” {errorProfile.careless} ข้อได้ = คะแนนขึ้นทันทีโดยไม่ต้องเรียนเพิ่ม</p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 🕳️ หลุมเวลา (เฟส 1) */}
+                    {!isFocused && timeSinks.sinks.length > 0 && (
+                        <div className="mb-8 rounded-3xl border border-rose-100 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-900/10 p-5 md:p-6">
+                            <div className="flex items-start gap-3 mb-1">
+                                <div className="flex-shrink-0 w-11 h-11 rounded-2xl bg-rose-500 text-white flex items-center justify-center text-2xl shadow-md">🕳️</div>
+                                <div className="min-w-0">
+                                    <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100">หลุมเวลา</h3>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">ข้อที่กินเวลานานแล้วยังไม่ได้คะแนน — คราวหน้า “ข้ามก่อน วนกลับ” จะคุ้มกว่า</p>
+                                </div>
+                            </div>
+                            <div className="mt-4 flex flex-col gap-2">
+                                {timeSinks.sinks.map((sk) => (
+                                    <button key={sk.idx} onClick={() => setReviewingIndex(sk.idx)}
+                                        className="group flex items-center justify-between gap-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-4 py-3 text-left hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-md transition-all">
+                                        <span className="flex items-center gap-3 min-w-0">
+                                            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-900/40 text-sm font-black text-rose-600 dark:text-rose-300">{sk.idx + 1}</span>
+                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200">กิน {formatDuration(sk.seconds)} — เวลาเท่านี้ทำข้อปกติได้อีก {sk.easyEquiv} ข้อ</span>
+                                        </span>
+                                        <span className="text-xs text-slate-400 group-hover:text-rose-500 transition-colors flex-shrink-0">ดูข้อนี้ →</span>
+                                    </button>
+                                ))}
+                            </div>
+                            {timeSinks.unansweredCount > 0 && (
+                                <p className="text-xs text-rose-500/90 dark:text-rose-400 mt-3 font-semibold">รอบนี้เว้นว่างไป {timeSinks.unansweredCount} ข้อ — ถ้าไม่จมกับหลุมเวลา อาจเก็บข้อพวกนี้ได้</p>
+                            )}
                         </div>
                     )}
 

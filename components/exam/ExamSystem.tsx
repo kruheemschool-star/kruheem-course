@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz, isFillQuestion, isFillCorrect, computeRepairShop, computeTimeSinks } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz, isFillQuestion, isFillCorrect, computeRepairShop, computeTimeSinks, computeErrorProfile } from '@/lib/exam-utils';
 import { roundPercentileForN } from '@/lib/stat-honesty';
 import { QuestionCard } from './QuestionCard';
 import { AnalysisPreview, AnalysisPreviewLastResult } from './AnalysisPreview';
@@ -1025,6 +1025,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const timeSinks = (!isDiagnostic && hasTimingData)
             ? computeTimeSinks(perQuestionTiming, paceTarget)
             : { sinks: [], totalSinkSeconds: 0, unansweredCount: 0 };
+        const errorProfile = hasTimingData ? computeErrorProfile(perQuestionTiming, paceTarget) : null;
 
         // === Topic radar (F2) — % correct per tag for this exam ===
         const radarStats: Record<string, { correct: number; total: number }> = {};
@@ -1139,6 +1140,22 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                         ))}
                                     </div>
                                     <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3">* เป็นการประเมินจากคะแนนที่เสียในรอบนี้ ตัวเลขจริงขึ้นกับการฝึก</p>
+                                </div>
+                            )}
+
+                            {/* 🎯 แยกชนิดความผิด: พลาดเอง/พื้นไม่แน่น/เดา (เฟส 1) */}
+                            {errorProfile && errorProfile.hasEnoughData && errorProfile.totalWrong >= 3 && (errorProfile.careless + errorProfile.concept + errorProfile.guess) > 0 && (
+                                <div className="mb-10 rounded-3xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800/40 p-6 md:p-7">
+                                    <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1">รอบนี้พลาดแบบไหน</h3>
+                                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">ดูจากเวลาที่ใช้เทียบกับจังหวะปกติของน้องเอง — เป็นแนวโน้มของรอบนี้</p>
+                                    <div className="grid grid-cols-3 gap-3 text-center">
+                                        <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 p-4"><div className="text-3xl font-black text-amber-600 dark:text-amber-400">{errorProfile.careless}</div><div className="text-xs font-bold text-amber-700/80 dark:text-amber-400/80 mt-0.5">💨 พลาดเอง</div></div>
+                                        <div className="rounded-2xl bg-rose-50 dark:bg-rose-900/20 p-4"><div className="text-3xl font-black text-rose-600 dark:text-rose-400">{errorProfile.concept}</div><div className="text-xs font-bold text-rose-700/80 dark:text-rose-400/80 mt-0.5">🧱 พื้นไม่แน่น</div></div>
+                                        <div className="rounded-2xl bg-slate-100 dark:bg-slate-700/40 p-4"><div className="text-3xl font-black text-slate-600 dark:text-slate-300">{errorProfile.guess}</div><div className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-0.5">🎲 เดา/หมดเวลา</div></div>
+                                    </div>
+                                    {errorProfile.careless > 0 && (
+                                        <p className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-4 text-center">ตัด “พลาดเอง” {errorProfile.careless} ข้อได้ = คะแนนขึ้นทันทีโดยไม่ต้องเรียนเพิ่ม</p>
+                                    )}
                                 </div>
                             )}
 

@@ -936,3 +936,38 @@ export const computeTimeSinks = (
         unansweredCount: perQuestionTiming.filter((p) => !p.answered).length,
     };
 };
+
+export interface ErrorProfile {
+    careless: number;   // 💨 พลาดเอง (เร็วสำหรับตัวเอง+ในเป้า แต่ผิด)
+    concept: number;    // 🧱 พื้นไม่แน่น (ใช้เวลานานแล้วยังผิด)
+    guess: number;      // 🎲 เดา/หมดเวลา (เร็วผิดปกติ)
+    borderline: number; // ก้ำกึ่ง (ฟันธงไม่ได้จากสัญญาณเดียว)
+    totalWrong: number;
+    hasEnoughData: boolean; // ตอบ ≥8 ข้อจับเวลา จึงคำนวณ median ได้น่าเชื่อ
+}
+
+/**
+ * 🎯 แยกชนิดความผิด "สะเพร่า vs พื้นไม่แน่น vs เดา" จาก "เวลาที่ใช้" เทียบ
+ * median ของเด็กเอง (ไม่ใช่ค่ากลางทั้งเว็บ) — สัญญาณเดียวที่มีเสมอเมื่อจับเวลา
+ * มี "ถังก้ำกึ่ง" เสมอ ห้ามฟันธงจากสัญญาณเดียว · ต้องตอบ ≥8 ข้อจับเวลาถึงเชื่อ median
+ */
+export const computeErrorProfile = (
+    perQuestion: { seconds: number; answered: boolean; isCorrect: boolean }[],
+    paceTargetSeconds: number,
+): ErrorProfile => {
+    const timed = perQuestion.filter((p) => p.answered && p.seconds > 0);
+    const wrongTimed = timed.filter((p) => !p.isCorrect);
+    const empty: ErrorProfile = { careless: 0, concept: 0, guess: 0, borderline: 0, totalWrong: wrongTimed.length, hasEnoughData: timed.length >= 8 };
+    if (timed.length < 8) return empty;
+    const secs = timed.map((p) => p.seconds).sort((a, b) => a - b);
+    const mid = Math.floor(secs.length / 2);
+    const selfMed = secs.length % 2 ? secs[mid] : Math.round((secs[mid - 1] + secs[mid]) / 2);
+    let careless = 0, concept = 0, guess = 0, borderline = 0;
+    wrongTimed.forEach((p) => {
+        if (p.seconds < 0.35 * paceTargetSeconds) guess++;                                   // เร็วผิดปกติ = เดา/หมดเวลา
+        else if (p.seconds < selfMed && p.seconds <= paceTargetSeconds) careless++;            // เร็วกว่าปกติของตัวเอง+ในเป้า
+        else if (p.seconds >= selfMed) concept++;                                             // ช้ากว่าปกติแล้วยังผิด
+        else borderline++;
+    });
+    return { careless, concept, guess, borderline, totalWrong: wrongTimed.length, hasEnoughData: true };
+};
