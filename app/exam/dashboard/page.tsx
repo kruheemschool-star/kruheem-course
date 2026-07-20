@@ -35,6 +35,8 @@ interface ExamResult {
     tags: string[];
     completedAt: any;
     durationSeconds?: number;
+    // ความชำนาญรายหัวข้อจริง (นับต่อข้อของหัวข้อนั้น) — แม่นกว่าเกลี่ยคะแนนทั้งชุด
+    topicStats?: Record<string, { c: number; t: number }>;
     avgTimePerQuestion?: number;
     questionTimes?: Record<number, number>;
 }
@@ -162,14 +164,17 @@ export default function ExamDashboardPage() {
             }))
             .sort((a, b) => a.percent - b.percent); // weakest first
 
-        // Tag breakdown (only if tags exist)
+        // Tag breakdown — ใช้ topicStats (นับถูก/ทั้งหมด "ต่อข้อของหัวข้อนั้นจริง")
+        // ไม่เกลี่ยคะแนนทั้งชุดลงทุก tag แบบเดิม (ซึ่งทำให้ % ต่อหัวข้อเพี้ยน).
+        // ชุดเก่าที่ยังไม่มี topicStats จะไม่ถูกนับในส่วนนี้ (ดีกว่านับผิด).
         const tagMap: Record<string, { correct: number; total: number }> = {};
         results.forEach(r => {
-            if (!r.tags || r.tags.length === 0) return;
-            r.tags.forEach(tag => {
+            if (!r.topicStats) return;
+            Object.entries(r.topicStats).forEach(([tag, s]) => {
+                if (!s || typeof s.t !== 'number' || s.t <= 0) return;
                 if (!tagMap[tag]) tagMap[tag] = { correct: 0, total: 0 };
-                tagMap[tag].total += r.total;
-                tagMap[tag].correct += r.score;
+                tagMap[tag].total += s.t;
+                tagMap[tag].correct += s.c;
             });
         });
         const tags = Object.entries(tagMap)

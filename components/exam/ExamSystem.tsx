@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz, isFillQuestion, isFillCorrect } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz, isFillQuestion, isFillCorrect, computeRepairShop, computeTimeSinks } from '@/lib/exam-utils';
+import { roundPercentileForN } from '@/lib/stat-honesty';
 import { QuestionCard } from './QuestionCard';
 import { AnalysisPreview, AnalysisPreviewLastResult } from './AnalysisPreview';
 import { SampleAnalysisModal } from './SampleAnalysisModal';
@@ -265,6 +266,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const [wrongBook, setWrongBook] = useState<ExamQuestion[] | null>(null);
     // Full prior-attempt info for the "เทียบกับครั้งก่อน" card on the result screen.
     const priorInfoRef = useRef<{ lastPercent: number; lastSeconds: number; bestPercent: number; attempts: number } | null>(null);
+    // เปอร์เซ็นไทล์ครั้งก่อน (จาก percentileHistory) — โชว์เทรนด์อันดับในฝูง
+    const prevPercentileRef = useRef<{ at: number; percentile: number; percent: number; peerCount: number } | null>(null);
     const [comparePrev, setComparePrev] = useState<{ percent: number; seconds: number; best: number; attempt: number } | null>(null);
     // G1 parity: celebrate great results (A / perfect) with confetti — once per run.
     const [celebration, setCelebration] = useState<{ emoji: string; title: string; message: string } | null>(null);
@@ -402,7 +405,22 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 const pe = data?.perExam?.[examId];
                 if (pe && Array.isArray(pe.buckets) && pe.count > 0) {
                     const yourBucket = Math.min(9, Math.max(0, Math.floor(finalScore.percent / 10)));
-                    setPercentile({ percentile: percentileFromBuckets(pe.buckets, pe.count, finalScore.percent), count: pe.count, buckets: pe.buckets, yourBucket });
+                    const pct = percentileFromBuckets(pe.buckets, pe.count, finalScore.percent);
+                    setPercentile({ percentile: pct, count: pe.count, buckets: pe.buckets, yourBucket });
+                    // เฟส 1: บันทึกเปอร์เซ็นไทล์รายครั้ง (12 ครั้งล่าสุด) — ปลดล็อกเทรนด์ "อันดับในฝูง"
+                    if (user?.uid && !isTrial) {
+                        (async () => {
+                            try {
+                                const ref = doc(db, 'users', user.uid, 'examResults', examId);
+                                const snap = await getDoc(ref);
+                                if (!snap.exists()) return; // ผลหลักยังไม่ถูกเซฟ — ข้าม
+                                const prevHist = Array.isArray((snap.data() as any)?.percentileHistory) ? (snap.data() as any).percentileHistory : [];
+                                await updateDoc(ref, {
+                                    percentileHistory: [...prevHist.slice(-11), { at: Date.now(), percentile: pct, percent: finalScore.percent, peerCount: pe.count }],
+                                });
+                            } catch { /* non-fatal */ }
+                        })();
+                    }
                 }
             })
             .catch(() => { /* non-fatal: card just won't show */ })
@@ -487,6 +505,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     bestPercent: typeof d.bestPercent === 'number' ? d.bestPercent : percent,
                     attempts: typeof d.attempts === 'number' ? d.attempts : 0,
                 };
+                // เปอร์เซ็นไทล์ครั้งล่าสุดก่อนหน้า (ไว้โชว์เทรนด์ "อันดับในฝูง")
+                const ph = Array.isArray(d.percentileHistory) ? d.percentileHistory : [];
+                if (ph.length > 0) prevPercentileRef.current = ph[ph.length - 1];
                 // Mistake notebook (parity with the classroom start screen): rebuild
                 // the leftover wrong-question set from stored keys → offer on start.
                 const wrongMap = d.wrongQuestions || {};
@@ -726,6 +747,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         topicStats,
                         wrongQuestions,
                         seen,
+                        // เฟส 1 วิเคราะห์ลึก: ประวัติรายครั้ง (12 ครั้งล่าสุด) — ปลดล็อกกราฟเทรนด์
+                        history: [
+                            ...(Array.isArray(prev?.history) ? prev.history.slice(-11) : []),
+                            { percent, score, total: scoreDenom, durationSeconds: totalDurationSec, at: Date.now(), mode: paperEntry ? 'paper' : mode },
+                        ],
                     });
                     setNotebookLeft(Object.keys(wrongQuestions).length);
                     console.log('[ExamSystem] Exam result saved successfully');
@@ -989,6 +1015,17 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const paceRatio = (paceTarget > 0 && avgPaceAll > 0) ? avgPaceAll / paceTarget : 1;
         const proficiency = getProficiencyLevel(finalScore.percent, paceRatio);
 
+        // === 🔧 ร้านซ่อมคะแนน (เฟส 1) — ซ่อมเรื่องไหนได้กี่คะแนน ===
+        const repairShop = showAnswerChecking
+            ? computeRepairShop(
+                rSlice.map((q, idx) => ({ tags: q.tags || [], answered: answers[idx] !== undefined, isCorrect: isAnswerCorrect(q, answers[idx]) })),
+                finalScore.score, finalScore.total, isDiagnostic)
+            : { items: [], projectedLow: 0, projectedHigh: 0 };
+        // === 🕳️ หลุมเวลา (เฟส 1) — เฉพาะรอบจับเวลาที่มีข้อมูลเวลา ===
+        const timeSinks = (!isDiagnostic && hasTimingData)
+            ? computeTimeSinks(perQuestionTiming, paceTarget)
+            : { sinks: [], totalSinkSeconds: 0, unansweredCount: 0 };
+
         // === Topic radar (F2) — % correct per tag for this exam ===
         const radarStats: Record<string, { correct: number; total: number }> = {};
         rSlice.forEach((q, idx) => {
@@ -1077,6 +1114,61 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                     <span className="flex-shrink-0">👉</span><span>{proficiency.nextStep}</span>
                                 </div>
                             </div>
+
+                            {/* 🔧 ร้านซ่อมคะแนน — ซ่อมเรื่องไหนได้กี่คะแนน (เฟส 1) */}
+                            {repairShop.items.length > 0 && (
+                                <div className="mb-10 rounded-3xl border-2 border-emerald-200 dark:border-emerald-800/60 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/10 p-6 md:p-7">
+                                    <div className="flex items-start gap-3 mb-1">
+                                        <div className="flex-shrink-0 w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center text-2xl shadow-md">🔧</div>
+                                        <div className="min-w-0">
+                                            <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100">ร้านซ่อมคะแนน</h3>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">เก็บเรื่องพวกนี้ให้แน่น คะแนนขยับจาก <b className="text-slate-700 dark:text-slate-200">{finalScore.percent}%</b> เป็นราว <b className="text-emerald-600 dark:text-emerald-400">{repairShop.projectedLow}–{repairShop.projectedHigh}%</b></p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex flex-col gap-2.5">
+                                        {repairShop.items.map((it) => (
+                                            <Link key={it.tag} href={`/exam/practice?q=${encodeURIComponent(it.tag)}`}
+                                                className="group flex items-center gap-3 rounded-2xl bg-white dark:bg-slate-800 border border-emerald-100 dark:border-emerald-800/50 px-4 py-3 hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-md transition-all">
+                                                <span className="flex-shrink-0 w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 flex items-center justify-center font-black">🔧</span>
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block font-black text-slate-800 dark:text-slate-100 truncate">ซ่อมเรื่อง “{it.tag}”</span>
+                                                    <span className="block text-xs text-slate-500 dark:text-slate-400">รอบนี้เสียไป {it.lost} คะแนน — เก็บได้คืนราว <b className="text-emerald-600 dark:text-emerald-400">+{it.gainLow}–{it.gainHigh} คะแนน</b></span>
+                                                </span>
+                                                <span className="flex-shrink-0 text-sm font-black text-emerald-600 dark:text-emerald-400 group-hover:translate-x-0.5 transition-transform">ซ่อมเลย →</span>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-3">* เป็นการประเมินจากคะแนนที่เสียในรอบนี้ ตัวเลขจริงขึ้นกับการฝึก</p>
+                                </div>
+                            )}
+
+                            {/* 🕳️ หลุมเวลา — ข้อที่กินเวลาแล้วยังไม่ได้คะแนน (เฟส 1) */}
+                            {timeSinks.sinks.length > 0 && (
+                                <div className="mb-10 rounded-3xl border border-rose-100 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-900/10 p-6 md:p-7">
+                                    <div className="flex items-start gap-3 mb-1">
+                                        <div className="flex-shrink-0 w-11 h-11 rounded-2xl bg-rose-500 text-white flex items-center justify-center text-2xl shadow-md">🕳️</div>
+                                        <div className="min-w-0">
+                                            <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100">หลุมเวลา</h3>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">ข้อที่กินเวลานานแล้วยังไม่ได้คะแนน — คราวหน้า “ข้ามก่อน วนกลับ” จะได้คะแนนมากกว่า</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex flex-col gap-2">
+                                        {timeSinks.sinks.map((sk) => (
+                                            <button key={sk.idx} onClick={() => { setCurrentQuestionIndex(sk.idx); setIsFinished(false); }}
+                                                className="group flex items-center justify-between gap-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-4 py-3 text-left hover:border-rose-300 dark:hover:border-rose-700 hover:shadow-md transition-all">
+                                                <span className="flex items-center gap-3 min-w-0">
+                                                    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-900/40 text-sm font-black text-rose-600 dark:text-rose-300">{sk.idx + 1}</span>
+                                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">กิน {formatDuration(sk.seconds)} — เวลาเท่านี้ทำข้อปกติได้อีก {sk.easyEquiv} ข้อ</span>
+                                                </span>
+                                                <span className="text-xs text-slate-400 group-hover:text-rose-500 transition-colors flex-shrink-0">ดูข้อนี้ →</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {timeSinks.unansweredCount > 0 && (
+                                        <p className="text-xs text-rose-500/90 dark:text-rose-400 mt-3 font-semibold">รอบนี้เว้นว่างไป {timeSinks.unansweredCount} ข้อ — ถ้าไม่จมกับหลุมเวลา อาจเก็บข้อพวกนี้ได้</p>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Stats Row */}
                             <div className="grid grid-cols-3 gap-4 mb-10 text-center">
@@ -2114,10 +2206,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <div className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl rounded-tr-xl">ลดพิเศษ!</div>
                                 <p className="text-slate-500 dark:text-slate-400 text-sm font-bold mb-1 text-center">สมัครคลังข้อสอบวันนี้</p>
                                 <div className="flex items-center justify-center gap-3">
-                                    <span className="text-slate-400 line-through text-xl font-bold">฿990</span>
-                                    <span className="text-4xl font-black bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">฿790</span>
+                                    <span className="text-slate-400 line-through text-xl font-bold">฿1,500</span>
+                                    <span className="text-4xl font-black bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">฿990</span>
                                 </div>
-                                <p className="text-amber-600 dark:text-amber-400 text-xs font-bold text-center mt-1">ประหยัดไปถึง 20% 🔥</p>
+                                <p className="text-amber-600 dark:text-amber-400 text-xs font-bold text-center mt-1">ประหยัดไปถึง 34% 🔥</p>
                             </div>
                             
                             <div className="mb-4 text-rose-500/90 dark:text-rose-400 text-sm font-bold animate-pulse text-balance">

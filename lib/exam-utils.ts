@@ -838,3 +838,101 @@ export const buildDiagnosticBreakdown = (
     const levels = toStats(buckets.level).sort((a, b) => levelOrder.indexOf(a.tag) - levelOrder.indexOf(b.tag));
     return { topics, skills, origins, levels };
 };
+
+/* ============================================================
+   เฟส 1 วิเคราะห์ลึก — ร้านซ่อมคะแนน + หลุมเวลา (pure, ใช้ทั้งคลัง/คอร์ส)
+   ============================================================ */
+
+export interface RepairItem {
+    tag: string;
+    lost: number;       // คะแนนที่เสียในหัวข้อนี้ (ข้อผิด ข้อละ 1)
+    totalInSet: number; // จำนวนข้อหัวข้อนี้ในชุด
+    gainLow: number;    // คะแนนคาดว่าได้คืน ต่ำสุด (50% ของที่เสีย)
+    gainHigh: number;   // คะแนนคาดว่าได้คืน สูงสุด (90% — ห้ามสัญญา 100%)
+}
+
+export interface RepairShop {
+    items: RepairItem[];        // เรียงตามคะแนนที่เสีย มาก→น้อย (สูงสุด 3)
+    projectedLow: number;       // % ใหม่ถ้าซ่อมครบ (ฝั่งต่ำ)
+    projectedHigh: number;      // % ใหม่ถ้าซ่อมครบ (ฝั่งสูง)
+}
+
+/**
+ * 🔧 ร้านซ่อมคะแนน — นับคะแนนที่เสียรายหัวข้อจากกระดาษของเด็กเอง แล้วประเมิน
+ * "ถ้าซ่อมเรื่องนี้ได้ จะได้คืนกี่คะแนน" เป็นช่วง 50–90% ของที่เสีย (ไม่สัญญาเต็ม)
+ * เกณฑ์กันมั่ว: หัวข้อต้องผิด ≥2 ข้อ และชุดมีข้อหัวข้อนั้น ≥3 ข้อ
+ * tag ที่ติดทั้งชุด (ชื่อชุด/ชั้น) ถูกกรองออกด้วย getConstantTags เหมือนเรดาร์
+ */
+export const computeRepairShop = (
+    perQuestion: { tags: string[]; answered: boolean; isCorrect: boolean }[],
+    score: number,
+    denom: number,
+    isDiagnostic = false,
+): RepairShop => {
+    const constant = getConstantTags(perQuestion.map((q) => q.tags));
+    const stats: Record<string, { wrong: number; total: number }> = {};
+    perQuestion.forEach((q) => {
+        q.tags.forEach((tag) => {
+            if (constant.has(tag)) return;
+            // ชุดวินิจฉัย: นับเฉพาะมิติสาระ (ไม่เอา ทักษะ/ระดับ/ชั้น มาปนหัวข้อซ่อม)
+            if (isDiagnostic && classifyDiagnosticTag(tag) !== 'topic') return;
+            if (!stats[tag]) stats[tag] = { wrong: 0, total: 0 };
+            stats[tag].total++;
+            if (q.answered && !q.isCorrect) stats[tag].wrong++;
+        });
+    });
+    const items: RepairItem[] = Object.entries(stats)
+        .filter(([, s]) => s.wrong >= 2 && s.total >= 3)
+        .map(([tag, s]) => {
+            // ได้คืนราว 50–90% ของที่เสีย — ปัดให้เป็น "ช่วง" จริง ไม่ยุบเป็นเลขเดียว
+            // และไม่เกินจำนวนที่เสีย (ซ่อมได้มากสุด = เท่าที่เสีย)
+            const gainLow = Math.max(1, Math.floor(s.wrong * 0.5));
+            const gainHigh = Math.min(s.wrong, Math.max(gainLow + (s.wrong > gainLow ? 1 : 0), Math.ceil(s.wrong * 0.9)));
+            return { tag, lost: s.wrong, totalInSet: s.total, gainLow, gainHigh };
+        })
+        .sort((a, b) => b.lost - a.lost || a.tag.localeCompare(b.tag, 'th'))
+        .slice(0, 3);
+    // ภาพรวม: ถ้าซ่อมครบทุกเรื่องบนการ์ด คะแนนจะขยับไปแถวไหน
+    const sumLow = items.reduce((s, it) => s + it.gainLow, 0);
+    const sumHigh = items.reduce((s, it) => s + it.gainHigh, 0);
+    const projectedLow = denom > 0 ? Math.min(100, Math.round(((score + sumLow) / denom) * 100)) : 0;
+    const projectedHigh = denom > 0 ? Math.min(100, Math.round(((score + sumHigh) / denom) * 100)) : 0;
+    return { items, projectedLow, projectedHigh };
+};
+
+export interface TimeSink {
+    idx: number;        // index ข้อ (0-based)
+    seconds: number;    // เวลาที่จมไป
+    easyEquiv: number;  // เวลานี้ ≈ ทำข้อปกติได้กี่ข้อ (ตามเป้าเวลาต่อข้อ)
+}
+
+export interface TimeSinkReport {
+    sinks: TimeSink[];          // ข้อที่กินเวลา ≥3× เป้า แล้วยังผิด/ไม่ตอบ (เรียงเวลามาก→น้อย)
+    totalSinkSeconds: number;   // เวลารวมที่จมในหลุม
+    unansweredCount: number;    // ข้อที่เว้นว่างทั้งชุด (เหยื่อของหลุมเวลา)
+}
+
+/**
+ * 🕳️ หลุมเวลา — ข้อที่กินเวลาเกิน 3 เท่าของเป้าต่อข้อแล้วยังไม่ได้คะแนน
+ * = จุดที่ควร "ข้ามก่อน วนกลับ" · เลขคณิตล้วนจากข้อมูลของเด็กเอง ไม่มีการเดา
+ */
+export const computeTimeSinks = (
+    perQuestionTiming: { idx: number; seconds: number; answered: boolean; isCorrect: boolean }[],
+    paceTargetSeconds: number,
+): TimeSinkReport => {
+    const threshold = Math.max(60, paceTargetSeconds * 3);
+    const sinks: TimeSink[] = perQuestionTiming
+        .filter((p) => p.seconds >= threshold && !(p.answered && p.isCorrect))
+        .map((p) => ({
+            idx: p.idx,
+            seconds: p.seconds,
+            easyEquiv: Math.max(1, Math.floor(p.seconds / Math.max(1, paceTargetSeconds))),
+        }))
+        .sort((a, b) => b.seconds - a.seconds)
+        .slice(0, 5);
+    return {
+        sinks,
+        totalSinkSeconds: sinks.reduce((s, x) => s + x.seconds, 0),
+        unansweredCount: perQuestionTiming.filter((p) => !p.answered).length,
+    };
+};
