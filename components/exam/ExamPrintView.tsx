@@ -365,24 +365,50 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
             <div className="khprint-controls no-print">
                 <div className="khprint-controls-inner">
                     <Link href={backHref} className="khp-back"><ArrowLeft size={16} /> กลับไปทำข้อสอบ</Link>
-                    <label className="khp-toggle">
-                        <input type="checkbox" checked={showExam} onChange={(e) => setShowExam(e.target.checked)} />
-                        ชุดโจทย์
-                    </label>
-                    <label className="khp-toggle" style={{ marginLeft: 0 }}>
-                        <input type="checkbox" checked={showSheet} onChange={(e) => setShowSheet(e.target.checked)} />
-                        กระดาษคำตอบ
-                    </label>
-                    <label className="khp-toggle" style={{ marginLeft: 0 }}>
-                        <input type="checkbox" checked={showAnswers} onChange={(e) => setShowAnswers(e.target.checked)} />
-                        เฉลย (ตารางคำตอบ)
-                    </label>
-                    <label className="khp-toggle" style={{ marginLeft: 0 }}>
-                        <input type="checkbox" checked={showSolutions} onChange={(e) => setShowSolutions(e.target.checked)} />
-                        เฉลยวิธีทำละเอียด
-                    </label>
-                    <button onClick={() => window.print()} disabled={!pages || nothingSelected} className="khp-print-btn">
+                    <button onClick={() => window.print()} disabled={!pages || nothingSelected} className="khp-print-btn" style={{ marginLeft: 'auto' }}>
                         <Printer size={18} /> พิมพ์ / บันทึกเป็น PDF
+                    </button>
+                </div>
+
+                {/* ⚡ ชุดสำเร็จรูป — คนไม่ถนัดเลือกเอง กดปุ่มเดียวจัดให้ครบ */}
+                <div className="khp-presets">
+                    <span className="khp-presets-label">เลือกด่วน:</span>
+                    <button className="khp-preset-btn" onClick={() => { setShowExam(true); setShowSheet(true); setShowAnswers(false); setShowSolutions(false); }}>
+                        🧑‍🎓 ชุดแจกนักเรียน (โจทย์ + กระดาษคำตอบ)
+                    </button>
+                    <button className="khp-preset-btn" onClick={() => { setShowExam(false); setShowSheet(false); setShowAnswers(false); setShowSolutions(true); }}>
+                        📖 ไฟล์เฉลยวิธีทำอย่างเดียว
+                    </button>
+                    <button className="khp-preset-btn" onClick={() => { setShowExam(true); setShowSheet(true); setShowAnswers(true); setShowSolutions(true); }}>
+                        📦 ครบทุกส่วน
+                    </button>
+                </div>
+
+                {/* 🃏 การ์ดเลือกส่วนของเอกสาร — กดที่การ์ดเพื่อเอาเข้า/ออก */}
+                <div className="khp-parts">
+                    <button className={`khp-part${showExam ? ' on' : ''}`} onClick={() => setShowExam(!showExam)} aria-pressed={showExam}>
+                        <span className="khp-part-check">{showExam ? '✓' : ''}</span>
+                        <span className="khp-part-icon">📄</span>
+                        <span className="khp-part-title">ชุดโจทย์</span>
+                        <span className="khp-part-desc">ข้อสอบสำหรับลงมือทำ</span>
+                    </button>
+                    <button className={`khp-part${showSheet ? ' on' : ''}`} onClick={() => setShowSheet(!showSheet)} aria-pressed={showSheet}>
+                        <span className="khp-part-check">{showSheet ? '✓' : ''}</span>
+                        <span className="khp-part-icon">✏️</span>
+                        <span className="khp-part-title">กระดาษคำตอบ</span>
+                        <span className="khp-part-desc">แผ่นฝนวงกลมเหมือนสนามสอบ</span>
+                    </button>
+                    <button className={`khp-part${showAnswers ? ' on' : ''}`} onClick={() => setShowAnswers(!showAnswers)} aria-pressed={showAnswers}>
+                        <span className="khp-part-check">{showAnswers ? '✓' : ''}</span>
+                        <span className="khp-part-icon">✅</span>
+                        <span className="khp-part-title">เฉลยคำตอบ</span>
+                        <span className="khp-part-desc">ตารางคำตอบย่อท้ายเล่ม</span>
+                    </button>
+                    <button className={`khp-part${showSolutions ? ' on' : ''}`} onClick={() => setShowSolutions(!showSolutions)} aria-pressed={showSolutions}>
+                        <span className="khp-part-check">{showSolutions ? '✓' : ''}</span>
+                        <span className="khp-part-icon">📖</span>
+                        <span className="khp-part-title">เฉลยวิธีทำละเอียด</span>
+                        <span className="khp-part-desc">โจทย์ + วิธีทำทีละข้อ สไตล์ครูฮีม</span>
                     </button>
                 </div>
                 {/* เลือกชุดที่จะพิมพ์ — พิมพ์เท่าจำนวนข้อของแบบที่เลือก ไม่ใช่ทั้งชุดเสมอไป */}
@@ -582,6 +608,29 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                 .khp-print-btn { display: inline-flex; align-items: center; gap: 8px; background: #059669; color: #fff; font-weight: 800; font-size: 15px; padding: 10px 22px; border-radius: 999px; box-shadow: 0 8px 20px -8px rgba(5,150,105,.5); transition: transform .15s; }
                 .khp-print-btn:hover { transform: translateY(-1px); }
                 .khp-print-btn:disabled { opacity: .5; cursor: wait; }
+                /* ── ปุ่มชุดสำเร็จรูป + การ์ดเลือกส่วนเอกสาร ── */
+                .khp-presets { max-width: 860px; margin: 10px auto 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+                .khp-presets-label { font-size: 12.5px; font-weight: 700; color: #64748b; }
+                .khp-preset-btn { border: 1.5px solid #cbd5e1; border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; color: #475569; background: #fff; transition: all .15s; }
+                .khp-preset-btn:hover { border-color: #059669; color: #059669; background: #ecfdf5; }
+                .khp-parts { max-width: 860px; margin: 10px auto 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+                @media (min-width: 720px) { .khp-parts { grid-template-columns: repeat(4, 1fr); } }
+                .khp-part {
+                    position: relative; text-align: left; display: flex; flex-direction: column; gap: 2px;
+                    border: 2px solid #e2e8f0; background: #f8fafc; border-radius: 16px; padding: 12px 12px 10px;
+                    transition: all .15s; opacity: .7; cursor: pointer;
+                }
+                .khp-part:hover { opacity: .95; border-color: #94a3b8; }
+                .khp-part.on { border-color: #059669; background: #ecfdf5; opacity: 1; box-shadow: 0 6px 16px -8px rgba(5,150,105,.4); }
+                .khp-part-check {
+                    position: absolute; top: 9px; right: 10px; width: 24px; height: 24px; border-radius: 999px;
+                    border: 2px solid #cbd5e1; background: #fff; display: flex; align-items: center; justify-content: center;
+                    font-size: 14px; font-weight: 900; color: #fff; transition: all .15s;
+                }
+                .khp-part.on .khp-part-check { background: #059669; border-color: #059669; }
+                .khp-part-icon { font-size: 22px; line-height: 1; }
+                .khp-part-title { font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+                .khp-part-desc { font-size: 11px; color: #64748b; line-height: 1.4; }
                 .khp-hint { max-width: 860px; margin: 6px auto 0; font-size: 12px; color: #64748b; }
                 .khp-scope { max-width: 860px; margin: 8px auto 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
                 .khp-scope-label { font-size: 13px; font-weight: 700; color: #475569; }
