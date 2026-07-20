@@ -132,20 +132,25 @@ export default function HomeClient({ initialPromo }: { initialPromo: PromotionDa
         <div className="absolute bottom-[-20%] left-[20%] w-[70vw] h-[70vw] bg-slate-900/30 rounded-full blur-[120px]"></div>
       </div>
 
-      <div className="relative z-10 flex flex-col min-h-screen">
+      {/* pt-24 md:pt-28 = เว้นที่ให้ Navbar (fixed) เสมอ ไม่ว่าจะโชว์การ์ดไหนบนสุด
+          จึงย้ายการเว้นที่จาก section ย่อยมาไว้ที่นี่ที่เดียว (กันหน้าล้มเมื่อซ่อนนับถอยหลัง) */}
+      <div className="relative z-10 flex flex-col min-h-screen pt-24 md:pt-28">
         <Navbar />
 
         {/* Promotion Banner — above the hero; shown only when enabled in admin */}
         {promo?.enabled && (
-          <section className="pt-28 md:pt-32 pb-2 px-6">
+          <section className="pb-2 px-6">
             <div className="max-w-7xl mx-auto">
               <PromotionBanner promo={promo} dismissKey={promo.version ? `promo_${promo.version}` : undefined} track />
             </div>
           </section>
         )}
 
+        {/* นับถอยหลังวันสอบ — การ์ดส่วนแรกสุดของหน้า (แก้/ซ่อนได้ที่ /admin/countdown) */}
+        <ExamCountdownHero />
+
         {/* Hero Section - Asymmetrical Split */}
-        <header className={`${promo?.enabled ? "pt-8" : "pt-32"} pb-16 px-6 relative overflow-visible z-10`}>
+        <header className={`${promo?.enabled ? "pt-8" : "pt-10"} pb-16 px-6 relative overflow-visible z-10`}>
           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-6 items-center">
 
             {/* Left Column: Text Content */}
@@ -224,9 +229,6 @@ export default function HomeClient({ initialPromo }: { initialPromo: PromotionDa
             </div>
           </div>
         </header>
-
-        {/* นับถอยหลังวันสอบ — การ์ดหน้าแรก (แก้รายละเอียดที่ /admin/countdown) */}
-        <ExamCountdownHero />
 
         {/* Course Finder Section - Solution to Paradox of Choice */}
         {/* <CourseFinder /> */}

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Loader2, Check, AlertCircle, Clock, Save, ExternalLink } from "lucide-react";
+import { Loader2, Check, AlertCircle, Clock, Save, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { DEFAULT_COUNTDOWN, DEFAULT_QUOTES } from "@/components/home/ExamCountdownHero";
 
 // แก้รายละเอียดนาฬิกานับถอยหลังหน้าแรก → เขียนลง settings/homeCountdown
@@ -14,6 +14,7 @@ export default function AdminCountdownPage() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+    const [enabled, setEnabled] = useState(DEFAULT_COUNTDOWN.enabled);
     const [kicker, setKicker] = useState(DEFAULT_COUNTDOWN.kicker);
     const [examName, setExamName] = useState(DEFAULT_COUNTDOWN.examName);
     const [targetDate, setTargetDate] = useState(DEFAULT_COUNTDOWN.targetDate.slice(0, 16));
@@ -28,6 +29,7 @@ export default function AdminCountdownPage() {
                 const snap = await getDoc(doc(db, "settings", "homeCountdown"));
                 if (snap.exists()) {
                     const d = snap.data() as any;
+                    if (typeof d.enabled === "boolean") setEnabled(d.enabled);
                     if (typeof d.kicker === "string") setKicker(d.kicker);
                     if (typeof d.examName === "string") setExamName(d.examName);
                     if (typeof d.targetDate === "string" && d.targetDate) setTargetDate(d.targetDate.slice(0, 16));
@@ -56,6 +58,7 @@ export default function AdminCountdownPage() {
             const quotes = quotesText.split("\n").map((q) => q.trim()).filter(Boolean);
             const daysBefore = Math.max(1, Math.round(Number(startDaysBefore) || DEFAULT_COUNTDOWN.startDaysBefore));
             await setDoc(doc(db, "settings", "homeCountdown"), {
+                enabled,
                 kicker: kicker.trim(),
                 examName: examName.trim() || DEFAULT_COUNTDOWN.examName,
                 targetDate,
@@ -112,6 +115,44 @@ export default function AdminCountdownPage() {
                 <Link href="/" target="_blank" className="kh-pill no-dot inline-flex items-center gap-1.5" style={{ background: "var(--accent-soft)", color: "var(--accent-ink)" }}>
                     ดูหน้าแรก <ExternalLink size={13} />
                 </Link>
+            </div>
+
+            {/* เปิด/ปิด การ์ดนับถอยหลัง — สวิตช์หลัก (ปิด = ไม่แสดงบนหน้าแรกเลย) */}
+            <div className="kh-card flex items-center gap-4 px-5 py-4">
+                <div
+                    className="flex items-center justify-center w-11 h-11 rounded-full shrink-0"
+                    style={{
+                        background: enabled ? "var(--good-soft)" : "var(--card)",
+                        color: enabled ? "var(--good)" : "var(--ink3)",
+                        border: `1px solid ${enabled ? "var(--good)" : "var(--line)"}`,
+                    }}
+                >
+                    {enabled ? <Eye size={20} /> : <EyeOff size={20} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="text-[14px] font-bold kh-ink">
+                        {enabled ? "กำลังแสดงบนหน้าแรก" : "ซ่อนอยู่ — ไม่แสดงบนหน้าแรก"}
+                    </div>
+                    <p className="kh-ink3 text-[12px] mt-0.5">
+                        ปิดสวิตช์นี้เมื่อไม่ต้องการให้มีนาฬิกานับถอยหลังบนหน้าแรก แล้วกด “บันทึก” ด้านล่าง
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enabled}
+                    onClick={() => setEnabled((v) => !v)}
+                    className="relative inline-flex items-center rounded-full transition-colors shrink-0"
+                    style={{
+                        width: 52, height: 30,
+                        background: enabled ? "var(--accent)" : "var(--line)",
+                    }}
+                >
+                    <span
+                        className="absolute rounded-full bg-white shadow transition-all"
+                        style={{ width: 24, height: 24, top: 3, left: enabled ? 25 : 3 }}
+                    />
+                </button>
             </div>
 
             {/* Form */}

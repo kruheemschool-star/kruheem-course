@@ -17,6 +17,7 @@ import { db } from "@/lib/firebase";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface CountdownConfig {
+    enabled: boolean;    // เปิด/ปิดการ์ดนับถอยหลังทั้งใบ (ปิด = ไม่แสดงบนหน้าแรกเลย)
     kicker: string;      // ข้อความบรรทัดบน (เหนือชื่อสอบ) เช่น "นับถอยหลังสู่วันสอบ"
     examName: string;
     targetDate: string;  // ISO-ish "YYYY-MM-DDTHH:mm:ss" (ตีความเป็นเวลาไทย)
@@ -37,6 +38,7 @@ export const DEFAULT_QUOTES = [
 ];
 
 export const DEFAULT_COUNTDOWN: CountdownConfig = {
+    enabled: true,
     kicker: "นับถอยหลังสู่วันสอบ",
     examName: "สอบเข้ามหาวิทยาลัย",
     targetDate: "2027-03-06T09:00:00",
@@ -65,6 +67,7 @@ export default function ExamCountdownHero() {
                 if (!snap.exists()) return;
                 const d = snap.data() as Partial<CountdownConfig>;
                 setConfig((prev) => ({
+                    enabled: typeof d.enabled === "boolean" ? d.enabled : prev.enabled,
                     kicker: typeof d.kicker === "string" && d.kicker.trim() ? d.kicker : prev.kicker,
                     examName: typeof d.examName === "string" && d.examName.trim() ? d.examName : prev.examName,
                     targetDate: typeof d.targetDate === "string" && d.targetDate.trim() ? d.targetDate : prev.targetDate,
@@ -127,6 +130,10 @@ export default function ExamCountdownHero() {
     })();
 
     const quote = config.quotes[quoteIdx % Math.max(1, config.quotes.length)] || "";
+
+    // ปิดจากหลังบ้าน → ไม่แสดงการ์ดทั้งใบ (ซ่อนหลัง mount เพื่อเลี่ยง layout ค้าง
+    // ในกรณีเปิดปกติ ที่ default = true จึงไม่มีการกระพริบ)
+    if (mounted && !config.enabled) return null;
 
     return (
         <section className="khcd-wrap px-4 sm:px-6 py-10 md:py-14">
