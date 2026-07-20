@@ -682,7 +682,10 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                 .psol-fig { margin: 6px 0 2px 8px; }
                 .psol-fig svg { max-width: 300px; max-height: 170px; width: auto; height: auto; display: block; }
                 .psol-ans { margin: 7px 0 5px; font-size: 13.5px; font-weight: 700; color: #111; }
-                .psol-exp { font-size: 13px; line-height: 1.7; color: #333; border-left: 3px solid #ddd; padding-left: 10px; white-space: pre-wrap; }
+                /* ไม่ใส่ white-space: pre-wrap — MathRenderer แปลง \n เป็น <br> และตัด \n
+                   ออกจาก text แล้ว (ตรวจ DOM ยืนยัน) จึงไม่จำเป็น; ข้อที่วิธีทำยาวเกิน
+                   1 หน้า → แผ่นถูกธง oversize ไหลต่อแผ่นถัดไป (เนื้อหาไม่หาย) */
+                .psol-exp { font-size: 13px; line-height: 1.7; color: #333; border-left: 3px solid #ddd; padding-left: 10px; }
                 .khp-answers { padding-top: 4px; }
                 .khp-answers h2 { font-size: 17px; font-weight: 800; text-align: center; margin-bottom: 12px; color: #111; border-bottom: 2px solid #111; padding-bottom: 9px; }
                 .khp-answer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 5px 10px; font-size: 13px; color: #111; }
