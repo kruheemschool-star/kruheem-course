@@ -141,6 +141,14 @@ const menuItems = [
         description: 'Export Markdown ให้ AI วิเคราะห์',
         coverColor: 'from-indigo-100 to-purple-100',
     },
+    {
+        key: 'countdown',
+        href: '/admin/countdown',
+        icon: '⏰',
+        title: 'นับถอยหลังหน้าแรก',
+        description: 'ตั้งวันสอบ ชื่อสอบ คำคม',
+        coverColor: 'from-orange-100 to-amber-100',
+    },
 ];
 
 export default function MenuGrid({ pendingCount, ticketsCount, covers = {} }: MenuGridProps) {
