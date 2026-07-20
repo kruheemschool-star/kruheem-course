@@ -327,6 +327,9 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                         // หั่นแผ่นนี้เป็นคอลัมน์ละ AS_ROWS ข้อ (ไล่ลงคอลัมน์แรกให้เต็มก่อน)
                         const cols: number[][] = [];
                         for (let i = 0; i < chunk.length; i += AS_ROWS) cols.push(chunk.slice(i, i + AS_ROWS));
+                        // เติมคอลัมน์เปล่าให้ครบ 4 เสมอ — ทุกแผ่นโครงเดียวกัน ความกว้าง
+                        // คอลัมน์เท่ากันหมด (แผ่นท้ายที่ข้อไม่เต็มจะเหลือคอลัมน์ว่าง ไม่ยืดถ่าง)
+                        while (cols.length < AS_COLS) cols.push([]);
                         return (
                             <section key={`sheet-${si}`} className="page">
                                 <div className="khp-watermark" aria-hidden>คลังข้อสอบครูฮีม · kruheemmath.com</div>

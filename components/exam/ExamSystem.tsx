@@ -1298,15 +1298,6 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         >
                             📝 ดูเฉลยทุกข้อ
                         </button>
-                        {/* 🖨️ พิมพ์ PDF — โชว์บนหน้าผลลัพธ์ด้วย */}
-                        {examId && isMember && (
-                            <Link
-                                href={`/exam/${examId}/print`}
-                                className="px-8 py-4 rounded-full bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 font-bold hover:bg-sky-200 dark:hover:bg-sky-900/50 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Printer size={20} /> พิมพ์เป็น PDF
-                            </Link>
-                        )}
                         <button
                             onClick={handleRestart}
                             className="px-8 py-4 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
@@ -1716,16 +1707,6 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     </button>
                 )}
 
-                {/* 🖨️ พิมพ์ PDF — โชว์ตลอดระหว่างทำข้อสอบ (desktop sidebar) */}
-                {examId && isMember && (
-                    <Link
-                        href={`/exam/${examId}/print`}
-                        className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-all"
-                    >
-                        <Printer size={14} />
-                        พิมพ์ชุดนี้เป็น PDF
-                    </Link>
-                )}
             </div>
 
             {/* Main Content */}
@@ -1865,17 +1846,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                     <Trash2 size={12} /> ล้างคำตอบ
                                 </button>
                             )}
-                            <span className="ml-auto flex items-center gap-3">
-                                {/* 🖨️ พิมพ์ PDF — โชว์ตลอดระหว่างทำข้อสอบ (mobile) */}
-                                {examId && isMember && (
-                                    <Link href={`/exam/${examId}/print`} className="text-xs text-sky-600 dark:text-sky-400 font-bold flex items-center gap-1">
-                                        <Printer size={12} /> พิมพ์ PDF
-                                    </Link>
-                                )}
-                                <button onClick={() => setShowGrid(!showGrid)} className="text-xs text-indigo-500 font-bold">
-                                    {showGrid ? "ซ่อนแผนที่ข้อสอบ" : "ดูแผนที่ข้อสอบ"}
-                                </button>
-                            </span>
+                            <button onClick={() => setShowGrid(!showGrid)} className="text-xs text-indigo-500 font-bold ml-auto">
+                                {showGrid ? "ซ่อนแผนที่ข้อสอบ" : "ดูแผนที่ข้อสอบ"}
+                            </button>
                         </div>
                     </div>
                 </div>
