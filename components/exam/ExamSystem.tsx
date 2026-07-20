@@ -6,6 +6,8 @@ import { ExamQuestion } from '@/types/exam';
 import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz, isFillQuestion, isFillCorrect } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
 import { AnalysisPreview, AnalysisPreviewLastResult } from './AnalysisPreview';
+import { SampleAnalysisModal } from './SampleAnalysisModal';
+import { ExamCapabilities } from './ExamCapabilities';
 import CelebrationModal from '@/components/gamification/CelebrationModal';
 import ConfirmDialog from './ConfirmDialog';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
@@ -249,6 +251,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const [mode, setMode] = useState<'practice' | 'exam'>(initialQuestionIndex > 0 ? 'practice' : 'exam');
     // Prior result for this set (shown on the start-screen preview as motivation).
     const [priorResult, setPriorResult] = useState<AnalysisPreviewLastResult | null>(null);
+    // "ดูตัวอย่างผลวิเคราะห์" — full sample result modal, opened from the start screen.
+    const [showSample, setShowSample] = useState(false);
+    // Mistake-notebook parity: questions still answered-wrong for this set (loaded
+    // on mount) — offered as a "ทำข้อที่เคยผิด" run from the start screen.
+    const [wrongBook, setWrongBook] = useState<ExamQuestion[] | null>(null);
     // Full prior-attempt info for the "เทียบกับครั้งก่อน" card on the result screen.
     const priorInfoRef = useRef<{ lastPercent: number; lastSeconds: number; bestPercent: number; attempts: number } | null>(null);
     const [comparePrev, setComparePrev] = useState<{ percent: number; seconds: number; best: number; attempt: number } | null>(null);
@@ -470,6 +477,14 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     bestPercent: typeof d.bestPercent === 'number' ? d.bestPercent : percent,
                     attempts: typeof d.attempts === 'number' ? d.attempts : 0,
                 };
+                // Mistake notebook (parity with the classroom start screen): rebuild
+                // the leftover wrong-question set from stored keys → offer on start.
+                const wrongMap = d.wrongQuestions || {};
+                const wrongKeys = new Set(Object.keys(wrongMap));
+                if (wrongKeys.size > 0) {
+                    const wb = sanitizedExamData.filter((q) => wrongKeys.has(getQuestionKey(q)));
+                    if (wb.length > 0) setWrongBook(wb);
+                }
             } catch { /* non-fatal: preview just shows the demo ladder */ }
         })();
     }, [examId, isTrial, user?.uid]);
@@ -1449,6 +1464,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const canMini = !isTrial && sanitizedExamData.length > MINI_QUIZ_SIZE + 5;
         return (
             <div className="max-w-3xl mx-auto px-4 md:px-6 py-10 font-sans">
+                <SampleAnalysisModal open={showSample} onClose={() => setShowSample(false)} variant="bank" isDark={isDark} />
                 <div className="text-center mb-7">
                     <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-black">
                         <Award size={14} /> คลังข้อสอบครูฮีม
@@ -1495,17 +1511,42 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     </button>
                 </div>
 
+                {/* ✍️ สมุดข้อผิด — ทำข้อที่เคยตอบผิด (parity กับหน้าเริ่มของคอร์ส) */}
+                {wrongBook && wrongBook.length > 0 && (
+                    <button
+                        onClick={() => startSubset(wrongBook, 'wrong')}
+                        className="group mb-4 w-full text-left bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-3xl p-5 border-2 border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                    >
+                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20">✍️</div>
+                        <div>
+                            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">สมุดข้อผิด — ทำข้อที่เคยผิด ({wrongBook.length} ข้อ)</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">ข้อที่ยังตอบผิดค้างจากรอบก่อนๆ · ทำถูกเมื่อไหร่ ข้อจะหลุดจากสมุดอัตโนมัติ</p>
+                        </div>
+                    </button>
+                )}
+
                 {/* 🔮 ตัวอย่างผลวิเคราะห์ + บันไดปลดล็อก — แรงจูงใจให้ทำต่อ.
                     แสดงเฉพาะชุดที่เปิดวิเคราะห์ผล (showAnswerChecking) เพื่อไม่ให้
                     สัญญาเกินจริงกับชุดที่ไม่มีหน้าวิเคราะห์. */}
                 {showAnswerChecking && (
-                    <AnalysisPreview
-                        variant="bank"
-                        total={isTrial ? Math.min(5, sanitizedExamData.length) : sanitizedExamData.length}
-                        miniSize={MINI_QUIZ_SIZE}
-                        isDiagnostic={startIsDiagnostic}
-                        lastResult={priorResult}
-                    />
+                    <>
+                        <AnalysisPreview
+                            variant="bank"
+                            total={isTrial ? Math.min(5, sanitizedExamData.length) : sanitizedExamData.length}
+                            miniSize={MINI_QUIZ_SIZE}
+                            isDiagnostic={startIsDiagnostic}
+                            lastResult={priorResult}
+                        />
+                        {/* ปุ่มเปิดตัวอย่างผลวิเคราะห์แบบเต็มหน้า */}
+                        <button
+                            onClick={() => setShowSample(true)}
+                            className="mt-4 w-full rounded-3xl border-2 border-indigo-200 dark:border-indigo-700/60 bg-white dark:bg-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg transition-all px-6 py-4 flex items-center justify-center gap-2.5 text-indigo-700 dark:text-indigo-300 font-black"
+                        >
+                            🔍 ดูตัวอย่างผลวิเคราะห์แบบเต็ม (ก่อนตัดสินใจทำ)
+                        </button>
+                        {/* อธิบายรูปแบบ/เครื่องมือในห้องสอบ */}
+                        <ExamCapabilities variant="bank" className="mt-4" />
+                    </>
                 )}
             </div>
         );

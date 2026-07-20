@@ -7,6 +7,8 @@ import { Search, ArrowRight, FileText, Lightbulb, Loader2, BookOpen, BarChart3, 
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useTheme } from "next-themes";
+import { SampleAnalysisModal } from "./SampleAnalysisModal";
 
 interface ExamListClientProps {
     initialExams: any[];
@@ -83,6 +85,8 @@ const FALLBACK_SECTION: ExamSection = {
 export default function ExamListClient({ initialExams, enrollmentCount: initialEnrollmentCount = 0 }: ExamListClientProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ทั้งหมด");
+    const [showSample, setShowSample] = useState(false); // "ดูตัวอย่างผลวิเคราะห์" modal
+    const { resolvedTheme } = useTheme();
 
     // 🆕 Filters & Sort
     const [filterFree, setFilterFree] = useState(false);
@@ -470,7 +474,19 @@ export default function ExamListClient({ initialExams, enrollmentCount: initialE
                             <p className="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 mt-1 md:mt-1.5 font-medium">คนที่เรียน</p>
                         </div>
                     </div>
+
+                    {/* 🔍 ดูตัวอย่างผลวิเคราะห์ — ให้คนที่ยังไม่ซื้อเห็นคุณค่าก่อนตัดสินใจ */}
+                    <div className="mt-5 flex justify-center">
+                        <button
+                            onClick={() => setShowSample(true)}
+                            className="inline-flex items-center gap-2 rounded-full border-2 border-indigo-200 dark:border-indigo-700/60 bg-white dark:bg-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg transition-all px-6 py-3 text-indigo-700 dark:text-indigo-300 font-black text-sm md:text-base"
+                        >
+                            🔍 ทำเสร็จแล้วได้อะไร? ดูตัวอย่างผลวิเคราะห์
+                        </button>
+                    </div>
                 </div>
+
+                <SampleAnalysisModal open={showSample} onClose={() => setShowSample(false)} variant="bank" isDark={resolvedTheme === 'dark'} />
 
                 {/* Latest-update freshness banner (truthful, auto) */}
                 {latestUpdate && (

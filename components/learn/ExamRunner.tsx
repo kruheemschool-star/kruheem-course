@@ -37,6 +37,8 @@ const ScoreDistributionChart = dynamic(() => import("@/components/exam/ScoreDist
 import CelebrationModal from "@/components/gamification/CelebrationModal";
 import ConfirmDialog from "@/components/exam/ConfirmDialog";
 import { AnalysisPreview } from "@/components/exam/AnalysisPreview";
+import { SampleAnalysisModal } from "@/components/exam/SampleAnalysisModal";
+import { ExamCapabilities } from "@/components/exam/ExamCapabilities";
 
 interface ExamRunnerProps {
     questions: any[];
@@ -214,6 +216,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     // ยืนยันการส่งด้วย modal ในหน้า — window.confirm โดนบางเบราว์เซอร์บล็อก
     // (FB/LINE in-app, Chrome "ป้องกันกล่องโต้ตอบ") แล้วปุ่มส่งจะกดแล้วเงียบ
     const [confirmDialog, setConfirmDialog] = useState<{ title: string; detail?: string; confirmLabel: string; action: () => void } | null>(null);
+    // "ดูตัวอย่างผลวิเคราะห์" — full sample-result modal opened from the start screen
+    const [showSample, setShowSample] = useState(false);
     // หยุดเวลาชั่วคราว (พักเข้าห้องน้ำ/ดื่มน้ำ) — ใช้ได้ทั้งโหมดสอบและโหมดฝึก
     const [isPaused, setIsPaused] = useState(false);
     // ควิซวินิจฉัย (P3): ทำชุดย่อยสุ่มครอบทุกหัวข้อ แทนการทำทั้งชุด → เห็นจุดอ่อนเร็ว
@@ -691,6 +695,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     if (!mode) {
         return (
             <div className="w-full min-h-full flex flex-col items-center justify-center py-12 px-4 bg-slate-50 dark:bg-slate-900">
+                <SampleAnalysisModal open={showSample} onClose={() => setShowSample(false)} variant="course" isDark={isDark} />
                 <div className="w-full max-w-2xl">
                     <div className="text-center mb-8">
                         <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white mb-2">เลือกโหมดทำข้อสอบ</h2>
@@ -752,6 +757,15 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                             isDiagnostic={isDiagnosticExam(questions)}
                         />
                     </div>
+                    {/* ปุ่มเปิดตัวอย่างผลวิเคราะห์แบบเต็มหน้า */}
+                    <button
+                        onClick={() => setShowSample(true)}
+                        className="mt-4 w-full rounded-3xl border-2 border-emerald-200 dark:border-emerald-700/60 bg-white dark:bg-slate-800 hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-lg transition-all px-6 py-4 flex items-center justify-center gap-2.5 text-emerald-700 dark:text-emerald-300 font-black"
+                    >
+                        🔍 ดูตัวอย่างผลวิเคราะห์แบบเต็ม
+                    </button>
+                    {/* อธิบายรูปแบบ/เครื่องมือในห้องสอบ */}
+                    <ExamCapabilities variant="course" className="mt-4" />
 
                     {/* ✍️ สมุดข้อผิด (P2) — leftover wrong questions from past attempts */}
                     {wrongBook && wrongBook.length > 0 && (
