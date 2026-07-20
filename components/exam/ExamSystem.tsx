@@ -1306,10 +1306,25 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             {percentile && percentile.count >= 5 && (
                                 <div className="mb-10 rounded-3xl border border-indigo-100 dark:border-indigo-900/40 bg-gradient-to-br from-indigo-50/70 to-white dark:from-indigo-900/20 dark:to-slate-800/40 p-6 md:p-8">
                                     <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">🏆 อันดับของคุณ</h3>
-                                    <p className="text-slate-600 dark:text-slate-300 mb-4">
+                                    <p className="text-slate-600 dark:text-slate-300 mb-3">
                                         คุณทำได้ <span className="text-2xl md:text-3xl font-black text-indigo-600 dark:text-indigo-400 align-middle">เก่งกว่า {percentile.percentile}%</span>{' '}
                                         <span className="text-sm">ของคนที่ทำชุดนี้ ({percentile.count} ครั้ง)</span>
                                     </p>
+                                    {/* 📈 เทรนด์อันดับในฝูง (เฟส 1) — ขยับจากครั้งก่อนกี่อันดับ */}
+                                    {prevPercentileRef.current && (() => {
+                                        const prev = prevPercentileRef.current!.percentile;
+                                        const delta = percentile.percentile - prev;
+                                        if (Math.abs(delta) < 1) return (
+                                            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-slate-100 dark:bg-slate-700/50 px-4 py-1.5 text-sm font-bold text-slate-500 dark:text-slate-400">รักษาอันดับไว้ได้ — เท่าครั้งก่อน (เก่งกว่า {prev}%)</div>
+                                        );
+                                        const up = delta > 0;
+                                        return (
+                                            <div className={`mb-4 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-black ${up ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300'}`}>
+                                                {up ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                                                {up ? `แซงขึ้นมา ${Math.round(delta)} อันดับ` : `ตกลง ${Math.abs(Math.round(delta))} อันดับ`} จากครั้งก่อน (เคยเก่งกว่า {prev}%)
+                                            </div>
+                                        );
+                                    })()}
                                     <ScoreDistributionChart buckets={percentile.buckets} yourBucket={percentile.yourBucket} isDark={isDark} height={150} />
                                     <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-1">การกระจายคะแนนของทุกคน · <span className="text-amber-500 font-bold">แท่งสีส้ม</span> = ช่วงคะแนนของคุณ ({finalScore.percent}%)</p>
                                 </div>
