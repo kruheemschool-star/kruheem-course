@@ -342,7 +342,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                 /* ── แผ่น A4: ขนาดจริงทั้งบนจอและบนกระดาษ ── */
                 .page {
                     width: 210mm; height: 297mm; box-sizing: border-box;
-                    padding: 13mm 14mm 11mm;
+                    padding: 17mm 14mm 15mm; /* บน/ล่างเผื่อที่ให้หัว-ท้ายกระดาษหายใจ ไม่ชิดขอบ */
                     background: #fff; color: #111; position: relative; overflow: hidden;
                     margin: 18px auto; box-shadow: 0 10px 40px -12px rgba(0,0,0,.5);
                 }
@@ -355,13 +355,13 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                    ทั้งหมดวางแบบ absolute ในโซนขอบกระดาษ (padding 13/11mm)
                    จึงไม่กินพื้นที่เนื้อหาและไม่กระทบการจัดหน้าที่วัดไว้ */
                 .khp-runhead {
-                    position: absolute; top: 4.5mm; left: 14mm; right: 14mm;
+                    position: absolute; top: 8mm; left: 14mm; right: 14mm;
                     display: flex; justify-content: space-between; gap: 12px;
                     font-size: 10px; color: #999; letter-spacing: .3px;
                 }
                 .khp-runhead-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
                 .khp-foot {
-                    position: absolute; bottom: 4mm; left: 14mm; right: 14mm;
+                    position: absolute; bottom: 7mm; left: 14mm; right: 14mm;
                     display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
                     font-size: 9.5px; color: #aaa;
                 }
@@ -381,7 +381,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
 
                 /* กล่องวัดขนาด: กว้างเท่าพื้นที่เนื้อหา A4 เป๊ะ (210-28mm) ซ่อนนอกจอ */
                 .khp-measure { position: absolute; left: -9999px; top: 0; width: 182mm; background: #fff; }
-                .khp-probe { position: absolute; height: 273mm; width: 1px; } /* 297 - 13 - 11 มม. = พื้นที่ใช้ได้ */
+                .khp-probe { position: absolute; height: 265mm; width: 1px; } /* 297 - 17 - 15 มม. = พื้นที่ใช้ได้ (ต้องตรงกับ padding ของ .page เสมอ) */
 
                 /* ── โครงข้อสอบ (ใช้ทั้งกล่องวัดและแผ่นจริง) ── */
                 .khp-head { text-align: center; }

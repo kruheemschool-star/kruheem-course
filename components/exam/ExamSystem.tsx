@@ -11,6 +11,7 @@ import { ExamCapabilities } from './ExamCapabilities';
 import CelebrationModal from '@/components/gamification/CelebrationModal';
 import ConfirmDialog from './ConfirmDialog';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
+import { useExamBankMembership } from '@/hooks/useExamBankMembership';
 import { History, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee, Printer } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
@@ -222,6 +223,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const { resolvedTheme } = useTheme();
     const isDark = resolvedTheme === 'dark';
     const savedQ = useSavedQuestions();
+    // ปุ่มพิมพ์ PDF: เฉพาะสมาชิกคลังข้อสอบตัวจริง — ชุดฟรีใครก็ทำบนเว็บได้
+    // แต่ดาวน์โหลดทั้งชุดเป็นไฟล์ไม่ได้ (กันโหลดชุดฟรีไปก๊อป/ขายต่อ)
+    const { isMember } = useExamBankMembership();
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
     // MCQ answers are option indices (number); fill-in answers are typed text (string).
     const [answers, setAnswers] = useState<Record<number, number | string>>({});
@@ -1295,7 +1299,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             📝 ดูเฉลยทุกข้อ
                         </button>
                         {/* 🖨️ พิมพ์ PDF — โชว์บนหน้าผลลัพธ์ด้วย */}
-                        {examId && !isTrial && (
+                        {examId && isMember && (
                             <Link
                                 href={`/exam/${examId}/print`}
                                 className="px-8 py-4 rounded-full bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 font-bold hover:bg-sky-200 dark:hover:bg-sky-900/50 transition-colors flex items-center justify-center gap-2"
@@ -1521,7 +1525,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 </div>
 
                 {/* 🖨️ พิมพ์ชุดนี้เป็น PDF — ปุ่มชัดเจน (สมาชิก/ชุดฟรีเท่านั้น; ทดลองฟรีไปเจอหน้าล็อก) */}
-                {examId && !isTrial && (
+                {examId && isMember && (
                     <Link
                         href={`/exam/${examId}/print`}
                         className="group mb-4 w-full text-left bg-gradient-to-r from-sky-50 to-cyan-50 dark:from-sky-900/20 dark:to-cyan-900/20 rounded-3xl p-5 border-2 border-sky-200 dark:border-sky-700/50 hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
@@ -1713,7 +1717,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 )}
 
                 {/* 🖨️ พิมพ์ PDF — โชว์ตลอดระหว่างทำข้อสอบ (desktop sidebar) */}
-                {examId && !isTrial && (
+                {examId && isMember && (
                     <Link
                         href={`/exam/${examId}/print`}
                         className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-all"
@@ -1863,7 +1867,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             )}
                             <span className="ml-auto flex items-center gap-3">
                                 {/* 🖨️ พิมพ์ PDF — โชว์ตลอดระหว่างทำข้อสอบ (mobile) */}
-                                {examId && !isTrial && (
+                                {examId && isMember && (
                                     <Link href={`/exam/${examId}/print`} className="text-xs text-sky-600 dark:text-sky-400 font-bold flex items-center gap-1">
                                         <Printer size={12} /> พิมพ์ PDF
                                     </Link>

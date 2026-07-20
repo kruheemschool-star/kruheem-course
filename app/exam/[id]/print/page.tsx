@@ -61,7 +61,10 @@ export default async function ExamPrintPage(props: Props) {
     if (!exam || !Array.isArray(exam.questions) || exam.questions.length === 0) notFound();
 
     return (
-        <ExamAccessGuard isFree={exam.isFree || false}>
+        // จงใจส่ง isFree={false} เสมอ: ชุดฟรีเปิดให้ "ทำบนเว็บ" ฟรี แต่การดาวน์โหลด/
+        // พิมพ์ทั้งชุดเป็น PDF ต้องเป็นสมาชิกคลังข้อสอบเท่านั้น (กันโหลดไปก๊อป/ขายต่อ)
+        // guard จะเช็ค enrollment จริง → ไม่ใช่สมาชิก = isTrial → หน้าล็อกชวนสมัคร
+        <ExamAccessGuard isFree={false}>
             <ExamPrintView
                 examId={exam.id}
                 examTitle={exam.title || "ชุดข้อสอบ"}
