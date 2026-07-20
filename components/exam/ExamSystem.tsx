@@ -3,9 +3,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz, isFillQuestion, isFillCorrect } from '@/lib/exam-utils';
 import { QuestionCard } from './QuestionCard';
+import { AnalysisPreview, AnalysisPreviewLastResult } from './AnalysisPreview';
+import CelebrationModal from '@/components/gamification/CelebrationModal';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
+import { History, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, getDoc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -27,7 +30,7 @@ const ScoreDistributionChart = dynamic(() => import('./ScoreDistributionChart'),
 
 // === localStorage Auto-Save Helpers ===
 interface SavedExamProgress {
-    answers: Record<number, number>;
+    answers: Record<number, number | string>; // MCQ = index (number); fill-in = text (string)
     checkedQuestions: Record<number, boolean>;
     currentQuestionIndex: number;
     questionTimes: Record<number, number>;
@@ -215,7 +218,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const isDark = resolvedTheme === 'dark';
     const savedQ = useSavedQuestions();
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
-    const [answers, setAnswers] = useState<Record<number, number>>({});
+    // MCQ answers are option indices (number); fill-in answers are typed text (string).
+    const [answers, setAnswers] = useState<Record<number, number | string>>({});
     const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({});
     const [isFinished, setIsFinished] = useState(false); // Restore finish state
     const [showGrid, setShowGrid] = useState(false);
@@ -235,6 +239,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const [activeSubset, setActiveSubset] = useState<ExamQuestion[] | null>(null);
     const [subsetKind, setSubsetKind] = useState<'mini' | 'wrong' | null>(null);
     const [miniQuizDismissed, setMiniQuizDismissed] = useState(false);
+    // Start screen (parity with the classroom runner): pick โหมดฝึก vs โหมดจำลองสอบ
+    // and preview the analysis payoff BEFORE answering. A deep-link (?q=) or a
+    // resumed attempt skips straight into the exam (hasStarted set on restore).
+    const [hasStarted, setHasStarted] = useState(initialQuestionIndex > 0);
+    const [mode, setMode] = useState<'practice' | 'exam'>(initialQuestionIndex > 0 ? 'practice' : 'exam');
+    // Prior result for this set (shown on the start-screen preview as motivation).
+    const [priorResult, setPriorResult] = useState<AnalysisPreviewLastResult | null>(null);
+    // Full prior-attempt info for the "เทียบกับครั้งก่อน" card on the result screen.
+    const priorInfoRef = useRef<{ lastPercent: number; lastSeconds: number; bestPercent: number; attempts: number } | null>(null);
+    const [comparePrev, setComparePrev] = useState<{ percent: number; seconds: number; best: number; attempt: number } | null>(null);
+    // G1 parity: celebrate great results (A / perfect) with confetti — once per run.
+    const [celebration, setCelebration] = useState<{ emoji: string; title: string; message: string } | null>(null);
+    const celebratedRef = useRef(false);
 
     // Time tracking
     const examStartTime = React.useRef<number>(Date.now());
@@ -281,7 +298,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const countdownQuestionCount = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
     const autoCountdownMinutes = Math.max(1, Math.ceil((countdownQuestionCount * EXAM_SECONDS_PER_QUESTION) / 60));
     const effectiveTimeLimitMinutes = (timedMode && (timeLimitMinutes ?? 0) > 0) ? (timeLimitMinutes as number) : autoCountdownMinutes;
-    const isCountdown = totalQuestions > 0;
+    // โหมดจำลองสอบ = นับถอยหลัง; โหมดฝึก = นับขึ้น ไม่กดดัน (parity กับคอร์ส).
+    const isCountdown = mode === 'exam' && totalQuestions > 0;
     const timeLimitSeconds = effectiveTimeLimitMinutes * 60;
 
     // Accumulate the time spent on the current question, then restart its clock.
@@ -325,23 +343,23 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     // Tick the live stopwatch once per second while the exam is in progress.
     useEffect(() => {
-        if (isFinished || finalScore || totalQuestions === 0 || isPaused) return;
+        if (!hasStarted || isFinished || finalScore || totalQuestions === 0 || isPaused) return;
         const id = setInterval(() => setStopwatchTick((t) => t + 1), 1000);
         return () => clearInterval(id);
-    }, [isFinished, finalScore, totalQuestions, isPaused]);
+    }, [hasStarted, isFinished, finalScore, totalQuestions, isPaused]);
 
     // Auto-submit when a timed exam's countdown reaches zero. Fires exactly once
     // (autoSubmittedRef); re-runs each second because it depends on stopwatchTick.
     // Also catches a resume that lands already past the time limit (within ~1s).
     useEffect(() => {
-        if (!isCountdown || isFinished || finalScore || totalQuestions === 0) return;
+        if (!hasStarted || !isCountdown || isFinished || finalScore || totalQuestions === 0) return;
         if (autoSubmittedRef.current) return;
         if (getElapsedSeconds() >= timeLimitSeconds) {
             autoSubmittedRef.current = true;
             handleFinishExamRef.current(true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [stopwatchTick, isCountdown, isFinished, finalScore, totalQuestions, timeLimitSeconds]);
+    }, [stopwatchTick, hasStarted, isCountdown, isFinished, finalScore, totalQuestions, timeLimitSeconds]);
 
     // Snap state back into range if it drifted out of bounds
     useEffect(() => {
@@ -398,6 +416,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             examStartTime.current = Date.now();
             questionStartTime.current = Date.now();
             setWasRestored(true);
+            setHasStarted(true); // resume straight into the exam — skip the start screen
             return;
         }
         // No local data — try cloud if user is logged in
@@ -414,7 +433,35 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 questionStartTime.current = Date.now();
                 setWasRestored(true);
                 setRestoredFromCloud(true);
+                setHasStarted(true); // resume straight into the exam — skip the start screen
             }
+        })();
+    }, [examId, isTrial, user?.uid]);
+
+    // Read the prior result for this set (once) so the start-screen preview can
+    // show "ผลครั้งล่าสุดของคุณ" — concrete proof the analysis is real, not a demo.
+    const priorFetchedRef = useRef(false);
+    useEffect(() => {
+        if (!examId || isTrial || !user?.uid || priorFetchedRef.current) return;
+        priorFetchedRef.current = true;
+        (async () => {
+            try {
+                const snap = await getDoc(doc(db, 'users', user.uid, 'examResults', examId));
+                if (!snap.exists()) return;
+                const d = snap.data() as any;
+                const percent = typeof d.bestPercent === 'number' ? d.bestPercent
+                    : typeof d.percent === 'number' ? d.percent : null;
+                if (percent === null) return;
+                setPriorResult({ percent, grade: d.grade, attempts: d.attempts });
+                // Keep the LAST attempt's percent/time for the compare card (percent
+                // above is the BEST, which is right for the preview but not the diff).
+                priorInfoRef.current = {
+                    lastPercent: typeof d.percent === 'number' ? d.percent : percent,
+                    lastSeconds: typeof d.durationSeconds === 'number' ? d.durationSeconds : 0,
+                    bestPercent: typeof d.bestPercent === 'number' ? d.bestPercent : percent,
+                    attempts: typeof d.attempts === 'number' ? d.attempts : 0,
+                };
+            } catch { /* non-fatal: preview just shows the demo ladder */ }
         })();
     }, [examId, isTrial, user?.uid]);
 
@@ -445,12 +492,33 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     // ... (Keep handleSelectOption, handleCheckAnswer, handlePrev, handleNext)
 
+    // Unified correctness check: fill-in compares typed text against accepted
+    // answers (forgiving); MCQ compares the chosen option index. Keeps MCQ
+    // behavior byte-identical to the old `ans === correctIndex` comparison.
+    const isAnswerCorrect = useCallback((q: ExamQuestion, ans: number | string | undefined): boolean => {
+        if (isFillQuestion(q)) return isFillCorrect(typeof ans === 'string' ? ans : (ans == null ? '' : String(ans)), (q as any).answers);
+        return ans === q.correctIndex;
+    }, []);
+
     const handleSelectOption = (optionIndex: number) => {
         if (checkedQuestions[currentQuestionIndex]) return;
         // Per-question time is accumulated on navigation (commitTimeForCurrentQuestion),
         // so picking an answer no longer needs to touch the timer.
         setAnswers({ ...answers, [currentQuestionIndex]: optionIndex });
         setWasRestored(false); // Dismiss restored banner on interaction
+    };
+
+    // เติมคำ (fill-in): store typed text; an empty string clears the answer so
+    // "answered" bookkeeping (answers[i] !== undefined) stays correct.
+    const handleTextAnswer = (value: string) => {
+        if (checkedQuestions[currentQuestionIndex]) return;
+        setAnswers((prev) => {
+            const next = { ...prev };
+            if (value === '') delete next[currentQuestionIndex];
+            else next[currentQuestionIndex] = value;
+            return next;
+        });
+        setWasRestored(false);
     };
 
     const handleCheckAnswer = () => {
@@ -492,7 +560,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         // Calculate Score with NEW Clean Logic
         let score = 0;
         activeQuestions.slice(0, answerableCount).forEach((q, index) => {
-            if (answers[index] === q.correctIndex) score++;
+            if (isAnswerCorrect(q, answers[index])) score++;
         });
 
         // Partial submit ("ส่งเท่าที่ทำ") scores over the questions the student
@@ -533,7 +601,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     activeQuestions.slice(0, answerableCount).forEach((q, idx) => {
                         if (answers[idx] === undefined) return;
                         const k = getQuestionKey(q);
-                        if (answers[idx] === q.correctIndex) delete wrong[k];
+                        if (isAnswerCorrect(q, answers[idx])) delete wrong[k];
                         else wrong[k] = { at: Date.now() };
                     });
                     await updateDoc(ref, { wrongQuestions: wrong, updatedAt: serverTimestamp() });
@@ -552,7 +620,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             const wrongIndices: number[] = [];
             const allTags = new Set<string>();
             activeQuestions.slice(0, answerableCount).forEach((q, idx) => {
-                if (answers[idx] !== undefined && answers[idx] !== q.correctIndex) wrongIndices.push(idx);
+                if (answers[idx] !== undefined && !isAnswerCorrect(q, answers[idx])) wrongIndices.push(idx);
                 if (q.tags) q.tags.forEach((t: string) => allTags.add(t));
             });
             const avgTimePerQuestion = scoreDenom > 0 ? Math.round(totalDurationSec / scoreDenom) : 0;
@@ -589,7 +657,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     // wrong would balloon the notebook with unseen questions and skew
                     // every topic's mastery downward on every partial submit.
                     const answeredAttempt = activeQuestions.slice(0, answerableCount)
-                        .map((q, idx) => ({ q, answered: answers[idx] !== undefined, isCorrect: answers[idx] === q.correctIndex }))
+                        .map((q, idx) => ({ q, answered: answers[idx] !== undefined, isCorrect: isAnswerCorrect(q, answers[idx]) }))
                         .filter((x) => x.answered);
                     const perAttempt = answeredAttempt.map((x) => ({
                         tags: extractQuestionTags(x.q),
@@ -622,6 +690,19 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             console.log('[ExamSystem] Not saving result - user:', !!user, 'examId:', !!examId, 'isTrial:', isTrial);
         }
 
+        // 🎊 เทียบกับครั้งก่อน — ใช้ผลครั้งล่าสุดที่โหลดไว้ตอน mount (ก่อนถูกทับ).
+        if (showAnswerChecking && !isSubset && priorInfoRef.current && priorInfoRef.current.attempts >= 1) {
+            const pi = priorInfoRef.current;
+            setComparePrev({ percent: pi.lastPercent, seconds: pi.lastSeconds, best: pi.bestPercent, attempt: pi.attempts + 1 });
+        }
+
+        // 🎉 คอนเฟตติเมื่อทำได้ดี (A / เต็ม) — รอบจริงเท่านั้น ครั้งเดียวต่อรอบ.
+        if (showAnswerChecking && !isTrial && !celebratedRef.current) {
+            celebratedRef.current = true;
+            if (percent === 100) setCelebration({ emoji: '🏆', title: 'สุดยอด! คะแนนเต็ม! 🏆', message: 'ทำได้เต็ม 100% ไม่พลาดเลยสักข้อ เก่งมากๆ!' });
+            else if (percent >= 80) setCelebration({ emoji: '🎉', title: 'ยอดเยี่ยม! ได้เกรด A', message: `ทำได้ ${percent}% เก่งมาก รักษาฟอร์มแบบนี้ไว้นะ!` });
+        }
+
         if (onComplete) onComplete(score, answerableCount);
     };
     // Keep the auto-submit effect pointing at the latest closure (fresh state).
@@ -630,7 +711,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     // Find first wrong answer for review
     const handleReviewWrongAnswers = () => {
         const wrongIndex = activeQuestions.findIndex((q, idx) =>
-            answers[idx] !== undefined && answers[idx] !== q.correctIndex
+            answers[idx] !== undefined && !isAnswerCorrect(q, answers[idx])
         );
         if (wrongIndex !== -1) {
             setCurrentQuestionIndex(wrongIndex);
@@ -652,6 +733,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         setPercentile(null);
         percentileFetchedRef.current = false;
         autoSubmittedRef.current = false;
+        setComparePrev(null);
+        setCelebration(null);
+        celebratedRef.current = false;
         questionTimes.current = {};
         elapsedBeforeRef.current = 0;
         examStartTime.current = Date.now();
@@ -673,6 +757,18 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         resetRunState();
         setActiveSubset(qs);
         setSubsetKind(kind);
+        setHasStarted(true); // a subset can be launched from the start screen
+        if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Begin the full exam from the start screen in the chosen mode. Resets the
+    // clock so time doesn't accrue while the student reads the start screen.
+    const startExam = (m: 'practice' | 'exam') => {
+        setMode(m);
+        setHasStarted(true);
+        examStartTime.current = Date.now();
+        questionStartTime.current = Date.now();
+        elapsedBeforeRef.current = 0;
         if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -686,7 +782,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     // 🔁 ทำเฉพาะข้อที่ตอบผิดในรอบนี้ — ดริลล์เก็บให้หมด (settle สมุดข้อผิด).
     const startWrongReplay = () => {
         const wrongQs = activeQuestions.slice(0, isTrial ? Math.min(5, totalQuestions) : totalQuestions)
-            .filter((q, idx) => answers[idx] !== undefined && answers[idx] !== q.correctIndex);
+            .filter((q, idx) => answers[idx] !== undefined && !isAnswerCorrect(q, answers[idx]));
         startSubset(wrongQs, 'wrong');
     };
 
@@ -728,7 +824,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const rAnswerable = isTrial ? Math.min(5, activeQuestions.length) : activeQuestions.length;
         const rSlice = activeQuestions.slice(0, rAnswerable);
         // ข้อที่ "ตอบแล้วแต่ผิด" (ไม่รวมข้อที่ข้าม) — ชุดสำหรับปุ่มทำเฉพาะข้อที่ผิด
-        const answeredWrongCount = rSlice.filter((q, idx) => answers[idx] !== undefined && answers[idx] !== q.correctIndex).length;
+        const answeredWrongCount = rSlice.filter((q, idx) => answers[idx] !== undefined && !isAnswerCorrect(q, answers[idx])).length;
 
         // Weakness-diagnostic ("สแกนจุดอ่อน") funnel sets tag every question along
         // 4 dimensions (สาระ · ชั้นต้นทาง · ทักษะ · ระดับ). When detected, the result
@@ -747,7 +843,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             rSlice.forEach((q, idx) => {
                 if (answers[idx] === undefined) return; // ข้อที่ข้าม ไม่นับเป็นผิด
                 if (!q.tags || q.tags.length === 0) return;
-                const isCorrect = answers[idx] === q.correctIndex;
+                const isCorrect = isAnswerCorrect(q, answers[idx]);
                 q.tags.forEach((tag: string) => {
                     if (!stats[tag]) stats[tag] = { wrong: 0, total: 0 };
                     stats[tag].total++;
@@ -776,7 +872,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             idx,
             seconds: questionTimes.current[idx] ?? 0,
             answered: answers[idx] !== undefined,
-            isCorrect: answers[idx] === q.correctIndex,
+            isCorrect: isAnswerCorrect(q, answers[idx]),
         }));
         const timedQuestions = perQuestionTiming.filter(p => p.answered && p.seconds > 0);
         const hasTimingData = timedQuestions.length > 0;
@@ -809,7 +905,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         rSlice.forEach((q, idx) => {
             if (answers[idx] === undefined) return; // ข้อที่ข้าม ไม่นับในเรดาร์
             if (!q.tags || q.tags.length === 0) return;
-            const isCorrect = answers[idx] === q.correctIndex;
+            const isCorrect = isAnswerCorrect(q, answers[idx]);
             q.tags.forEach((tag: string) => {
                 if (!radarStats[tag]) radarStats[tag] = { correct: 0, total: 0 };
                 radarStats[tag].total++;
@@ -823,7 +919,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const diag = isDiagnostic
             ? buildDiagnosticBreakdown(
                 rSlice
-                    .map((q, idx) => ({ tags: q.tags, isCorrect: answers[idx] === q.correctIndex, answered: answers[idx] !== undefined }))
+                    .map((q, idx) => ({ tags: q.tags, isCorrect: isAnswerCorrect(q, answers[idx]), answered: answers[idx] !== undefined }))
                     .filter((x) => x.answered) // วิเคราะห์ 4 มุมเฉพาะข้อที่ตอบจริง
               )
             : null;
@@ -845,6 +941,15 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
         return (
             <div className="max-w-4xl mx-auto py-12 px-6">
+                {/* 🎉 Confetti celebration (A / perfect) */}
+                <CelebrationModal
+                    isOpen={!!celebration}
+                    onClose={() => setCelebration(null)}
+                    type="custom"
+                    customTitle={celebration?.title}
+                    customMessage={celebration?.message}
+                    customEmoji={celebration?.emoji}
+                />
                 <div className="bg-white dark:bg-slate-800 rounded-[3rem] shadow-xl p-8 md:p-12 border border-stone-100 dark:border-slate-700 relative overflow-hidden">
                     <div className={`absolute top-0 inset-x-0 h-60 bg-gradient-to-b ${showAnswerChecking ? finalScore.bgColor : 'from-indigo-500'} opacity-10 -z-10`}></div>
 
@@ -899,6 +1004,43 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                     <div className="text-slate-500 dark:text-slate-400 text-sm font-medium">ข้อทั้งหมด</div>
                                 </div>
                             </div>
+
+                            {/* 📈 เทียบกับครั้งก่อน (parity กับคอร์ส) */}
+                            {comparePrev && (() => {
+                                const delta = finalScore.percent - comparePrev.percent;
+                                const msg = finalScore.percent >= comparePrev.best && delta > 0 ? '🎉 ทำลายสถิติเดิม!'
+                                    : delta > 0 ? 'เก่งขึ้น! พัฒนาการดีมาก 👏'
+                                    : delta < 0 ? 'ครั้งนี้พลาดไปนิด ลองอีกครั้งได้นะ'
+                                    : 'รักษาระดับไว้ได้';
+                                const msgColor = delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : delta < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400';
+                                return (
+                                    <div className="mb-10 rounded-3xl border border-indigo-100 dark:border-slate-700 bg-gradient-to-br from-indigo-50/60 to-white dark:from-slate-800 dark:to-slate-800/40 p-5 md:p-6">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div className="w-11 h-11 rounded-2xl bg-indigo-500 text-white flex items-center justify-center"><History size={20} /></div>
+                                            <div>
+                                                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">เทียบกับครั้งก่อน</h3>
+                                                <p className="text-xs text-slate-400 dark:text-slate-500">นี่คือครั้งที่ {comparePrev.attempt} ของชุดนี้</p>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-3 items-center">
+                                            <div className="text-center bg-white dark:bg-slate-900/40 rounded-2xl p-3 border border-slate-100 dark:border-slate-700">
+                                                <div className="text-xl font-black text-slate-500 dark:text-slate-400 tabular-nums">{comparePrev.percent}%</div>
+                                                <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">ครั้งก่อน · {formatDuration(comparePrev.seconds)}</div>
+                                            </div>
+                                            <div className="text-center">
+                                                {delta > 0 ? <TrendingUp className="mx-auto text-emerald-500" size={22} /> : delta < 0 ? <TrendingDown className="mx-auto text-rose-500" size={22} /> : <span className="text-slate-300 text-xl font-black">=</span>}
+                                                <div className={`text-sm font-black tabular-nums ${delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : delta < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>{delta > 0 ? `+${delta}` : delta}%</div>
+                                            </div>
+                                            <div className="text-center bg-white dark:bg-slate-900/40 rounded-2xl p-3 border-2 border-indigo-200 dark:border-indigo-700">
+                                                <div className="text-xl font-black text-indigo-600 dark:text-indigo-400 tabular-nums">{finalScore.percent}%</div>
+                                                <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">ครั้งนี้ · {formatDuration(finalScore.durationSeconds)}</div>
+                                            </div>
+                                        </div>
+                                        <p className={`text-center text-sm font-bold mt-3 ${msgColor}`}>{msg}</p>
+                                        {comparePrev.best > finalScore.percent && <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-1">สถิติดีที่สุดของชุดนี้: {comparePrev.best}%</p>}
+                                    </div>
+                                );
+                            })()}
 
                             {/* 📊 เรดาร์จุดแข็ง-จุดอ่อนราย(สาระ|หัวข้อ) (F2) */}
                             {displayRadarData.length >= 3 && (
@@ -1214,7 +1356,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
                         {rSlice.map((q, idx) => {
                             const isUnanswered = answers[idx] === undefined;
-                            const isCorrect = !isUnanswered && answers[idx] === q.correctIndex;
+                            const isCorrect = !isUnanswered && isAnswerCorrect(q, answers[idx]);
                             const secs = questionTimes.current[idx] ?? 0;
                             const tv = getTimeVerdict(secs, paceTarget);
 
@@ -1272,6 +1414,77 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         );
     }
 
+    // ════════════════════ START SCREEN (โหมด + ตัวอย่างผลวิเคราะห์) ════════════════════
+    // Shown before the student answers anything. Lets them pick โหมดฝึก vs
+    // โหมดจำลองสอบ and — crucially — see the analysis payoff up front so they
+    // don't quit after 2 questions. Skipped on deep-link / resume (hasStarted).
+    if (!hasStarted && !isFinished) {
+        const startIsDiagnostic = isDiagnosticExam(sanitizedExamData);
+        const canMini = !isTrial && sanitizedExamData.length > MINI_QUIZ_SIZE + 5;
+        return (
+            <div className="max-w-3xl mx-auto px-4 md:px-6 py-10 font-sans">
+                <div className="text-center mb-7">
+                    <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-black">
+                        <Award size={14} /> คลังข้อสอบครูฮีม
+                    </div>
+                    <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100">{examTitle}</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">
+                        ทั้งหมด {sanitizedExamData.length} ข้อ — เลือกแบบที่เหมาะกับตอนนี้
+                        {isTrial && <span className="ml-2 bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 px-2 py-0.5 rounded text-xs font-bold">ทดลองฟรี 5 ข้อ</span>}
+                    </p>
+                </div>
+
+                {/* ⚡ ควิซย่อยวินิจฉัย — ชุดยาว: ทำ ~20 ข้อครอบทุกหัวข้อ รู้จุดอ่อนเร็ว */}
+                {canMini && (
+                    <button
+                        onClick={startMiniQuiz}
+                        className="group mb-4 w-full text-left bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 rounded-3xl p-5 border-2 border-violet-200 dark:border-violet-700/50 hover:border-violet-400 dark:hover:border-violet-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                    >
+                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-violet-500/20">⚡</div>
+                        <div>
+                            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">ควิซย่อยวินิจฉัย — {MINI_QUIZ_SIZE} ข้อ รู้จุดอ่อนเร็ว</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">สุ่มให้ครอบทุกหัวข้อจากทั้ง {sanitizedExamData.length} ข้อ · ไม่ต้องทำครบก็เห็นจุดอ่อนครบ</p>
+                        </div>
+                    </button>
+                )}
+
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                    {/* โหมดฝึก */}
+                    <button
+                        onClick={() => startExam('practice')}
+                        className="group text-left bg-white dark:bg-slate-800 rounded-3xl p-6 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-xl hover:-translate-y-1 transition-all"
+                    >
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-3xl shadow-lg shadow-emerald-500/20 mb-4">📝</div>
+                        <h3 className="text-lg font-black text-slate-800 dark:text-white mb-1">โหมดฝึก</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">จับเวลาแบบนับขึ้น ไม่กดดัน · เปิดดูเฉลยรายข้อได้ · เหมาะกับการทำความเข้าใจ</p>
+                    </button>
+                    {/* โหมดจำลองสอบ */}
+                    <button
+                        onClick={() => startExam('exam')}
+                        className="group text-left bg-white dark:bg-slate-800 rounded-3xl p-6 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-xl hover:-translate-y-1 transition-all"
+                    >
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center text-3xl shadow-lg shadow-indigo-500/20 mb-4">⏱️</div>
+                        <h3 className="text-lg font-black text-slate-800 dark:text-white mb-1">โหมดจำลองสอบ</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">นับถอยหลัง <b className="text-indigo-600 dark:text-indigo-400">{effectiveTimeLimitMinutes} นาที</b> · หยุดพักได้ · ส่งอัตโนมัติเมื่อหมดเวลา</p>
+                    </button>
+                </div>
+
+                {/* 🔮 ตัวอย่างผลวิเคราะห์ + บันไดปลดล็อก — แรงจูงใจให้ทำต่อ.
+                    แสดงเฉพาะชุดที่เปิดวิเคราะห์ผล (showAnswerChecking) เพื่อไม่ให้
+                    สัญญาเกินจริงกับชุดที่ไม่มีหน้าวิเคราะห์. */}
+                {showAnswerChecking && (
+                    <AnalysisPreview
+                        variant="bank"
+                        total={isTrial ? Math.min(5, sanitizedExamData.length) : sanitizedExamData.length}
+                        miniSize={MINI_QUIZ_SIZE}
+                        isDiagnostic={startIsDiagnostic}
+                        lastResult={priorResult}
+                    />
+                )}
+            </div>
+        );
+    }
+
     // ... (rest) ...
 
     return (
@@ -1318,8 +1531,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         const isAnswered = answers[idx] !== undefined;
                         const isCurrent = currentQuestionIndex === idx;
                         const isChecked = checkedQuestions[idx];
-                        const isCorrect = isChecked && isAnswered && answers[idx] === q.correctIndex;
-                        const isWrong = isChecked && isAnswered && answers[idx] !== q.correctIndex;
+                        const isCorrect = isChecked && isAnswered && isAnswerCorrect(q, answers[idx]);
+                        const isWrong = isChecked && isAnswered && !isAnswerCorrect(q, answers[idx]);
 
                         let btnClass = "bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-600 border-transparent"; // Default
                         let content: React.ReactNode = idx + 1;
@@ -1661,8 +1874,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 question={currentQuestion}
                                 questionNumber={currentQuestionIndex + 1}
                                 totalQuestions={totalQuestions}
-                                selectedOption={answers[currentQuestionIndex] ?? null}
+                                selectedOption={typeof answers[currentQuestionIndex] === 'number' ? (answers[currentQuestionIndex] as number) : null}
                                 onSelectOption={handleSelectOption}
+                                textAnswer={typeof answers[currentQuestionIndex] === 'string' ? (answers[currentQuestionIndex] as string) : ''}
+                                onChangeText={handleTextAnswer}
                                 isSubmitted={!!checkedQuestions[currentQuestionIndex]}
                                 showAnswerChecking={showAnswerChecking}
                                 isQuestionSaved={examId ? savedQ.isSaved(examId, currentQuestionIndex) : false}
@@ -1694,8 +1909,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     </button>
 
                     <div className="flex gap-3">
-                        {/* Check Answer Button (Restored) */}
-                        {!checkedQuestions[currentQuestionIndex] && !(isTrial && currentQuestionIndex >= 5) && (
+                        {/* Check Answer Button — peek is allowed in โหมดฝึก only;
+                            โหมดจำลองสอบ hides it so answers reveal only at submit. */}
+                        {mode === 'practice' && !checkedQuestions[currentQuestionIndex] && !(isTrial && currentQuestionIndex >= 5) && (
                             <button
                                 onClick={handleCheckAnswer}
                                 className={`px-4 sm:px-6 py-3 rounded-full font-bold text-sm sm:text-base border-2 transition-all ${answers[currentQuestionIndex] !== undefined

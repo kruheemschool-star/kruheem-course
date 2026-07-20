@@ -35,6 +35,7 @@ const ScoreDistributionChart = dynamic(() => import("@/components/exam/ScoreDist
     loading: () => <div style={{ height: 140 }} />,
 });
 import CelebrationModal from "@/components/gamification/CelebrationModal";
+import { AnalysisPreview } from "@/components/exam/AnalysisPreview";
 
 interface ExamRunnerProps {
     questions: any[];
@@ -52,6 +53,37 @@ interface ExamRunnerProps {
 }
 
 type Mode = 'practice' | 'exam';
+
+// ── บันทึกทำต่อกลางคัน (parity กับคลังข้อสอบ) ──
+// เก็บความคืบหน้าไว้ใน localStorage ต่อ lessonId เพื่อให้เด็กที่ทำชุดยาวแล้วปิด
+// แท็บ/ปิดเครื่อง กลับมาทำต่อจากจุดเดิมได้ (device-local, ไม่มี write ไป Firestore).
+interface LessonExamProgress {
+    answers: Record<number, number | string>;
+    revealed: Record<number, boolean>;
+    currentIndex: number;
+    qTimes: Record<number, number>;
+    elapsedBeforeSeconds: number;
+    mode: Mode;
+    savedAt: number;
+}
+const LESSON_PROGRESS_PREFIX = 'lesson_exam_progress_';
+const LESSON_PROGRESS_EXPIRY_HOURS = 72;
+const lessonProgressKey = (lessonId: string) => `${LESSON_PROGRESS_PREFIX}${lessonId}`;
+const saveLessonProgress = (lessonId: string, data: LessonExamProgress) => {
+    try { localStorage.setItem(lessonProgressKey(lessonId), JSON.stringify(data)); } catch { /* quota / private mode */ }
+};
+const loadLessonProgress = (lessonId: string): LessonExamProgress | null => {
+    try {
+        const raw = localStorage.getItem(lessonProgressKey(lessonId));
+        if (!raw) return null;
+        const data: LessonExamProgress = JSON.parse(raw);
+        if ((Date.now() - data.savedAt) / 36e5 > LESSON_PROGRESS_EXPIRY_HOURS) { localStorage.removeItem(lessonProgressKey(lessonId)); return null; }
+        return data;
+    } catch { return null; }
+};
+const clearLessonProgress = (lessonId: string) => {
+    try { localStorage.removeItem(lessonProgressKey(lessonId)); } catch { /* ignore */ }
+};
 
 // One stored attempt summary (kept small — used for history + compare).
 interface AttemptSummary {
@@ -176,6 +208,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     // P2: questions still in the mistake notebook (สมุดข้อผิด) for this set —
     // offered as a focused run from the start screen.
     const [wrongBook, setWrongBook] = useState<any[] | null>(null);
+    // ทำต่อกลางคัน: ความคืบหน้าที่ค้างไว้ (โหลดตอน mount) — เสนอปุ่ม "ทำต่อ" บนหน้าเริ่ม
+    const [resumable, setResumable] = useState<LessonExamProgress | null>(null);
     // หยุดเวลาชั่วคราว (พักเข้าห้องน้ำ/ดื่มน้ำ) — ใช้ได้ทั้งโหมดสอบและโหมดฝึก
     const [isPaused, setIsPaused] = useState(false);
     // ควิซวินิจฉัย (P3): ทำชุดย่อยสุ่มครอบทุกหัวข้อ แทนการทำทั้งชุด → เห็นจุดอ่อนเร็ว
@@ -272,12 +306,34 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     };
 
     const start = (m: Mode) => {
+        // เริ่มใหม่ = ทิ้งความคืบหน้าที่ค้างไว้ (ถ้ามี)
+        if (lessonId) clearLessonProgress(lessonId);
+        setResumable(null);
         setMode(m);
         setIsMini(false);
         setIsPartial(false);
         elapsedBeforeRef.current = 0;
         startTime.current = Date.now();
         qStartTime.current = Date.now();
+    };
+
+    // ทำต่อกลางคัน: กู้คืนคำตอบ/เวลา/โหมด ที่ค้างไว้ แล้วเข้าทำต่อจากจุดเดิม
+    const resumeExam = () => {
+        if (!resumable) return;
+        setAnswers(resumable.answers || {});
+        setRevealed(resumable.revealed || {});
+        setCurrentIndex(resumable.currentIndex || 0);
+        qTimes.current = resumable.qTimes || {};
+        elapsedBeforeRef.current = resumable.elapsedBeforeSeconds || 0;
+        isPausedRef.current = false;
+        setIsPaused(false);
+        setIsMini(false);
+        setIsPartial(false);
+        startTime.current = Date.now();
+        qStartTime.current = Date.now();
+        setMode(resumable.mode || 'practice');
+        setResumable(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     // ควิซวินิจฉัยสุ่ม (P3): หยิบ ~20 ข้อครอบทุกหัวข้อจากทั้งชุด แล้วรันเป็น attempt จริง
@@ -333,6 +389,36 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         const id = setInterval(() => setTick((t) => t + 1), 1000);
         return () => clearInterval(id);
     }, [mode, isSubmitted, isPaused]);
+
+    // ทำต่อกลางคัน: โหลดความคืบหน้าที่ค้างไว้ครั้งเดียวตอน mount (device-local)
+    const resumeLoadedRef = useRef(false);
+    useEffect(() => {
+        if (!lessonId || resumeLoadedRef.current) return;
+        resumeLoadedRef.current = true;
+        const saved = loadLessonProgress(lessonId);
+        if (saved && Object.keys(saved.answers || {}).length > 0) setResumable(saved);
+    }, [lessonId]);
+
+    // ทำต่อกลางคัน: บันทึกอัตโนมัติ (debounce) เฉพาะรอบเต็มปกติ — ไม่บันทึกควิซย่อย/
+    // ทำข้อที่ผิด/ส่งเท่าที่ทำ (คนละชุด/รอบทบทวน) และหยุดเมื่อส่งแล้ว.
+    const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        if (!lessonId || !mode || isSubmitted || isFocused || isMini || isPartial) return;
+        if (questions.length !== initialQuestions.length) return; // full set only (subset index ไม่ตรง)
+        if (Object.keys(answers).length === 0) return;
+        if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = setTimeout(() => {
+            saveLessonProgress(lessonId, {
+                answers, revealed, currentIndex,
+                qTimes: qTimes.current,
+                elapsedBeforeSeconds: elapsedNow(),
+                mode,
+                savedAt: Date.now(),
+            });
+        }, 500);
+        return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [answers, revealed, currentIndex, mode, isSubmitted, isFocused, isMini, isPartial, lessonId]);
 
     // P2: load this set's leftover mistake notebook once, so the start screen
     // can offer "ฝึกข้อที่เคยผิด". Matches stored keys against the FULL question
@@ -540,6 +626,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         setScore(s);
         setFinalDuration(elapsedNow());
         setIsSubmitted(true);
+        // จบรอบแล้ว — เคลียร์ความคืบหน้าที่ค้างไว้ (เฉพาะรอบเต็ม ไม่ใช่ควิซย่อย/ข้อที่ผิด)
+        if (lessonId && !isFocused && !isMini) clearLessonProgress(lessonId);
         onComplete();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -590,6 +678,19 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                         <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white mb-2">เลือกโหมดทำข้อสอบ</h2>
                         <p className="text-slate-500 dark:text-slate-400">ทั้งหมด {total} ข้อ — เลือกแบบที่เหมาะกับตอนนี้</p>
                     </div>
+                    {/* ▶️ ทำต่อกลางคัน — มีความคืบหน้าค้างไว้ */}
+                    {resumable && (
+                        <button
+                            onClick={resumeExam}
+                            className="group mb-4 w-full text-left bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-3xl p-5 border-2 border-emerald-300 dark:border-emerald-700/60 hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                        >
+                            <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-emerald-500/20"><Play size={28} className="fill-current" /></div>
+                            <div>
+                                <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">ทำต่อจากที่ค้างไว้ — ทำไปแล้ว {Object.keys(resumable.answers || {}).length} ข้อ</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">กลับมาทำต่อจากจุดเดิม ({resumable.mode === 'exam' ? 'โหมดจำลองสอบ' : 'โหมดฝึก'}) · หรือเลือกเริ่มใหม่ด้านล่าง</p>
+                            </div>
+                        </button>
+                    )}
                     {/* ⚡ ควิซวินิจฉัย (P3) — สำหรับชุดใหญ่: ทำ ~20 ข้อครอบทุกหัวข้อ รู้จุดอ่อนเร็ว */}
                     {total > MINI_QUIZ_SIZE + 5 && (
                         <button
@@ -622,6 +723,16 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                             <h3 className="text-lg font-black text-slate-800 dark:text-white mb-1">โหมดจำลองสอบ</h3>
                             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">นับถอยหลัง <b className="text-indigo-600 dark:text-indigo-400">{timeLimitMinutes} นาที</b> <span className="text-slate-400 dark:text-slate-500">({total} ข้อ × {examMinutesPerQuestion} นาที)</span> · หยุดพักได้ · ส่งอัตโนมัติเมื่อหมดเวลา</p>
                         </button>
+                    </div>
+
+                    {/* 🔮 ตัวอย่างผลวิเคราะห์ + บันไดปลดล็อก — แรงจูงใจให้ทำต่อ (เห็นภาพก่อนเริ่ม) */}
+                    <div className="mt-4">
+                        <AnalysisPreview
+                            variant="course"
+                            total={total}
+                            miniSize={MINI_QUIZ_SIZE}
+                            isDiagnostic={isDiagnosticExam(questions)}
+                        />
                     </div>
 
                     {/* ✍️ สมุดข้อผิด (P2) — leftover wrong questions from past attempts */}
