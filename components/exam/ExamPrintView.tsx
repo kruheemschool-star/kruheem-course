@@ -101,11 +101,28 @@ const SheetHeader: React.FC<{ examTitle: string; total: number; level?: string; 
     </header>
 );
 
+// ── กระดาษคำตอบแบบสนามสอบจริง (ฝนวงกลม) ──
+// คอลัมน์ละ 25 ข้อ (มาตรฐานบล็อก OMR) × 4 คอลัมน์ = 100 ข้อ/แผ่น
+// แถวสูงคงที่ → คำนวณจำนวนต่อแผ่นแบบตายตัวได้ ไม่ต้องผ่านตัววัดขนาด
+const AS_ROWS = 25;
+const AS_COLS = 4;
+const AS_PER_PAGE = AS_ROWS * AS_COLS;
+
 export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle, category, level, questions, isTrial = false }) => {
     const [showAnswers, setShowAnswers] = useState(true);
+    const [showSheet, setShowSheet] = useState(true); // แนบกระดาษคำตอบ
     const sanitized = useMemo(() => sanitizeExamData(questions as ExamQuestion[]), [questions]);
     const total = sanitized.length;
     const suggestedMinutes = Math.max(1, Math.ceil((total * 180) / 60));
+
+    // แบ่งข้อลงแผ่นกระดาษคำตอบ: แผ่นละ 100 ข้อ แล้วค่อยหั่นเป็นคอลัมน์ละ 25 ตอนเรนเดอร์
+    const sheetChunks = useMemo(() => {
+        const chunks: number[][] = [];
+        for (let i = 0; i < total; i += AS_PER_PAGE) {
+            chunks.push(Array.from({ length: Math.min(AS_PER_PAGE, total - i) }, (_, k) => i + k));
+        }
+        return chunks;
+    }, [total]);
 
     // ผลการจัดหน้า: pages = ลำดับ index ของข้อในแต่ละแผ่น (+ธงแผ่นสูงเกิน) / ansChunks = เฉลยต่อแผ่น
     const [pages, setPages] = useState<{ items: number[]; oversize: boolean }[] | null>(null);
@@ -218,7 +235,10 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
         );
     }
 
-    const totalPages = (pages?.length ?? 0) + (showAnswers ? ansChunks.length : 0);
+    // ลำดับแผ่น: ข้อสอบ → กระดาษคำตอบ → เฉลย (เลขหน้าไล่ต่อเนื่อง)
+    const examPageCount = pages?.length ?? 0;
+    const sheetPageCount = showSheet ? sheetChunks.length : 0;
+    const totalPages = examPageCount + sheetPageCount + (showAnswers ? ansChunks.length : 0);
 
     return (
         <div className="khprint-screen">
@@ -227,6 +247,10 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                 <div className="khprint-controls-inner">
                     <Link href={`/exam/${examId}`} className="khp-back"><ArrowLeft size={16} /> กลับไปทำข้อสอบ</Link>
                     <label className="khp-toggle">
+                        <input type="checkbox" checked={showSheet} onChange={(e) => setShowSheet(e.target.checked)} />
+                        แนบกระดาษคำตอบ
+                    </label>
+                    <label className="khp-toggle" style={{ marginLeft: 0 }}>
                         <input type="checkbox" checked={showAnswers} onChange={(e) => setShowAnswers(e.target.checked)} />
                         แนบเฉลยไว้หน้าสุดท้าย
                     </label>
@@ -298,6 +322,53 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                             </div>
                         </section>
                     ))}
+                    {/* ── กระดาษคำตอบ (OMR-style) — คอลัมน์ละ 25 ข้อ เหมือนสนามสอบจริง ── */}
+                    {showSheet && sheetChunks.map((chunk, si) => {
+                        // หั่นแผ่นนี้เป็นคอลัมน์ละ AS_ROWS ข้อ (ไล่ลงคอลัมน์แรกให้เต็มก่อน)
+                        const cols: number[][] = [];
+                        for (let i = 0; i < chunk.length; i += AS_ROWS) cols.push(chunk.slice(i, i + AS_ROWS));
+                        return (
+                            <section key={`sheet-${si}`} className="page">
+                                <div className="khp-watermark" aria-hidden>คลังข้อสอบครูฮีม · kruheemmath.com</div>
+                                <div className="khp-content">
+                                    <header className="khp-as-head">
+                                        <div className="khp-brand">คลังข้อสอบครูฮีม · kruheemmath.com</div>
+                                        <h2 className="khp-as-title">กระดาษคำตอบ{sheetChunks.length > 1 ? ` (แผ่นที่ ${si + 1}/${sheetChunks.length})` : ''}</h2>
+                                        <div className="khp-meta">{examTitle}{levelCategoryLabel(level, category)}</div>
+                                        <div className="khp-fields">
+                                            <span>ชื่อ-นามสกุล ................................................................</span>
+                                            <span>ชั้น ..................</span>
+                                            <span>เลขที่ ..................</span>
+                                        </div>
+                                        <div className="khp-as-instruction">ระบายวงกลมตัวเลือกที่ต้องการให้ทึบ ⬤ ข้อละ 1 คำตอบเท่านั้น · ข้อเติมคำให้เขียนคำตอบบนเส้น</div>
+                                        <div className="khp-rule" />
+                                    </header>
+                                    <div className="khp-as-cols">
+                                        {cols.map((col, ciNo) => (
+                                            <div key={ciNo} className="khp-as-col">
+                                                {col.map((qi) => (
+                                                    <div key={qi} className="khp-as-row">
+                                                        <span className="khp-as-no">{qi + 1}.</span>
+                                                        {isFillQuestion(sanitized[qi]) ? (
+                                                            <span className="khp-as-line" />
+                                                        ) : (
+                                                            <span className="khp-as-bubbles">
+                                                                {[1, 2, 3, 4].map((n) => <span key={n} className="khp-bub">{n}</span>)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="khp-foot">
+                                    <span>© คลังข้อสอบครูฮีม · kruheemmath.com · สำหรับสมาชิกเท่านั้น ห้ามคัดลอก ดัดแปลง หรือจำหน่ายต่อ</span>
+                                    <span className="khp-foot-no">หน้า {examPageCount + si + 1} / {totalPages}</span>
+                                </div>
+                            </section>
+                        );
+                    })}
                     {showAnswers && ansChunks.map((chunk, ci) => (
                         <section key={`ans-${ci}`} className="page">
                             <div className="khp-runhead">
@@ -317,7 +388,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                             </div>
                             <div className="khp-foot">
                                 <span>© คลังข้อสอบครูฮีม · kruheemmath.com · สำหรับสมาชิกเท่านั้น ห้ามคัดลอก ดัดแปลง หรือจำหน่ายต่อ</span>
-                                <span className="khp-foot-no">หน้า {(pages?.length ?? 0) + ci + 1} / {totalPages}</span>
+                                <span className="khp-foot-no">หน้า {examPageCount + sheetPageCount + ci + 1} / {totalPages}</span>
                             </div>
                         </section>
                     ))}
@@ -404,6 +475,23 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                 .pq-opt-no { font-weight: 700; flex-shrink: 0; }
                 .pq-opt-text { flex: 1; min-width: 0; }
                 .pq-fill { margin: 8px 0 6px 34px; font-size: 14px; color: #333; }
+
+                /* ── กระดาษคำตอบ OMR ── */
+                .khp-as-head { text-align: center; }
+                .khp-as-title { font-size: 20px; font-weight: 800; margin: 5px 0 2px; color: #111; }
+                .khp-as-instruction { font-size: 11.5px; color: #666; margin-top: 8px; }
+                .khp-as-cols { display: flex; gap: 0; margin-top: 10px; }
+                .khp-as-col { flex: 1; min-width: 0; padding: 0 8px; }
+                .khp-as-col + .khp-as-col { border-left: 1px dashed #ccc; }
+                .khp-as-row { display: flex; align-items: center; gap: 8px; height: 7.2mm; }
+                .khp-as-no { font-size: 12px; font-weight: 700; color: #333; min-width: 24px; text-align: right; flex-shrink: 0; }
+                .khp-as-bubbles { display: inline-flex; gap: 7px; }
+                .khp-bub {
+                    width: 5.4mm; height: 5.4mm; border: 1.2px solid #555; border-radius: 50%;
+                    display: inline-flex; align-items: center; justify-content: center;
+                    font-size: 8.5px; color: #555; line-height: 1;
+                }
+                .khp-as-line { flex: 1; border-bottom: 1px dotted #888; height: 5mm; margin-right: 6px; }
 
                 .khp-answers { padding-top: 4px; }
                 .khp-answers h2 { font-size: 17px; font-weight: 800; text-align: center; margin-bottom: 12px; color: #111; border-bottom: 2px solid #111; padding-bottom: 9px; }
