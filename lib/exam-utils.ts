@@ -870,33 +870,40 @@ export const computeRepairShop = (
     isDiagnostic = false,
 ): RepairShop => {
     const constant = getConstantTags(perQuestion.map((q) => q.tags));
-    const stats: Record<string, { wrong: number; total: number }> = {};
-    perQuestion.forEach((q) => {
+    // เก็บ "ดัชนีข้อที่ผิด" ต่อ tag (ไม่ใช่แค่ตัวนับ) เพื่อ (1) rank หัวข้อ และ
+    // (2) คำนวณ projection จาก "ข้อที่ผิดแบบไม่นับซ้ำ" — ข้อเดียวติดหลาย tag
+    // ต้องไม่ถูกนับคะแนนที่ได้คืนซ้ำหลายรอบ
+    const wrongIdxByTag: Record<string, Set<number>> = {};
+    const totalByTag: Record<string, number> = {};
+    perQuestion.forEach((q, i) => {
         q.tags.forEach((tag) => {
             if (constant.has(tag)) return;
-            // ชุดวินิจฉัย: นับเฉพาะมิติสาระ (ไม่เอา ทักษะ/ระดับ/ชั้น มาปนหัวข้อซ่อม)
-            if (isDiagnostic && classifyDiagnosticTag(tag) !== 'topic') return;
-            if (!stats[tag]) stats[tag] = { wrong: 0, total: 0 };
-            stats[tag].total++;
-            if (q.answered && !q.isCorrect) stats[tag].wrong++;
+            // เอาเฉพาะ tag "หัวข้อ/สาระ" ทุกโหมด — ไม่เอา ทักษะ/ระดับ(ง่าย-ยากมาก)/
+            // ชั้น/ชั้นต้นทาง มาเป็น "เรื่องที่ต้องซ่อม" (กันโชว์ "ซ่อมเรื่องยาก" +
+            // ลิงก์ฝึก ?q=ยาก ที่ไม่มีข้อ)
+            if (classifyDiagnosticTag(tag) !== 'topic') return;
+            totalByTag[tag] = (totalByTag[tag] || 0) + 1;
+            if (q.answered && !q.isCorrect) (wrongIdxByTag[tag] = wrongIdxByTag[tag] || new Set()).add(i);
         });
     });
-    const items: RepairItem[] = Object.entries(stats)
-        .filter(([, s]) => s.wrong >= 2 && s.total >= 3)
-        .map(([tag, s]) => {
-            // ได้คืนราว 50–90% ของที่เสีย — ปัดให้เป็น "ช่วง" จริง ไม่ยุบเป็นเลขเดียว
-            // และไม่เกินจำนวนที่เสีย (ซ่อมได้มากสุด = เท่าที่เสีย)
-            const gainLow = Math.max(1, Math.floor(s.wrong * 0.5));
-            const gainHigh = Math.min(s.wrong, Math.max(gainLow + (s.wrong > gainLow ? 1 : 0), Math.ceil(s.wrong * 0.9)));
-            return { tag, lost: s.wrong, totalInSet: s.total, gainLow, gainHigh };
-        })
-        .sort((a, b) => b.lost - a.lost || a.tag.localeCompare(b.tag, 'th'))
+    const gainRange = (lost: number) => {
+        const gainLow = Math.max(1, Math.floor(lost * 0.5));
+        const gainHigh = Math.min(lost, Math.max(gainLow + (lost > gainLow ? 1 : 0), Math.ceil(lost * 0.9)));
+        return { gainLow, gainHigh };
+    };
+    const ranked = Object.keys(totalByTag)
+        .map((tag) => ({ tag, wrongIdx: wrongIdxByTag[tag] || new Set<number>(), total: totalByTag[tag] }))
+        .filter((x) => x.wrongIdx.size >= 2 && x.total >= 3)
+        .sort((a, b) => b.wrongIdx.size - a.wrongIdx.size || a.tag.localeCompare(b.tag, 'th'))
         .slice(0, 3);
-    // ภาพรวม: ถ้าซ่อมครบทุกเรื่องบนการ์ด คะแนนจะขยับไปแถวไหน
-    const sumLow = items.reduce((s, it) => s + it.gainLow, 0);
-    const sumHigh = items.reduce((s, it) => s + it.gainHigh, 0);
-    const projectedLow = denom > 0 ? Math.min(100, Math.round(((score + sumLow) / denom) * 100)) : 0;
-    const projectedHigh = denom > 0 ? Math.min(100, Math.round(((score + sumHigh) / denom) * 100)) : 0;
+    const items: RepairItem[] = ranked.map((x) => ({ tag: x.tag, lost: x.wrongIdx.size, totalInSet: x.total, ...gainRange(x.wrongIdx.size) }));
+    // projection จาก "ข้อที่ผิดแบบไม่นับซ้ำ" ที่ครอบด้วยหัวข้อบนการ์ด — ซ่อมได้มาก
+    // สุด = จำนวนข้อผิด distinct จริง จึงเป็นไปไม่ได้ที่จะเกิน 100% เชิงตรรกะ
+    const distinctWrong = new Set<number>();
+    ranked.forEach((x) => x.wrongIdx.forEach((i) => distinctWrong.add(i)));
+    const { gainLow: pLow, gainHigh: pHigh } = distinctWrong.size > 0 ? gainRange(distinctWrong.size) : { gainLow: 0, gainHigh: 0 };
+    const projectedLow = denom > 0 ? Math.min(100, Math.round(((score + pLow) / denom) * 100)) : 0;
+    const projectedHigh = denom > 0 ? Math.min(100, Math.round(((score + pHigh) / denom) * 100)) : 0;
     return { items, projectedLow, projectedHigh };
 };
 
