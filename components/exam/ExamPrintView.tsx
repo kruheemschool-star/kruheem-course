@@ -4,8 +4,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Printer, ArrowLeft, Lock, Loader2 } from 'lucide-react';
 import MathRenderer from './MathRenderer';
-import { sanitizeExamData, isFillQuestion } from '@/lib/exam-utils';
+import { sanitizeExamData, isFillQuestion, sampleDiagnosticQuiz, getQuestionKey } from '@/lib/exam-utils';
 import { ExamQuestion } from '@/types/exam';
+import { useUserAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ExamPrintView v2 — จัดหน้าเป็น "แผ่น A4 จริง" ก่อนพิมพ์ (measured pagination)
@@ -113,30 +116,68 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
     const [showSheet, setShowSheet] = useState(true); // แนบกระดาษคำตอบ
     const sanitized = useMemo(() => sanitizeExamData(questions as ExamQuestion[]), [questions]);
     const total = sanitized.length;
-    const suggestedMinutes = Math.max(1, Math.ceil((total * 180) / 60));
+
+    // ── เลือกชุดที่จะพิมพ์: ทั้งชุด / ควิซย่อย (สุ่มครอบทุกหัวข้อ) / สมุดข้อผิด ──
+    const { user } = useUserAuth();
+    const [scope, setScope] = useState<'full' | 'mini' | 'wrong'>('full');
+    const [miniSet, setMiniSet] = useState<ExamQuestion[] | null>(null);
+    // สมุดข้อผิดของชุดนี้ (โหลดครั้งเดียว) — ใช้กรองชุด "เก็บข้อผิด"
+    const [wrongKeys, setWrongKeys] = useState<Set<string> | null>(null);
+    useEffect(() => {
+        if (!user?.uid || !examId) { setWrongKeys(new Set()); return; }
+        (async () => {
+            try {
+                const snap = await getDoc(doc(db, 'users', user.uid, 'examResults', examId));
+                setWrongKeys(new Set(Object.keys(((snap.data() as any)?.wrongQuestions) || {})));
+            } catch { setWrongKeys(new Set()); }
+        })();
+    }, [user?.uid, examId]);
+    const wrongSet = useMemo(
+        () => (wrongKeys ? sanitized.filter((q) => wrongKeys.has(getQuestionKey(q))) : []),
+        [wrongKeys, sanitized]
+    );
+    // กดควิซย่อย = สุ่มชุดใหม่ทุกครั้ง (ครอบทุกหัวข้อ เหมือนโหมดบนเว็บ)
+    const chooseMini = () => { setMiniSet(sampleDiagnosticQuiz(sanitized, 20)); setScope('mini'); };
+    // ชุดที่พิมพ์จริง — ถ้าชุดที่เลือกว่างเปล่า ให้ตกกลับมาชุดเต็ม (กันหน้าค้าง)
+    const activeSet = useMemo(() => {
+        const set = scope === 'mini' && miniSet ? miniSet : scope === 'wrong' ? wrongSet : sanitized;
+        return set.length > 0 ? set : sanitized;
+    }, [scope, miniSet, wrongSet, sanitized]);
+    const activeTotal = activeSet.length;
+    // ชื่อบนหัวกระดาษบอกชัดว่าเป็นชุดแบบไหน (กันสับสนกับชุดเต็ม)
+    const displayTitle = examTitle + (scope === 'mini' ? ` — ควิซย่อย ${activeTotal} ข้อ` : scope === 'wrong' ? ` — ชุดเก็บข้อผิด ${activeTotal} ข้อ` : '');
+    const suggestedMinutes = Math.max(1, Math.ceil((activeTotal * 180) / 60));
 
     // แบ่งข้อลงแผ่นกระดาษคำตอบ: แผ่นละ 100 ข้อ แล้วค่อยหั่นเป็นคอลัมน์ละ 25 ตอนเรนเดอร์
     const sheetChunks = useMemo(() => {
         const chunks: number[][] = [];
-        for (let i = 0; i < total; i += AS_PER_PAGE) {
-            chunks.push(Array.from({ length: Math.min(AS_PER_PAGE, total - i) }, (_, k) => i + k));
+        for (let i = 0; i < activeTotal; i += AS_PER_PAGE) {
+            chunks.push(Array.from({ length: Math.min(AS_PER_PAGE, activeTotal - i) }, (_, k) => i + k));
         }
         return chunks;
-    }, [total]);
+    }, [activeTotal]);
 
     // ผลการจัดหน้า: pages = ลำดับ index ของข้อในแต่ละแผ่น (+ธงแผ่นสูงเกิน) / ansChunks = เฉลยต่อแผ่น
     const [pages, setPages] = useState<{ items: number[]; oversize: boolean }[] | null>(null);
     const [ansChunks, setAnsChunks] = useState<number[][]>([]);
     const measureRef = useRef<HTMLDivElement>(null);
 
-    // ── เฟสวัดขนาด → บรรจุลงแผ่น ──
+    // ── เฟสวัดขนาด → บรรจุลงแผ่น (รันใหม่ทุกครั้งที่สลับชุดที่พิมพ์) ──
     useEffect(() => {
-        if (isTrial || total === 0) return;
+        if (isTrial || activeSet.length === 0) return;
         let cancelled = false;
+        // สลับชุด → ล้างแผ่นเดิมก่อน (กล่องวัดจะกลับมา mount ใน render ถัดไป)
+        setPages(null);
+        setAnsChunks([]);
         (async () => {
             // รอฟอนต์ (รวมฟอนต์สูตรคณิต KaTeX) พร้อมก่อน — ความสูงถึงจะนิ่ง
             try { await (document as any).fonts?.ready; } catch { /* เบราว์เซอร์เก่า */ }
-            const root = measureRef.current;
+            // รอกล่องวัด mount (หลัง setPages(null) ต้องผ่านอีก 1 render)
+            let root = measureRef.current;
+            for (let i = 0; i < 40 && !root && !cancelled; i++) {
+                await new Promise((r) => setTimeout(r, 50));
+                root = measureRef.current;
+            }
             if (!root || cancelled) return;
             // รอรูปทุกรูปในกล่องวัดโหลดเสร็จ (รูปโหลดช้า = ความสูงเปลี่ยน)
             const imgs = Array.from(root.querySelectorAll('img'));
@@ -199,14 +240,15 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
             if (ansEl) {
                 const ansH = ansEl.offsetHeight;
                 const nPages = Math.max(1, Math.ceil(ansH / (cap * 0.95)));
-                const per = Math.ceil(total / nPages);
-                for (let i = 0; i < total; i += per) chunks.push(Array.from({ length: Math.min(per, total - i) }, (_, k) => i + k));
+                const n = activeSet.length;
+                const per = Math.ceil(n / nPages);
+                for (let i = 0; i < n; i += per) chunks.push(Array.from({ length: Math.min(per, n - i) }, (_, k) => i + k));
             }
 
             if (!cancelled) { setPages(bins); setAnsChunks(chunks); }
         })();
         return () => { cancelled = true; };
-    }, [sanitized, total, isTrial]);
+    }, [activeSet, isTrial]);
 
     // 🔒 ทดลองฟรี: ไม่ให้พิมพ์ทั้งชุด (ไฟล์ PDF = เนื้อหาเต็มหลุดออกนอกระบบ)
     if (isTrial) {
@@ -258,6 +300,23 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                         <Printer size={18} /> พิมพ์ / บันทึกเป็น PDF
                     </button>
                 </div>
+                {/* เลือกชุดที่จะพิมพ์ — พิมพ์เท่าจำนวนข้อของแบบที่เลือก ไม่ใช่ทั้งชุดเสมอไป */}
+                <div className="khp-scope">
+                    <span className="khp-scope-label">พิมพ์ชุดไหน:</span>
+                    <button className={`khp-chip${scope === 'full' ? ' on' : ''}`} onClick={() => setScope('full')}>
+                        ทั้งชุด ({total} ข้อ)
+                    </button>
+                    {total > 25 && (
+                        <button className={`khp-chip${scope === 'mini' ? ' on' : ''}`} onClick={chooseMini} title="สุ่มครอบทุกหัวข้อ เหมือนควิซย่อยบนเว็บ · กดซ้ำเพื่อสุ่มชุดใหม่">
+                            ⚡ ควิซย่อย 20 ข้อ{scope === 'mini' ? ' · กดซ้ำ = สุ่มใหม่' : ''}
+                        </button>
+                    )}
+                    {wrongSet.length > 0 && (
+                        <button className={`khp-chip${scope === 'wrong' ? ' on' : ''}`} onClick={() => setScope('wrong')} title="เฉพาะข้อที่ยังตอบผิดค้างในสมุดข้อผิดของคุณ">
+                            ✍️ สมุดข้อผิด ({wrongSet.length} ข้อ)
+                        </button>
+                    )}
+                </div>
                 <p className="khp-hint">
                     {pages
                         ? <>จัดหน้าเสร็จแล้ว {totalPages} หน้า A4 — สิ่งที่เห็นด้านล่างคือหน้ากระดาษจริงทีละแผ่น · กดปุ่มแล้วเลือก “บันทึกเป็น PDF” (Save as PDF) ได้เลย</>
@@ -270,12 +329,12 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                 <div ref={measureRef} className="khp-measure" aria-hidden>
                     <div className="khp-probe" />
                     <div className="khp-content">
-                        <SheetHeader examTitle={examTitle} total={total} level={level} category={category} minutes={suggestedMinutes} />
-                        {sanitized.map((q, idx) => <QuestionBlock key={q.id ?? idx} q={q} idx={idx} />)}
+                        <SheetHeader examTitle={displayTitle} total={activeTotal} level={level} category={category} minutes={suggestedMinutes} />
+                        {activeSet.map((q, idx) => <QuestionBlock key={q.id ?? idx} q={q} idx={idx} />)}
                         <section className="khp-answers">
-                            <h2>เฉลย — {examTitle}</h2>
+                            <h2>เฉลย — {displayTitle}</h2>
                             <div className="khp-answer-grid">
-                                {sanitized.map((q, idx) => (
+                                {activeSet.map((q, idx) => (
                                     <span key={idx} className="khp-ans"><b>{idx + 1}.</b> {isFillQuestion(q) ? String(((q as any).answers?.[0] ?? '')).slice(0, 12) : (q.correctIndex ?? 0) + 1}</span>
                                 ))}
                             </div>
@@ -306,15 +365,15 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                             {/* หัวกระดาษประจำแผ่น (แผ่น 2+ — แผ่นแรกมีหัวใหญ่อยู่แล้ว): ชุด+ระดับ / เว็บ */}
                             {pi > 0 && (
                                 <div className="khp-runhead">
-                                    <span className="khp-runhead-title">{examTitle}{levelCategoryLabel(level, category)}</span>
+                                    <span className="khp-runhead-title">{displayTitle}{levelCategoryLabel(level, category)}</span>
                                     <span>kruheemmath.com</span>
                                 </div>
                             )}
                             {/* ลายน้ำทแยงทุกแผ่น — เป็นตัวหนังสือจริง (ไม่ใช่ภาพพื้นหลัง) พิมพ์ติดเสมอ */}
                             <div className="khp-watermark" aria-hidden>คลังข้อสอบครูฮีม · kruheemmath.com</div>
                             <div className="khp-content">
-                                {pi === 0 && <SheetHeader examTitle={examTitle} total={total} level={level} category={category} minutes={suggestedMinutes} />}
-                                {bin.items.map((qi) => <QuestionBlock key={sanitized[qi].id ?? qi} q={sanitized[qi]} idx={qi} />)}
+                                {pi === 0 && <SheetHeader examTitle={displayTitle} total={activeTotal} level={level} category={category} minutes={suggestedMinutes} />}
+                                {bin.items.map((qi) => <QuestionBlock key={activeSet[qi].id ?? qi} q={activeSet[qi]} idx={qi} />)}
                             </div>
                             <div className="khp-foot">
                                 <span>© คลังข้อสอบครูฮีม · kruheemmath.com · สำหรับสมาชิกเท่านั้น ห้ามคัดลอก ดัดแปลง หรือจำหน่ายต่อ</span>
@@ -337,7 +396,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                                     <header className="khp-as-head">
                                         <div className="khp-brand">คลังข้อสอบครูฮีม · kruheemmath.com</div>
                                         <h2 className="khp-as-title">กระดาษคำตอบ{sheetChunks.length > 1 ? ` (แผ่นที่ ${si + 1}/${sheetChunks.length})` : ''}</h2>
-                                        <div className="khp-meta">{examTitle}{levelCategoryLabel(level, category)}</div>
+                                        <div className="khp-meta">{displayTitle}{levelCategoryLabel(level, category)}</div>
                                         <div className="khp-fields">
                                             <span>ชื่อ-นามสกุล ................................................................</span>
                                             <span>ชั้น ..................</span>
@@ -352,7 +411,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                                                 {col.map((qi) => (
                                                     <div key={qi} className="khp-as-row">
                                                         <span className="khp-as-no">{qi + 1}.</span>
-                                                        {isFillQuestion(sanitized[qi]) ? (
+                                                        {isFillQuestion(activeSet[qi]) ? (
                                                             <span className="khp-as-line" />
                                                         ) : (
                                                             <span className="khp-as-bubbles">
@@ -375,16 +434,16 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                     {showAnswers && ansChunks.map((chunk, ci) => (
                         <section key={`ans-${ci}`} className="page">
                             <div className="khp-runhead">
-                                <span className="khp-runhead-title">{examTitle}{levelCategoryLabel(level, category)}</span>
+                                <span className="khp-runhead-title">{displayTitle}{levelCategoryLabel(level, category)}</span>
                                 <span>kruheemmath.com</span>
                             </div>
                             <div className="khp-watermark" aria-hidden>คลังข้อสอบครูฮีม · kruheemmath.com</div>
                             <div className="khp-content">
                                 <section className="khp-answers">
-                                    <h2>เฉลย — {examTitle}{ansChunks.length > 1 ? ` (${ci + 1}/${ansChunks.length})` : ''}</h2>
+                                    <h2>เฉลย — {displayTitle}{ansChunks.length > 1 ? ` (${ci + 1}/${ansChunks.length})` : ''}</h2>
                                     <div className="khp-answer-grid">
                                         {chunk.map((idx) => (
-                                            <span key={idx} className="khp-ans"><b>{idx + 1}.</b> {isFillQuestion(sanitized[idx]) ? String(((sanitized[idx] as any).answers?.[0] ?? '')).slice(0, 12) : (sanitized[idx].correctIndex ?? 0) + 1}</span>
+                                            <span key={idx} className="khp-ans"><b>{idx + 1}.</b> {isFillQuestion(activeSet[idx]) ? String(((activeSet[idx] as any).answers?.[0] ?? '')).slice(0, 12) : (activeSet[idx].correctIndex ?? 0) + 1}</span>
                                         ))}
                                     </div>
                                 </section>
@@ -411,6 +470,11 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
                 .khp-print-btn:hover { transform: translateY(-1px); }
                 .khp-print-btn:disabled { opacity: .5; cursor: wait; }
                 .khp-hint { max-width: 860px; margin: 6px auto 0; font-size: 12px; color: #64748b; }
+                .khp-scope { max-width: 860px; margin: 8px auto 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+                .khp-scope-label { font-size: 13px; font-weight: 700; color: #475569; }
+                .khp-chip { font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px; border: 1.5px solid #cbd5e1; color: #475569; background: #fff; transition: all .15s; }
+                .khp-chip:hover { border-color: #059669; color: #059669; }
+                .khp-chip.on { background: #059669; border-color: #059669; color: #fff; }
                 .khp-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 80px 20px; color: #e2e8f0; font-weight: 600; }
 
                 /* ── แผ่น A4: ขนาดจริงทั้งบนจอและบนกระดาษ ── */
