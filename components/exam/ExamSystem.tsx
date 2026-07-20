@@ -39,7 +39,7 @@ interface SavedExamProgress {
     currentQuestionIndex: number;
     questionTimes: Record<number, number>;
     elapsedBeforeSeconds?: number; // accumulated active exam time (sec) up to this save — resume-safe
-    mode?: 'practice' | 'exam'; // resume in the same mode (legacy saves default to 'exam')
+    mode?: 'practice' | 'exam' | 'paper'; // resume in the same mode (legacy saves default to 'exam'; 'paper' = กรอกคำตอบจากกระดาษ)
     savedAt: number; // timestamp
 }
 
@@ -116,7 +116,7 @@ const loadProgressFromCloud = async (uid: string, examId: string): Promise<Saved
             currentQuestionIndex: data.currentQuestionIndex || 0,
             questionTimes: data.questionTimes || {},
             elapsedBeforeSeconds: data.elapsedBeforeSeconds || 0,
-            mode: (data.mode === 'practice' || data.mode === 'exam') ? data.mode : undefined,
+            mode: (data.mode === 'practice' || data.mode === 'exam' || data.mode === 'paper') ? data.mode : undefined,
             savedAt,
         };
     } catch (e) {
@@ -257,6 +257,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const [priorResult, setPriorResult] = useState<AnalysisPreviewLastResult | null>(null);
     // "ดูตัวอย่างผลวิเคราะห์" — full sample result modal, opened from the start screen.
     const [showSample, setShowSample] = useState(false);
+    // 📝 โหมดกรอกคำตอบจากกระดาษ — เด็กที่พิมพ์ชุดไปทำบนกระดาษ กลับมากรอกคำตอบ
+    // ตามกระดาษคำตอบ (ไม่แสดงโจทย์ ไม่มีจับเวลา) แล้วส่งเข้าเส้นทางวิเคราะห์เดิมทั้งหมด
+    const [paperEntry, setPaperEntry] = useState(false);
     // Mistake-notebook parity: questions still answered-wrong for this set (loaded
     // on mount) — offered as a "ทำข้อที่เคยผิด" run from the start screen.
     const [wrongBook, setWrongBook] = useState<ExamQuestion[] | null>(null);
@@ -317,7 +320,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const autoCountdownMinutes = Math.max(1, Math.ceil((countdownQuestionCount * EXAM_SECONDS_PER_QUESTION) / 60));
     const effectiveTimeLimitMinutes = (timedMode && (timeLimitMinutes ?? 0) > 0) ? (timeLimitMinutes as number) : autoCountdownMinutes;
     // โหมดจำลองสอบ = นับถอยหลัง; โหมดฝึก = นับขึ้น ไม่กดดัน (parity กับคอร์ส).
-    const isCountdown = mode === 'exam' && totalQuestions > 0;
+    // โหมดกรอกจากกระดาษ = ไม่มีเวลาเลย (ทำบนกระดาษไปแล้ว).
+    const isCountdown = mode === 'exam' && totalQuestions > 0 && !paperEntry;
     const timeLimitSeconds = effectiveTimeLimitMinutes * 60;
 
     // Accumulate the time spent on the current question, then restart its clock.
@@ -361,10 +365,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
     // Tick the live stopwatch once per second while the exam is in progress.
     useEffect(() => {
-        if (!hasStarted || isFinished || finalScore || totalQuestions === 0 || isPaused) return;
+        if (!hasStarted || paperEntry || isFinished || finalScore || totalQuestions === 0 || isPaused) return;
         const id = setInterval(() => setStopwatchTick((t) => t + 1), 1000);
         return () => clearInterval(id);
-    }, [hasStarted, isFinished, finalScore, totalQuestions, isPaused]);
+    }, [hasStarted, paperEntry, isFinished, finalScore, totalQuestions, isPaused]);
 
     // Auto-submit when a timed exam's countdown reaches zero. Fires exactly once
     // (autoSubmittedRef); re-runs each second because it depends on stopwatchTick.
@@ -429,7 +433,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             setAnswers(local.answers);
             setCheckedQuestions(local.checkedQuestions || {});
             setCurrentQuestionIndex(local.currentQuestionIndex || 0);
-            if (local.mode === 'practice' || local.mode === 'exam') setMode(local.mode);
+            if (local.mode === 'paper') setPaperEntry(true);
+            else if (local.mode === 'practice' || local.mode === 'exam') setMode(local.mode);
             questionTimes.current = local.questionTimes || {};
             elapsedBeforeRef.current = local.elapsedBeforeSeconds || 0;
             examStartTime.current = Date.now();
@@ -446,7 +451,8 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 setAnswers(cloud.answers);
                 setCheckedQuestions(cloud.checkedQuestions || {});
                 setCurrentQuestionIndex(cloud.currentQuestionIndex || 0);
-                if (cloud.mode === 'practice' || cloud.mode === 'exam') setMode(cloud.mode);
+                if (cloud.mode === 'paper') setPaperEntry(true);
+                else if (cloud.mode === 'practice' || cloud.mode === 'exam') setMode(cloud.mode);
                 questionTimes.current = cloud.questionTimes || {};
                 elapsedBeforeRef.current = cloud.elapsedBeforeSeconds || 0;
                 examStartTime.current = Date.now();
@@ -505,12 +511,12 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 currentQuestionIndex,
                 questionTimes: questionTimes.current,
                 elapsedBeforeSeconds: getElapsedSeconds(),
-                mode,
+                mode: paperEntry ? 'paper' : mode,
                 savedAt: Date.now(),
             };
             saveProgressToLocal(examId, data);
         }, 500); // Debounce 500ms
-    }, [examId, isTrial, isFinished, isSubset, answers, checkedQuestions, currentQuestionIndex, mode, getElapsedSeconds]);
+    }, [examId, isTrial, isFinished, isSubset, answers, checkedQuestions, currentQuestionIndex, mode, paperEntry, getElapsedSeconds]);
 
     useEffect(() => {
         debouncedSave();
@@ -593,8 +599,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         setConfirmDialog(null);
 
         // Freeze timing at submit: count the current question's dwell, then snapshot total time.
-        commitTimeForCurrentQuestion();
-        const totalDurationSec = getElapsedSeconds();
+        // โหมดกรอกจากกระดาษ: เวลาบนเว็บไม่ใช่เวลาทำจริง → ไม่บันทึกเวลาเลย (ผลวิเคราะห์
+        // จะไม่แสดงส่วนจับเวลา และ paceRatio เป็นกลาง ไม่ถูกนับว่า "ทำเร็ว")
+        if (!paperEntry) commitTimeForCurrentQuestion();
+        const totalDurationSec = paperEntry ? 0 : getElapsedSeconds();
 
         // Calculate Score with NEW Clean Logic
         let score = 0;
@@ -800,9 +808,45 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    // 📝 เริ่มโหมดกรอกคำตอบจากกระดาษ — ไม่มีเวลา, ไม่แตะ timer, คำตอบเดิม (ถ้ามี
+    // เซฟค้าง) ถูกกู้มาให้กรอกต่อได้
+    const startPaperEntry = () => {
+        setPaperEntry(true);
+        setHasStarted(true);
+        questionTimes.current = {}; // โหมดกระดาษไม่มีข้อมูลเวลารายข้อ
+        if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // ส่งจากโหมดกระดาษ: กรอกไม่ครบ = ตั้งใจ (ทำบนกระดาษแค่นั้น) → ส่งแบบ
+    // "เท่าที่กรอก" คิด % เฉพาะข้อที่กรอก ให้ตรงกับที่ UI สัญญาไว้
+    const requestPaperSubmit = () => {
+        const answerable = isTrial ? Math.min(5, totalQuestions) : totalQuestions;
+        const answered = Object.keys(answers).filter((k) => Number(k) < answerable).length;
+        const partial = answered < answerable;
+        setConfirmDialog({
+            title: partial ? `ส่งคำตอบ ${answered} ข้อที่กรอก?` : 'ยืนยันการส่งคำตอบ?',
+            detail: partial
+                ? 'คิดคะแนนเฉพาะข้อที่กรอก — ข้อที่ไม่ได้กรอกไม่ถูกนับว่าผิด'
+                : 'ส่งแล้วระบบจะตรวจและวิเคราะห์ผลให้ทันที',
+            confirmLabel: 'ส่งคำตอบ',
+            action: () => handleFinishExam(false, partial),
+        });
+    };
+
+    // กรอกคำตอบรายข้อในโหมดกระดาษ (MCQ: กดซ้ำตัวเดิม = ยกเลิก / เติมคำ: พิมพ์)
+    const setPaperAnswer = (idx: number, val: number | string | undefined) => {
+        setAnswers((prev) => {
+            const next = { ...prev };
+            if (val === undefined || val === '') delete next[idx];
+            else next[idx] = val;
+            return next;
+        });
+    };
+
     // Begin the full exam from the start screen in the chosen mode. Resets the
     // clock so time doesn't accrue while the student reads the start screen.
     const startExam = (m: 'practice' | 'exam') => {
+        setPaperEntry(false);
         setMode(m);
         setHasStarted(true);
         examStartTime.current = Date.now();
@@ -852,7 +896,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
             currentQuestionIndex,
             questionTimes: questionTimes.current,
             elapsedBeforeSeconds: getElapsedSeconds(),
-            mode,
+            mode: paperEntry ? 'paper' : mode,
             savedAt: Date.now(),
         });
         setCloudSaveState(ok ? 'saved' : 'error');
@@ -1530,6 +1574,21 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     </Link>
                 )}
 
+                {/* 📝 กรอกคำตอบจากกระดาษ — คู่กับปุ่มพิมพ์: พิมพ์ไปทำ → กลับมากรอก → ได้ผลวิเคราะห์ */}
+                {examId && isMember && (
+                    <button
+                        onClick={startPaperEntry}
+                        className="group mb-4 w-full text-left bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 rounded-3xl p-5 border-2 border-teal-200 dark:border-teal-700/50 hover:border-teal-400 dark:hover:border-teal-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                    >
+                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-teal-500/20">📝</div>
+                        <div className="min-w-0 flex-1">
+                            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">กรอกคำตอบจากกระดาษ</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">ทำบนกระดาษเสร็จแล้ว? กรอกคำตอบตามกระดาษคำตอบที่นี่ ระบบจะตรวจและวิเคราะห์จุดอ่อนให้ครบ</p>
+                        </div>
+                        <ChevronRight className="flex-shrink-0 text-teal-400 group-hover:translate-x-1 transition-transform" size={22} />
+                    </button>
+                )}
+
                 {/* ✍️ สมุดข้อผิด — ทำข้อที่เคยตอบผิด (parity กับหน้าเริ่มของคอร์ส) */}
                 {wrongBook && wrongBook.length > 0 && (
                     <button
@@ -1567,6 +1626,114 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         <ExamCapabilities variant="bank" className="mt-4" />
                     </>
                 )}
+            </div>
+        );
+    }
+
+    // ════════════════ 📝 โหมดกรอกคำตอบจากกระดาษ (OMR ดิจิทัล) ════════════════
+    // หน้าตาเลียนแบบกระดาษคำตอบที่พิมพ์ไป: ไล่เลขข้อ + แตะวงกลมตามที่ฝนไว้
+    // (ไม่แสดงโจทย์ กรอกเร็ว) — ส่งผ่านเส้นทางตรวจ/วิเคราะห์เดียวกับทำบนเว็บ.
+    // แสดงเฉพาะก่อนส่ง (finalScore ยังว่าง) — หลังส่ง "ดูเฉลยทุกข้อ" ไปหน้าโจทย์ปกติ.
+    if (hasStarted && paperEntry && !isFinished && !finalScore) {
+        const answeredCount = Object.keys(answers).length;
+        return (
+            <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 font-sans">
+                {/* ✋ In-page confirm — requestFinishExam ใช้ dialog นี้ */}
+                <ConfirmDialog
+                    open={!!confirmDialog}
+                    title={confirmDialog?.title ?? ''}
+                    detail={confirmDialog?.detail}
+                    confirmLabel={confirmDialog?.confirmLabel ?? 'ยืนยัน'}
+                    cancelLabel={confirmDialog?.cancelLabel}
+                    tone={confirmDialog?.tone}
+                    onCancel={() => setConfirmDialog(null)}
+                    onConfirm={() => { const act = confirmDialog?.action; setConfirmDialog(null); act?.(); }}
+                />
+
+                {/* หัวหน้ากรอก */}
+                <div className="mb-6 rounded-3xl border-2 border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 p-5 md:p-6">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 text-white flex items-center justify-center text-2xl shadow-md">📝</div>
+                        <div className="min-w-0 flex-1">
+                            <h1 className="text-xl md:text-2xl font-black text-slate-800 dark:text-slate-100">กรอกคำตอบจากกระดาษ — {examTitle}</h1>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">ไล่กรอกตามกระดาษคำตอบที่ทำไว้ แตะวงกลมตามที่ฝน (แตะซ้ำ = ยกเลิก) · กรอกไม่ครบก็ส่งได้ ระบบนับเฉพาะข้อที่กรอก</p>
+                        </div>
+                        <button
+                            onClick={() => { setPaperEntry(false); setHasStarted(false); }}
+                            className="flex-shrink-0 h-9 px-4 rounded-full text-sm font-bold text-slate-600 dark:text-slate-300 bg-white/80 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 transition"
+                        >
+                            ← กลับหน้าเริ่ม
+                        </button>
+                    </div>
+                    {/* แถบความคืบหน้า */}
+                    <div className="mt-4">
+                        <div className="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5">
+                            <span>กรอกแล้ว {answeredCount}/{totalQuestions} ข้อ</span>
+                            {answeredCount > 0 && !isTrial && (
+                                <button onClick={handleClearProgress} className="text-rose-500 flex items-center gap-1"><Trash2 size={12} /> ล้างทั้งหมด</button>
+                            )}
+                        </div>
+                        <div className="h-2 w-full bg-white/70 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-teal-400 to-emerald-500 transition-all duration-300" style={{ width: `${totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0}%` }} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* ตารางกรอกแบบ OMR */}
+                <div className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 md:p-6 mb-24">
+                    <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-0">
+                        {sanitizedExamData.map((q, idx) => {
+                            const isFill = isFillQuestion(q);
+                            const chosen = answers[idx];
+                            return (
+                                <div key={q.id ?? idx} className="flex items-center gap-2.5 py-1.5 border-b border-dashed border-slate-100 dark:border-slate-700/60 min-w-0">
+                                    <span className="w-10 flex-shrink-0 text-right text-sm font-black tabular-nums text-slate-600 dark:text-slate-300">{idx + 1}.</span>
+                                    {isFill ? (
+                                        <input
+                                            type="text"
+                                            value={typeof chosen === 'string' ? chosen : ''}
+                                            onChange={(e) => setPaperAnswer(idx, e.target.value)}
+                                            placeholder="พิมพ์คำตอบ..."
+                                            className="flex-1 min-w-0 h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-sm font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-teal-400 transition"
+                                        />
+                                    ) : (
+                                        <span className="flex items-center gap-1.5">
+                                            {(Array.isArray(q.options) ? q.options : []).map((_, oi) => {
+                                                const on = chosen === oi;
+                                                return (
+                                                    <button
+                                                        key={oi}
+                                                        onClick={() => setPaperAnswer(idx, on ? undefined : oi)}
+                                                        aria-label={`ข้อ ${idx + 1} ตัวเลือก ${oi + 1}`}
+                                                        className={`w-9 h-9 rounded-full border-2 text-sm font-black transition-all flex items-center justify-center ${on
+                                                            ? 'bg-slate-800 dark:bg-teal-500 border-slate-800 dark:border-teal-500 text-white scale-105'
+                                                            : 'border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-teal-400 hover:text-teal-600'}`}
+                                                    >
+                                                        {oi + 1}
+                                                    </button>
+                                                );
+                                            })}
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* แถบส่งลอยล่าง */}
+                <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 px-4 py-3">
+                    <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">กรอกแล้ว {answeredCount}/{totalQuestions}</span>
+                        <button
+                            onClick={requestPaperSubmit}
+                            disabled={answeredCount === 0}
+                            className="px-6 sm:px-8 py-3 rounded-full font-black text-white bg-gradient-to-r from-teal-500 to-emerald-500 shadow-lg shadow-teal-500/25 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            ส่งคำตอบและดูผลวิเคราะห์ ({answeredCount})
+                        </button>
+                    </div>
+                </div>
             </div>
         );
     }
