@@ -89,10 +89,18 @@ export default function ExamCountdownHero() {
         return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
     }, []);
 
-    // Rotate the quote every 6s.
+    // Rotate the quote every 6s — สุ่มขึ้นมา (เลี่ยงซ้ำอันเดิมติดกัน). Math.random
+    // อยู่ใน effect (ฝั่ง client หลัง mount) จึงไม่กระทบ hydration.
     useEffect(() => {
         if (!config.showQuote || config.quotes.length < 2) return;
-        const id = setInterval(() => setQuoteIdx((i) => (i + 1) % config.quotes.length), 6000);
+        const pickRandom = (cur: number) => {
+            const len = config.quotes.length;
+            let n = Math.floor(Math.random() * len);
+            if (n === cur) n = (n + 1) % len; // ไม่ซ้ำอันเดิม
+            return n;
+        };
+        setQuoteIdx((i) => pickRandom(i)); // สุ่มทันทีตอนเริ่ม
+        const id = setInterval(() => setQuoteIdx((i) => pickRandom(i)), 6000);
         return () => clearInterval(id);
     }, [config.showQuote, config.quotes.length]);
 
