@@ -14,6 +14,7 @@ export default function AdminCountdownPage() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+    const [kicker, setKicker] = useState(DEFAULT_COUNTDOWN.kicker);
     const [examName, setExamName] = useState(DEFAULT_COUNTDOWN.examName);
     const [targetDate, setTargetDate] = useState(DEFAULT_COUNTDOWN.targetDate.slice(0, 16));
     const [startDaysBefore, setStartDaysBefore] = useState(String(DEFAULT_COUNTDOWN.startDaysBefore));
@@ -27,6 +28,7 @@ export default function AdminCountdownPage() {
                 const snap = await getDoc(doc(db, "settings", "homeCountdown"));
                 if (snap.exists()) {
                     const d = snap.data() as any;
+                    if (typeof d.kicker === "string") setKicker(d.kicker);
                     if (typeof d.examName === "string") setExamName(d.examName);
                     if (typeof d.targetDate === "string" && d.targetDate) setTargetDate(d.targetDate.slice(0, 16));
                     if (typeof d.startDaysBefore === "number" && d.startDaysBefore > 0) setStartDaysBefore(String(d.startDaysBefore));
@@ -54,6 +56,7 @@ export default function AdminCountdownPage() {
             const quotes = quotesText.split("\n").map((q) => q.trim()).filter(Boolean);
             const daysBefore = Math.max(1, Math.round(Number(startDaysBefore) || DEFAULT_COUNTDOWN.startDaysBefore));
             await setDoc(doc(db, "settings", "homeCountdown"), {
+                kicker: kicker.trim(),
                 examName: examName.trim() || DEFAULT_COUNTDOWN.examName,
                 targetDate,
                 startDaysBefore: daysBefore,
@@ -113,6 +116,12 @@ export default function AdminCountdownPage() {
 
             {/* Form */}
             <div className="kh-card p-5 space-y-5">
+                <div>
+                    <label className="block text-[13px] font-semibold kh-ink mb-1.5">ข้อความบรรทัดบน (เหนือชื่อสอบ)</label>
+                    <input className={inputCls} style={inputStyle} value={kicker} onChange={(e) => setKicker(e.target.value)} placeholder="เช่น นับถอยหลังสู่วันสอบ" />
+                    <p className="kh-ink3 text-[11.5px] mt-1">ตัวหนังสือสีส้มเล็กๆ ด้านบน · เว้นว่าง = ไม่แสดง</p>
+                </div>
+
                 <div>
                     <label className="block text-[13px] font-semibold kh-ink mb-1.5">ชื่อสอบ (หัวข้อใหญ่)</label>
                     <input className={inputCls} style={inputStyle} value={examName} onChange={(e) => setExamName(e.target.value)} placeholder="เช่น สอบเข้า ม.1" />

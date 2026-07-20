@@ -17,6 +17,7 @@ import { db } from "@/lib/firebase";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface CountdownConfig {
+    kicker: string;      // ข้อความบรรทัดบน (เหนือชื่อสอบ) เช่น "นับถอยหลังสู่วันสอบ"
     examName: string;
     targetDate: string;  // ISO-ish "YYYY-MM-DDTHH:mm:ss" (ตีความเป็นเวลาไทย)
     startDaysBefore: number; // เริ่มแถบ progress กี่วันก่อนสอบ (ค่าเริ่มต้น 120)
@@ -36,6 +37,7 @@ export const DEFAULT_QUOTES = [
 ];
 
 export const DEFAULT_COUNTDOWN: CountdownConfig = {
+    kicker: "นับถอยหลังสู่วันสอบ",
     examName: "สอบเข้ามหาวิทยาลัย",
     targetDate: "2027-03-06T09:00:00",
     startDaysBefore: 120,
@@ -63,6 +65,7 @@ export default function ExamCountdownHero() {
                 if (!snap.exists()) return;
                 const d = snap.data() as Partial<CountdownConfig>;
                 setConfig((prev) => ({
+                    kicker: typeof d.kicker === "string" && d.kicker.trim() ? d.kicker : prev.kicker,
                     examName: typeof d.examName === "string" && d.examName.trim() ? d.examName : prev.examName,
                     targetDate: typeof d.targetDate === "string" && d.targetDate.trim() ? d.targetDate : prev.targetDate,
                     startDaysBefore: typeof d.startDaysBefore === "number" && d.startDaysBefore > 0 ? d.startDaysBefore : prev.startDaysBefore,
@@ -121,10 +124,12 @@ export default function ExamCountdownHero() {
         <section className="khcd-wrap px-4 sm:px-6 py-10 md:py-14">
             <div className="khcd" aria-label="นับถอยหลังสู่วันสอบ">
                 {/* Kicker */}
-                <div className="khcd-kicker">
-                    <span className="khcd-dot" aria-hidden />
-                    นับถอยหลังสู่วันสอบ
-                </div>
+                {config.kicker && (
+                    <div className="khcd-kicker">
+                        <span className="khcd-dot" aria-hidden />
+                        {config.kicker}
+                    </div>
+                )}
 
                 {/* Exam name */}
                 <h2 className="khcd-exam">{config.examName}</h2>
