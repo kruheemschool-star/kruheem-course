@@ -12,7 +12,7 @@ import CelebrationModal from '@/components/gamification/CelebrationModal';
 import ConfirmDialog from './ConfirmDialog';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { History, TrendingUp, TrendingDown } from 'lucide-react';
-import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee, Printer } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, getDoc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -1510,6 +1510,18 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">นับถอยหลัง <b className="text-indigo-600 dark:text-indigo-400">{effectiveTimeLimitMinutes} นาที</b> · หยุดพักได้ · ส่งอัตโนมัติเมื่อหมดเวลา</p>
                     </button>
                 </div>
+
+                {/* 🖨️ พิมพ์ชุดนี้เป็น PDF — สมาชิก/ชุดฟรีเท่านั้น (ทดลองฟรีไปเจอหน้าล็อก) */}
+                {examId && !isTrial && (
+                    <div className="mb-6 text-center">
+                        <Link
+                            href={`/exam/${examId}/print`}
+                            className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors underline-offset-4 hover:underline"
+                        >
+                            <Printer size={16} /> ดาวน์โหลด / พิมพ์ชุดนี้เป็น PDF
+                        </Link>
+                    </div>
+                )}
 
                 {/* ✍️ สมุดข้อผิด — ทำข้อที่เคยตอบผิด (parity กับหน้าเริ่มของคอร์ส) */}
                 {wrongBook && wrongBook.length > 0 && (
