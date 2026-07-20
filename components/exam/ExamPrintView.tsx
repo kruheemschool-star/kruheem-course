@@ -31,6 +31,12 @@ interface ExamPrintViewProps {
     level?: string;
     questions: any[];
     isTrial?: boolean; // ฉีดโดย ExamAccessGuard — ทดลองฟรีห้ามพิมพ์ทั้งชุด
+    // ── generalize ให้ใช้กับข้อสอบในคอร์ส (lesson) ได้ด้วย ──
+    backHref?: string;          // ลิงก์ "กลับไปทำข้อสอบ" (default: /exam/{examId})
+    resultDocId?: string;       // doc id ของผลสอบผู้ใช้ (default: examId; คอร์ส = lessonId)
+    wrongCollection?: 'examResults' | 'lessonExamResults'; // ที่เก็บสมุดข้อผิด (default: examResults)
+    lockKind?: 'bank' | 'course'; // ข้อความหน้าล็อกเมื่อไม่มีสิทธิ์
+    lockHref?: string;          // ปุ่มสมัคร/ดูรายละเอียดบนหน้าล็อก
 }
 
 // ตัวเลือกสั้นทุกอัน → จัด 2 คอลัมน์ประหยัดพื้นที่
@@ -111,7 +117,13 @@ const AS_ROWS = 25;
 const AS_COLS = 4;
 const AS_PER_PAGE = AS_ROWS * AS_COLS;
 
-export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle, category, level, questions, isTrial = false }) => {
+export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
+    examId, examTitle, category, level, questions, isTrial = false,
+    backHref: backHrefProp, resultDocId: resultDocIdProp, wrongCollection = 'examResults',
+    lockKind = 'bank', lockHref,
+}) => {
+    const backHref = backHrefProp ?? `/exam/${examId}`;
+    const resultDocId = resultDocIdProp ?? examId;
     const [showAnswers, setShowAnswers] = useState(true);
     const [showSheet, setShowSheet] = useState(true); // แนบกระดาษคำตอบ
     const sanitized = useMemo(() => sanitizeExamData(questions as ExamQuestion[]), [questions]);
@@ -124,14 +136,14 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
     // สมุดข้อผิดของชุดนี้ (โหลดครั้งเดียว) — ใช้กรองชุด "เก็บข้อผิด"
     const [wrongKeys, setWrongKeys] = useState<Set<string> | null>(null);
     useEffect(() => {
-        if (!user?.uid || !examId) { setWrongKeys(new Set()); return; }
+        if (!user?.uid || !resultDocId) { setWrongKeys(new Set()); return; }
         (async () => {
             try {
-                const snap = await getDoc(doc(db, 'users', user.uid, 'examResults', examId));
+                const snap = await getDoc(doc(db, 'users', user.uid, wrongCollection, resultDocId));
                 setWrongKeys(new Set(Object.keys(((snap.data() as any)?.wrongQuestions) || {})));
             } catch { setWrongKeys(new Set()); }
         })();
-    }, [user?.uid, examId]);
+    }, [user?.uid, resultDocId, wrongCollection]);
     const wrongSet = useMemo(
         () => (wrongKeys ? sanitized.filter((q) => wrongKeys.has(getQuestionKey(q))) : []),
         [wrongKeys, sanitized]
@@ -250,16 +262,25 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
         return () => { cancelled = true; };
     }, [activeSet, isTrial]);
 
-    // 🔒 ทดลองฟรี: ไม่ให้พิมพ์ทั้งชุด (ไฟล์ PDF = เนื้อหาเต็มหลุดออกนอกระบบ)
+    // 🔒 ไม่มีสิทธิ์: ไม่ให้พิมพ์ทั้งชุด (ไฟล์ PDF = เนื้อหาเต็มหลุดออกนอกระบบ)
     if (isTrial) {
+        const isCourse = lockKind === 'course';
         return (
             <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-6">
                 <div className="w-20 h-20 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mb-6"><Lock size={36} /></div>
-                <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-3">การพิมพ์ชุดข้อสอบสำหรับสมาชิกคลังข้อสอบ</h1>
-                <p className="text-slate-500 dark:text-slate-400 max-w-md mb-8 font-medium">สมัครสมาชิกคลังข้อสอบเพื่อดาวน์โหลด/พิมพ์ชุดข้อสอบเป็น PDF ได้ทุกชุด พร้อมเฉลยละเอียดครับ</p>
+                <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-3">
+                    {isCourse ? 'การพิมพ์ข้อสอบสำหรับผู้เรียนคอร์สนี้' : 'การพิมพ์ชุดข้อสอบสำหรับสมาชิกคลังข้อสอบ'}
+                </h1>
+                <p className="text-slate-500 dark:text-slate-400 max-w-md mb-8 font-medium">
+                    {isCourse
+                        ? 'สมัครเรียนคอร์สนี้เพื่อดาวน์โหลด/พิมพ์ข้อสอบของบทเรียนเป็น PDF พร้อมกระดาษคำตอบและเฉลยครับ'
+                        : 'สมัครสมาชิกคลังข้อสอบเพื่อดาวน์โหลด/พิมพ์ชุดข้อสอบเป็น PDF ได้ทุกชุด พร้อมเฉลยละเอียดครับ'}
+                </p>
                 <div className="flex flex-wrap gap-3 justify-center">
-                    <a href="/payment?course=vip" className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-black shadow-lg hover:scale-105 transition">สมัครคลังข้อสอบ</a>
-                    <Link href={`/exam/${examId}`} className="px-8 py-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition">← กลับไปทำข้อสอบ</Link>
+                    <a href={lockHref ?? '/payment?course=vip'} className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-black shadow-lg hover:scale-105 transition">
+                        {isCourse ? 'ดูรายละเอียดคอร์ส' : 'สมัครคลังข้อสอบ'}
+                    </a>
+                    <Link href={backHref} className="px-8 py-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition">← กลับไปทำข้อสอบ</Link>
                 </div>
             </div>
         );
@@ -287,7 +308,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({ examId, examTitle,
             {/* ── แถบควบคุม (ซ่อนตอนพิมพ์) ── */}
             <div className="khprint-controls no-print">
                 <div className="khprint-controls-inner">
-                    <Link href={`/exam/${examId}`} className="khp-back"><ArrowLeft size={16} /> กลับไปทำข้อสอบ</Link>
+                    <Link href={backHref} className="khp-back"><ArrowLeft size={16} /> กลับไปทำข้อสอบ</Link>
                     <label className="khp-toggle">
                         <input type="checkbox" checked={showSheet} onChange={(e) => setShowSheet(e.target.checked)} />
                         แนบกระดาษคำตอบ
