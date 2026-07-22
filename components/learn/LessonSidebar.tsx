@@ -174,7 +174,11 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                             </div>
                         </button>
 
-                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExamsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        {/* ⚠️ ห้ามล็อกความสูงเป็นตัวเลขคงที่ (เดิม max-h-[500px]) — พอชุดข้อสอบเยอะขึ้น
+                            ชุดท้ายๆ จะถูกตัดหายไปเงียบๆ ทั้งที่ข้อมูลมีอยู่จริง
+                            ใช้ grid-rows 0fr→1fr แทน: ยืดตามเนื้อหาจริงเสมอ ไม่มีเพดาน ไม่ต้องเดาความสูง */}
+                        <div className={`grid transition-all duration-300 ease-in-out ${isExamsOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                            <div className="overflow-hidden min-h-0">
                             <div className="pl-4 space-y-0.5 border-l-2 border-amber-200 dark:border-amber-800/50 ml-5 my-2">
                                 {examLessons.length > 0 ? (
                                     examLessons.map((exam: Lesson) => {
@@ -213,6 +217,7 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                                         ยังไม่มีชุดข้อสอบ
                                     </div>
                                 )}
+                            </div>
                             </div>
                         </div>
                     </div>
