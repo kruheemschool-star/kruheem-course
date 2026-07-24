@@ -19,7 +19,7 @@ import {
     LayoutDashboard, Wallet, Ticket, Gift, Download,
     BookOpen, ClipboardList, ScrollText, Newspaper, FileText,
     Users, Smile, Activity,
-    MessageCircle, LifeBuoy, Megaphone, Star, BarChart3,
+    MessageCircle, LifeBuoy, Megaphone, Star, BarChart3, LineChart,
     Menu, Search, Bell, Sun, Moon, LogOut, Home, GripVertical, Timer,
     type LucideIcon,
 } from "lucide-react";
@@ -59,6 +59,7 @@ const NAV: NavGroup[] = [
         items: [
             { href: "/admin/courses", label: "จัดการคอร์สเรียน", icon: BookOpen, match: ["/admin/course"] },
             { href: "/admin/exams", label: "คลังข้อสอบ", icon: ClipboardList, match: ["/admin/exam-validator"] },
+            { href: "/admin/exam-stats", label: "สถิติคลังข้อสอบ", icon: LineChart },
             { href: "/admin/exam-papers", label: "ขายข้อสอบ PDF", icon: FileText },
             { href: "/admin/summaries", label: "สรุปเนื้อหา", icon: ScrollText },
             { href: "/admin/posts", label: "จัดการบทความ", icon: Newspaper },
@@ -106,6 +107,7 @@ const PAGE_META: { prefix: string; exact?: boolean; title: string; subtitle: str
     { prefix: "/admin/courses", title: "จัดการคอร์สเรียน", subtitle: "เพิ่ม/แก้ไขคอร์สและบทเรียน" },
     { prefix: "/admin/course", title: "แก้ไขคอร์สเรียน", subtitle: "จัดการบทเรียนและเนื้อหาในคอร์ส" },
     { prefix: "/admin/exams", title: "คลังข้อสอบ", subtitle: "เพิ่ม/แก้ไขชุดข้อสอบ" },
+    { prefix: "/admin/exam-stats", title: "สถิติคลังข้อสอบ", subtitle: "ดู → เริ่มทำ → ส่ง รายชุด พร้อมสัญญาณชุดที่ต้องดูแล" },
     { prefix: "/admin/exam-validator", title: "ตรวจทานข้อสอบ", subtitle: "ตรวจความถูกต้องของชุดข้อสอบ" },
     { prefix: "/admin/summaries", title: "สรุปเนื้อหา", subtitle: "เขียน/แก้ไขบทสรุป" },
     { prefix: "/admin/posts", title: "จัดการบทความ", subtitle: "เขียน/แก้ไขเทคนิคการเรียน" },

@@ -30,7 +30,7 @@ export async function GET() {
         let totalAvgTimeExams = 0;
         const catMap: Record<string, { totalPercent: number; count: number }> = {};
         const tagMap: Record<string, { totalPercent: number; count: number }> = {};
-        const examMap: Record<string, { count: number; buckets: number[] }> = {};
+        const examMap: Record<string, { count: number; buckets: number[]; sumPercent: number; attempts: number }> = {};
         const userIds = new Set<string>();
 
         resultsSnap.docs.forEach(doc => {
@@ -56,10 +56,14 @@ export async function GET() {
             }
 
             // Per-exam score histogram (10 buckets) — powers percentile ranking
+            // + avg%/attempts for the admin exam-stats dashboard (สถิติคลังข้อสอบ)
             const eid = typeof data.examId === "string" ? data.examId : "";
             if (eid && typeof data.percent === "number") {
-                if (!examMap[eid]) examMap[eid] = { count: 0, buckets: new Array(10).fill(0) };
+                if (!examMap[eid]) examMap[eid] = { count: 0, buckets: new Array(10).fill(0), sumPercent: 0, attempts: 0 };
                 examMap[eid].count++;
+                examMap[eid].sumPercent += data.percent;
+                // docs ก่อนเฟสวิเคราะห์ลึก (ก่อน 2026-07-18) ไม่มีฟิลด์ attempts → นับเป็น 1
+                examMap[eid].attempts += typeof data.attempts === "number" ? data.attempts : 1;
                 examMap[eid].buckets[Math.min(9, Math.max(0, Math.floor(data.percent / 10)))]++;
             }
 
@@ -99,6 +103,18 @@ export async function GET() {
             count: d.count,
         }));
 
+        // Shape stays backward-compatible: existing consumers read count+buckets;
+        // avgPercent/attempts are additive (used by /admin/exam-stats).
+        const perExam: Record<string, { count: number; buckets: number[]; avgPercent: number; attempts: number }> = {};
+        Object.entries(examMap).forEach(([eid, d]) => {
+            perExam[eid] = {
+                count: d.count,
+                buckets: d.buckets,
+                avgPercent: d.count > 0 ? Math.round(d.sumPercent / d.count) : 0,
+                attempts: d.attempts,
+            };
+        });
+
         return NextResponse.json({
             globalAvgPercent,
             globalAvgDuration,
@@ -107,7 +123,7 @@ export async function GET() {
             totalUsers: userIds.size,
             categories,
             tags,
-            perExam: examMap,
+            perExam,
         });
     } catch (error) {
         console.error("Error computing exam averages:", error);

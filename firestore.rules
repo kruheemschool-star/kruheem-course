@@ -325,12 +325,29 @@ service cloud.firestore {
 
     // === Stats (analytics counters) ===
     // Written via increment() by anonymous visitors, so writes stay open — but
-    // ONLY to the three known counter documents, so attackers cannot create
+    // ONLY to the known counter documents, so attackers cannot create
     // arbitrary `stats/*` junk docs. Reads are admin-only (no public page reads
     // these raw counters; public-facing numbers live in /public_stats).
+    //
+    // exam_YYYY-MM-DD = ตัวนับคลังข้อสอบรายชุดรายวัน (ดู/เริ่มทำ/ส่ง/คลิกซื้อ)
+    // เขียนโดย lib/examStats.ts จากทุกผู้ใช้รวมคนไม่ล็อกอิน — เอกสารรายวัน
+    // ขนาดเล็กคงที่ matches() เป็น full-match จึงปลอมชื่ออื่นไม่ได้
     match /stats/{statId} {
       allow read: if isAdmin();
-      allow write: if statId in ['daily_visits', 'page_views', 'promo_homepage'];
+      allow write: if statId in ['daily_visits', 'page_views', 'promo_homepage']
+                   || statId.matches('exam_[0-9]{4}-[0-9]{2}-[0-9]{2}');
+    }
+
+    // === Collection-group reads for the admin console ===
+    // /admin/activity และ /admin/course/[id]/exam-results ใช้ collectionGroup()
+    // กวาดข้ามผู้ใช้ทุกคน — rules v2 ต้องมี match แบบ {path=**} แยกต่างหาก
+    // (match ซ้อนใต้ /users ครอบเฉพาะการอ่านตรง path ไม่ครอบ collection-group)
+    // ให้สิทธิ์อ่านอย่างเดียวเฉพาะแอดมิน ไม่กระทบกติกาเขียนของเจ้าของข้อมูล
+    match /{path=**}/progress/{docId} {
+      allow read: if isAdmin();
+    }
+    match /{path=**}/lessonExamResults/{docId} {
+      allow read: if isAdmin();
     }
 
     // === Public Stats (Aggregated metrics visible to everyone) ===

@@ -4,6 +4,7 @@ import { db } from "@/lib/firebase";
 import { doc, setDoc, deleteDoc, increment, serverTimestamp } from "firebase/firestore";
 import { usePathname } from "next/navigation";
 import { useUserAuth } from "@/context/AuthContext";
+import { bumpExamStat, parseExamPathname } from "@/lib/examStats";
 
 // Helper: Detect device type
 function getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
@@ -238,6 +239,17 @@ export default function VisitorTracker() {
         };
 
         recordPageView();
+
+        // สถิติคลังข้อสอบรายชุด: หน้า /exam/[id] ถูก normalize รวมเป็นก้อนเดียว
+        // ด้านบน (แยกชุดไม่ได้) — ตรงนี้นับแยกรายชุดลง stats/exam_YYYY-MM-DD แทน
+        // พร้อมแหล่งที่มาของคนดู (นับเฉพาะตอนเปิดดูหน้าปกติ ไม่นับหน้าพิมพ์)
+        const examPage = parseExamPathname(pathname);
+        if (examPage) {
+            bumpExamStat(
+                examPage.examId,
+                examPage.isPrint ? { vp: 1 } : { v: 1, [`src_${getReferrerSource()}`]: 1 }
+            );
+        }
     }, [pathname, isAdmin]);
 
     // === 3. Logged-in Member Presence: record the page they're currently on ===

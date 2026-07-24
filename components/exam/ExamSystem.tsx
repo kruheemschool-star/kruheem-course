@@ -13,6 +13,7 @@ import CelebrationModal from '@/components/gamification/CelebrationModal';
 import ConfirmDialog from './ConfirmDialog';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { useExamBankMembership } from '@/hooks/useExamBankMembership';
+import { bumpExamStat, examUserType } from '@/lib/examStats';
 import { History, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee, Printer } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
@@ -651,6 +652,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
         setIsFinished(true);
 
+        // สถิติคลังข้อสอบ: นับ "ส่ง" ทุกคนรวมโหมดทดลอง/ไม่ล็อกอิน (บล็อกบันทึกผล
+        // ด้านล่างเก็บเฉพาะสมาชิก) — รอบย่อยแยกคีย์ไว้ ไม่ปนบันได ดู→เริ่ม→ส่ง
+        bumpExamStat(examId, isSubset ? { c_subset: 1 } : { [`c_${examUserType(!!user, isTrial)}`]: 1 });
+
         // Clear saved progress after finishing — but a subset run must NOT touch
         // the full exam's saved progress (it's a side excursion, not the real attempt).
         if (examId && !isSubset) clearProgressFromLocal(examId);
@@ -843,6 +848,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         setPaperEntry(true);
         setHasStarted(true);
         questionTimes.current = {}; // โหมดกระดาษไม่มีข้อมูลเวลารายข้อ
+        bumpExamStat(examId, { [`s_${examUserType(!!user, isTrial)}`]: 1 });
         if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -881,6 +887,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         examStartTime.current = Date.now();
         questionStartTime.current = Date.now();
         elapsedBeforeRef.current = 0;
+        bumpExamStat(examId, { [`s_${examUserType(!!user, isTrial)}`]: 1 });
         if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -1438,9 +1445,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <p className="flex items-start gap-2"><span>✅</span><span>อัพเดทข้อสอบใหม่ <strong>ต่อเนื่องตลอด</strong> ไม่มีค่าใช้จ่ายเพิ่มเติม</span></p>
                                 <p className="flex items-start gap-2"><span>✅</span><span>สมัครครั้งเดียว ใช้ได้ <strong>ยาว 5 ปี</strong> คุ้มค่าที่สุด!</span></p>
                             </div>
-                            <a href="/payment?course=vip" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                            <Link href="/payment?course=vip" onClick={() => bumpExamStat(examId, { buy_banner: 1 })} className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
                                 ปลดล็อกคลังข้อสอบทั้งหมดเลย
-                            </a>
+                            </Link>
                             <p className="text-xs text-amber-500/80 dark:text-amber-600 mt-3 font-medium">จ่ายครั้งเดียว ไม่มีรายเดือน • เริ่มทำได้ทันทีหลังชำระเงิน</p>
                         </div>
                     )}
@@ -1528,9 +1535,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <p className="flex items-start gap-2"><span>✅</span><span>เฉลยละเอียด<strong>ทุกข้อ</strong> อธิบายวิธีคิดเป็นขั้น สไตล์ครูฮีม</span></p>
                                 <p className="flex items-start gap-2"><span>✅</span><span>ครบ<strong>ทุกชั้น ทุกสนามสอบ</strong> ทั้งสอบเข้า ม.1/ม.4, O-NET, A-Level</span></p>
                             </div>
-                            <a href="/payment?course=vip" className="inline-block bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-indigo-200 dark:shadow-indigo-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                            <Link href="/payment?course=vip" onClick={() => bumpExamStat(examId, { buy_diag: 1 })} className="inline-block bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-indigo-200 dark:shadow-indigo-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
                                 สมัครคลังข้อสอบเต็ม
-                            </a>
+                            </Link>
                             <p className="text-xs text-indigo-500/80 dark:text-indigo-600 mt-3 font-medium">จ่ายครั้งเดียว ใช้ได้ยาว • เริ่มซ่อมจุดอ่อนได้ทันที</p>
                         </div>
                     )}
@@ -2252,9 +2259,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 🔥 คู่แข่งกำลังซุ่มฝึกอยู่... อย่ารอช้านะครับ!
                             </div>
 
-                            <a href="/payment?course=vip" className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200/80 dark:shadow-amber-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg w-full sm:w-auto">
+                            <Link href="/payment?course=vip" onClick={() => bumpExamStat(examId, { buy_paywall: 1 })} className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200/80 dark:shadow-amber-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg w-full sm:w-auto">
                                 🔓 ปลดล็อกข้อสอบทั้งหมด
-                            </a>
+                            </Link>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 font-medium">ข้อสอบอัปเดตใหม่ฟรีตลอดกาล • ไม่มีค่าใช้จ่ายเพิ่ม</p>
                         </div>
                     ) : (
