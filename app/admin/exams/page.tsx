@@ -4,10 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, ClipboardList, BarChart3, Settings, FolderPlus, AlertCircle, Pencil, Check, X, ChevronDown, ChevronUp, Download, FileText, BookOpen, Loader2 } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
-import { deriveExamLevel } from "@/lib/exam-level";
 import { buildExamExport, parseExamQuestions, examFilenameSlug } from "@/lib/exam-export";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -354,12 +354,12 @@ function ExamExportModal({ exam, onClose }: { exam: any; onClose: () => void }) 
 export default function ExamManagerPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const { isAdmin, loading: authLoading } = useUserAuth();
+    const router = useRouter();
     const [exams, setExams] = useState<any[]>([]);
     const [exportExam, setExportExam] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const [isSavingOrder, setIsSavingOrder] = useState(false);
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [newExamTitle, setNewExamTitle] = useState("");
+    const [isCreating, setIsCreating] = useState(false);
     const [examConfig, setExamConfig] = useState<{ showExamDashboard: boolean; enableResultTracking: boolean }>({ showExamDashboard: false, enableResultTracking: false });
     const [categories, setCategories] = useState<any[]>([]);
     const [categoriesLoadError, setCategoriesLoadError] = useState<string | null>(null);
@@ -622,38 +622,19 @@ export default function ExamManagerPage() {
         }
     };
 
-    const handleQuickAdd = () => {
-        setNewExamTitle("");
-        setIsAddModalOpen(true);
-    };
-
-    const submitQuickAdd = async () => {
-        if (!newExamTitle.trim()) return;
-
-        // Auto-derive category/level from the title so that a new exam titled
-        // "สอบเข้า ม.1 ชุดที่ 7" is NOT left tagged as ม.ต้น (which would lock
-        // it from primary-bank subscribers). Admin can still override in the row.
-        const title = newExamTitle.trim();
-        const derived = deriveExamLevel(null, null, title);
-        // Canonical sections (see scripts/retag-exams.mjs): สอบเข้า ม.1 / ป.6 / ม.1.
-        // Quick-add defaults a primary-ish title to ป.6 and a lower title to ม.1
-        // (both real sections); admin picks "สอบเข้า ม.1" from the per-row <select>
-        // when the title is an entrance set.
-        const DEFAULTS: Record<string, { category: string; level: string }> = {
-            primary: { category: "ป.6", level: "ป.6" },
-            lower:   { category: "ม.1", level: "ม.1" },
-            upper:   { category: "ม.1", level: "ม.1" },
-        };
-        const { category, level } = derived
-            ? DEFAULTS[derived]
-            : { category: "", level: "" }; // admin must set manually when title is ambiguous
-
+    // One click = create a new exam set and jump straight into its editor.
+    // No second-step modal: the admin sets the real title, category and questions
+    // on the editor page. A placeholder title is used so the row is never blank;
+    // category/level are left empty for the admin to pick there.
+    const handleQuickAdd = async () => {
+        if (isCreating) return;
+        setIsCreating(true);
         try {
-            await addDoc(collection(db, "exams"), {
-                title,
+            const ref = await addDoc(collection(db, "exams"), {
+                title: "ชุดข้อสอบใหม่",
                 description: "รายละเอียดเบื้องต้น...",
-                category,
-                level,
+                category: "",
+                level: "",
                 questionCount: 0,
                 timeLimit: 30,
                 difficulty: "Medium",
@@ -662,13 +643,12 @@ export default function ExamManagerPage() {
                 order: exams.length, // Add to end
                 questions: []
             });
-            setIsAddModalOpen(false);
-            setNewExamTitle("");
-            fetchExams();
             revalidateExamPages();
-            alert("เพิ่มชุดข้อสอบใหม่แล้ว!");
+            router.push(`/admin/exams/${ref.id}`);
         } catch (err) {
             console.error(err);
+            alert("สร้างชุดข้อสอบไม่สำเร็จ กรุณาลองใหม่");
+            setIsCreating(false);
         }
     };
 
@@ -783,9 +763,9 @@ export default function ExamManagerPage() {
                     จัดการหมวดหมู่
                     {isCategoryModalOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </button>
-                <button onClick={handleQuickAdd} className="kh-btn">
-                    <Plus size={16} />
-                    สร้างข้อสอบใหม่
+                <button onClick={handleQuickAdd} className="kh-btn" disabled={isCreating}>
+                    {isCreating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                    {isCreating ? "กำลังสร้าง..." : "สร้างข้อสอบใหม่"}
                 </button>
             </div>
 
@@ -951,41 +931,6 @@ export default function ExamManagerPage() {
             {/* Export JSON Modal */}
             {exportExam && (
                 <ExamExportModal exam={exportExam} onClose={() => setExportExam(null)} />
-            )}
-
-            {/* Custom Create Exam Modal */}
-            {isAddModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(12, 24, 22, 0.55)', backdropFilter: 'blur(4px)' }}>
-                    <div className="kh-card p-8 max-w-md w-full animate-in fade-in zoom-in duration-200">
-                        <h2 className="text-2xl font-black kh-ink mb-4">สร้างชุดข้อสอบใหม่</h2>
-                        <div className="mb-6">
-                            <label className="block text-sm font-bold kh-ink2 mb-2">ชื่อชุดข้อสอบ</label>
-                            <input
-                                type="text"
-                                value={newExamTitle}
-                                onChange={(e) => setNewExamTitle(e.target.value)}
-                                className="kh-input"
-                                placeholder="เช่น สอบเข้า ม.1 ชุดที่ 5"
-                                autoFocus
-                            />
-                        </div>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => setIsAddModalOpen(false)}
-                                className="kh-btn-ghost"
-                            >
-                                ยกเลิก
-                            </button>
-                            <button
-                                onClick={submitQuickAdd}
-                                disabled={!newExamTitle.trim()}
-                                className="kh-btn"
-                            >
-                                ยืนยันสร้าง
-                            </button>
-                        </div>
-                    </div>
-                </div>
             )}
 
         </div>
