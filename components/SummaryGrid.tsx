@@ -2,7 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Clock, Eye, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { canOptimizeImage } from '@/lib/imageHosts';
 
 interface Summary {
     id: string;
@@ -205,12 +207,13 @@ export default function SummaryGrid({ summaries }: { summaries: Summary[] }) {
                                                 {/* Cover Image */}
                                                 <div className="aspect-[3/4.4] w-full bg-slate-100 dark:bg-slate-700 relative overflow-hidden">
                                                     {summary.coverImage ? (
-                                                        /* eslint-disable-next-line @next/next/no-img-element */
-                                                        <img
+                                                        <Image
                                                             src={summary.coverImage}
                                                             alt={summary.title}
-                                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                                            loading="lazy"
+                                                            fill
+                                                            sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 360px"
+                                                            unoptimized={!canOptimizeImage(summary.coverImage)}
+                                                            className="object-cover group-hover:scale-105 transition-transform duration-500"
                                                         />
                                                     ) : (
                                                         <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600">

@@ -48,6 +48,7 @@ serviceAccountKey.json
 
 # Local backups created when bulk-compressing static images
 public/.backup-images-*/
+scripts/_backups/
 
 # Playwright
 /playwright-report/

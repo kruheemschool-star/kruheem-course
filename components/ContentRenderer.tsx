@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { InlineMath, BlockMath } from "react-katex";
+import { canOptimizeImage } from "@/lib/imageHosts";
 import "katex/dist/katex.min.css";
 
 // --- ImageWithLoading Component ---
@@ -71,19 +73,23 @@ const ImageWithLoading = ({
 
             {/* Actual Image */}
             {!hasError && (
-                <img
+                <Image
                     src={src}
                     alt={alt}
+                    width={0}
+                    height={0}
+                    sizes="(max-width: 768px) 94vw, 768px"
+                    unoptimized={!canOptimizeImage(src)}
                     className={`${className} transition-all duration-500 ease-out ${isLoading
                         ? 'opacity-0 scale-[0.98]'
                         : 'opacity-100 scale-100'
                         }`}
+                    style={{ width: '100%', height: 'auto' }}
                     onLoad={() => setIsLoading(false)}
                     onError={() => {
                         setIsLoading(false);
                         setHasError(true);
                     }}
-                    loading="lazy"
                 />
             )}
 
