@@ -99,8 +99,9 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             if (result.user) {
                 // Safety net: account creation should succeed even if Firestore rules are misconfigured.
                 try {
-                    // ชื่อ/เบอร์/วันสมัคร ถูกเก็บตั้งแต่วินาทีที่สมัคร เพื่อให้หลังบ้าน
-                    // (/admin/registrations) เห็นตัวตนทันที แม้ยังไม่เคยแจ้งโอน
+                    // วันสมัคร (createdAt) เก็บตั้งแต่วินาทีที่สมัคร เพื่อให้หลังบ้าน
+                    // (/admin/registrations) เห็นสมาชิกใหม่ทันที — ชื่อ/เบอร์ตามมา
+                    // ตอนแจ้งโอน (/payment เขียน merge เข้าโปรไฟล์)
                     await setDoc(doc(db, "users", result.user.uid), {
                         authProvider: 'email',
                         email: result.user.email || '',

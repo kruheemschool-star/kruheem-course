@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, addDoc, where, doc, limit, runTransaction } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, addDoc, where, doc, limit, runTransaction, setDoc } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -364,6 +364,20 @@ export default function PaymentPage() {
       });
 
       await Promise.all(promises);
+
+      // เก็บชื่อ/เบอร์จากใบแจ้งโอนเข้าโปรไฟล์ (เฉพาะช่องที่ยังว่าง ไม่ทับของเดิม)
+      // — หน้าสมัครสมาชิกไม่ถามชื่อ/เบอร์แล้ว จุดนี้คือที่แรกที่หลังบ้าน
+      // (/admin/registrations) จะได้ข้อมูลติดต่อของสมาชิกใหม่
+      try {
+        const profilePatch: Record<string, string> = {};
+        if (!userProfile?.displayName && fullName.trim()) profilePatch.displayName = fullName.trim();
+        if (!userProfile?.phoneNumber && phoneNumber.trim()) profilePatch.phoneNumber = phoneNumber.trim();
+        if (Object.keys(profilePatch).length > 0) {
+          await setDoc(doc(db, "users", user.uid), profilePatch, { merge: true });
+        }
+      } catch (profileError) {
+        console.error("Profile writeback failed (enrollment already submitted):", profileError);
+      }
 
       // 4. Mark the coupon used ATOMICALLY (transaction re-checks isUsed under
       // lock, so two simultaneous submissions can't both redeem it). Kept in
