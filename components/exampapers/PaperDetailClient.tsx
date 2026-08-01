@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { uploadPublicFile } from "@/lib/pdfUpload";
+import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slipFile";
 import { useUserAuth } from "@/context/AuthContext";
 import type { ExamPaper } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
@@ -29,6 +30,7 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
     const [lineId, setLineId] = useState("");
     const [slip, setSlip] = useState<File | null>(null);
     const [slipPreview, setSlipPreview] = useState<string>("");
+    const [slipBusy, setSlipBusy] = useState(false); // validating/compressing the picked file
     const [submitting, setSubmitting] = useState(false);
     const [progress, setProgress] = useState(0);
 
@@ -53,13 +55,20 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
         }
     }, [user, searchParams]);
 
-    const pickSlip = (f: File | null) => {
+    // Shared slip helper: tolerant validation (empty file.type from
+    // Android/in-app pickers), compression, HEIC→JPEG, storage.rules 5MB cap.
+    const pickSlip = async (f: File | null) => {
         if (!f) return;
-        if (!f.type.startsWith("image/")) return toast.error("สลิปต้องเป็นรูปภาพ");
-        if (f.size > 10 * 1024 * 1024) return toast.error("รูปใหญ่เกิน 10MB");
-        if (slipPreview) URL.revokeObjectURL(slipPreview);
-        setSlip(f);
-        setSlipPreview(URL.createObjectURL(f));
+        setSlipBusy(true);
+        try {
+            const prep = await prepareSlipImage(f);
+            if (!prep.ok) return void toast.error(slipPrepErrorText(prep.reason));
+            if (slipPreview) URL.revokeObjectURL(slipPreview);
+            setSlip(prep.file);
+            setSlipPreview(URL.createObjectURL(prep.file));
+        } finally {
+            setSlipBusy(false);
+        }
     };
 
     const submit = async () => {
@@ -70,7 +79,7 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
 
         setSubmitting(true);
         try {
-            const slipUrl = await uploadPublicFile(slip, `slips/${user.uid}_${Date.now()}`, (p) => setProgress(p));
+            const slipUrl = await uploadPublicFile(slip, `slips/${user.uid}_${Date.now()}`, (p) => setProgress(p), slipContentType(slip));
             const price = Number(paper.price || 0);
             await addDoc(collection(db, "enrollments"), {
                 userId: user.uid,
@@ -210,7 +219,12 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
 
                             <label className="block cursor-pointer">
                                 <div className="rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 p-4 text-center hover:border-teal-500 transition">
-                                    {slipPreview ? (
+                                    {slipBusy ? (
+                                        <div className="text-slate-400 py-3">
+                                            <Loader2 size={26} className="mx-auto mb-1.5 animate-spin" />
+                                            <span className="text-sm font-semibold">กำลังเตรียมรูปสลิป...</span>
+                                        </div>
+                                    ) : slipPreview ? (
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img src={slipPreview} alt="สลิป" className="max-h-40 mx-auto rounded-lg" />
                                     ) : (
@@ -219,12 +233,13 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
                                             <span className="text-sm font-semibold">แนบสลิปโอนเงิน *</span>
                                         </div>
                                     )}
-                                    <input type="file" accept="image/*" hidden onChange={(e) => pickSlip(e.target.files?.[0] || null)} />
+                                    {/* value reset → re-picking the SAME file after a rejection still fires onChange */}
+                                    <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ""; pickSlip(f); }} />
                                 </div>
                             </label>
                         </div>
 
-                        <button onClick={submit} disabled={submitting} className="w-full mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold px-5 py-3 transition">
+                        <button onClick={submit} disabled={submitting || slipBusy} className="w-full mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold px-5 py-3 transition">
                             {submitting ? <><Loader2 className="animate-spin" size={18} /> {progress > 0 ? `กำลังอัปโหลด ${progress}%` : "กำลังส่ง..."}</> : <><Check size={18} /> ยืนยันสั่งซื้อ</>}
                         </button>
                     </div>

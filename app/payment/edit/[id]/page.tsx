@@ -3,24 +3,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
 import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useUserAuth } from "@/context/AuthContext";
 import { ArrowLeft } from "lucide-react";
-
-const COMPRESSION_TIMEOUT = 10_000;
-const COMPRESSION_THRESHOLD = 2 * 1024 * 1024;
-
-async function compressWithTimeout(file: File, options: any, timeoutMs: number): Promise<File | Blob> {
-  const compressionPromise = import('browser-image-compression').then(mod => mod.default(file, options));
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('COMPRESSION_TIMEOUT')), timeoutMs)
-  );
-  return Promise.race([compressionPromise, timeoutPromise]);
-}
+import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slipFile";
 
 export default function EditPaymentPage() {
 
@@ -41,6 +30,8 @@ export default function EditPaymentPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [compressionInfo, setCompressionInfo] = useState<{ original: number; compressed: number } | null>(null);
   const [slipError, setSlipError] = useState<string>('');
+  // Shown inline instead of alert() — FB/LINE in-app browsers drop alert silently.
+  const [submitError, setSubmitError] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,63 +78,23 @@ export default function EditPaymentPage() {
     }
   }, [user, authLoading, router]);
 
-  /** Core file processing: validate → compress (with timeout) → set state */
+  /** Core file processing via the shared slip helper: tolerant validation
+   * (empty file.type from Android/in-app pickers), compression with timeout,
+   * HEIC→JPEG, and the storage.rules 5MB cap — then set state. */
   const processFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setSlipError('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG)');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      setSlipError(`ไฟล์ใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(1)}MB) กรุณาเลือกรูปไม่เกิน 10MB`);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    const originalSize = file.size;
     setSlipError('');
     setCompressionInfo(null);
     setIsCompressing(true);
-
-    if (slipPreview) URL.revokeObjectURL(slipPreview);
-
     try {
-      let compressedFile: File | Blob = file;
-
-      if (originalSize > COMPRESSION_THRESHOLD) {
-        const options = {
-          maxSizeMB: 1,
-          maxWidthOrHeight: 1920,
-          useWebWorker: true,
-          initialQuality: 0.85
-        };
-
-        try {
-          compressedFile = await compressWithTimeout(file, options, COMPRESSION_TIMEOUT);
-        } catch (workerErr: any) {
-          console.warn('Compression attempt 1 failed:', workerErr?.message);
-          try {
-            compressedFile = await compressWithTimeout(
-              file,
-              { ...options, useWebWorker: false },
-              COMPRESSION_TIMEOUT
-            );
-          } catch (fallbackErr: any) {
-            console.warn('All compression failed/timed out, using original:', fallbackErr?.message);
-            compressedFile = file;
-          }
-        }
+      const prep = await prepareSlipImage(file);
+      if (!prep.ok) {
+        setSlipError(slipPrepErrorText(prep.reason));
+        return;
       }
-
-      setSlipFile(compressedFile as File);
-      setSlipPreview(URL.createObjectURL(compressedFile));
-      setCompressionInfo({ original: originalSize, compressed: compressedFile.size });
-    } catch (err) {
-      console.error('Compression error, using original:', err);
-      setSlipFile(file);
-      setSlipPreview(URL.createObjectURL(file));
-      setCompressionInfo({ original: originalSize, compressed: originalSize });
+      if (slipPreview) URL.revokeObjectURL(slipPreview);
+      setSlipFile(prep.file);
+      setSlipPreview(URL.createObjectURL(prep.file));
+      setCompressionInfo({ original: prep.originalBytes, compressed: prep.file.size });
     } finally {
       setIsCompressing(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -195,12 +146,13 @@ export default function EditPaymentPage() {
     e.preventDefault();
     if (!enrollmentId) return;
 
-    // Validation
-    if (!fullName.trim().includes(" ")) return alert("กรุณากรอกทั้ง 'ชื่อ' และ 'นามสกุล' (เว้นวรรค)");
-    if (!phoneNumber.trim()) return alert("กรุณากรอกเบอร์โทรศัพท์");
-    if (!lineId.trim()) return alert("กรุณากรอก LINE ID");
+    // Validation — inline errors, not alert() (blocked in FB/LINE in-app browsers)
+    if (!fullName.trim().includes(" ")) return setSubmitError("กรุณากรอกทั้ง 'ชื่อ' และ 'นามสกุล' (เว้นวรรค)");
+    if (!phoneNumber.trim()) return setSubmitError("กรุณากรอกเบอร์โทรศัพท์");
+    if (!lineId.trim()) return setSubmitError("กรุณากรอก LINE ID");
 
     setIsSubmitting(true);
+    setSubmitError('');
     try {
       let downloadURL = currentSlip;
 
@@ -208,7 +160,9 @@ export default function EditPaymentPage() {
       if (slipFile) {
         const storageRef = ref(storage, `slips/${user?.uid}_${Date.now()}_edited`);
         downloadURL = await new Promise<string>((resolve, reject) => {
-          const task = uploadBytesResumable(storageRef, slipFile);
+          // Explicit contentType: storage.rules requires image/* and some
+          // pickers hand over files with an empty type.
+          const task = uploadBytesResumable(storageRef, slipFile, { contentType: slipContentType(slipFile) });
           const timer = setTimeout(() => { task.cancel(); reject(new Error('UPLOAD_TIMEOUT')); }, 120_000);
           task.on(
             'state_changed',
@@ -238,11 +192,11 @@ export default function EditPaymentPage() {
     } catch (error: any) {
       console.error("Update Error:", error);
       if (error?.message === 'UPLOAD_TIMEOUT') {
-        alert("⏳ การอัปโหลดสลิปใช้เวลานานเกินไป\n\nวิธีแก้ไข:\n• ลองเชื่อมต่อ WiFi แล้วลองใหม่\n• ลองถ่ายรูปสลิปด้วยกล้องแทนการ Screenshot");
+        setSubmitError("การอัปโหลดสลิปใช้เวลานานเกินไป — ลองเชื่อมต่อ WiFi แล้วกดบันทึกอีกครั้ง หรือถ่ายรูปสลิปด้วยกล้องแทนการแคปหน้าจอ");
       } else if (error?.code === 'storage/unauthorized') {
-        alert("❌ ไม่มีสิทธิ์อัปโหลดไฟล์\nกรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่");
+        setSubmitError("ไม่มีสิทธิ์อัปโหลดไฟล์ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง");
       } else {
-        alert(`เกิดข้อผิดพลาด กรุณาลองใหม่\n\n(${error?.code || error?.message || 'unknown error'})`);
+        setSubmitError(`เกิดข้อผิดพลาด กรุณาลองใหม่ (${error?.code || error?.message || 'unknown error'})`);
       }
     } finally {
       setIsSubmitting(false);
@@ -392,6 +346,13 @@ export default function EditPaymentPage() {
               </div>
 
             </div>
+
+            {/* Submit failure — inline so it survives in-app browsers that block alert() */}
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-bold px-4 py-3 rounded-xl flex items-start gap-2">
+                <span>⚠️</span><span>{submitError}</span>
+              </div>
+            )}
 
             {/* Submit Button */}
             <div className="pt-4 flex gap-3">

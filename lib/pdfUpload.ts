@@ -47,16 +47,19 @@ export function uploadPrivateFile(
 
 /**
  * Upload a file that IS meant to be public (cover image, free preview PDF) and
- * return its download URL.
+ * return its download URL. Pass `contentType` to override the file's own type —
+ * needed for payment slips, where storage.rules requires image/* but some
+ * Android/in-app pickers hand over image files with an empty type.
  */
 export function uploadPublicFile(
-    file: File,
+    file: File | Blob,
     storagePath: string,
     onProgress?: (pct: number) => void,
+    contentType?: string,
 ): Promise<string> {
     return new Promise((resolve, reject) => {
         const task = uploadBytesResumable(ref(storage, storagePath), file, {
-            contentType: file.type || "application/octet-stream",
+            contentType: contentType || file.type || "application/octet-stream",
         });
         const timer = setTimeout(() => { task.cancel(); reject(new Error("UPLOAD_TIMEOUT")); }, UPLOAD_TIMEOUT);
         task.on(

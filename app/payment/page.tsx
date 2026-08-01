@@ -3,42 +3,34 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, addDoc, where, doc, limit, runTransaction } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import BrowserWarning from "@/components/BrowserWarning";
 import { useUserAuth } from "@/context/AuthContext";
 import ConfettiBurst from "@/components/gamification/ConfettiBurst";
 import { PAYMENT_INFO } from "@/lib/constants";
+import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slipFile";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (before compression)
 const UPLOAD_TIMEOUT = 120_000; // 120 seconds
-const COMPRESSION_TIMEOUT = 10_000; // 10 seconds max for compression
-const COMPRESSION_THRESHOLD = 2 * 1024 * 1024; // Only compress files > 2MB
 const MAX_SLIPS = 5; // attach up to 5 transfer slips
 
 const PHONE_RE = /^[0-9]{9,10}$/; // step-2 gate: 9–10 digit phone
 const STEP_LABELS = ["เลือกคอร์ส", "ข้อมูลผู้เรียน", "ชำระเงิน", "แนบสลิป"];
 
-/** Wrap imageCompression with a hard timeout to prevent hanging on mobile */
-async function compressWithTimeout(file: File, options: any, timeoutMs: number): Promise<File | Blob> {
-  const compressionPromise = import('browser-image-compression').then(mod => mod.default(file, options));
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('COMPRESSION_TIMEOUT')), timeoutMs)
-  );
-  return Promise.race([compressionPromise, timeoutPromise]);
-}
-
-/** Upload with progress tracking and timeout */
+/** Upload with progress tracking and timeout. contentType is passed explicitly
+ * because storage.rules requires image/* — files picked in some Android/in-app
+ * browsers have an empty type and would otherwise upload as octet-stream. */
 function uploadWithProgress(
   storageRef: ReturnType<typeof ref>,
   file: File,
+  contentType: string,
   onProgress: (pct: number) => void,
   timeoutMs: number
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(storageRef, file);
+    const task = uploadBytesResumable(storageRef, file, { contentType });
     const timer = setTimeout(() => { task.cancel(); reject(new Error('UPLOAD_TIMEOUT')); }, timeoutMs);
     task.on(
       'state_changed',
@@ -74,6 +66,9 @@ export default function PaymentPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [submitStatus, setSubmitStatus] = useState<string>('');
   const [slipError, setSlipError] = useState<string>('');
+  // Submit-failure message shown INLINE (never alert(): FB/LINE in-app
+  // browsers silently drop alert, so a failed submit looked like nothing).
+  const [submitError, setSubmitError] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -219,25 +214,20 @@ export default function PaymentPage() {
 
 
 
-  /** Compress one image (web-worker, then no-worker fallback); returns the file, or null if rejected. */
+  /** Validate + compress one image via the shared slip helper (tolerates
+   * empty file.type from Android/in-app pickers, converts HEIC, enforces the
+   * storage.rules 5MB cap). Returns the file, or null if rejected. */
   const prepareImage = useCallback(async (file: File): Promise<File | null> => {
-    if (!file.type.startsWith('image/')) { setSlipError('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG)'); return null; }
-    if (file.size > MAX_FILE_SIZE) { setSlipError(`มีไฟล์ใหญ่เกิน 10MB (${(file.size / 1024 / 1024).toFixed(1)}MB)`); return null; }
-    if (file.size <= COMPRESSION_THRESHOLD) return file;
-    const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true, initialQuality: 0.85 };
-    try {
-      return await compressWithTimeout(file, options, COMPRESSION_TIMEOUT) as File;
-    } catch {
-      // Retry without the web worker (some in-app browsers); fall back to the original if that fails too.
-      try { return await compressWithTimeout(file, { ...options, useWebWorker: false }, COMPRESSION_TIMEOUT) as File; }
-      catch { return file; }
-    }
+    const prep = await prepareSlipImage(file);
+    if (!prep.ok) { setSlipError(slipPrepErrorText(prep.reason)); return null; }
+    return prep.file;
   }, []);
 
   /** Add one or more images: validate + compress each, then append (up to MAX_SLIPS). */
   const addFiles = useCallback(async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
     setSlipError('');
+    setSubmitError('');
     const room = MAX_SLIPS - slipFiles.length;
     if (room <= 0) { setSlipError(`แนบสลิปได้สูงสุด ${MAX_SLIPS} รูป`); return; }
     const chosen = Array.from(files).slice(0, room);
@@ -304,12 +294,14 @@ export default function PaymentPage() {
     e.preventDefault();
     if (!user) return;
 
-    if (selectedCourses.length === 0) return alert("⚠️ กรุณาเลือกคอร์สเรียนอย่างน้อย 1 คอร์ส");
-    if (!fullName.trim()) return alert("⚠️ กรุณากรอกชื่อ-นามสกุล");
-    if (!phoneNumber.trim()) return alert("⚠️ กรุณากรอกเบอร์โทรศัพท์");
-    if (slipFiles.length === 0) return alert("⚠️ กรุณาแนบสลิปโอนเงินอย่างน้อย 1 รูป");
+    // Inline errors, not alert(): FB/LINE in-app browsers drop alert silently.
+    if (selectedCourses.length === 0) return setSubmitError("กรุณาเลือกคอร์สเรียนอย่างน้อย 1 คอร์ส");
+    if (!fullName.trim()) return setSubmitError("กรุณากรอกชื่อ-นามสกุล");
+    if (!phoneNumber.trim()) return setSubmitError("กรุณากรอกเบอร์โทรศัพท์");
+    if (slipFiles.length === 0) return setSubmitError("กรุณาแนบสลิปโอนเงินอย่างน้อย 1 รูป");
 
     setIsSubmitting(true);
+    setSubmitError('');
     setUploadProgress(0);
     setSubmitStatus('กำลังเตรียมข้อมูล...');
 
@@ -320,7 +312,7 @@ export default function PaymentPage() {
         setSubmitStatus(`กำลังอัปโหลดสลิป ${i + 1}/${slipFiles.length}...`);
         setUploadProgress(0);
         const storageRef = ref(storage, `slips/${user.uid}_${Date.now()}_${i}`);
-        const url = await uploadWithProgress(storageRef, slipFiles[i], (pct) => setUploadProgress(pct), UPLOAD_TIMEOUT);
+        const url = await uploadWithProgress(storageRef, slipFiles[i], slipContentType(slipFiles[i]), (pct) => setUploadProgress(pct), UPLOAD_TIMEOUT);
         slipUrls.push(url);
       }
 
@@ -401,15 +393,15 @@ export default function PaymentPage() {
     } catch (error: any) {
       console.error("Payment Error:", error);
       if (error?.message === 'UPLOAD_TIMEOUT') {
-        alert("⏳ การอัปโหลดสลิปใช้เวลานานเกินไป\n\nวิธีแก้ไข:\n• ลองเชื่อมต่อ WiFi แล้วลองใหม่\n• ลองถ่ายรูปสลิปด้วยกล้องแทนการ Screenshot");
+        setSubmitError("การอัปโหลดสลิปใช้เวลานานเกินไป — ลองเชื่อมต่อ WiFi แล้วกดยืนยันอีกครั้ง หรือถ่ายรูปสลิปด้วยกล้องแทนการแคปหน้าจอ");
       } else if (error?.code === 'storage/canceled') {
-        alert("❌ การอัปโหลดถูกยกเลิก\nกรุณาลองใหม่อีกครั้ง");
+        setSubmitError("การอัปโหลดถูกยกเลิก กรุณากดยืนยันอีกครั้ง");
       } else if (error?.code === 'storage/unauthorized') {
-        alert("❌ ไม่มีสิทธิ์อัปโหลดไฟล์\nกรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่");
+        setSubmitError("ไม่มีสิทธิ์อัปโหลดไฟล์ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง");
       } else if (error?.code === 'storage/retry-limit-exceeded' || error?.code === 'storage/server-file-wrong-size') {
-        alert("❌ เกิดข้อผิดพลาดในการอัปโหลด\n\nวิธีแก้ไข:\n• ปิดแอปแล้วเปิดใหม่\n• ลองใช้ browser อื่น (Chrome/Safari)");
+        setSubmitError("อัปโหลดไม่สำเร็จ — ลองปิดแอปแล้วเปิดใหม่ หรือเปิดหน้านี้ใน Chrome/Safari แล้วลองอีกครั้ง");
       } else {
-        alert(`เกิดข้อผิดพลาด กรุณาลองใหม่\n\n(${error?.code || error?.message || 'unknown error'})`);
+        setSubmitError(`เกิดข้อผิดพลาด กรุณาลองใหม่ (${error?.code || error?.message || 'unknown error'})`);
       }
     } finally {
       setIsSubmitting(false);
@@ -545,6 +537,11 @@ export default function PaymentPage() {
       <Navbar />
       <main className="gp-bg flex-grow pt-24 pb-28">
         <div className="mx-auto w-full max-w-[1080px] px-[clamp(18px,4vw,40px)]">
+
+          {/* In-app browser (LINE/Messenger/FB/IG) escape hatch — the file
+              picker + uploads are unreliable inside those webviews, which is
+              the top reason "แนบสลิปไม่ได้". Renders nothing in a normal browser. */}
+          <BrowserWarning />
 
           {/* Hero */}
           <div className="mb-1">
@@ -763,6 +760,13 @@ export default function PaymentPage() {
                   </div>
                 )}
               </div>
+
+              {/* Submit failure — inline so it survives in-app browsers that block alert() */}
+              {submitError && (
+                <div className="mt-6 rounded-[10px] border border-[var(--bad)] bg-[var(--bad)]/5 px-4 py-3 text-sm font-semibold text-[color:var(--bad)] flex items-start gap-2">
+                  <span>⚠️</span><span>{submitError}</span>
+                </div>
+              )}
 
               {/* Nav buttons */}
               <div className="flex items-center gap-3 mt-7 pt-6 border-t border-[var(--line)]">
