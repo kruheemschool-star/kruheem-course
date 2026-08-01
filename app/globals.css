@@ -1898,47 +1898,104 @@ h2.khb-path::before {
 .dark .khb-quote { border-left-color: #2dd4bf; }
 .dark .prose .khb-quote p { color: #f1f5f9; }
 
-/* 3) ปากกาเน้นข้อความ */
+/* 3) ปากกาเน้นข้อความ — สเปกครูฮีม: ไฮไลต์ครึ่งล่างของบรรทัด ไม่ทับสระ-วรรณยุกต์ไทย */
 mark.khb-mark {
-    background: linear-gradient(transparent 55%, #fde68a 55%);
-    color: inherit; font-weight: 600; padding: 0 2px;
+    background: none;
+    box-shadow: inset 0 -0.55em 0 #FFE9A8;
+    color: inherit; font-weight: 700; padding: 0 2px;
 }
-.dark mark.khb-mark { background: linear-gradient(transparent 55%, rgba(217, 119, 6, 0.45) 55%); }
+.dark mark.khb-mark {
+    box-shadow: none; background: #FFD666; color: #1C1416;
+    padding: 1px 6px; border-radius: 3px;
+}
 
-/* 4) กล่องเตือน "จุดที่มันพัง" — พื้นจางมาก เส้นขอบบาง สีอยู่ที่ป้ายหัวอย่างเดียว
-      เนื้อความคงสีหมึกปกติเพื่อให้อ่านสบายและดูเรียบ */
-.khb-warn {
-    margin: 1.75em 0; padding: 18px 22px;
-    background: rgba(220, 38, 38, 0.035);
-    border: 1px solid rgba(220, 38, 38, 0.14);
-    border-left: 2px solid #dc2626;
-    border-radius: 12px;
+/* 4-5) กล่อง Callout ตามสเปกครูฮีม (callout-2a-2b-spec)
+   แบบ 2a "ป้ายห้อย" — การ์ดขาว ขอบเทาบาง + ป้ายสีลอยคร่อมขอบบน (h3 = ป้าย)
+   .khb-fit = โทนเขียว (เหมาะ) | .khb-warn = โทนแดง (จุดที่มันพัง)
+   โหมดมืด: พลิกเป็นภาษาแบบ 2b (พื้นเข้ม + ขีดสีนำหัวข้อ) ตามสเปกหน้า dark */
+.khb-fit, .khb-warn {
+    position: relative;
+    margin: 30px 0 1.75em; /* เผื่อป้ายลอยขึ้น 15px ตามสเปก */
+    background: #fff;
+    border: 1px solid #E4E7EA;
+    border-radius: 18px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    padding: 38px 36px 32px;
+    font-family: var(--font-ibm-thai), var(--font-ibm-loop), sans-serif;
 }
-.prose .khb-warn h3 {
-    margin: 0 0 0.55em; color: #b91c1c;
-    font-size: 0.9em; font-weight: 600; letter-spacing: 0.02em;
+.prose .khb-fit h3, .prose .khb-warn h3 {
+    position: absolute; top: -15px; left: 32px; margin: 0;
+    padding: 6px 16px; border-radius: 999px;
+    font-family: var(--font-ibm-thai), var(--font-ibm-loop), sans-serif;
+    font-size: 14px; font-weight: 600; line-height: 1.5; color: #fff;
+    letter-spacing: 0.01em;
 }
-.prose .khb-warn p { margin: 0.55em 0; color: #475569; }
-.dark .khb-warn { background: rgba(248, 113, 113, 0.06); border-color: rgba(248, 113, 113, 0.2); border-left-color: #f87171; }
-.dark .prose .khb-warn h3 { color: #fca5a5; }
-.dark .prose .khb-warn p { color: #cbd5e1; }
+.prose .khb-fit h3 { background: #0E7A4E; box-shadow: 0 4px 12px rgba(14, 122, 78, 0.22); }
+.prose .khb-warn h3 { background: #B42318; box-shadow: 0 4px 12px rgba(180, 35, 24, 0.22); }
+.prose .khb-fit p, .prose .khb-warn p {
+    margin: 0; color: #23282D; font-size: 18px; line-height: 1.78;
+}
+/* หลายข้อในกล่องเดียว: เส้นคั่นบางระหว่างข้อ */
+.prose .khb-fit p + p, .prose .khb-warn p + p {
+    margin-top: 22px; padding-top: 22px; border-top: 1px solid #EEF0F2;
+}
+/* โหมดมืด: การ์ดขาวพลิกเป็นแบบ 2b */
+.dark .khb-fit, .dark .khb-warn {
+    border: none; box-shadow: none; border-radius: 20px;
+    padding: 36px 38px 38px; margin-top: 18px;
+}
+.dark .khb-fit { background: #10201A; }
+.dark .khb-warn { background: #1C1416; }
+.dark .prose .khb-fit h3, .dark .prose .khb-warn h3 {
+    position: static; margin: 0 0 22px; padding: 0;
+    background: none; box-shadow: none; border-radius: 0;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 18px; font-weight: 700;
+}
+.dark .prose .khb-fit h3 { color: #EAF6EF; }
+.dark .prose .khb-warn h3 { color: #F7EDEC; }
+.dark .prose .khb-fit h3::before, .dark .prose .khb-warn h3::before {
+    content: ''; width: 28px; height: 3px; border-radius: 2px; flex: none;
+}
+.dark .prose .khb-fit h3::before { background: #6FCF9B; }
+.dark .prose .khb-warn h3::before { background: #F08C7E; }
+.dark .prose .khb-fit p { color: #B9CDC2; }
+.dark .prose .khb-warn p { color: #BFAFAD; }
+.dark .prose .khb-fit p + p, .dark .prose .khb-warn p + p { border-top-color: rgba(255, 255, 255, 0.07); }
 
-/* 5) กล่องเขียว "ลูกแบบไหนเหมาะ" — ภาษาเดียวกับกล่องเตือน เปลี่ยนแค่สีแอคเซนต์ */
-.khb-fit {
-    margin: 1.75em 0; padding: 18px 22px;
-    background: rgba(22, 163, 74, 0.035);
-    border: 1px solid rgba(22, 163, 74, 0.14);
-    border-left: 2px solid #16a34a;
-    border-radius: 12px;
+/* แบบ 2b "พื้นเข้ม" — จุดพีคที่ต้องสะดุดตา (เข้มทั้งสองโหมด)
+   .khb-lead = บรรทัดสำคัญ (ตัวหนา สีสว่าง) ตามสเปก */
+.khb-dark {
+    margin: 18px 0 1.75em; border-radius: 20px;
+    padding: 36px 38px 38px; border: none;
+    font-family: var(--font-ibm-thai), var(--font-ibm-loop), sans-serif;
 }
-.prose .khb-fit h3 {
-    margin: 0 0 0.55em; color: #15803d;
-    font-size: 0.9em; font-weight: 600; letter-spacing: 0.02em;
+.khb-dark-green { background: #10201A; }
+.khb-dark-red { background: #1C1416; }
+.prose .khb-dark h3 {
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 0 22px; font-size: 22px; font-weight: 700;
+    font-family: var(--font-ibm-thai), var(--font-ibm-loop), sans-serif;
 }
-.prose .khb-fit p { margin: 0.55em 0; color: #475569; }
-.dark .khb-fit { background: rgba(74, 222, 128, 0.06); border-color: rgba(74, 222, 128, 0.2); border-left-color: #4ade80; }
-.dark .prose .khb-fit h3 { color: #86efac; }
-.dark .prose .khb-fit p { color: #cbd5e1; }
+.khb-dark-green h3 { color: #EAF6EF; }
+.khb-dark-red h3 { color: #F7EDEC; }
+.prose .khb-dark h3::before { content: ''; width: 28px; height: 3px; border-radius: 2px; flex: none; }
+.khb-dark-green h3::before { background: #6FCF9B; }
+.khb-dark-red h3::before { background: #F08C7E; }
+.prose .khb-dark p { margin: 0; font-size: 18px; line-height: 1.78; }
+.prose .khb-dark p + p { margin-top: 18px; }
+.khb-dark-green p { color: #B9CDC2; }
+.khb-dark-red p { color: #BFAFAD; }
+.prose .khb-dark p.khb-lead { font-weight: 600; }
+.khb-dark-green p.khb-lead { color: #EAF6EF; }
+.khb-dark-red p.khb-lead { color: #F7EDEC; }
+.khb-dark-green strong { color: #EAF6EF; }
+.khb-dark-red strong { color: #F7EDEC; }
+/* ไฮไลต์บนพื้นเข้ม (ในการ์ด 2b) */
+.prose .khb-dark mark.khb-mark {
+    box-shadow: none; background: #FFD666; color: #1C1416;
+    padding: 1px 6px; border-radius: 3px; font-weight: 700;
+}
 
 /* 6) ปฏิทินแบบไทม์ไลน์ */
 .khb-timeline { margin: 1.4em 0; }
@@ -1960,18 +2017,20 @@ mark.khb-mark {
 .dark .khb-tl::before { background: #2dd4bf; }
 .dark .khb-tl::after { background: #334155; }
 
-/* 7) การ์ดคำถามเช็กใจ — hairline card ไม่มีเงา */
+/* 7) การ์ดคำถามเช็กใจ — ภาษาเดียวกับการ์ด 2a (ขาว ขอบเทาบาง เงาบาง) */
 .khb-q {
-    margin: 1.25em 0; padding: 18px 22px;
-    background: none; border: 1px solid #e2e8f0; border-radius: 12px;
-    box-shadow: none;
+    margin: 1.25em 0; padding: 26px 30px;
+    background: #fff; border: 1px solid #E4E7EA; border-radius: 18px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    font-family: var(--font-ibm-thai), var(--font-ibm-loop), sans-serif;
 }
-.prose .khb-q p { margin: 0; }
+.prose .khb-q p { margin: 0; font-size: 18px; line-height: 1.78; color: #23282D; }
 .khb-yes, .khb-no { display: inline; }
 .khb-yes::before { content: '✓ '; color: #16a34a; font-weight: 600; }
 .khb-no::before { content: '✕ '; color: #dc2626; font-weight: 600; }
 .khb-yes { color: #15803d; }
 .khb-no { color: #b91c1c; }
-.dark .khb-q { border-color: #334155; }
+.dark .khb-q { background: rgba(30, 41, 59, 0.5); border-color: #334155; box-shadow: none; }
+.dark .prose .khb-q p { color: #cbd5e1; }
 .dark .khb-yes { color: #86efac; }
 .dark .khb-no { color: #fca5a5; }

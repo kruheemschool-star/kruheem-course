@@ -3,7 +3,7 @@ import "./globals.css";
 // import dynamic from "next/dynamic"; // No longer needed here
 import { AuthContextProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { Mitr, IBM_Plex_Sans_Thai_Looped, Kanit, Sarabun } from 'next/font/google';
+import { Mitr, IBM_Plex_Sans_Thai_Looped, IBM_Plex_Sans_Thai, IBM_Plex_Mono, Kanit, Sarabun } from 'next/font/google';
 import { DynamicVisitorTracker, DynamicChatWidget } from "@/components/ClientWrappers";
 import GooglePasswordBanner from "@/components/GooglePasswordBanner";
 
@@ -18,6 +18,21 @@ const ibmLoop = IBM_Plex_Sans_Thai_Looped({
   weight: ['100', '200', '300', '400', '500', '600', '700'],
   subsets: ['thai', 'latin'],
   variable: '--font-ibm-loop',
+  display: 'swap',
+});
+
+// Used by the .khb-* blog callout cards (spec: callout-2a-2b).
+const ibmThai = IBM_Plex_Sans_Thai({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['thai', 'latin'],
+  variable: '--font-ibm-thai',
+  display: 'swap',
+});
+
+const ibmMono = IBM_Plex_Mono({
+  weight: ['500'],
+  subsets: ['latin'],
+  variable: '--font-ibm-mono',
   display: 'swap',
 });
 
@@ -125,7 +140,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
       </head>
-      <body className={`${mitr.variable} ${ibmLoop.variable} ${kanit.variable} ${sarabun.variable} font-sans`} suppressHydrationWarning>
+      <body className={`${mitr.variable} ${ibmLoop.variable} ${ibmThai.variable} ${ibmMono.variable} ${kanit.variable} ${sarabun.variable} font-sans`} suppressHydrationWarning>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
