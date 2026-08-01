@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, Wand2, Eye, Code, Trash2, Info, PenTool, Layers } from "lucide-react";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { collectArticleImagePaths, purgeUnreferencedArticleImages } from "@/lib/articleImages";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import { Image as ImageIcon, Upload } from "lucide-react";
@@ -255,7 +256,11 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
     const handleDelete = async () => {
         confirmModal("ยืนยันการลบ", "ต้องการลบบทสรุปนี้ใช่ไหม?", async () => {
             try {
+                // เก็บรายการรูปไว้ก่อน — หลังลบเอกสารแล้ว URL รูปจะหายไปด้วย
+                const images = await collectArticleImagePaths("summaries", id);
                 await deleteDoc(doc(db, "summaries", id));
+                // เก็บกวาดรูปบน Storage ที่ไม่มีบทความไหนใช้แล้ว (กันรูปที่แชร์กับบทความอื่น)
+                await purgeUnreferencedArticleImages(images);
                 router.push("/admin/summaries");
             } catch (error) {
                 console.error("Error:", error);

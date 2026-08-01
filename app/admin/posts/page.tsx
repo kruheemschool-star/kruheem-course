@@ -7,6 +7,7 @@ import Image from "next/image";
 import { Plus, Edit, Trash2, Eye, ImageIcon, FileText, CheckCircle2, FilePen, Newspaper } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { collectArticleImagePaths, purgeUnreferencedArticleImages } from "@/lib/articleImages";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 interface Post {
@@ -48,8 +49,12 @@ export default function AdminPostsPage() {
     const handleDelete = async (id: string) => {
         confirmModal("ยืนยันการลบ", "คุณแน่ใจว่าต้องการลบบทความนี้? การกระทำนี้ไม่สามารถย้อนกลับได้", async () => {
             try {
+                // เก็บรายการรูปไว้ก่อน — หลังลบเอกสารแล้ว URL รูปจะหายไปด้วย
+                const images = await collectArticleImagePaths("posts", id);
                 await deleteDoc(doc(db, "posts", id));
                 setPosts(prev => prev.filter(p => p.id !== id));
+                // เก็บกวาดรูปบน Storage ที่ไม่มีบทความไหนใช้แล้ว (กันรูปที่แชร์กับบทความอื่น)
+                await purgeUnreferencedArticleImages(images);
             } catch (error) {
                 console.error("Error deleting post:", error);
                 alert("เกิดข้อผิดพลาดในการลบ");

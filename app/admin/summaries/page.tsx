@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, deleteDoc, doc, writeBatch } from "firebase/firestore";
+import { collectArticleImagePaths, purgeUnreferencedArticleImages } from "@/lib/articleImages";
 import { Plus, Edit, Trash2, BookOpen, ChevronUp, ChevronDown, FileText, CheckCircle2, PencilLine, CalendarPlus } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
@@ -44,8 +45,12 @@ export default function AdminSummariesPage() {
     const handleDelete = (id: string, title: string) => {
         confirmModal("ยืนยันการลบ", `ต้องการลบ "${title}" ใช่ไหม?`, async () => {
             try {
+                // เก็บรายการรูปไว้ก่อน — หลังลบเอกสารแล้ว URL รูปจะหายไปด้วย
+                const images = await collectArticleImagePaths("summaries", id);
                 await deleteDoc(doc(db, "summaries", id));
                 setSummaries(prev => prev.filter(s => s.id !== id));
+                // เก็บกวาดรูปบน Storage ที่ไม่มีบทความไหนใช้แล้ว (กันรูปที่แชร์กับบทความอื่น)
+                await purgeUnreferencedArticleImages(images);
             } catch (error) {
                 console.error("Error deleting:", error);
                 alert("เกิดข้อผิดพลาด");

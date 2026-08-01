@@ -6,6 +6,7 @@ import { Save, Image as ImageIcon, Eye, Code, Trash2, FileJson, FilePen, Search,
 import TiptapEditor from "@/components/TiptapEditor";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { collectArticleImagePaths, purgeUnreferencedArticleImages } from "@/lib/articleImages";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import imageCompression from "browser-image-compression";
@@ -143,7 +144,11 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
     const handleDelete = async () => {
         confirmModal("ยืนยันการลบ", "คุณแน่ใจว่าต้องการลบบทความนี้? การกระทำนี้ไม่สามารถย้อนกลับได้", async () => {
             try {
+                // เก็บรายการรูปไว้ก่อน — หลังลบเอกสารแล้ว URL รูปจะหายไปด้วย
+                const images = await collectArticleImagePaths("posts", id);
                 await deleteDoc(doc(db, "posts", id));
+                // เก็บกวาดรูปบน Storage ที่ไม่มีบทความไหนใช้แล้ว (กันรูปที่แชร์กับบทความอื่น)
+                await purgeUnreferencedArticleImages(images);
                 router.push("/admin/posts");
             } catch (error) {
                 console.error("Error deleting post:", error);
