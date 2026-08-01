@@ -3,7 +3,7 @@ import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useUserAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import { Mail, Lock, AlertCircle, ArrowRight, Play, ArrowLeft } from "lucide-react";
+import { Mail, Lock, AlertCircle, ArrowRight, Play, ArrowLeft, User, Phone } from "lucide-react";
 import BrowserWarning from "@/components/BrowserWarning";
 
 function RegisterContent() {
@@ -18,6 +18,8 @@ function RegisterContent() {
     const payDest = fromBuy ? returnUrl : '/payment';
     const loginHref = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
 
+    const [fullName, setFullName] = useState("");
+    const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -28,6 +30,19 @@ function RegisterContent() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
+
+        // ชื่อ+เบอร์เก็บตั้งแต่สมัคร เพื่อให้ครูเห็นและติดต่อกลับได้ แม้ผู้เรียน
+        // จะยังแจ้งโอน/แนบสลิปไม่สำเร็จ (จุดที่เคยหลุดหายจากหลังบ้าน)
+        if (!fullName.trim()) {
+            setError("กรุณากรอกชื่อ-นามสกุล");
+            return;
+        }
+
+        const cleanPhone = phone.replace(/[\s-]/g, "");
+        if (!/^[0-9]{9,10}$/.test(cleanPhone)) {
+            setError("กรุณากรอกเบอร์โทรศัพท์ 9-10 หลัก");
+            return;
+        }
 
         if (password !== confirmPassword) {
             setError("รหัสผ่านไม่ตรงกัน");
@@ -41,7 +56,7 @@ function RegisterContent() {
 
         setLoading(true);
         try {
-            await emailSignUp(email, password);
+            await emailSignUp(email, password, { displayName: fullName.trim(), phoneNumber: cleanPhone });
             setDone({ email, password }); // show the success summary + แจ้งโอน hand-off
         } catch (err: any) {
             console.error(err);
@@ -157,6 +172,39 @@ function RegisterContent() {
                 <BrowserWarning />
 
                 <form onSubmit={handleSubmit} className="space-y-5">
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 ml-1">ชื่อ-นามสกุล (ผู้เรียน)</label>
+                        <div className="relative">
+                            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                required
+                                autoComplete="name"
+                                value={fullName}
+                                onChange={(e) => setFullName(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                                placeholder="เช่น เด็กชายสมชาย ใจดี"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700 ml-1">เบอร์โทรศัพท์ (ติดต่อกลับได้)</label>
+                        <div className="relative">
+                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                            <input
+                                type="tel"
+                                required
+                                inputMode="numeric"
+                                autoComplete="tel"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-800 placeholder:text-slate-400"
+                                placeholder="0812345678"
+                            />
+                        </div>
+                    </div>
+
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700 ml-1">อีเมล</label>
                         <div className="relative">

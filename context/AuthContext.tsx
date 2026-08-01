@@ -17,11 +17,14 @@ import { ADMIN_EMAILS } from "@/lib/constants";
 
 interface UserProfile {
     displayName?: string;
+    phoneNumber?: string;
     avatar?: string;
     role?: string;
     lastActive?: any;
     caption?: string;
     authProvider?: 'google' | 'email';
+    createdAt?: unknown;
+    adminNote?: string;
 }
 
 interface AuthContextType {
@@ -33,7 +36,7 @@ interface AuthContextType {
     daysSinceLastActive: number | null;
     googleSignIn: () => Promise<void>;
     emailSignIn: (email: string, password: string) => Promise<void>;
-    emailSignUp: (email: string, password: string) => Promise<void>;
+    emailSignUp: (email: string, password: string, profile?: { displayName?: string; phoneNumber?: string }) => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
     logOut: () => Promise<void>;
     updateProfile: (data: UserProfile) => Promise<void>;
@@ -90,15 +93,20 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         }
     }, []);
 
-    const emailSignUp = useCallback(async (email: string, password: string) => {
+    const emailSignUp = useCallback(async (email: string, password: string, profile?: { displayName?: string; phoneNumber?: string }) => {
         try {
             const result = await createUserWithEmailAndPassword(auth, email, password);
             if (result.user) {
                 // Safety net: account creation should succeed even if Firestore rules are misconfigured.
                 try {
+                    // ชื่อ/เบอร์/วันสมัคร ถูกเก็บตั้งแต่วินาทีที่สมัคร เพื่อให้หลังบ้าน
+                    // (/admin/registrations) เห็นตัวตนทันที แม้ยังไม่เคยแจ้งโอน
                     await setDoc(doc(db, "users", result.user.uid), {
                         authProvider: 'email',
                         email: result.user.email || '',
+                        ...(profile?.displayName ? { displayName: profile.displayName } : {}),
+                        ...(profile?.phoneNumber ? { phoneNumber: profile.phoneNumber } : {}),
+                        createdAt: serverTimestamp(),
                     }, { merge: true });
                 } catch (error) {
                     console.error("Post-signup profile write failed (users/{uid}):", error);

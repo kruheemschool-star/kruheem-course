@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
-import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Building2, Calendar, Hash, Phone, Mail, CheckCircle2, Clock, Inbox, ZoomIn } from "lucide-react";
+import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Building2, Calendar, Hash, Phone, Mail, CheckCircle2, Clock, Inbox, ZoomIn, Users, StickyNote } from "lucide-react";
 
 export default function AdminEnrollmentsPage() {
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
@@ -211,9 +211,14 @@ export default function AdminEnrollmentsPage() {
                     <span className="kh-eyebrow">รอตรวจสอบ</span>
                     <span className="kh-pill kh-pill-warn">{enrollments.length} รายการ</span>
                 </div>
-                <Link href="/admin/students/add" className="kh-btn">
-                    <UserPlus size={16} /> เพิ่มนักเรียนเอง
-                </Link>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <Link href="/admin/registrations" className="kh-btn-ghost">
+                        <Users size={16} /> สมาชิกใหม่ (ยังไม่แจ้งโอน)
+                    </Link>
+                    <Link href="/admin/students/add" className="kh-btn">
+                        <UserPlus size={16} /> เพิ่มนักเรียนเอง
+                    </Link>
+                </div>
             </div>
 
             {loading ? (
@@ -358,6 +363,18 @@ export default function AdminEnrollmentsPage() {
                                                         <span className="kh-pill kh-pill-good no-dot">🎟️ {item.couponCode}</span>
                                                         <span className="ml-2 font-black" style={{ color: "var(--good)" }}>-฿{item.discountAmount?.toLocaleString()}</span>
                                                     </td>
+                                                </tr>
+                                            )}
+                                            {item.adminNote && (
+                                                <tr>
+                                                    <td className="flex items-center gap-2"><StickyNote size={14} style={{ color: "var(--ink-3)" }} /> หมายเหตุแอดมิน</td>
+                                                    <td className="font-bold" style={{ color: "var(--warn)" }}>{item.adminNote}</td>
+                                                </tr>
+                                            )}
+                                            {item.createdByAdmin && (
+                                                <tr>
+                                                    <td>ที่มา</td>
+                                                    <td><span className="kh-pill kh-pill-ink no-dot">สร้างโดยแอดมิน</span></td>
                                                 </tr>
                                             )}
                                         </tbody>

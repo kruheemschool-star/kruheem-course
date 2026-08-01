@@ -18,7 +18,7 @@ import { CSS } from "@dnd-kit/utilities";
 import {
     LayoutDashboard, Wallet, Ticket, Gift, Download,
     BookOpen, ClipboardList, ScrollText, Newspaper, FileText,
-    Users, Smile, Activity,
+    Users, UserPlus, Smile, Activity,
     MessageCircle, LifeBuoy, Megaphone, Star, BarChart3, LineChart,
     Menu, Search, Bell, Sun, Moon, LogOut, Home, GripVertical, Timer,
     type LucideIcon,
@@ -47,6 +47,7 @@ const NAV: NavGroup[] = [
         title: "การเงิน",
         items: [
             { href: "/admin/enrollments", label: "ตรวจสอบชำระเงิน", icon: Wallet, badge: "pending" },
+            { href: "/admin/registrations", label: "สมาชิกใหม่", icon: UserPlus },
             { href: "/admin/coupons", label: "จัดการคูปอง", icon: Ticket },
             { href: "/admin/promotions", label: "โปรโมชันหน้าแรก", icon: Gift, match: ["/admin/banners"] },
             { href: "/admin/countdown", label: "นับถอยหลังหน้าแรก", icon: Timer },
@@ -98,6 +99,7 @@ const ORDER_KEY = "kh-nav-order";
 const PAGE_META: { prefix: string; exact?: boolean; title: string; subtitle: string }[] = [
     { prefix: "/admin", exact: true, title: "ภาพรวมระบบ", subtitle: "สรุปงานด่วน รายได้ และสุขภาพการเรียนในจอเดียว" },
     { prefix: "/admin/enrollments", title: "ตรวจสอบชำระเงิน", subtitle: "ตรวจสลิปและอนุมัติการสมัครเรียน" },
+    { prefix: "/admin/registrations", title: "สมาชิกใหม่", subtitle: "เห็นทุกคนที่สมัครสมาชิก แม้ยังไม่แจ้งโอน — จดหมายเหตุ แนบสลิปแทน และลงทะเบียนให้ได้" },
     { prefix: "/admin/coupons", title: "จัดการคูปอง", subtitle: "สร้างและติดตามโค้ดส่วนลด" },
     { prefix: "/admin/promotions", title: "โปรโมชันหน้าแรก", subtitle: "แบนเนอร์โปรโมชันเหนือ Hero" },
     { prefix: "/admin/countdown", title: "นับถอยหลังหน้าแรก", subtitle: "ตั้งวันสอบ ชื่อสอบ และคำคมบนการ์ดนับถอยหลัง" },

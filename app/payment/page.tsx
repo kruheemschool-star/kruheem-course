@@ -46,7 +46,7 @@ function uploadWithProgress(
 }
 
 export default function PaymentPage() {
-  const { user, loading: authLoading } = useUserAuth();
+  const { user, userProfile, loading: authLoading } = useUserAuth();
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
   const [slipFiles, setSlipFiles] = useState<File[]>([]);
@@ -164,6 +164,15 @@ export default function PaymentPage() {
     }
   }, [selectedCourses]);
 
+
+  // Prefill learner name/phone from the signup profile (they typed it at
+  // /register) so a stalled payment doesn't start from blank fields again.
+  // Only fills fields the user hasn't typed into.
+  useEffect(() => {
+    if (!userProfile) return;
+    if (userProfile.displayName) setFullName(prev => prev || userProfile.displayName || "");
+    if (userProfile.phoneNumber) setPhoneNumber(prev => prev || userProfile.phoneNumber || "");
+  }, [userProfile]);
 
   // Not signed in → send to /login and remember this exact page (incl. ?course=…)
   // so they land right back here after logging in / signing up. replace() keeps
