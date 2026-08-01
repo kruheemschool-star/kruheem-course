@@ -1868,34 +1868,35 @@ h6 {
 
 /* 1) หัวข้อเส้นทาง: ป้ายเลข + เส้นคั่นสีประจำเส้นทาง */
 .prose h2.khb-path {
-    display: flex; align-items: flex-start; gap: 12px;
-    padding-bottom: 10px; border-bottom: 3px solid var(--khb-c, #0d9488);
+    display: flex; align-items: flex-start; gap: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid #e2e8f0;
 }
 h2.khb-path::before {
     content: attr(data-n);
-    flex: none; width: 40px; height: 40px; border-radius: 12px;
+    flex: none; width: 34px; height: 34px; border-radius: 10px;
     background: var(--khb-c, #0d9488); color: #fff;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.15rem; font-weight: 600; margin-top: 2px;
+    font-size: 1rem; font-weight: 600; margin-top: 4px;
 }
+.dark .prose h2.khb-path { border-bottom-color: #334155; }
 .khb-c1 { --khb-c: #1e3a5f; }
 .khb-c2 { --khb-c: #dc2626; }
 .khb-c3 { --khb-c: #ea580c; }
 .khb-c4 { --khb-c: #16a34a; }
 .khb-c5 { --khb-c: #0284c7; }
 
-/* 2) ประโยคทองยกกรอบ */
+/* 2) ประโยคทองยกกรอบ — editorial pull-quote: ไม่มีพื้น มีแค่เส้นบางด้านซ้าย */
 .khb-quote {
-    margin: 1.6em 0; padding: 16px 22px;
-    border-left: 5px solid #0d9488; background: #f0fdfa;
-    border-radius: 0 16px 16px 0;
+    margin: 2em 0; padding: 2px 0 2px 26px;
+    border-left: 2px solid #0d9488; background: none; border-radius: 0;
 }
 .prose .khb-quote p {
     margin: 0; font-family: var(--font-kanit), var(--font-mitr), sans-serif;
-    font-size: 1.18em; font-weight: 500; color: #134e4a; line-height: 1.7;
+    font-size: 1.2em; font-weight: 500; color: #0f172a; line-height: 1.75;
+    letter-spacing: -0.01em;
 }
-.dark .khb-quote { background: rgba(13, 148, 136, 0.12); border-left-color: #2dd4bf; }
-.dark .prose .khb-quote p { color: #99f6e4; }
+.dark .khb-quote { border-left-color: #2dd4bf; }
+.dark .prose .khb-quote p { color: #f1f5f9; }
 
 /* 3) ปากกาเน้นข้อความ */
 mark.khb-mark {
@@ -1904,29 +1905,40 @@ mark.khb-mark {
 }
 .dark mark.khb-mark { background: linear-gradient(transparent 55%, rgba(217, 119, 6, 0.45) 55%); }
 
-/* 4) กล่องเตือน "จุดที่มันพัง" */
+/* 4) กล่องเตือน "จุดที่มันพัง" — พื้นจางมาก เส้นขอบบาง สีอยู่ที่ป้ายหัวอย่างเดียว
+      เนื้อความคงสีหมึกปกติเพื่อให้อ่านสบายและดูเรียบ */
 .khb-warn {
-    margin: 1.4em 0; padding: 14px 18px;
-    background: #fef2f2; border: 1px solid #fecaca; border-left: 5px solid #dc2626;
-    border-radius: 14px;
+    margin: 1.75em 0; padding: 18px 22px;
+    background: rgba(220, 38, 38, 0.035);
+    border: 1px solid rgba(220, 38, 38, 0.14);
+    border-left: 2px solid #dc2626;
+    border-radius: 12px;
 }
-.prose .khb-warn h3 { margin: 0 0 0.4em; color: #b91c1c; font-size: 1.05em; }
-.prose .khb-warn p { margin: 0.5em 0; color: #7f1d1d; }
-.dark .khb-warn { background: rgba(220, 38, 38, 0.1); border-color: rgba(220, 38, 38, 0.35); }
+.prose .khb-warn h3 {
+    margin: 0 0 0.55em; color: #b91c1c;
+    font-size: 0.9em; font-weight: 600; letter-spacing: 0.02em;
+}
+.prose .khb-warn p { margin: 0.55em 0; color: #475569; }
+.dark .khb-warn { background: rgba(248, 113, 113, 0.06); border-color: rgba(248, 113, 113, 0.2); border-left-color: #f87171; }
 .dark .prose .khb-warn h3 { color: #fca5a5; }
-.dark .prose .khb-warn p { color: #fecaca; }
+.dark .prose .khb-warn p { color: #cbd5e1; }
 
-/* 5) กล่องเขียว "ลูกแบบไหนเหมาะ" */
+/* 5) กล่องเขียว "ลูกแบบไหนเหมาะ" — ภาษาเดียวกับกล่องเตือน เปลี่ยนแค่สีแอคเซนต์ */
 .khb-fit {
-    margin: 1.4em 0; padding: 14px 18px;
-    background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 5px solid #16a34a;
-    border-radius: 14px;
+    margin: 1.75em 0; padding: 18px 22px;
+    background: rgba(22, 163, 74, 0.035);
+    border: 1px solid rgba(22, 163, 74, 0.14);
+    border-left: 2px solid #16a34a;
+    border-radius: 12px;
 }
-.prose .khb-fit h3 { margin: 0 0 0.4em; color: #15803d; font-size: 1.05em; }
-.prose .khb-fit p { margin: 0.5em 0; color: #14532d; }
-.dark .khb-fit { background: rgba(22, 163, 74, 0.1); border-color: rgba(22, 163, 74, 0.35); }
+.prose .khb-fit h3 {
+    margin: 0 0 0.55em; color: #15803d;
+    font-size: 0.9em; font-weight: 600; letter-spacing: 0.02em;
+}
+.prose .khb-fit p { margin: 0.55em 0; color: #475569; }
+.dark .khb-fit { background: rgba(74, 222, 128, 0.06); border-color: rgba(74, 222, 128, 0.2); border-left-color: #4ade80; }
 .dark .prose .khb-fit h3 { color: #86efac; }
-.dark .prose .khb-fit p { color: #bbf7d0; }
+.dark .prose .khb-fit p { color: #cbd5e1; }
 
 /* 6) ปฏิทินแบบไทม์ไลน์ */
 .khb-timeline { margin: 1.4em 0; }
@@ -1934,32 +1946,32 @@ mark.khb-mark {
     display: flex; gap: 14px; position: relative; padding-bottom: 16px;
 }
 .khb-tl::before {
-    content: ''; flex: none; width: 14px; height: 14px; border-radius: 50%;
-    background: #0d9488; border: 3px solid #ccfbf1; margin-top: 7px; z-index: 1;
+    content: ''; flex: none; width: 9px; height: 9px; border-radius: 50%;
+    background: #0d9488; margin-top: 11px; margin-left: 2px; z-index: 1;
 }
 .khb-tl::after {
     content: ''; position: absolute; left: 6px; top: 24px; bottom: -2px;
-    width: 2px; background: #cbd5e1;
+    width: 1px; background: #e2e8f0;
 }
 .khb-tl:last-child { padding-bottom: 0; }
 .khb-tl:last-child::after { display: none; }
 .khb-tl-m { font-family: var(--font-kanit), var(--font-mitr), sans-serif; font-weight: 600; color: #0f172a; }
 .dark .khb-tl-m { color: #f1f5f9; }
-.dark .khb-tl::before { border-color: rgba(13, 148, 136, 0.3); }
-.dark .khb-tl::after { background: #475569; }
+.dark .khb-tl::before { background: #2dd4bf; }
+.dark .khb-tl::after { background: #334155; }
 
-/* 7) การ์ดคำถามเช็กใจ */
+/* 7) การ์ดคำถามเช็กใจ — hairline card ไม่มีเงา */
 .khb-q {
-    margin: 1.2em 0; padding: 14px 18px;
-    background: #fff; border: 1.5px solid #e2e8f0; border-radius: 16px;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    margin: 1.25em 0; padding: 18px 22px;
+    background: none; border: 1px solid #e2e8f0; border-radius: 12px;
+    box-shadow: none;
 }
 .prose .khb-q p { margin: 0; }
 .khb-yes, .khb-no { display: inline; }
-.khb-yes::before { content: '✔ '; color: #16a34a; font-weight: 700; }
-.khb-no::before { content: '✘ '; color: #dc2626; font-weight: 700; }
+.khb-yes::before { content: '✓ '; color: #16a34a; font-weight: 600; }
+.khb-no::before { content: '✕ '; color: #dc2626; font-weight: 600; }
 .khb-yes { color: #15803d; }
 .khb-no { color: #b91c1c; }
-.dark .khb-q { background: rgba(30, 41, 59, 0.6); border-color: #334155; }
+.dark .khb-q { border-color: #334155; }
 .dark .khb-yes { color: #86efac; }
 .dark .khb-no { color: #fca5a5; }
