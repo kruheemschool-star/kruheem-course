@@ -22,6 +22,7 @@ import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slip
 import {
     Search, Phone, Mail, Calendar, Check, Clock, UserX, Users, Wallet,
     StickyNote, Loader2, GraduationCap, ImagePlus, MessageCircle, RefreshCw,
+    Pencil, X,
 } from "lucide-react";
 
 const MAX_SLIPS = 5;
@@ -78,6 +79,12 @@ export default function AdminRegistrationsPage() {
     // ── หมายเหตุประจำคน ──
     const [noteDraft, setNoteDraft] = useState("");
     const [noteSaving, setNoteSaving] = useState(false);
+
+    // ── แก้ไขข้อมูลโปรไฟล์ (ชื่อ/เบอร์) ตรงๆ โดยไม่ต้องลงทะเบียนคอร์ส ──
+    const [editingProfile, setEditingProfile] = useState(false);
+    const [editName, setEditName] = useState("");
+    const [editPhone, setEditPhone] = useState("");
+    const [profileSaving, setProfileSaving] = useState(false);
 
     // ── ฟอร์มลงทะเบียนให้ ──
     const [enrollName, setEnrollName] = useState("");
@@ -189,6 +196,7 @@ export default function AdminRegistrationsPage() {
     // เปลี่ยนคน → รีเซ็ตร่างหมายเหตุ + ฟอร์มลงทะเบียน (prefill ชื่อ/เบอร์จากโปรไฟล์)
     useEffect(() => {
         if (!selected) return;
+        setEditingProfile(false);
         setNoteDraft(selected.adminNote || "");
         setEnrollName(selected.displayName || "");
         setEnrollPhone(selected.phoneNumber || "");
@@ -200,6 +208,39 @@ export default function AdminRegistrationsPage() {
         setDuration("5_years");
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedId]);
+
+    // ── แก้ไขชื่อ/เบอร์ในโปรไฟล์สมาชิกโดยตรง (users/{uid}) ──
+    const startEditProfile = () => {
+        if (!selected) return;
+        setEditName(selected.displayName || "");
+        setEditPhone(selected.phoneNumber || "");
+        setEditingProfile(true);
+    };
+
+    const saveProfile = async () => {
+        if (!selected) return;
+        if (!editName.trim() && !editPhone.trim()) { toast.error("กรอกชื่อหรือเบอร์อย่างน้อย 1 อย่าง"); return; }
+        setProfileSaving(true);
+        try {
+            await updateDoc(doc(db, "users", selected.id), {
+                displayName: editName.trim(),
+                phoneNumber: editPhone.trim(),
+            });
+            setMembers((prev) => prev.map((m) => (m.id === selected.id
+                ? { ...m, displayName: editName.trim(), phoneNumber: editPhone.trim() }
+                : m)));
+            // ฟอร์มลงทะเบียนด้านล่างใช้ชื่อ/เบอร์เดียวกัน — อัปเดตตามทันที
+            setEnrollName(editName.trim());
+            setEnrollPhone(editPhone.trim());
+            setEditingProfile(false);
+            toast.success("บันทึกข้อมูลแล้ว");
+        } catch (err) {
+            console.error(err);
+            toast.error("บันทึกไม่สำเร็จ ลองอีกครั้ง");
+        } finally {
+            setProfileSaving(false);
+        }
+    };
 
     // ── บันทึกหมายเหตุประจำคน (users/{uid}.adminNote) ──
     const saveNote = async () => {
@@ -481,23 +522,54 @@ export default function AdminRegistrationsPage() {
                                         </div>
                                         <span className={`kh-pill ${STATUS_META[st].pill}`}>{STATUS_META[st].label}</span>
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 text-sm">
-                                        <div className="flex items-center gap-2 kh-ink2">
-                                            <Phone size={14} style={{ color: "var(--ink-3)" }} />
-                                            {selected.phoneNumber
-                                                ? <a href={`tel:${selected.phoneNumber}`} className="font-bold kh-ink hover:underline">{selected.phoneNumber}</a>
-                                                : <span className="kh-ink3">ไม่มีเบอร์โทร</span>}
+
+                                    {editingProfile ? (
+                                        /* โหมดแก้ไขชื่อ/เบอร์ — บันทึกเข้าโปรไฟล์สมาชิกทันที */
+                                        <div className="mt-4 rounded-xl p-4 space-y-3" style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="text-xs font-bold kh-ink2 block mb-1">ชื่อ-นามสกุล</label>
+                                                    <input className="kh-input" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="เช่น ด.ช. ภูริช ใจดี" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-bold kh-ink2 block mb-1">เบอร์โทรศัพท์</label>
+                                                    <input className="kh-input" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} placeholder="0812345678" />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                                <button type="button" onClick={() => setEditingProfile(false)} className="kh-btn-ghost text-sm">
+                                                    <X size={15} /> ยกเลิก
+                                                </button>
+                                                <button type="button" onClick={saveProfile} disabled={profileSaving} className="kh-btn text-sm disabled:opacity-50">
+                                                    {profileSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} บันทึกข้อมูล
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2 kh-ink2">
-                                            <Calendar size={14} style={{ color: "var(--ink-3)" }} />
-                                            สมัครเมื่อ <span className="font-bold kh-ink">{fmtDate(selected.createdAtMs)}</span>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 text-sm">
+                                            <div className="flex items-center gap-2 kh-ink2">
+                                                <Phone size={14} style={{ color: "var(--ink-3)" }} />
+                                                {selected.phoneNumber
+                                                    ? <a href={`tel:${selected.phoneNumber}`} className="font-bold kh-ink hover:underline">{selected.phoneNumber}</a>
+                                                    : <span className="kh-ink3">ไม่มีเบอร์โทร</span>}
+                                            </div>
+                                            <div className="flex items-center gap-2 kh-ink2">
+                                                <Calendar size={14} style={{ color: "var(--ink-3)" }} />
+                                                สมัครเมื่อ <span className="font-bold kh-ink">{fmtDate(selected.createdAtMs)}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-2 mt-4">
-                                        <button type="button" onClick={() => openChat(selected)} className="kh-btn-ghost text-sm">
-                                            <MessageCircle size={15} /> ทักแชทหาคนนี้
-                                        </button>
-                                    </div>
+                                    )}
+
+                                    {!editingProfile && (
+                                        <div className="flex gap-2 mt-4 flex-wrap">
+                                            <button type="button" onClick={startEditProfile} className="kh-btn-ghost text-sm">
+                                                <Pencil size={15} /> แก้ไขชื่อ/เบอร์
+                                            </button>
+                                            <button type="button" onClick={() => openChat(selected)} className="kh-btn-ghost text-sm">
+                                                <MessageCircle size={15} /> ทักแชทหาคนนี้
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* หมายเหตุของครู */}
