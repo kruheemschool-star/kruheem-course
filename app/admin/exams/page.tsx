@@ -9,6 +9,7 @@ import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, Clipbo
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
 import { buildExamExport, parseExamQuestions, examFilenameSlug } from "@/lib/exam-export";
+import { PUBLIC_SETTINGS_DOC } from "@/lib/publicSettings";
 import toast, { Toaster } from "react-hot-toast";
 
 // Drag and Drop imports
@@ -415,17 +416,26 @@ export default function ExamManagerPage() {
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
+    // สวิตช์คลังข้อสอบเก็บใน field `examConfig` ของ settings/homepage_promotion
+    // (doc ตั้งค่าสาธารณะ — หน้าข้อสอบอ่านฝั่งเซิร์ฟเวอร์ผ่าน REST ซึ่ง rules เปิดให้
+    // เฉพาะ doc นี้ ดู lib/publicSettings.ts) ถ้ายังไม่มี ถอยไปอ่าน settings/examConfig เดิม
+    const [pubCol, pubId] = PUBLIC_SETTINGS_DOC.split('/');
     const fetchExamConfig = async () => {
         try {
-            const snap = await getDoc(doc(db, 'settings', 'examConfig'));
-            if (snap.exists()) setExamConfig(snap.data() as any);
+            const pubSnap = await getDoc(doc(db, pubCol, pubId));
+            const cfg = pubSnap.exists() ? (pubSnap.data() as any).examConfig : undefined;
+            if (cfg) { setExamConfig(cfg); return; }
+            const legacySnap = await getDoc(doc(db, 'settings', 'examConfig'));
+            if (legacySnap.exists()) setExamConfig(legacySnap.data() as any);
         } catch (e) { console.error('Error fetching exam config:', e); }
     };
 
     const toggleExamConfig = async (field: 'showExamDashboard' | 'enableResultTracking') => {
         const newVal = !examConfig[field];
         try {
-            await setDoc(doc(db, 'settings', 'examConfig'), { [field]: newVal }, { merge: true });
+            // merge: true จำเป็น — doc นี้แชร์กับแบนเนอร์โปรโมชัน/การ์ดนับถอยหลัง
+            // และ nested merge จะคงสวิตช์อีกตัวใน examConfig ไว้
+            await setDoc(doc(db, pubCol, pubId), { examConfig: { [field]: newVal } }, { merge: true });
             setExamConfig(prev => ({ ...prev, [field]: newVal }));
         } catch (e) { console.error('Error updating exam config:', e); alert('เกิดข้อผิดพลาด'); }
     };

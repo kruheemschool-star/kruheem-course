@@ -1,7 +1,9 @@
 import { getDocument } from "@/lib/firestoreRest";
+import { PUBLIC_SETTINGS_DOC, PUBLIC_SETTINGS_REVALIDATE } from "@/lib/publicSettings";
 import type { PromotionData } from "@/components/home/PromotionBanner";
 
-const PROMO_DOC = "settings/homepage_promotion";
+// doc นี้ถูกแชร์กับการตั้งค่าสาธารณะอื่น (countdown / examConfig) — ดู lib/publicSettings.ts
+const PROMO_DOC = PUBLIC_SETTINGS_DOC;
 
 /**
  * Single source of truth for "should the homepage promotion show right now, and
@@ -15,7 +17,7 @@ const PROMO_DOC = "settings/homepage_promotion";
  */
 export async function getActivePromotion(): Promise<PromotionData | null> {
     try {
-        const doc = await getDocument(PROMO_DOC, { revalidate: 30 });
+        const doc = await getDocument(PROMO_DOC, { revalidate: PUBLIC_SETTINGS_REVALIDATE });
         if (!doc || doc.enabled !== true) return null;
 
         const title = (doc.title as string) || "";

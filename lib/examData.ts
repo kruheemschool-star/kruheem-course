@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { getDocument } from "@/lib/firestoreRest";
+import { PUBLIC_SETTINGS_DOC, PUBLIC_SETTINGS_REVALIDATE } from "@/lib/publicSettings";
 
 // Shared exam-set loader for /exam/[id] and /exam/[id]/print.
 //
@@ -68,9 +69,13 @@ export const getExamData = cache(async (id: string): Promise<any | null> => {
 
 export const getExamConfig = cache(async (): Promise<{ showExamDashboard?: boolean; enableResultTracking?: boolean }> => {
     try {
-        // Same doc for every exam page — one read per 5 min instead of one per view.
-        const data = await getDocument("settings/examConfig", { revalidate: 300 });
-        if (data) return data as { showExamDashboard?: boolean; enableResultTracking?: boolean };
+        // สวิตช์คลังข้อสอบอยู่ใน field `examConfig` ของ settings/homepage_promotion
+        // (doc เดียวใน settings ที่ rules เปิดให้เซิร์ฟเวอร์อ่านแบบไม่ล็อกอินได้ —
+        // ห้ามอ่าน settings/examConfig ตรงๆ จะโดน 403 เงียบ ดู lib/publicSettings.ts)
+        // doc เดียว ทุกหน้าข้อสอบแชร์แคชเดียวกัน — ไม่เพิ่มยอดอ่านต่อวิว
+        const data = await getDocument(PUBLIC_SETTINGS_DOC, { revalidate: PUBLIC_SETTINGS_REVALIDATE });
+        const cfg = data?.examConfig as { showExamDashboard?: boolean; enableResultTracking?: boolean } | undefined;
+        if (cfg) return cfg;
     } catch { /* ignore */ }
     return { showExamDashboard: false, enableResultTracking: false };
 });

@@ -6,9 +6,14 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2, Check, AlertCircle, Clock, Save, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { DEFAULT_COUNTDOWN, DEFAULT_QUOTES } from "@/components/home/ExamCountdownHero";
+import { PUBLIC_SETTINGS_DOC } from "@/lib/publicSettings";
 
-// แก้รายละเอียดนาฬิกานับถอยหลังหน้าแรก → เขียนลง settings/homeCountdown
-// (คอมโพเนนต์ ExamCountdownHero อ่าน doc นี้ตอนโหลดหน้าแรก)
+const [SETTINGS_COL, SETTINGS_ID] = PUBLIC_SETTINGS_DOC.split("/");
+
+// แก้รายละเอียดนาฬิกานับถอยหลังหน้าแรก → เขียนลง field `countdown` ของ
+// settings/homepage_promotion (doc ตั้งค่าสาธารณะรวม — หน้าแรกอ่านฝั่งเซิร์ฟเวอร์
+// ผ่าน REST ซึ่งอ่านได้เฉพาะ doc นี้ ดูเหตุผลใน lib/publicSettings.ts)
+// ห้ามย้ายกลับไป settings/homeCountdown — rules ไม่เปิดอ่านสาธารณะ หน้าแรกจะค้างค่า default
 export default function AdminCountdownPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -26,9 +31,15 @@ export default function AdminCountdownPage() {
     useEffect(() => {
         (async () => {
             try {
-                const snap = await getDoc(doc(db, "settings", "homeCountdown"));
-                if (snap.exists()) {
-                    const d = snap.data() as any;
+                // ที่หลัก: field countdown ใน doc ตั้งค่าสาธารณะ; ถ้ายังไม่มี (ข้อมูลยุคก่อนย้าย)
+                // ถอยไปอ่าน doc เดิม settings/homeCountdown (แอดมินอ่านได้ตาม rules)
+                const pubSnap = await getDoc(doc(db, SETTINGS_COL, SETTINGS_ID));
+                let d = pubSnap.exists() ? (pubSnap.data() as any).countdown : undefined;
+                if (!d) {
+                    const legacySnap = await getDoc(doc(db, "settings", "homeCountdown"));
+                    if (legacySnap.exists()) d = legacySnap.data() as any;
+                }
+                if (d) {
                     if (typeof d.enabled === "boolean") setEnabled(d.enabled);
                     if (typeof d.kicker === "string") setKicker(d.kicker);
                     if (typeof d.examName === "string") setExamName(d.examName);
@@ -57,18 +68,21 @@ export default function AdminCountdownPage() {
         try {
             const quotes = quotesText.split("\n").map((q) => q.trim()).filter(Boolean);
             const daysBefore = Math.max(1, Math.round(Number(startDaysBefore) || DEFAULT_COUNTDOWN.startDaysBefore));
-            await setDoc(doc(db, "settings", "homeCountdown"), {
-                enabled,
-                kicker: kicker.trim(),
-                examName: examName.trim() || DEFAULT_COUNTDOWN.examName,
-                targetDate,
-                startDaysBefore: daysBefore,
-                startDate: "", // ใช้ "กี่วันก่อนสอบ" เป็นหลัก — เคลียร์วันเจาะจงเดิม (ถ้ามี)
-                showProgress,
-                showQuote,
-                quotes: quotes.length ? quotes : DEFAULT_QUOTES,
-                updatedAt: serverTimestamp(),
-            });
+            // merge: true จำเป็น — doc นี้แชร์กับแบนเนอร์โปรโมชัน/สวิตช์คลังข้อสอบ
+            await setDoc(doc(db, SETTINGS_COL, SETTINGS_ID), {
+                countdown: {
+                    enabled,
+                    kicker: kicker.trim(),
+                    examName: examName.trim() || DEFAULT_COUNTDOWN.examName,
+                    targetDate,
+                    startDaysBefore: daysBefore,
+                    startDate: "", // ใช้ "กี่วันก่อนสอบ" เป็นหลัก — เคลียร์วันเจาะจงเดิม (ถ้ามี)
+                    showProgress,
+                    showQuote,
+                    quotes: quotes.length ? quotes : DEFAULT_QUOTES,
+                    updatedAt: serverTimestamp(),
+                },
+            }, { merge: true });
             showMessage("success", "บันทึกแล้ว — รีเฟรชหน้าแรกเพื่อดูผล");
         } catch (e) {
             console.error("[admin/countdown] save failed:", e);

@@ -5,9 +5,10 @@ import React, { useEffect, useMemo, useState } from "react";
 // ─────────────────────────────────────────────────────────────────────────────
 // ExamCountdownHero — นาฬิกานับถอยหลังวันสอบ ดีไซน์ "มินิมอล · แอคเซนต์เดียว"
 // (ตามสเปก มินิมอล-แอคเซนต์เดียว-spec.md). แทนที่การ์ด StartHereNav บนหน้าแรก.
-// ปรับรายละเอียดได้จากหลังบ้าน: settings/homeCountdown (แก้ที่ /admin/countdown)
-// — ค่า config ถูกอ่านฝั่งเซิร์ฟเวอร์ใน app/page.tsx (cache 5 นาที) แล้วส่งมา
-// เป็น prop แทนการ getDoc ฝั่ง client ที่เคยกิน 1 Firestore read ทุกวิวหน้าแรก.
+// ปรับรายละเอียดได้จากหลังบ้าน: /admin/countdown → เก็บใน field `countdown` ของ
+// settings/homepage_promotion (doc ตั้งค่าสาธารณะ — ดูเหตุผลใน lib/publicSettings.ts)
+// — ค่า config ถูกอ่านฝั่งเซิร์ฟเวอร์ใน app/page.tsx แล้วส่งมาเป็น prop
+// แทนการ getDoc ฝั่ง client ที่เคยกิน 1 Firestore read ทุกวิวหน้าแรก.
 //
 // กับดักที่จัดการแล้ว:
 //   • Hydration — เรนเดอร์โครงว่างจน mounted (SSR + client แรกตรงกัน) แล้วค่อยโชว์เลข
