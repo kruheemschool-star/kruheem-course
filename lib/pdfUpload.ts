@@ -50,16 +50,22 @@ export function uploadPrivateFile(
  * return its download URL. Pass `contentType` to override the file's own type —
  * needed for payment slips, where storage.rules requires image/* but some
  * Android/in-app pickers hand over image files with an empty type.
+ *
+ * `cacheControl` is opt-in per call site: pass a long public value for truly
+ * public content (previews/covers with unique paths); NEVER pass it for
+ * payment slips — those must keep the private no-cache default.
  */
 export function uploadPublicFile(
     file: File | Blob,
     storagePath: string,
     onProgress?: (pct: number) => void,
     contentType?: string,
+    cacheControl?: string,
 ): Promise<string> {
     return new Promise((resolve, reject) => {
         const task = uploadBytesResumable(ref(storage, storagePath), file, {
             contentType: contentType || file.type || "application/octet-stream",
+            ...(cacheControl ? { cacheControl } : {}),
         });
         const timer = setTimeout(() => { task.cancel(); reject(new Error("UPLOAD_TIMEOUT")); }, UPLOAD_TIMEOUT);
         task.on(

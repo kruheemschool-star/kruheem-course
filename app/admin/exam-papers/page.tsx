@@ -266,6 +266,9 @@ export default function AdminExamPapersPage() {
                     previewFile,
                     newPreviewPath,
                     (p) => setProgressLabel(`กำลังอัปโหลดไฟล์ตัวอย่าง... ${p}%`),
+                    undefined,
+                    // พรีวิวเป็นไฟล์สาธารณะ path ไม่ซ้ำ (มี timestamp) → แคชยาวได้
+                    "public, max-age=31536000, immutable",
                 );
                 patch.previewPath = newPreviewPath;
             }

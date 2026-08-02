@@ -10,6 +10,7 @@ import Script from "next/script";
 import Image from "next/image";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
 import BlogEngagement from "@/components/BlogEngagement";
+import { addLazyLoadingToImages } from "@/lib/lazyImages";
 import { useUserAuth } from "@/context/AuthContext";
 
 interface Post {
@@ -249,7 +250,7 @@ export default function BlogPostClient({ params, initialPost }: { params: Promis
                                 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/50 dark:border-slate-700/50 shadow-xl rounded-[2.5rem] p-8 md:p-12
                                 overflow-x-auto transition-all duration-300`}
                                 style={{ fontSize: fontSize === 'sm' ? '0.95rem' : fontSize === 'lg' ? '1.35rem' : '1.125rem', lineHeight: fontSize === 'sm' ? '1.75' : fontSize === 'lg' ? '2' : '1.875' }}
-                                dangerouslySetInnerHTML={{ __html: post.content }}
+                                dangerouslySetInnerHTML={{ __html: addLazyLoadingToImages(post.content) }}
                             />
                         )}
                     </div>

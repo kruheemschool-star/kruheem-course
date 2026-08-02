@@ -153,8 +153,13 @@ export async function uploadImageToStorage(
         }
     }
 
-    // Upload to Firebase
+    // Upload to Firebase. Every caller uses a Date.now()-based path (nothing is
+    // ever overwritten in place), so a long immutable cache is safe. Without
+    // this, Firebase serves `private, max-age=0` — browsers/CDN re-download the
+    // full image on every view, which is billed Storage bandwidth.
     const storageRef = ref(storage, storagePath);
-    const snapshot = await uploadBytes(storageRef, finalFile);
+    const snapshot = await uploadBytes(storageRef, finalFile, {
+        cacheControl: "public, max-age=31536000, immutable",
+    });
     return getDownloadURL(snapshot.ref);
 }

@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { getCachedData } from "@/lib/dataCache";
+import { canOptimizeImage } from "@/lib/imageHosts";
 
 interface ContentItem {
     id: string;
@@ -98,6 +100,15 @@ function FeatureCard({ config, items }: { config: CardConfig; items: ContentItem
 
     const currentItem = items.length > 0 ? items[currentIndex] : null;
 
+    // โหลดเฉพาะสไลด์ปัจจุบัน+ข้างเคียง (รวม wrap รอบวง) — เดิม mount รูปเต็มขนาด
+    // ทั้ง 6 ใบ/การ์ด (18 รูปทั้งแถบ) พร้อมกันตั้งแต่เปิดหน้าแรก
+    const isNearCurrent = (i: number) => {
+        const len = items.length;
+        if (len <= 3) return true;
+        const d = Math.abs(i - currentIndex);
+        return d <= 1 || d === len - 1;
+    };
+
     return (
         <Link href={config.href} className="block group">
             <div className="relative overflow-hidden rounded-3xl aspect-[3/4.4] shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-1">
@@ -110,15 +121,27 @@ function FeatureCard({ config, items }: { config: CardConfig; items: ContentItem
                             i === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
                         }`}
                     >
-                        {item.coverImage ? (
+                        {!item.coverImage ? (
+                            <div className={`w-full h-full ${config.placeholderBg}`} />
+                        ) : !isNearCurrent(i) ? null : canOptimizeImage(item.coverImage) ? (
+                            // next/image: ย่อ+แปลง AVIF/WebP ตามขนาดการ์ดจริง แทน
+                            // การโหลดไฟล์ต้นฉบับเต็มขนาดจาก Firebase ทุกวิว
+                            <Image
+                                src={item.coverImage}
+                                alt={item.title}
+                                fill
+                                sizes="(max-width: 767px) 92vw, (max-width: 1023px) 46vw, 30vw"
+                                className="object-cover"
+                            />
+                        ) : (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={item.coverImage}
                                 alt={item.title}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-full h-full object-cover"
                             />
-                        ) : (
-                            <div className={`w-full h-full ${config.placeholderBg}`} />
                         )}
                     </div>
                 ))}
