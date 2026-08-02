@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where, limit } from "firebase/firestore";
+import { addLazyLoadingToImages } from "@/lib/lazyImages";
 import Navbar from "@/components/Navbar";
 import { ArrowLeft, Clock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { SmartContentRenderer } from "@/components/ContentRenderer";
@@ -56,19 +57,19 @@ export default function SummaryContentPage({ params }: { params: Promise<{ slug:
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Optimized query: fetch only published summaries, ordered
+                // อ่านเฉพาะบทความที่เปิดอยู่ 1 ใบด้วย slug ตรงๆ — เดิม getDocs
+                // ทั้ง collection พร้อมเนื้อหาเต็มทุกบทความ (~40+ reads) ต่อวิว
+                // เพียงเพื่อ .find() บทเดียว
                 const q = query(
                     collection(db, "summaries"),
+                    where("slug", "==", slug),
                     where("status", "==", "published"),
-                    orderBy("order", "asc")
+                    limit(1)
                 );
                 const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as Summary[];
-
-                setAllSummaries(data);
-
-                // Find current summary
-                const found = data.find(s => s.slug === slug);
+                const found = snapshot.empty
+                    ? null
+                    : ({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Summary);
 
                 if (found) {
                     setSummary(found);
@@ -80,18 +81,17 @@ export default function SummaryContentPage({ params }: { params: Promise<{ slug:
                 }
             } catch (err) {
                 console.error("Error:", err);
-                // Fallback query without orderBy in case index doesn't exist
+                // Fallback: slug อย่างเดียว (เผื่อ query สองเงื่อนไขติดขัด) แล้วกรองเอง
                 try {
-                    const fallbackQuery = query(collection(db, "summaries"));
+                    const fallbackQuery = query(
+                        collection(db, "summaries"),
+                        where("slug", "==", slug),
+                        limit(5)
+                    );
                     const snapshot = await getDocs(fallbackQuery);
-                    const data = snapshot.docs
-                        .map(d => ({ id: d.id, ...d.data() })) as Summary[];
-                    const published = data
-                        .filter(s => s.status === "published")
-                        .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-                    setAllSummaries(published);
-                    const found = published.find(s => s.slug === slug);
+                    const found = snapshot.docs
+                        .map(d => ({ id: d.id, ...d.data() }) as Summary)
+                        .find(s => s.status === "published");
 
                     if (found) {
                         setSummary(found);
@@ -108,7 +108,20 @@ export default function SummaryContentPage({ params }: { params: Promise<{ slug:
             }
         };
 
+        // สารบัญ (slug/title เรียงตาม order) สำหรับปุ่มบทก่อนหน้า/ถัดไป — จาก API
+        // ที่ cache ฝั่งเซิร์ฟเวอร์ ไม่ใช่การอ่านทั้ง collection อีกต่อไป
+        const fetchToc = async () => {
+            try {
+                const res = await fetch("/api/summary-toc");
+                if (!res.ok) return;
+                const data = await res.json();
+                setAllSummaries(((data.summaries || []) as { id: string; slug: string; title: string }[])
+                    .map(s => ({ ...s, order: 0, content: "" }) as Summary));
+            } catch { /* ไม่มีปุ่ม prev/next แต่หน้ายังใช้ได้ */ }
+        };
+
         fetchData();
+        fetchToc();
     }, [slug]);
 
     if (loading) {
@@ -233,7 +246,7 @@ export default function SummaryContentPage({ params }: { params: Promise<{ slug:
                         {summary.contentType === 'html' && summary.htmlContent ? (
                             <div
                                 className="prose prose-lg prose-slate max-w-none"
-                                dangerouslySetInnerHTML={{ __html: summary.htmlContent }}
+                                dangerouslySetInnerHTML={{ __html: addLazyLoadingToImages(summary.htmlContent) }}
                             />
                         ) : (
                             <SmartContentRenderer content={summary.content} />

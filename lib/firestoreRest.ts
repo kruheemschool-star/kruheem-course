@@ -141,7 +141,7 @@ export async function listCollection(
  */
 export async function getDocument(
     path: string,
-    opts: { revalidate?: number } = {}
+    opts: { revalidate?: number; tags?: string[] } = {}
 ): Promise<FsDoc | null> {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -152,7 +152,7 @@ export async function getDocument(
     }
 
     const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}?key=${apiKey}`;
-    const res = await fetchFs(url, opts.revalidate ?? 300, path);
+    const res = await fetchFs(url, opts.revalidate ?? 300, path, 8000, false, opts.tags);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Firestore REST ${path}: HTTP ${res.status}`);
 

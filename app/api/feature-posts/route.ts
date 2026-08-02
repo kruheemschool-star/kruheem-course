@@ -9,14 +9,15 @@ import { listCollection } from "@/lib/firestoreRest";
 // client SDK was resolving with an EMPTY snapshot for `posts` inside this
 // route handler on Vercel, which got frozen into the ISR cache, so the
 // carousel lost its post slides.
-export const revalidate = 300;
+// 15 นาที (เดิม 5) — เนื้อหาแก้ไม่บ่อย ลดรอบสแกน collection ลง 3 เท่า
+export const revalidate = 900;
 
 export async function GET() {
     try {
         const docs = await listCollection(
             "posts",
             ["title", "coverImage", "status", "createdAt"],
-            { revalidate: 300 }
+            { revalidate: 900 }
         );
         const posts = docs
             .map((d) => ({

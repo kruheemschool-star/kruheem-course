@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
 import Link from "next/link";
 import { Search, BookOpen, Loader2, ArrowRight, ArrowLeft, Tag } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -35,21 +33,24 @@ export default function PracticeModePage() {
     useEffect(() => {
         const fetchAllExams = async () => {
             try {
-                const q = query(collection(db, "exams"));
-                const snapshot = await getDocs(q);
+                // ดัชนีย่อ (ข้อความโจทย์+แท็กเท่านั้น, cache ฝั่งเซิร์ฟเวอร์ 1 ชม.) —
+                // หน้านี้ใช้แค่นับข้อ/รวมหัวข้อ ไม่เคยแสดงโจทย์จริง จึงไม่ต้อง
+                // ดึง exams ทั้งคลัง (67 reads, 17-60MB) จาก Firestore ตรงๆ อีก
+                const res = await fetch("/api/practice-index");
+                if (!res.ok) throw new Error(`practice-index ${res.status}`);
+                const index = await res.json();
 
                 let loadedQuestions: any[] = [];
                 let topicsSet = new Set<string>();
 
-                snapshot.docs.forEach(doc => {
-                    const examData = doc.data();
-                    const questions = examData.questions || [];
+                (index.exams || []).forEach((exam: any) => {
+                    const questions = exam.questions || [];
 
                     // Attach Exam Info to each question for context
                     const enhancedQuestions = questions.map((q: any) => ({
                         ...q,
-                        examId: doc.id,
-                        examTitle: examData.title,
+                        examId: exam.id,
+                        examTitle: exam.title,
                         tags: q.tags || []
                     }));
 
@@ -71,7 +72,7 @@ export default function PracticeModePage() {
                 setAllQuestions(loadedQuestions);
                 setAvailableTopics(Array.from(topicsSet).sort());
             } catch (error) {
-                console.error("Error fetching exams:", error);
+                console.error("Error fetching practice index:", error);
             } finally {
                 setLoading(false);
             }

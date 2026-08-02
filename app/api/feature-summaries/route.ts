@@ -8,14 +8,15 @@ import { listCollection } from "@/lib/firestoreRest";
 //
 // Reads via the Firestore REST API (see lib/firestoreRest) rather than the
 // Firebase client SDK, which is unreliable inside Vercel route handlers.
-export const revalidate = 300;
+// 15 นาที (เดิม 5) — เนื้อหาแก้ไม่บ่อย ลดรอบสแกน collection ลง 3 เท่า
+export const revalidate = 900;
 
 export async function GET() {
     try {
         const docs = await listCollection(
             "summaries",
             ["title", "coverImage", "status"],
-            { revalidate: 300 }
+            { revalidate: 900 }
         );
         const summaries = docs
             .map((d) => ({

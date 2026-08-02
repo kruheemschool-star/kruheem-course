@@ -18,7 +18,7 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FeatureCarousel from "@/components/home/FeatureCarousel";
-import ExamCountdownHero from "@/components/home/ExamCountdownHero";
+import ExamCountdownHero, { type CountdownConfig } from "@/components/home/ExamCountdownHero";
 import HomeReviewCarousel from "@/components/home/HomeReviewCarousel";
 import PromotionBanner, { PromotionData } from "@/components/home/PromotionBanner";
 // import CourseFinder from "@/components/CourseFinder";
@@ -36,7 +36,10 @@ interface Course {
 }
 
 
-export default function HomeClient({ initialPromo }: { initialPromo: PromotionData | null }) {
+export default function HomeClient({ initialPromo, initialCountdown }: {
+  initialPromo: PromotionData | null;
+  initialCountdown?: Partial<CountdownConfig> | null;
+}) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   // Promo is server-rendered (passed as a prop) so the page never starts without
@@ -147,7 +150,7 @@ export default function HomeClient({ initialPromo }: { initialPromo: PromotionDa
         )}
 
         {/* นับถอยหลังวันสอบ — การ์ดส่วนแรกสุดของหน้า (แก้/ซ่อนได้ที่ /admin/countdown) */}
-        <ExamCountdownHero />
+        <ExamCountdownHero initialConfig={initialCountdown} />
 
         {/* Hero Section - Asymmetrical Split */}
         <header className={`${promo?.enabled ? "pt-8" : "pt-10"} pb-16 px-6 relative overflow-visible z-10`}>

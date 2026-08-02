@@ -470,8 +470,12 @@ export default function MyCoursesPage() {
 
                     if (course.isExamBank) {
                         const examsData = await getCachedData("all-exams-ids", async () => {
-                            const examsSnap = await getDocs(collection(db, "exams"));
-                            return examsSnap.docs.map((d) => ({ id: d.id }));
+                            // สารบัญข้อสอบ (id อย่างเดียวที่ใช้จริง) จาก API ที่ cache
+                            // แล้ว — เดิม getDocs ทั้ง exams collection เอกสารเต็มพร้อม
+                            // โจทย์ทุกข้อ (~67 reads + หลาย MB) แค่เพื่อนับจำนวนชุด
+                            const res = await fetch("/api/exam-toc");
+                            const json = await res.json();
+                            return ((json.exams || []) as { id: string }[]).map((e) => ({ id: e.id }));
                         });
                         videoCountMap[course.id] = { videoIds: examsData.map((e) => e.id), total: examsData.length };
                     } else {

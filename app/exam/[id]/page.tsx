@@ -1,6 +1,4 @@
 import { Metadata, ResolvingMetadata } from "next";
-import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
 import { ExamSystem } from "@/components/exam/ExamSystem";
 import ExamAccessGuard from "@/components/exam/ExamAccessGuard";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
@@ -8,9 +6,12 @@ import BookmarkButton from "@/components/exam/BookmarkButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isValidExamQuestion, getValidQuestionCount } from "@/lib/exam-utils";
+import { getExamData, getExamConfig } from "@/lib/examData";
 
-// ISR: Cache for 1 minute, fresh exam data within 60 seconds
-export const revalidate = 60;
+// The route itself stays dynamic (it awaits searchParams), but the exam DATA
+// is served from the Next data cache via lib/examData (REST fetch, 1h +
+// "exams-feed" tag) — the old client-SDK reads here could never be cached and
+// cost 2 full reads of a 250KB–1MiB doc per page view.
 
 // Mock Data Fallback (For Demo/Dev)
 const MOCK_EXAMS: Record<string, any> = {
@@ -41,78 +42,13 @@ interface Props {
     searchParams: Promise<{ q?: string }>;
 }
 
-async function getExamConfig() {
-    try {
-        const snap = await getDoc(doc(db, 'settings', 'examConfig'));
-        if (snap.exists()) return snap.data() as { showExamDashboard?: boolean; enableResultTracking?: boolean };
-    } catch (e) { /* ignore */ }
-    return { showExamDashboard: false, enableResultTracking: false };
-}
-
-async function getExamData(id: string) {
-    if (!id) return null;
-
-    // Retry logic: try up to 2 times to handle intermittent Firestore failures
-    for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-            const docRef = doc(db, "exams", id);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                let questions = [];
-
-                if (data.questions) {
-                    if (typeof data.questions === 'string') {
-                        try {
-                            questions = JSON.parse(data.questions);
-                        } catch (e) {
-                            questions = [];
-                        }
-                    } else {
-                        questions = data.questions;
-                    }
-                } else if (data.questionsUrl) {
-                    try {
-                        const res = await fetch(data.questionsUrl, { signal: AbortSignal.timeout(8000) });
-                        if (res.ok) {
-                            questions = await res.json();
-                        }
-                    } catch (fetchErr) {
-                        console.error("Error fetching questionsUrl:", fetchErr);
-                        questions = [];
-                    }
-                }
-
-                // Normalize question fields for consistency
-                const normalizedQuestions = Array.isArray(questions) ? questions.map((q: any) => ({
-                    ...q,
-                    explanation: q.explanation || q.solution || '',
-                    correctIndex: q.correctIndex ?? q.answerIndex ?? 0,
-                })) : [];
-
-                return {
-                    id: docSnap.id,
-                    ...data,
-                    questions: normalizedQuestions
-                };
-            }
-
-            // Document doesn't exist — no need to retry
-            break;
-        } catch (error) {
-            console.error(`Error fetching exam (attempt ${attempt + 1}):`, error);
-            if (attempt === 0) {
-                await new Promise(r => setTimeout(r, 500));
-            }
-        }
-    }
-
-    // Fallback
+// โหลดชุดข้อสอบผ่าน lib/examData (cache แล้ว) + mock fallback สำหรับ demo/dev
+async function getExamDataWithMock(id: string) {
+    const exam = await getExamData(id);
+    if (exam) return exam;
     if (MOCK_EXAMS[id]) {
         return { id, ...MOCK_EXAMS[id] };
     }
-
     return null;
 }
 
@@ -122,7 +58,7 @@ export async function generateMetadata(
     parent: ResolvingMetadata
 ): Promise<Metadata> {
     const params = await props.params;
-    const exam = await getExamData(params.id);
+    const exam = await getExamDataWithMock(params.id);
 
     if (!exam) {
         return {
@@ -156,7 +92,7 @@ export default async function ExamRoomPage(props: Props) {
     const params = await props.params;
     const searchParams = await props.searchParams;
 
-    const [exam, examConfig] = await Promise.all([getExamData(params.id), getExamConfig()]);
+    const [exam, examConfig] = await Promise.all([getExamDataWithMock(params.id), getExamConfig()]);
     const initialQuestionIndex = searchParams.q ? parseInt(searchParams.q, 10) : 0;
 
     if (!exam) {

@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import React, { useEffect, useMemo, useState } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ExamCountdownHero — นาฬิกานับถอยหลังวันสอบ ดีไซน์ "มินิมอล · แอคเซนต์เดียว"
 // (ตามสเปก มินิมอล-แอคเซนต์เดียว-spec.md). แทนที่การ์ด StartHereNav บนหน้าแรก.
-// ปรับรายละเอียดได้จากหลังบ้าน: settings/homeCountdown (แก้ที่ /admin/countdown).
+// ปรับรายละเอียดได้จากหลังบ้าน: settings/homeCountdown (แก้ที่ /admin/countdown)
+// — ค่า config ถูกอ่านฝั่งเซิร์ฟเวอร์ใน app/page.tsx (cache 5 นาที) แล้วส่งมา
+// เป็น prop แทนการ getDoc ฝั่ง client ที่เคยกิน 1 Firestore read ทุกวิวหน้าแรก.
 //
 // กับดักที่จัดการแล้ว:
 //   • Hydration — เรนเดอร์โครงว่างจน mounted (SSR + client แรกตรงกัน) แล้วค่อยโชว์เลข
@@ -52,33 +52,31 @@ export const DEFAULT_COUNTDOWN: CountdownConfig = {
 const pad2 = (n: number) => String(n).padStart(2, "0");
 const DAY_MS = 86400000;
 
-export default function ExamCountdownHero() {
+export default function ExamCountdownHero({ initialConfig }: { initialConfig?: Partial<CountdownConfig> | null }) {
     const [mounted, setMounted] = useState(false);
-    const [config, setConfig] = useState<CountdownConfig>(DEFAULT_COUNTDOWN);
     const [now, setNow] = useState(() => Date.now());
     const [quoteIdx, setQuoteIdx] = useState(0);
 
-    // Load backend config once (client-side; keeps SSR output stable → no mismatch)
+    // Normalize the server-provided config field-by-field onto the defaults —
+    // identical value on SSR and client hydration, so no mismatch/flash.
+    const config = useMemo<CountdownConfig>(() => {
+        const d = initialConfig || {};
+        const base = DEFAULT_COUNTDOWN;
+        return {
+            enabled: typeof d.enabled === "boolean" ? d.enabled : base.enabled,
+            kicker: typeof d.kicker === "string" && d.kicker.trim() ? d.kicker : base.kicker,
+            examName: typeof d.examName === "string" && d.examName.trim() ? d.examName : base.examName,
+            targetDate: typeof d.targetDate === "string" && d.targetDate.trim() ? d.targetDate : base.targetDate,
+            startDaysBefore: typeof d.startDaysBefore === "number" && d.startDaysBefore > 0 ? d.startDaysBefore : base.startDaysBefore,
+            startDate: typeof d.startDate === "string" ? d.startDate : base.startDate,
+            showProgress: typeof d.showProgress === "boolean" ? d.showProgress : base.showProgress,
+            showQuote: typeof d.showQuote === "boolean" ? d.showQuote : base.showQuote,
+            quotes: Array.isArray(d.quotes) && d.quotes.filter(Boolean).length > 0 ? d.quotes.filter(Boolean) : base.quotes,
+        };
+    }, [initialConfig]);
+
     useEffect(() => {
         setMounted(true);
-        (async () => {
-            try {
-                const snap = await getDoc(doc(db, "settings", "homeCountdown"));
-                if (!snap.exists()) return;
-                const d = snap.data() as Partial<CountdownConfig>;
-                setConfig((prev) => ({
-                    enabled: typeof d.enabled === "boolean" ? d.enabled : prev.enabled,
-                    kicker: typeof d.kicker === "string" && d.kicker.trim() ? d.kicker : prev.kicker,
-                    examName: typeof d.examName === "string" && d.examName.trim() ? d.examName : prev.examName,
-                    targetDate: typeof d.targetDate === "string" && d.targetDate.trim() ? d.targetDate : prev.targetDate,
-                    startDaysBefore: typeof d.startDaysBefore === "number" && d.startDaysBefore > 0 ? d.startDaysBefore : prev.startDaysBefore,
-                    startDate: typeof d.startDate === "string" ? d.startDate : prev.startDate,
-                    showProgress: typeof d.showProgress === "boolean" ? d.showProgress : prev.showProgress,
-                    showQuote: typeof d.showQuote === "boolean" ? d.showQuote : prev.showQuote,
-                    quotes: Array.isArray(d.quotes) && d.quotes.filter(Boolean).length > 0 ? d.quotes.filter(Boolean) : prev.quotes,
-                }));
-            } catch { /* keep defaults */ }
-        })();
     }, []);
 
     // Tick every second; pause while the tab is hidden.
@@ -131,9 +129,9 @@ export default function ExamCountdownHero() {
 
     const quote = config.quotes[quoteIdx % Math.max(1, config.quotes.length)] || "";
 
-    // ปิดจากหลังบ้าน → ไม่แสดงการ์ดทั้งใบ (ซ่อนหลัง mount เพื่อเลี่ยง layout ค้าง
-    // ในกรณีเปิดปกติ ที่ default = true จึงไม่มีการกระพริบ)
-    if (mounted && !config.enabled) return null;
+    // ปิดจากหลังบ้าน → ไม่แสดงการ์ดทั้งใบ (config มาจากเซิร์ฟเวอร์ตั้งแต่ SSR
+    // จึงตัดสินใจได้ทันที ไม่มีการกระพริบ/layout ค้างแบบตอนโหลดฝั่ง client)
+    if (!config.enabled) return null;
 
     return (
         <section className="khcd-wrap px-4 sm:px-6 py-10 md:py-14">

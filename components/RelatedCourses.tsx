@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
 import { getCachedData } from "@/lib/dataCache";
 import { ChevronRight, Sparkles, Zap } from "lucide-react";
 
@@ -81,11 +79,11 @@ export default function RelatedCourses({ summaryTitle, summaryKeywords, summaryT
         const fetchCourses = async () => {
             try {
                 const allCourses = await getCachedData("all_courses_related", async () => {
-                    const snapshot = await getDocs(collection(db, "courses"));
-                    return snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    })) as Course[];
+                    // ฟีด metadata ที่ cache ฝั่งเซิร์ฟเวอร์ (รวม keywords แล้ว) —
+                    // เดิม getDocs ทั้ง courses collection เอกสารเต็มทุกวิวบทสรุป
+                    const res = await fetch("/api/home-courses");
+                    const json = await res.json();
+                    return (json.courses || []) as Course[];
                 });
 
                 const matchedCourses = findMatchingCourses(

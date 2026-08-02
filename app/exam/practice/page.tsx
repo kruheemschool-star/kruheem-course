@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { ExamSystem } from "@/components/exam/ExamSystem";
 import ExamAccessGuard from "@/components/exam/ExamAccessGuard";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -30,25 +30,29 @@ function PracticeRoomContent() {
             if (!queryTerm) return;
 
             try {
-                // Fetch ALL exams (In a real scalable app, we should use Algolia or Firebase Filtering)
-                // For now, client-side filtering is okay for < 1000 questions
-                const q = query(collection(db, "exams"));
-                const snapshot = await getDocs(q);
-
-                let results: any[] = [];
                 const termLower = queryTerm.toLowerCase();
+                const matches = (q: any) => {
+                    const inQuestion = ((q.question as string) || "").toLowerCase().includes(termLower);
+                    const inTags = Array.isArray(q.tags) && q.tags.some((t: string) => t.toLowerCase().includes(termLower));
+                    return inQuestion || inTags;
+                };
 
-                snapshot.docs.forEach(doc => {
-                    const data = doc.data();
-                    const examQuestions = data.questions || [];
+                // ขั้นที่ 1: ถามดัชนีย่อ (cache ฝั่งเซิร์ฟเวอร์) ว่าชุดไหนมีโจทย์ตรงหัวข้อบ้าง
+                // แทนการดึง exams ทั้งคลัง (67 reads, 17-60MB) มากรองเองแบบเดิม
+                const res = await fetch("/api/practice-index");
+                if (!res.ok) throw new Error(`practice-index ${res.status}`);
+                const index = await res.json();
+                const involvedIds: string[] = (index.exams || [])
+                    .filter((exam: any) => (exam.questions || []).some(matches))
+                    .map((exam: any) => exam.id);
 
-                    const filtered = examQuestions.filter((q: any) => {
-                        const inQuestion = q.question.toLowerCase().includes(termLower);
-                        const inTags = q.tags?.some((t: string) => t.toLowerCase().includes(termLower));
-                        return inQuestion || inTags;
-                    });
-
-                    results = [...results, ...filtered];
+                // ขั้นที่ 2: อ่านเฉพาะชุดที่เกี่ยว (ปกติไม่กี่ชุด) แล้วกรองด้วยเงื่อนไขเดิม
+                let results: any[] = [];
+                const snaps = await Promise.all(involvedIds.map((id) => getDoc(doc(db, "exams", id))));
+                snaps.forEach((snap) => {
+                    if (!snap.exists()) return;
+                    const examQuestions = snap.data().questions || [];
+                    results = [...results, ...examQuestions.filter(matches)];
                 });
 
                 // Shuffle Questions slightly so it feels fresh

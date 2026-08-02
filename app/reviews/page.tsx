@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, getDocs, limit, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
@@ -133,13 +133,15 @@ export default function ReviewsPage() {
     const [barsReady, setBarsReady] = useState(false);
     const [helpful, setHelpful] = useState<Record<string, boolean>>({});
 
-    // fetch reviews once
+    // fetch reviews once — ผ่าน API ที่ cache ฝั่งเซิร์ฟเวอร์ (1 ชม.) แทนการอ่าน
+    // ตรงจาก Firestore สูงสุด 200 เอกสารต่อการเปิดหน้า 1 ครั้ง
     useEffect(() => {
         const run = async () => {
             try {
-                const snap = await getDocs(query(collection(db, "reviews"), orderBy("createdAt", "desc"), limit(200)));
-                const data = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Review[];
-                setReviews(data);
+                const res = await fetch("/api/reviews-list");
+                if (!res.ok) throw new Error(`reviews-list ${res.status}`);
+                const json = await res.json();
+                setReviews((json.reviews || []) as Review[]);
             } catch (err) {
                 console.error("Error fetching reviews:", err);
             } finally {
