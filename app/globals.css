@@ -2034,3 +2034,291 @@ mark.khb-mark {
 .dark .prose .khb-q p { color: #cbd5e1; }
 .dark .khb-yes { color: #86efac; }
 .dark .khb-no { color: #fca5a5; }
+
+/* ============================================================
+   "ตรวจสอบชำระเงิน" THEME — ".khen"
+   Scoped token system for /admin/enrollments (design-spec §2, ตัวเลือก 2a).
+   พาเลตยกมาจาก .graph-theme (หน้า /payment ฝั่งนักเรียน) เพื่อให้หน้าตรวจสลิป
+   เข้าชุดกับหน้าแจ้งโอนที่ผู้ปกครองเห็น. Prefixed (--en-*) แบบเดียวกับ .khep
+   จึงไม่ไปทับโทเคนของเชลล์ (.kh-admin) ที่ล้อมอยู่. Dark mode ต่อยอดเอง
+   (สเปกไม่ได้ระบุ) โดยคงลำดับความเข้ม-อ่อนและเฉดสีเดิมของทุกกล่องไว้.
+   ============================================================ */
+.khen {
+    /* core */
+    --en-paper: #EFF5F1;
+    --en-card: #FFFFFF;
+    --en-ink: #1A2A3C;
+    --en-ink-2: #5A6B7C;
+    --en-ink-3: #8B9AA8;
+    --en-line: #E4EAF0;
+    --en-line-2: #D0DAE4;
+    --en-accent: #2F6DB5;
+    --en-accent-deep: #1F4E88;
+    --en-good: #2E7D5B;
+    --en-warn: #A9762A;
+    --en-bad: #B4533F;
+    --en-sh-sm: 0 10px 24px -18px rgba(31, 78, 136, .28);
+    /* graph paper */
+    --en-grid: rgba(13, 148, 136, .09);
+    --en-grid-2: rgba(13, 148, 136, .20);
+    /* กล่อง — สีทึบ 1 สีต่อ 1 กล่อง (ห้ามไล่เฉด/ห้ามโปร่งใส) */
+    --en-b-top: #E1EDE5;      --en-b-top-l: #CBDCD1;
+    --en-b-list: #D6E6F8;     --en-b-list-l: #BFD6EF;
+    --en-b-person: #DEDAF6;   --en-b-person-l: #CAC3EE;
+    --en-b-money: #CFE9DB;    --en-b-money-l: #B2DBC5;
+    --en-b-course: #CFE1F6;   --en-b-course-l: #B4D0EE;
+    --en-b-i1: #CDE7EE;       --en-b-i1-l: #B0D8E1;
+    --en-b-i2: #DCD6F5;       --en-b-i2-l: #C5BDED;
+    --en-b-i3: #F6DFCB;       --en-b-i3-l: #E8C6A9;
+    --en-b-mat: #CFE1F6;      --en-b-mat-l: #B4D0EE;
+    --en-b-c3: #D3E4F7;       --en-b-c3-l: #B9D2EF;
+    /* บันไดสีคอลัมน์รายชื่อ (เข้มบน → อ่อนล่าง) */
+    --en-l1: #BCD6F0;
+    --en-l2: #C7DEF3;
+    --en-l3: #D2E5F6;
+    --en-l4: #DDECF9;
+    --en-l5: #E8F2FB;
+    --en-l6: #F2F8FD;
+
+    color: var(--en-ink);
+    font-family: var(--font-sarabun), var(--font-ibm-loop), sans-serif;
+}
+
+.dark .khen {
+    --en-paper: #0B1620;
+    --en-card: #10202C;
+    --en-ink: #E7EEF5;
+    --en-ink-2: #A2B4C3;
+    --en-ink-3: #7A8D9D;
+    --en-line: #1E3040;
+    --en-line-2: #2A4051;
+    --en-accent: #4E92DC;
+    --en-accent-deep: #9CC6F0;
+    --en-good: #4CB78C;
+    --en-warn: #D3A257;
+    --en-bad: #E08573;
+    --en-sh-sm: 0 10px 24px -18px rgba(0, 0, 0, .6);
+    --en-grid: rgba(45, 212, 191, .05);
+    --en-grid-2: rgba(45, 212, 191, .10);
+    --en-b-top: #16302B;      --en-b-top-l: #22443C;
+    --en-b-list: #14273A;     --en-b-list-l: #1F3B55;
+    --en-b-person: #201E3D;   --en-b-person-l: #322F5A;
+    --en-b-money: #10312A;    --en-b-money-l: #1B4A3D;
+    --en-b-course: #13283E;   --en-b-course-l: #1E3C5A;
+    --en-b-i1: #102C33;       --en-b-i1-l: #1B454F;
+    --en-b-i2: #1F1D39;       --en-b-i2-l: #2F2C55;
+    --en-b-i3: #33261A;       --en-b-i3-l: #4B3927;
+    --en-b-mat: #13283E;      --en-b-mat-l: #1E3C5A;
+    --en-b-c3: #142942;       --en-b-c3-l: #1F3D5E;
+    --en-l1: #1D3651;
+    --en-l2: #1A3048;
+    --en-l3: #172A3F;
+    --en-l4: #152537;
+    --en-l5: #12202E;
+    --en-l6: #101B26;
+}
+
+/* ---- ตัวอักษร (spec §3) ---- */
+.khen :is(h1, h2, h3, .khen-t) {
+    font-family: var(--font-kanit), var(--font-mitr), sans-serif;
+    font-weight: 600;
+}
+
+.khen-num {
+    font-family: var(--font-kanit), var(--font-mitr), sans-serif;
+    font-variant-numeric: tabular-nums;
+}
+
+.khen-mono {
+    font-family: var(--font-ibm-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+.khen-eyebrow {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--en-ink-2);
+}
+
+/* ---- โครงหน้า (spec §4) ---- */
+.khen-page {
+    /* กินเต็มพื้นที่เนื้อหาของเชลล์ (.kh-container padding 24px) โดยไม่แก้เชลล์ */
+    margin: -24px;
+    padding: 22px;
+    min-height: calc(100vh - 64px);
+    background-color: var(--en-paper);
+    background-image:
+        repeating-linear-gradient(0deg, transparent 0 7px, var(--en-grid) 7px 8px),
+        repeating-linear-gradient(90deg, transparent 0 7px, var(--en-grid) 7px 8px),
+        repeating-linear-gradient(0deg, transparent 0 39px, var(--en-grid-2) 39px 40px),
+        repeating-linear-gradient(90deg, transparent 0 39px, var(--en-grid-2) 39px 40px);
+    background-attachment: fixed;
+}
+
+.khen-wrap {
+    max-width: 1192px;
+    margin: 0 auto;
+}
+
+.khen-grid {
+    display: grid;
+    grid-template-columns: 296px minmax(0, 1fr) 344px;
+    column-gap: 18px;
+    row-gap: 18px;
+    align-items: start;
+}
+
+@media (max-width: 1279px) {
+    .khen-grid { grid-template-columns: 280px minmax(0, 1fr); }
+    .khen-grid > .khen-col-slip { grid-column: 1 / -1; }
+}
+
+@media (max-width: 860px) {
+    .khen-grid { grid-template-columns: minmax(0, 1fr); }
+    .khen-grid > .khen-col-slip { grid-column: auto; }
+    .khen-page { margin: -16px; padding: 14px; }
+}
+
+.khen-sticky { position: sticky; top: 14px; }
+
+/* ---- ชิ้นส่วน ---- */
+.khen-card {
+    background: var(--en-card);
+    border: 1px solid var(--en-line);
+    border-radius: 18px;
+    box-shadow: var(--en-sh-sm);
+}
+
+.khen-box {
+    border-radius: 16px;
+    border: 1px solid;
+}
+
+.khen-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 12px;
+    background: var(--en-accent);
+    color: #FFFFFF;
+    border: 1px solid var(--en-accent);
+    font-family: var(--font-kanit), sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    transition: filter .15s ease, opacity .15s ease;
+}
+
+.khen-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.khen-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.khen-btn-soft {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    background: var(--en-card);
+    color: var(--en-ink);
+    border: 1px solid var(--en-line-2);
+    font-family: var(--font-kanit), sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    transition: background .15s ease;
+}
+
+.khen-btn-soft:hover:not(:disabled) { background: var(--en-l6); }
+.khen-btn-soft:disabled { opacity: .5; cursor: not-allowed; }
+
+.khen-btn-bad { color: var(--en-bad); border-color: var(--en-bad); }
+
+.khen-btn-sm { min-height: 36px; font-size: 13px; padding: 0 12px; border-radius: 10px; }
+
+.khen-input {
+    width: 100%;
+    min-height: 40px;
+    background: var(--en-card);
+    border: 1px solid var(--en-line-2);
+    border-radius: 11px;
+    color: var(--en-ink);
+    padding: 8px 12px 8px 34px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.khen-input::placeholder { color: var(--en-ink-3); }
+.khen-input:focus { border-color: var(--en-accent); box-shadow: 0 0 0 3px var(--en-b-course); }
+
+.khen-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--en-card);
+    border: 1px solid var(--en-line-2);
+    color: var(--en-ink-2);
+}
+
+.khen-check {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    accent-color: var(--en-accent);
+    cursor: pointer;
+}
+
+/* แถวรายการรอตรวจ — พื้นเป็นบันไดสี ไม่ใช่สถานะ (spec §2 กฎ) */
+.khen-row {
+    border-radius: 11px;
+    border: 1px solid transparent;
+    border-left: 3px solid transparent;
+    transition: border-color .15s ease;
+}
+
+.khen-row[data-active="true"] { border-left-color: var(--en-accent-deep); }
+.khen-row:hover { border-color: var(--en-line-2); }
+.khen-row[data-active="true"]:hover { border-left-color: var(--en-accent-deep); }
+
+/* พื้นที่เลื่อนในคอลัมน์ (จอใหญ่เลื่อนในกล่อง, จอเล็กปล่อยยาวไปกับหน้า) */
+.khen-scroll-list { max-height: calc(100vh - 300px); overflow-y: auto; }
+.khen-scroll-slip { max-height: calc(100vh - 330px); overflow-y: auto; }
+
+.khen-info3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.khen-compare {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+}
+
+@media (max-width: 520px) {
+    .khen-info3 { grid-template-columns: minmax(0, 1fr); }
+    .khen-compare { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .khen-compare-right { text-align: left; }
+    /* ปุ่มยืนยัน "ตรงกัน" จากวงกลมซ้อนบรรทัด → เรียงแนวนอนชิดซ้ายให้อ่านต่อเนื่อง */
+    .khen-compare > button { flex-direction: row; justify-self: start; gap: 9px; }
+}
+
+/* พื้นที่กดบนมือถืออย่างน้อย 44px (spec §6.3) */
+@media (max-width: 860px) {
+    .khen-row-main { min-height: 64px; }
+    .khen-check { width: 20px; height: 20px; }
+    /* จอเล็กสามคอลัมน์ซ้อนกัน — sticky/กล่องเลื่อนซ้อนจะบังกัน ปิดทั้งคู่ */
+    .khen-sticky { position: static; }
+    .khen-scroll-list, .khen-scroll-slip { max-height: none; overflow-y: visible; }
+}
