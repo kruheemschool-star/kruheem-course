@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import { useUserAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Building2, Hash, Mail, Phone, Clock, Inbox, ZoomIn, Users, StickyNote, BookOpen, Pencil, Search, Loader2, ArrowRight, Receipt, CheckCircle2, Ticket } from "lucide-react";
 
-type CourseLite = { id: string; title: string; price?: number; allowedExamLevel?: string | null; category?: string };
+type CourseLite = { id: string; title: string; price?: number; allowedExamLevel?: string | null; category?: string; image?: string };
 
 /** บันไดสีคอลัมน์รายชื่อ — เข้มบนสุดไล่อ่อนลงล่าง (design-spec §2) */
 const LADDER = ["var(--en-l1)", "var(--en-l2)", "var(--en-l3)", "var(--en-l4)", "var(--en-l5)", "var(--en-l6)"];
@@ -171,9 +171,9 @@ export default function AdminEnrollmentsPage() {
     const [confirmApproveIds, setConfirmApproveIds] = useState<string[] | null>(null);
     const [approving, setApproving] = useState(false);
 
-    // ===== แก้ไขคอร์สของใบแจ้งโอน =====
-    // รายชื่อคอร์สโหลดแบบ lazy (ตอนเปิดหน้าต่างแก้ไขครั้งแรกเท่านั้น) แล้ว cache ไว้
-    // — หน้านี้เปิดบ่อย ไม่ควรสแกน collection courses ทุกครั้งที่เข้าหน้า
+    // ===== รายชื่อคอร์ส (ใช้ทั้งรูปปกคู่ปุ่มอนุมัติ และหน้าต่างเปลี่ยนคอร์ส) =====
+    // อ่าน collection courses ครั้งเดียวต่อการเปิดหน้า แล้ว cache ไว้ และจะไม่อ่านเลย
+    // ถ้าคิวว่าง — หน้านี้เปิดบ่อย ไม่ควรสแกนคอร์สทิ้งเปล่าๆ ทุกครั้งที่เข้าหน้า
     const [editingId, setEditingId] = useState<string | null>(null);
     const [courseOptions, setCourseOptions] = useState<CourseLite[]>([]);
     const [coursesLoading, setCoursesLoading] = useState(false);
@@ -185,22 +185,37 @@ export default function AdminEnrollmentsPage() {
     const editing = enrollments.find((e) => e.id === editingId) || null;
     const pickedCourse = courseOptions.find((c) => c.id === pickedCourseId) || null;
 
-    const openCourseEditor = async (item: { id: string; courseId?: string }) => {
-        setEditingId(item.id);
-        setPickedCourseId(item.courseId || "");
-        setCourseSearch("");
-        setSyncPrice(false);
-        if (courseOptions.length > 0 || coursesLoading) return;
+    const coursesLoadedRef = useRef(false);
+    const ensureCourses = useCallback(async () => {
+        if (coursesLoadedRef.current) return;
+        coursesLoadedRef.current = true;
         setCoursesLoading(true);
         try {
             const snap = await getDocs(query(collection(db, "courses"), orderBy("createdAt", "desc")));
             setCourseOptions(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<CourseLite, "id">) })));
         } catch (error) {
             console.error("Error loading courses:", error);
+            coursesLoadedRef.current = false; // ให้ลองใหม่ได้ในครั้งถัดไป
             toast.error("โหลดรายชื่อคอร์สไม่สำเร็จ ลองใหม่อีกครั้ง");
         } finally {
             setCoursesLoading(false);
         }
+    }, []);
+
+    // มีใบรออนุมัติเมื่อไหร่ค่อยดึงคอร์ส (เอารูปปกมาโชว์คู่ปุ่มอนุมัติ)
+    useEffect(() => {
+        if (enrollments.length > 0) ensureCourses();
+    }, [enrollments.length, ensureCourses]);
+
+    /** รูปปกคอร์ส (field `image` ของ courses) — ใบไหนคอร์สถูกลบไปแล้วจะได้ undefined */
+    const coverOf = (courseId?: string) => courseOptions.find((c) => c.id === courseId)?.image;
+
+    const openCourseEditor = (item: { id: string; courseId?: string }) => {
+        setEditingId(item.id);
+        setPickedCourseId(item.courseId || "");
+        setCourseSearch("");
+        setSyncPrice(false);
+        ensureCourses();
     };
 
     const closeCourseEditor = () => {
@@ -604,7 +619,18 @@ export default function AdminEnrollmentsPage() {
                                                 className="khen-box p-4 flex items-start gap-3 flex-wrap"
                                                 style={{ background: "var(--en-b-course)", borderColor: "var(--en-b-course-l)" }}
                                             >
-                                                <BookOpen size={22} className="flex-shrink-0 mt-1" style={{ color: "var(--en-accent)" }} />
+                                                {coverOf(item.courseId) ? (
+                                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                                    <img
+                                                        src={coverOf(item.courseId)}
+                                                        alt=""
+                                                        loading="lazy"
+                                                        className="w-[84px] h-[56px] rounded-[10px] object-cover flex-shrink-0"
+                                                        style={{ border: "1px solid var(--en-b-course-l)", background: "var(--en-card)" }}
+                                                    />
+                                                ) : (
+                                                    <BookOpen size={22} className="flex-shrink-0 mt-1" style={{ color: "var(--en-accent)" }} />
+                                                )}
                                                 <div className="flex-1 min-w-0" style={{ minWidth: "min(100%, 200px)" }}>
                                                     <div className="khen-eyebrow mb-1">คอร์สที่แจ้งโอน</div>
                                                     <div className="khen-t text-[22px] leading-snug break-words" style={{ color: "var(--en-accent-deep)" }}>
@@ -676,16 +702,51 @@ export default function AdminEnrollmentsPage() {
                                         </div>
                                     </div>
 
-                                    {/* 5) แถบปุ่ม */}
-                                    <div className="flex gap-3 flex-wrap">
-                                        <button
-                                            onClick={() => setConfirmApproveIds([item.id])}
-                                            className="khen-btn"
-                                            style={{ flex: 2, minWidth: "180px" }}
-                                        >
-                                            <Check size={16} /> อนุมัติ (5 ปี)
-                                        </button>
+                                    {/* 5) แผ่นการ์ดคอร์ส + ปุ่มอนุมัติในที่เดียว
+                                        — เห็นปกกับชื่อคอร์สตรงปุ่ม กดอนุมัติได้เลยโดยไม่ต้องเลื่อนขึ้นไปอ่าน */}
+                                    <div
+                                        className="khen-box p-4 space-y-3.5"
+                                        style={{ background: "var(--en-b-course)", borderColor: "var(--en-b-course-l)" }}
+                                    >
+                                      <div className="flex items-center gap-4">
+                                        {coverOf(item.courseId) ? (
+                                            /* eslint-disable-next-line @next/next/no-img-element */
+                                            <img
+                                                src={coverOf(item.courseId)}
+                                                alt={item.courseTitle || "ปกคอร์ส"}
+                                                loading="lazy"
+                                                className="w-[112px] h-[68px] rounded-[12px] object-cover flex-shrink-0"
+                                                style={{ border: "1px solid var(--en-b-course-l)", background: "var(--en-card)" }}
+                                            />
+                                        ) : (
+                                            <span
+                                                className="w-[112px] h-[68px] rounded-[12px] flex items-center justify-center flex-shrink-0 text-[11.5px] text-center px-2"
+                                                style={{ border: "1px dashed var(--en-b-course-l)", background: "var(--en-card)", color: "var(--en-ink-3)" }}
+                                            >
+                                                {coursesLoading ? "กำลังโหลดปก..." : "ไม่มีรูปปกคอร์ส"}
+                                            </span>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="khen-eyebrow mb-1">คอร์สที่จะเปิดให้เรียน</div>
+                                            <div className="khen-t text-[19px] leading-snug break-words" style={{ color: "var(--en-accent-deep)" }}>
+                                                {item.courseTitle || "ไม่ระบุคอร์ส"}
+                                            </div>
+                                            <div className="text-[12.5px] mt-1 truncate" style={{ color: "var(--en-ink-2)" }}>
+                                                {item.userName || "ไม่ระบุชื่อ"} · <span className="khen-num">{baht(amount)}</span> · เรียนได้ 5 ปี
+                                            </div>
+                                        </div>
+                                      </div>
+                                      <button
+                                          onClick={() => setConfirmApproveIds([item.id])}
+                                          className="khen-btn w-full"
+                                          style={{ minHeight: "52px", fontSize: "15px" }}
+                                      >
+                                          <Check size={18} /> อนุมัติ (5 ปี)
+                                      </button>
+                                    </div>
 
+                                    {/* ปุ่มรอง */}
+                                    <div className="flex gap-3 flex-wrap">
                                         <button
                                             onClick={async () => {
                                                 if (!item.userId) { toast.error("ไม่พบข้อมูล User ID"); return; }
@@ -852,13 +913,25 @@ export default function AdminEnrollmentsPage() {
                             style={{ background: "var(--en-b-course)", borderColor: "var(--en-b-course-l)", maxHeight: "230px" }}
                         >
                             {confirmTargets.map((t) => (
-                                <div key={t.id} className="min-w-0">
-                                    <div className="khen-t text-[15px] leading-snug break-words" style={{ color: "var(--en-accent-deep)" }}>
-                                        {t.courseTitle || "ไม่ระบุคอร์ส"}
-                                    </div>
-                                    <div className="text-[12px] flex items-center justify-between gap-2" style={{ color: "var(--en-ink-2)" }}>
-                                        <span className="truncate">{t.userName || "ไม่ระบุชื่อ"}</span>
-                                        <span className="khen-num flex-shrink-0">{baht(amountOf(t))}</span>
+                                <div key={t.id} className="min-w-0 flex items-center gap-3">
+                                    {coverOf(t.courseId) && (
+                                        /* eslint-disable-next-line @next/next/no-img-element */
+                                        <img
+                                            src={coverOf(t.courseId)}
+                                            alt=""
+                                            loading="lazy"
+                                            className="w-[64px] h-[42px] rounded-[9px] object-cover flex-shrink-0"
+                                            style={{ border: "1px solid var(--en-b-course-l)", background: "var(--en-card)" }}
+                                        />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="khen-t text-[15px] leading-snug break-words" style={{ color: "var(--en-accent-deep)" }}>
+                                            {t.courseTitle || "ไม่ระบุคอร์ส"}
+                                        </div>
+                                        <div className="text-[12px] flex items-center justify-between gap-2" style={{ color: "var(--en-ink-2)" }}>
+                                            <span className="truncate">{t.userName || "ไม่ระบุชื่อ"}</span>
+                                            <span className="khen-num flex-shrink-0">{baht(amountOf(t))}</span>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -960,6 +1033,16 @@ export default function AdminEnrollmentsPage() {
                                                     background: isPicked ? "var(--en-card)" : "transparent",
                                                 }}
                                             />
+                                            {c.image && (
+                                                /* eslint-disable-next-line @next/next/no-img-element */
+                                                <img
+                                                    src={c.image}
+                                                    alt=""
+                                                    loading="lazy"
+                                                    className="w-[62px] h-[40px] rounded-[9px] object-cover flex-shrink-0"
+                                                    style={{ border: "1px solid var(--en-line)", background: "var(--en-card)" }}
+                                                />
+                                            )}
                                             <span className="flex-1 min-w-0">
                                                 <span className="khen-t block text-[14px] leading-snug break-words" style={{ color: "var(--en-ink)" }}>
                                                     {c.title || "(ไม่มีชื่อคอร์ส)"}
