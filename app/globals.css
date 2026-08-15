@@ -94,6 +94,9 @@
 }
 .gp-bg.gp-bg--off { background-image: none; }
 
+/* หัวข้อย่อยในการ์ดที่ไม่ใช่ h1-h3 แต่ต้องเป็น Kanit ตามสเปก (เช่น ชื่อระดับชั้น) */
+.gp-kanit { font-family: var(--font-kanit), var(--font-mitr), sans-serif; }
+
 .gp-eyebrow {
     text-transform: uppercase;
     letter-spacing: .14em;
@@ -149,7 +152,7 @@
 .gp-btn-ghost:hover { background: var(--card-2); color: var(--ink); }
 
 .gp-step-node {
-    width: 34px; height: 34px; border-radius: 999px;
+    width: 36px; height: 36px; border-radius: 999px;
     display: flex; align-items: center; justify-content: center;
     font-family: var(--font-kanit), sans-serif; font-weight: 600; font-size: 15px;
     border: 1.5px solid var(--line-2); color: var(--ink-2); background: var(--card);

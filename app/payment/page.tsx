@@ -12,12 +12,37 @@ import { useUserAuth } from "@/context/AuthContext";
 import ConfettiBurst from "@/components/gamification/ConfettiBurst";
 import { PAYMENT_INFO } from "@/lib/constants";
 import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slipFile";
+import { Library, Backpack, Compass, FunctionSquare, GraduationCap, ChevronRight, Check, User, QrCode, ImageUp, type LucideIcon } from "lucide-react";
 
 const UPLOAD_TIMEOUT = 120_000; // 120 seconds
 const MAX_SLIPS = 5; // attach up to 5 transfer slips
 
 const PHONE_RE = /^[0-9]{9,10}$/; // step-2 gate: 9–10 digit phone
 const STEP_LABELS = ["เลือกคอร์ส", "ข้อมูลผู้เรียน", "ชำระเงิน", "แนบสลิป"];
+
+/** สีเขียว "ยืนยัน" ชุดเดียวกับปุ่มคอร์สของฉัน (design-spec §8) */
+const GREEN = { deep: "#1F7A55", soft: "#E7F4EC", line: "#C9E4D4", panel: "#EAF5EF" };
+
+/** ป้ายประจำระดับชั้นสำหรับการ์ดเลือกหมวด (design-spec §2)
+ *  หมวดมาจาก Firestore จึงจับคู่ด้วยคำสำคัญ ไม่ใช่ชื่อเป๊ะ — หมวดใหม่ที่ยังไม่รู้จัก
+ *  ตกมาที่ชุดสีน้ำเงินกลางเสมอ การ์ดจึงไม่มีวันหน้าตาพัง */
+type LevelStyle = { icon: LucideIcon; bg: string; line: string; ink: string; main: string };
+const LEVEL_FALLBACK: LevelStyle = { icon: GraduationCap, bg: "#E3EEF8", line: "#C2D7EF", ink: "#1F4E88", main: "#2F6DB5" };
+const levelStyle = (cat: string): LevelStyle => {
+  const c = cat || "";
+  if (c.includes("คลังข้อสอบ")) return { icon: Library, bg: "#DCF1EE", line: "#0D9488", ink: "#0B5F58", main: "#0D9488" };
+  if (c.includes("ประถม") || c.includes("ป.4") || c.includes("ป.6")) return { icon: Backpack, bg: "#FBEBD8", line: "#F0DCB4", ink: "#8F5716", main: "#C9762A" };
+  if (c.includes("ม.ต้น") || c.includes("ม.1-3")) return { icon: Compass, bg: "#DCE9F8", line: "#C2D7EF", ink: "#1F4E88", main: "#2F6DB5" };
+  if (c.includes("ม.ปลาย") || c.includes("ม.4-6") || c.includes("เพิ่มเติม")) return { icon: FunctionSquare, bg: "#E6E1F7", line: "#D3CBEF", ink: "#4B3A8C", main: "#6B54B8" };
+  return LEVEL_FALLBACK;
+};
+
+/** ขั้นตอนที่เหลือหลังเลือกคอร์ส — การ์ด "หลังจากนี้" (design-spec §6) */
+const NEXT_STEPS: { icon: LucideIcon; text: string }[] = [
+  { icon: User, text: "กรอกชื่อและเบอร์ติดต่อ" },
+  { icon: QrCode, text: "โอนผ่าน QR พร้อมเพย์" },
+  { icon: ImageUp, text: "แนบสลิป แล้วรอครูอนุมัติ" },
+];
 
 /** Upload with progress tracking and timeout. contentType is passed explicitly
  * because storage.rules requires image/* — files picked in some Android/in-app
@@ -567,10 +592,18 @@ export default function PaymentPage() {
           <BrowserWarning />
 
           {/* Hero */}
-          <div className="mb-1">
-            <div className="gp-eyebrow">ลงทะเบียนเรียน</div>
-            <h1 className="text-[clamp(28px,4.6vw,44px)] font-medium leading-tight text-[color:var(--ink)] mt-1">สมัครเรียน &amp; แจ้งชำระเงิน</h1>
-            <p className="text-[color:var(--ink-2)] mt-2">เลือกคอร์ส กรอกข้อมูล แล้วแนบสลิป — ใช้เวลาไม่กี่นาที</p>
+          <div className="mb-1 flex items-start gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <div className="gp-eyebrow">ลงทะเบียนเรียน</div>
+              <h1 className="text-[clamp(28px,4.6vw,44px)] font-medium leading-tight text-[color:var(--ink)] mt-1">สมัครเรียน &amp; แจ้งชำระเงิน</h1>
+              <p className="text-[color:var(--ink-2)] mt-2">เลือกคอร์ส กรอกข้อมูล แล้วแนบสลิป — ใช้เวลาไม่กี่นาที</p>
+            </div>
+            <span
+              className="flex-shrink-0 text-[12.5px] font-semibold px-3.5 py-2 rounded-full mt-1"
+              style={{ background: "#FFF6E5", border: "1px solid #F0DCB4", color: "#94661C" }}
+            >
+              แนบสลิปแล้วรอครูตรวจสอบ
+            </span>
           </div>
 
           {/* Stepper */}
@@ -587,12 +620,16 @@ export default function PaymentPage() {
                     onClick={() => goToStep(n)}
                     disabled={!reached}
                     aria-current={isActive ? "step" : undefined}
-                    className={`flex items-center gap-2.5 ${reached ? "cursor-pointer" : "cursor-default opacity-60"}`}
+                    className={`flex items-center gap-2.5 min-w-0 ${reached ? "cursor-pointer" : "cursor-default opacity-60"}`}
                   >
-                    <span className={`gp-step-node ${isActive ? "gp-step-node--active" : isDone ? "gp-step-node--done" : ""}`}>{isDone ? "✓" : n}</span>
-                    <span className={`text-sm font-semibold whitespace-nowrap ${isActive ? "text-[color:var(--ink)]" : "text-[color:var(--ink-2)] hidden sm:inline"}`}>{label}</span>
+                    <span className={`gp-step-node ${isActive ? "gp-step-node--active" : isDone ? "gp-step-node--done" : ""}`}>
+                      {isDone ? <Check size={17} strokeWidth={3} /> : n}
+                    </span>
+                    {/* จอแคบซ่อนป้ายทุกขั้น — ที่ว่างไม่พอ ป้ายจะไปทับวงกลมขั้นถัดไป
+                        (หัวข้อใต้ตัวนับบอกอยู่แล้วว่ากำลังทำขั้นอะไร) */}
+                    <span className={`text-sm font-semibold truncate min-w-0 hidden sm:inline ${isActive ? "text-[color:var(--ink)]" : "text-[color:var(--ink-2)]"}`}>{label}</span>
                   </button>
-                  {n < 4 && <span className={`flex-1 h-[2px] mx-2 sm:mx-3 rounded ${n < step ? "bg-[var(--accent)]" : "bg-[var(--line-2)]"}`} />}
+                  {n < 4 && <span className={`flex-1 h-[3px] mx-2 sm:mx-3 rounded ${n < step ? "bg-[var(--accent)]" : "bg-[var(--line-2)]"}`} />}
                 </div>
               );
             })}
@@ -608,35 +645,118 @@ export default function PaymentPage() {
                 {/* STEP 1 — Courses */}
                 {step === 1 && (
                   <div>
-                    <div className="gp-eyebrow mb-1">ขั้นที่ 1</div>
-                    <h2 className="text-2xl font-medium text-[color:var(--ink)] mb-1">เลือกคอร์สเรียน</h2>
-                    <p className="text-sm text-[color:var(--ink-2)] mb-5">เลือกได้หลายคอร์ส</p>
-
                     {coursesLoadError && (
                       <div className="mb-4 rounded-[10px] border border-[var(--bad)] bg-[var(--bad)]/5 px-4 py-3 text-sm text-[color:var(--bad)] flex items-start gap-2">
                         <span>⚠️</span><span>{coursesLoadError}</span>
                       </div>
                     )}
 
-                    {/* Category tabs */}
-                    <div className="flex gap-4 border-b border-[var(--line)] mb-4 overflow-x-auto custom-scrollbar">
-                      {categories.map(cat => (
-                        <button key={cat} type="button" onClick={() => setSelectedCategory(cat)} className={`gp-tab ${selectedCategory === cat ? "gp-tab--active" : ""}`}>{cat}</button>
-                      ))}
+                    {/* ① เลือกระดับชั้น — การ์ดแทนแท็บ: เห็นครบทุกระดับพร้อมกัน ไม่ต้องเลื่อนแนวนอน */}
+                    <div className="flex items-start gap-3 mb-4">
+                      <span className="gp-num w-[26px] h-[26px] rounded-full flex items-center justify-center text-[13px] text-white flex-shrink-0 mt-0.5" style={{ background: "var(--accent)" }}>1</span>
+                      <div className="min-w-0">
+                        <h2 className="text-[19px] font-medium text-[color:var(--ink)] leading-snug">เลือกระดับชั้นก่อน</h2>
+                        <p className="text-[13px] text-[color:var(--ink-2)] mt-0.5">กดการ์ดด้านล่างเพื่อดูคอร์สในระดับนั้น</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-7">
+                      {categories.map(cat => {
+                        const st = levelStyle(cat);
+                        const Icon = st.icon;
+                        const active = selectedCategory === cat;
+                        const count = courses.filter(c => !c.salesPage?.previewOnly && (c.category || "อื่นๆ") === cat).length;
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setSelectedCategory(cat)}
+                            aria-pressed={active}
+                            className="text-left flex items-center gap-3 rounded-[16px] transition-shadow"
+                            style={{
+                              minHeight: "74px",
+                              padding: "14px 16px",
+                              background: st.bg,
+                              border: `2px solid ${active ? st.main : st.line}`,
+                              boxShadow: active ? `0 10px 22px -16px ${st.main}` : "none",
+                            }}
+                            onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = st.main; }}
+                            onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = st.line; }}
+                          >
+                            <span
+                              className="w-11 h-11 rounded-[12px] flex items-center justify-center flex-shrink-0"
+                              style={{
+                                background: active ? st.main : "#FFFFFF",
+                                color: active ? "#FFFFFF" : st.main,
+                                border: active ? "none" : `1px solid ${st.line}`,
+                              }}
+                            >
+                              <Icon size={22} strokeWidth={1.9} />
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              <span className="gp-kanit block text-[16px] font-semibold leading-snug break-words" style={{ color: st.ink }}>{cat}</span>
+                              <span className="block text-[12.5px] mt-0.5" style={{ color: st.ink, opacity: 0.72 }}>
+                                {active ? "กำลังดูหมวดนี้อยู่" : `${count} คอร์ส`}
+                              </span>
+                            </span>
+                            {active ? (
+                              <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: st.main, color: "#FFFFFF" }}>
+                                <Check size={14} strokeWidth={3} />
+                              </span>
+                            ) : (
+                              <ChevronRight size={20} className="flex-shrink-0" style={{ color: st.main }} />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* ② เลือกคอร์สในระดับที่กดไว้ */}
+                    <div className="flex items-start gap-3 mb-4">
+                      <span className="gp-num w-[26px] h-[26px] rounded-full flex items-center justify-center text-[13px] text-white flex-shrink-0 mt-0.5" style={{ background: "var(--accent)" }}>2</span>
+                      <div className="min-w-0">
+                        <h2 className="text-[19px] font-medium text-[color:var(--ink)] leading-snug break-words">
+                          เลือกคอร์สในระดับ “{selectedCategory || "—"}”
+                        </h2>
+                        <p className="text-[13px] text-[color:var(--ink-2)] mt-0.5">เลือกได้หลายคอร์ส</p>
+                      </div>
                     </div>
 
                     {/* Course rows */}
-                    <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar">
+                    <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
                       {filteredCourses.length > 0 ? filteredCourses.map(course => {
                         const sel = selectedCourses.includes(course.id);
+                        const st = levelStyle(selectedCategory);
+                        const price = Number(course.price) || 0;
+                        const full = Number(course.fullPrice) || 0;
+                        const off = full > price && price > 0 ? Math.round((1 - price / full) * 100) : 0;
                         return (
                           <button
                             key={course.id}
                             type="button"
                             onClick={() => toggleCourse(course.id)}
-                            className={`w-full text-left flex items-center gap-3 p-4 rounded-[12px] border transition-all duration-200 ${sel ? "border-[var(--accent)] bg-gradient-to-r from-[var(--accent-soft)] to-transparent" : "border-[var(--line)] bg-[var(--card)] hover:border-[var(--line-2)] hover:translate-x-[3px]"}`}
+                            aria-pressed={sel}
+                            className="w-full text-left flex items-center gap-3 rounded-[14px] transition-colors"
+                            style={{
+                              minHeight: "74px",
+                              padding: "14px 16px",
+                              background: sel ? "#F2FAF8" : "var(--card)",
+                              border: `2px solid ${sel ? "#0D9488" : "var(--line)"}`,
+                              boxShadow: sel ? "inset 4px 0 0 #0D9488" : "none",
+                            }}
+                            onMouseEnter={e => { if (!sel) e.currentTarget.style.borderColor = st.main; }}
+                            onMouseLeave={e => { if (!sel) e.currentTarget.style.borderColor = "var(--line)"; }}
                           >
-                            <span className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center text-xs font-bold ${sel ? "bg-[var(--accent)] border-[var(--accent)] text-white" : "border-[var(--line-2)] text-transparent"}`}>{sel ? "✓" : ""}</span>
+                            <span
+                              className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center"
+                              style={{
+                                background: sel ? "#0D9488" : "transparent",
+                                border: sel ? "2px solid #0D9488" : "2px solid var(--line-2)",
+                                color: "#FFFFFF",
+                              }}
+                            >
+                              {sel && <Check size={14} strokeWidth={3} />}
+                            </span>
                             <span className="flex-1 min-w-0">
                               <span className="flex items-center gap-2 flex-wrap">
                                 <span className="font-semibold text-[15px] text-[color:var(--ink)]">{course.title}</span>
@@ -645,23 +765,40 @@ export default function PaymentPage() {
                               {course.meta && <span className="block text-xs text-[color:var(--ink-2)] mt-0.5">{course.meta}</span>}
                             </span>
                             <span className="text-right flex-shrink-0">
-                              {course.fullPrice > 0 && <span className="block text-xs text-[color:var(--ink-2)] line-through">฿{Number(course.fullPrice).toLocaleString()}</span>}
-                              <span className="gp-num font-semibold text-[color:var(--accent-deep)]">฿{Number(course.price || 0).toLocaleString()}</span>
+                              {full > 0 && <span className="block text-xs text-[color:var(--ink-2)] line-through">฿{full.toLocaleString()}</span>}
+                              <span className="gp-num block text-[20px] font-semibold leading-tight text-[color:var(--accent-deep)]">฿{price.toLocaleString()}</span>
+                              {off > 0 && (
+                                <span className="inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#FFE9E4", color: "#B4533F" }}>
+                                  ลด {off}%
+                                </span>
+                              )}
                             </span>
                           </button>
                         );
                       }) : (
-                        <div className="text-center text-[color:var(--ink-2)] py-8 rounded-[12px] border border-dashed border-[var(--line-2)]">ไม่มีคอร์สในหมวดนี้</div>
+                        <div className="text-center text-[color:var(--ink-2)] py-8 rounded-[14px] border border-dashed border-[var(--line-2)]">ไม่มีคอร์สในหมวดนี้</div>
                       )}
                     </div>
 
-                    {/* mini-summary */}
-                    {selectedCourses.length > 0 && (
-                      <div className="mt-4 flex items-center justify-between rounded-[10px] bg-[var(--card-2)] border border-[var(--line)] px-4 py-3">
-                        <span className="text-sm text-[color:var(--ink-2)]">เลือกแล้ว <strong className="text-[color:var(--ink)]">{selectedCourses.length}</strong> คอร์ส</span>
-                        <span className="gp-num font-semibold text-[color:var(--accent-deep)]">฿{totalPrice.toLocaleString()}</span>
-                      </div>
-                    )}
+                    {/* แถบสรุป + ปุ่มถัดไป (ปุ่มเดียวของขั้นนี้ — แถบปุ่มร่วมด้านล่างซ่อนในขั้นที่ 1) */}
+                    <div
+                      className="mt-5 flex items-center justify-between gap-3 flex-wrap rounded-[14px] px-4 py-3.5"
+                      style={{ background: GREEN.soft, border: `1px solid ${GREEN.line}` }}
+                    >
+                      <span className="text-sm text-[color:var(--ink-2)] whitespace-nowrap">
+                        เลือกแล้ว <strong className="gp-num text-[color:var(--ink)]">{selectedCourses.length}</strong> คอร์ส · รวม{" "}
+                        <strong className="gp-num text-[15px]" style={{ color: GREEN.deep }}>฿{totalPrice.toLocaleString()}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={goNext}
+                        disabled={!canProceed[1]}
+                        className="gp-btn-primary w-full sm:w-auto"
+                        style={{ background: GREEN.deep }}
+                      >
+                        ถัดไป →
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -791,11 +928,10 @@ export default function PaymentPage() {
                 </div>
               )}
 
-              {/* Nav buttons */}
+              {/* Nav buttons — ขั้นที่ 1 มีปุ่มถัดไปอยู่ในแถบสรุปแล้ว และยังไม่มีที่ให้ย้อนกลับ */}
+              {step > 1 && (
               <div className="flex items-center gap-3 mt-7 pt-6 border-t border-[var(--line)]">
-                {step > 1 && (
-                  <button type="button" onClick={goBack} className="gp-btn-ghost">← ย้อนกลับ</button>
-                )}
+                <button type="button" onClick={goBack} className="gp-btn-ghost">← ย้อนกลับ</button>
                 {step < 4 ? (
                   <button type="button" onClick={goNext} disabled={!canProceed[step]} className="gp-btn-primary ml-auto">ถัดไป →</button>
                 ) : (
@@ -807,21 +943,22 @@ export default function PaymentPage() {
                   </button>
                 )}
               </div>
+              )}
             </section>
 
             {/* ── Sticky order summary ── */}
-            <aside className="lg:sticky lg:top-6">
+            <aside className="lg:sticky lg:top-6 space-y-4">
               {/* Pastel-mint order summary (light-only graph theme → scoped var overrides;
                   --card is left white so the coupon input still stands out on the mint card) */}
               <div
                 className="gp-card p-5"
                 style={{
-                  background: "#DEF5EC",
-                  ["--line" as string]: "#BFE8D6",
+                  background: GREEN.panel,
+                  ["--line" as string]: GREEN.line,
                   ["--line-2" as string]: "#ADE0CA",
-                  ["--accent" as string]: "#0D9488",
-                  ["--accent-deep" as string]: "#0F766E",
-                  ["--accent-soft" as string]: "#CDEFE2",
+                  ["--accent" as string]: GREEN.deep,
+                  ["--accent-deep" as string]: GREEN.deep,
+                  ["--accent-soft" as string]: GREEN.soft,
                 }}
               >
                 <h3 className="font-medium text-lg text-[color:var(--ink)] mb-3">สรุปคำสั่งซื้อ</h3>
@@ -829,13 +966,27 @@ export default function PaymentPage() {
                 {selectedCourses.length === 0 ? (
                   <p className="text-sm text-[color:var(--ink-2)] py-4 text-center">ยังไม่ได้เลือกคอร์ส</p>
                 ) : (
-                  <div className="space-y-2 mb-4 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
-                    {courses.filter(c => selectedCourses.includes(c.id)).map(c => (
-                      <div key={c.id} className="flex justify-between items-start gap-2 text-sm">
-                        <span className="text-[color:var(--ink)] flex-1 min-w-0">{c.title}</span>
-                        <span className="gp-num text-[color:var(--ink-2)] flex-shrink-0">฿{Number(c.price || 0).toLocaleString()}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-2 mb-4 max-h-[230px] overflow-y-auto pr-1 custom-scrollbar">
+                    {courses.filter(c => selectedCourses.includes(c.id)).map(c => {
+                      const st = levelStyle(c.category || "");
+                      const Icon = st.icon;
+                      return (
+                        <div
+                          key={c.id}
+                          className="flex items-center gap-2.5 rounded-[12px] px-3 py-2.5"
+                          style={{ background: "#FFFFFF", border: `1px solid ${GREEN.line}` }}
+                        >
+                          <span
+                            className="w-8 h-8 rounded-[9px] flex items-center justify-center flex-shrink-0"
+                            style={{ background: st.bg, color: st.main }}
+                          >
+                            <Icon size={16} strokeWidth={2} />
+                          </span>
+                          <span className="flex-1 min-w-0 text-[13px] leading-snug text-[color:var(--ink)]">{c.title}</span>
+                          <span className="gp-num text-[13px] flex-shrink-0 text-[color:var(--ink-2)]">฿{Number(c.price || 0).toLocaleString()}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -855,12 +1006,39 @@ export default function PaymentPage() {
 
                   <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between"><span className="text-[color:var(--ink-2)]">ราคารวม</span><span className="gp-num text-[color:var(--ink)]">฿{totalPrice.toLocaleString()}</span></div>
-                    {discount && <div className="flex justify-between"><span className="text-[color:var(--ink-2)]">ส่วนลด</span><span className="gp-num text-[color:var(--good)]">−฿{discount.amount.toLocaleString()}</span></div>}
+                    {discount && <div className="flex justify-between"><span className="text-[color:var(--ink-2)]">ส่วนลด</span><span className="gp-num" style={{ color: "#B4533F" }}>−฿{discount.amount.toLocaleString()}</span></div>}
                     <div className="flex justify-between items-baseline pt-2 mt-1 border-t border-dashed border-[var(--line-2)]">
                       <span className="font-semibold text-[color:var(--ink)]">ยอดสุทธิ</span>
-                      <span className="gp-num text-2xl font-semibold text-[color:var(--accent-deep)]">฿{finalPrice.toLocaleString()}</span>
+                      <span className="gp-num text-[30px] font-semibold leading-none" style={{ color: GREEN.deep }}>฿{finalPrice.toLocaleString()}</span>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* หลังจากนี้ — บอกล่วงหน้าว่าเหลืออีก 3 ขั้น จะได้ไม่กังวลว่าต้องทำอะไรต่อ */}
+              <div className="gp-card p-5">
+                <div className="gp-eyebrow mb-3">หลังจากนี้</div>
+                <div className="space-y-3">
+                  {NEXT_STEPS.map((s, i) => {
+                    const Icon = s.icon;
+                    const stepNo = i + 2;
+                    const passed = step > stepNo;
+                    return (
+                      <div key={i} className="flex items-center gap-3">
+                        <span
+                          className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0"
+                          style={{
+                            background: passed ? GREEN.soft : "var(--accent-soft)",
+                            color: passed ? GREEN.deep : "var(--accent)",
+                          }}
+                        >
+                          {passed ? <Check size={17} strokeWidth={3} /> : <Icon size={17} strokeWidth={2} />}
+                        </span>
+                        <span className="flex-1 min-w-0 text-[13.5px] text-[color:var(--ink-2)] leading-snug">{s.text}</span>
+                        <span className="gp-num text-[12px] flex-shrink-0 text-[color:var(--ink-2)] opacity-70">ขั้น {stepNo}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </aside>
