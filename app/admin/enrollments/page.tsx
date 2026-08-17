@@ -6,20 +6,12 @@ import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
-import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Building2, Hash, Mail, Phone, Clock, Inbox, ZoomIn, Users, StickyNote, BookOpen, Pencil, Search, Loader2, ArrowRight, Receipt, CheckCircle2, Ticket } from "lucide-react";
+import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Mail, Phone, Clock, Inbox, ZoomIn, Users, StickyNote, BookOpen, Pencil, Search, Loader2, ArrowRight, Receipt, Ticket } from "lucide-react";
 
 type CourseLite = { id: string; title: string; price?: number; allowedExamLevel?: string | null; category?: string; image?: string };
 
 /** บันไดสีคอลัมน์รายชื่อ — เข้มบนสุดไล่อ่อนลงล่าง (design-spec §2) */
 const LADDER = ["var(--en-l1)", "var(--en-l2)", "var(--en-l3)", "var(--en-l4)", "var(--en-l5)", "var(--en-l6)"];
-
-/** เช็กลิสต์ "เทียบกับคำสั่งซื้อ" — สีกล่องคนละเฉดต่อบรรทัด (design-spec §2 + §4.3) */
-const CHECK_ROWS = [
-    { bg: "var(--en-b-money)", line: "var(--en-b-money-l)" },
-    { bg: "var(--en-b-i1)", line: "var(--en-b-i1-l)" },
-    { bg: "var(--en-b-c3)", line: "var(--en-b-c3-l)" },
-    { bg: "var(--en-b-i2)", line: "var(--en-b-i2-l)" },
-];
 
 const baht = (n: unknown) => "฿" + (Number(n) || 0).toLocaleString("th-TH");
 
@@ -61,12 +53,10 @@ export default function AdminEnrollmentsPage() {
 
     // Presentational only: which slip row is highlighted in the master list
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    // ค้นหา ชื่อ / คอร์ส (spec §4.1)
-    const [search, setSearch] = useState("");
     // ติ๊กเลือกหลายรายการเพื่ออนุมัติรวด (spec §5)
     const [checkedIds, setCheckedIds] = useState<string[]>([]);
-    // เช็กลิสต์เทียบสลิป 4 ข้อ ต่อ 1 ใบ (อยู่ในหน้าจอเท่านั้น ไม่บันทึกลง DB)
-    const [slipChecks, setSlipChecks] = useState<Record<string, boolean[]>>({});
+    // ยืนยันด้วยตาว่ายอดในรูปสลิปตรงกับคำสั่งซื้อ (ต่อ 1 ใบ, อยู่ในหน้าจอเท่านั้น)
+    const [amountVerifiedMap, setAmountVerifiedMap] = useState<Record<string, boolean>>({});
 
     const amountOf = (e?: { price?: number; finalPrice?: number; discountAmount?: number }) =>
         (Number(e?.discountAmount) || 0) > 0 ? e?.finalPrice : e?.price;
@@ -106,14 +96,9 @@ export default function AdminEnrollmentsPage() {
         return map;
     }, [enrollments]);
 
-    const visibleEnrollments = useMemo(() => {
-        const kw = search.trim().toLowerCase();
-        if (!kw) return enrollments;
-        return enrollments.filter((e) =>
-            [e.userName, e.courseTitle, e.userEmail, e.userTel]
-                .some((v) => String(v || "").toLowerCase().includes(kw))
-        );
-    }, [enrollments, search]);
+    // ครูฮีมสั่งถอดช่องค้นหาออก (2026-08-17) — หน้านี้มีไว้กวาดคิวที่รออนุมัติซึ่งปกติมีไม่กี่ใบ
+    // การค้นหาเลยเป็นขั้นตอนส่วนเกิน ตัวแปรนี้คงชื่อเดิมไว้เพื่อไม่ต้องแก้จุดที่เรียกใช้ทั้งหน้า
+    const visibleEnrollments = enrollments;
 
     // แถวที่ "เลือกทั้งหน้า" จะติ๊กให้ — ข้ามรายการที่ระบบสะกิดว่าต้องดูด้วยตา (spec §5)
     const autoSelectableIds = useMemo(
@@ -159,13 +144,11 @@ export default function AdminEnrollmentsPage() {
     const toggleSelectAll = () =>
         setCheckedIds((prev) => (prev.length > 0 ? [] : autoSelectableIds));
 
-    const checksOf = (id: string) => slipChecks[id] || [false, false, false, false];
-    const toggleCheck = (id: string, i: number) =>
-        setSlipChecks((prev) => {
-            const cur = [...(prev[id] || [false, false, false, false])];
-            cur[i] = !cur[i];
-            return { ...prev, [id]: cur };
-        });
+    // เหลือการติ๊กเดียวคือ "ยอดในสลิปตรงกับคำสั่งซื้อ" (อยู่บนแถบเทียบยอด)
+    // — อยู่ในหน้าจอเท่านั้น ไม่บันทึกลง DB และไม่บังคับก่อนอนุมัติ
+    const isAmountVerified = (id: string) => !!amountVerifiedMap[id];
+    const toggleAmountVerified = (id: string) =>
+        setAmountVerifiedMap((prev) => ({ ...prev, [id]: !prev[id] }));
 
     // State สำหรับ Modal ยืนยันอนุมัติ (ใบเดียวหรือหลายใบก็ใช้ตัวเดียวกัน)
     const [confirmApproveIds, setConfirmApproveIds] = useState<string[] | null>(null);
@@ -437,17 +420,6 @@ export default function AdminEnrollmentsPage() {
                                     )}
                                 </div>
 
-                                <div className="relative">
-                                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--en-ink-3)" }} />
-                                    <input
-                                        type="text"
-                                        value={search}
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        placeholder="ค้นหา ชื่อ / คอร์ส"
-                                        className="khen-input"
-                                    />
-                                </div>
-
                                 <button
                                     type="button"
                                     className="khen-btn w-full"
@@ -461,7 +433,7 @@ export default function AdminEnrollmentsPage() {
 
                             <div className="khen-scroll-list p-2 space-y-1.5">
                                 {visibleEnrollments.length === 0 ? (
-                                    <div className="py-10 text-center text-[13px]" style={{ color: "var(--en-ink-3)" }}>ไม่พบรายการที่ค้นหา</div>
+                                    <div className="py-10 text-center text-[13px]" style={{ color: "var(--en-ink-3)" }}>ไม่มีรายการรอตรวจสอบ</div>
                                 ) : visibleEnrollments.map((item, idx) => {
                                     const isActive = item.id === selectedId;
                                     const isChecked = checkedIds.includes(item.id);
@@ -534,8 +506,7 @@ export default function AdminEnrollmentsPage() {
                         {selected && (() => {
                             const item = selected;
                             const amount = amountOf(item);
-                            const checks = checksOf(item.id);
-                            const amountVerified = checks[0];
+                            const amountVerified = isAmountVerified(item.id);
                             const note = signals.get(item.id)?.note || "";
                             const needsEye = signals.get(item.id)?.needsEye;
                             return (
@@ -576,14 +547,11 @@ export default function AdminEnrollmentsPage() {
                                                     <div className="khen-num text-[28px] leading-none truncate" style={{ color: amountVerified ? "var(--en-ink)" : "var(--en-ink-3)" }}>
                                                         {amountVerified ? baht(amount) : "— ตรวจจากรูป"}
                                                     </div>
-                                                    <div className="text-[11.5px] mt-1.5 truncate" style={{ color: "var(--en-ink-2)" }}>
-                                                        {item.bankFrom || item.userName || "-"} · {item.paymentMethod || "โอนผ่านธนาคาร"}
-                                                    </div>
                                                 </div>
 
                                                 <button
                                                     type="button"
-                                                    onClick={() => toggleCheck(item.id, 0)}
+                                                    onClick={() => toggleAmountVerified(item.id)}
                                                     title="กดเพื่อยืนยันว่ายอดในรูปสลิปตรงกับคำสั่งซื้อ"
                                                     className="flex flex-col items-center gap-1.5 flex-shrink-0"
                                                 >
@@ -647,25 +615,8 @@ export default function AdminEnrollmentsPage() {
                                                 </button>
                                             </div>
 
-                                            {/* 4) สามช่องข้อมูล */}
-                                            <div className="khen-info3">
-                                                <div className="khen-box p-3 min-w-0" style={{ background: "var(--en-b-i1)", borderColor: "var(--en-b-i1-l)" }}>
-                                                    <div className="khen-eyebrow mb-1.5">ชื่อบัญชีผู้โอน</div>
-                                                    <div className="text-[13px] font-semibold break-words" style={{ color: "var(--en-ink)" }}>
-                                                        {item.bankFrom || item.userName || "-"}
-                                                    </div>
-                                                </div>
-                                                <div className="khen-box p-3 min-w-0" style={{ background: "var(--en-b-i2)", borderColor: "var(--en-b-i2-l)" }}>
-                                                    <div className="khen-eyebrow mb-1.5 flex items-center gap-1"><Building2 size={12} /> เข้าบัญชี</div>
-                                                    <div className="text-[13px] font-semibold break-words" style={{ color: "var(--en-ink)" }}>KruHeem SCB</div>
-                                                </div>
-                                                <div className="khen-box p-3 min-w-0" style={{ background: "var(--en-b-i3)", borderColor: "var(--en-b-i3-l)" }}>
-                                                    <div className="khen-eyebrow mb-1.5 flex items-center gap-1"><Hash size={12} /> เลขที่รายการ</div>
-                                                    <div className="khen-mono text-[12px] break-all" style={{ color: "var(--en-ink)" }}>
-                                                        {item.ref || item.id}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            {/* ครูฮีมสั่งถอดสามช่อง ชื่อบัญชีผู้โอน / เข้าบัญชี / เลขที่รายการ ออก (2026-08-17)
+                                                — ข้อมูลพวกนี้อ่านจากรูปสลิปได้อยู่แล้ว การมีซ้ำทำให้ต้องเลื่อนจอนานกว่าจะถึงปุ่มอนุมัติ */}
 
                                             {/* ข้อมูลเสริมที่มีเฉพาะบางใบ */}
                                             {(item.lineId || item.couponCode || item.adminNote || item.createdByAdmin) && (
@@ -788,15 +739,7 @@ export default function AdminEnrollmentsPage() {
                         {/* ===== คอลัมน์ขวา: สลิป ===== */}
                         {selected && (() => {
                             const item = selected;
-                            const amount = amountOf(item);
-                            const checks = checksOf(item.id);
                             const slipUrls = ((item.slipUrls && item.slipUrls.length > 0 ? item.slipUrls : [item.slipUrl]) as string[]).filter(Boolean);
-                            const CHECK_LABELS = [
-                                `ยอดเงินในสลิปตรงกับ ${baht(amount)}`,
-                                "โอนเข้าบัญชี KruHeem SCB",
-                                `เวลาโอนใกล้กับเวลาแจ้ง (${item.formattedDate})`,
-                                "เลขที่รายการไม่ซ้ำกับสลิปที่เคยอนุมัติ",
-                            ];
                             return (
                                 <div className="khen-col-slip space-y-4 khen-sticky">
                                     {/* แผ่นรองสีฟ้าครอบการ์ดสลิปขาว */}
@@ -855,38 +798,9 @@ export default function AdminEnrollmentsPage() {
                                         )}
                                     </div>
 
-                                    {/* เช็กลิสต์เทียบกับคำสั่งซื้อ */}
-                                    <div className="khen-card p-3.5">
-                                        <div className="khen-eyebrow mb-2.5 flex items-center gap-1.5">
-                                            <CheckCircle2 size={13} /> เทียบกับคำสั่งซื้อ
-                                        </div>
-                                        <div className="space-y-2">
-                                            {CHECK_LABELS.map((label, i) => {
-                                                const on = checks[i];
-                                                return (
-                                                    <button
-                                                        key={i}
-                                                        type="button"
-                                                        onClick={() => toggleCheck(item.id, i)}
-                                                        className="w-full text-left rounded-[12px] p-3 flex items-start gap-2.5"
-                                                        style={{ background: CHECK_ROWS[i].bg, border: `1px solid ${CHECK_ROWS[i].line}` }}
-                                                    >
-                                                        <span
-                                                            className="w-[18px] h-[18px] rounded-md flex items-center justify-center flex-shrink-0 mt-0.5"
-                                                            style={{
-                                                                background: on ? "var(--en-good)" : "var(--en-card)",
-                                                                border: `1px solid ${on ? "var(--en-good)" : "var(--en-line-2)"}`,
-                                                                color: "#FFFFFF",
-                                                            }}
-                                                        >
-                                                            {on && <Check size={12} strokeWidth={3.2} />}
-                                                        </span>
-                                                        <span className="text-[12.5px] leading-snug" style={{ color: "var(--en-ink)" }}>{label}</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                    {/* ครูฮีมสั่งถอดเช็กลิสต์ "เทียบกับคำสั่งซื้อ" ออกทั้งหมด (2026-08-17)
+                                        — เป็นการติ๊กที่ไม่ได้บันทึกลงฐานข้อมูลและไม่ได้บังคับก่อนอนุมัติ
+                                        จึงเป็นแค่ขั้นตอนคั่นระหว่างการดูสลิปกับการกดอนุมัติ */}
                                 </div>
                             );
                         })()}

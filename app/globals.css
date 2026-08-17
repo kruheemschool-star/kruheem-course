@@ -1329,6 +1329,14 @@ h6 {
     }
 }
 
+/* จอมือถือ: บีบระยะแถบบนลง เพื่อให้ปุ่ม "กลับหน้าเว็บ" มีที่ยืนโดยที่ชื่อหน้ายังอ่านออก */
+@media (max-width: 640px) {
+    .kh-topbar {
+        padding: 0 12px;
+        gap: 10px;
+    }
+}
+
 /* ---- components ---- */
 .kh-card {
     background: var(--card);

@@ -20,7 +20,7 @@ import {
     BookOpen, ClipboardList, ScrollText, Newspaper, FileText,
     Users, UserPlus, Smile, Activity,
     MessageCircle, LifeBuoy, Megaphone, Star, BarChart3, LineChart,
-    Menu, Search, Bell, Sun, Moon, LogOut, Home, GripVertical, Timer,
+    Menu, Search, Bell, Sun, Moon, LogOut, Home, GripVertical, Timer, ExternalLink,
     type LucideIcon,
 } from "lucide-react";
 
@@ -431,6 +431,16 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                             )
                         )}
                     </DndContext>
+
+                    {/* ทางออกกลับหน้าเว็บจริง — วางนอก DndContext (ไม่ใช่เมนูแอดมิน จึงลาก/ติดดาวไม่ได้)
+                        บนมือถือเมนูนี้คือ drawer ที่เปิดจากปุ่มแฮมเบอร์เกอร์ ลิงก์นี้จึงเป็นทางกลับที่หาเจอแน่ */}
+                    <div className="pt-3 mt-2" style={{ borderTop: "1px solid var(--side-line)" }}>
+                        <Link href="/" className="kh-side-link" title="กลับหน้าเว็บหลัก">
+                            <Home size={18} strokeWidth={1.8} className="shrink-0" style={{ color: "var(--accent-2)" }} />
+                            <span className="kh-label flex-1">กลับหน้าเว็บหลัก</span>
+                            <ExternalLink size={13} strokeWidth={1.8} className="kh-label shrink-0 opacity-50" />
+                        </Link>
+                    </div>
                 </nav>
 
                 {/* profile + logout */}
@@ -513,14 +523,21 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                         {mounted ? (isDark ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />) : <Moon size={17} strokeWidth={1.8} />}
                     </button>
 
-                    {/* back to site */}
+                    {/* กลับหน้าบ้าน — ต้องเห็นทุกขนาดจอ เดิมเป็น hidden sm:flex ทำให้บนมือถือ
+                        ไม่มีทางออกจากหลังบ้านกลับไปหน้าเว็บจริงเลย ใช้สีแบรนด์ให้สังเกตง่ายกว่าปุ่มอื่น */}
                     <Link
                         href="/"
-                        aria-label="กลับหน้าบ้าน"
-                        className="hidden sm:flex w-9 h-9 rounded-lg items-center justify-center kh-ink2 shrink-0"
-                        style={{ background: "var(--card-2)", border: "1px solid var(--line)" }}
+                        aria-label="กลับหน้าเว็บหลัก"
+                        title="กลับหน้าเว็บหลัก"
+                        className="flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-lg shrink-0 font-semibold text-[12.5px]"
+                        style={{
+                            background: "var(--accent-soft)",
+                            border: "1px solid var(--accent-2)",
+                            color: "var(--accent-ink)",
+                        }}
                     >
-                        <Home size={17} strokeWidth={1.8} />
+                        <Home size={17} strokeWidth={2} />
+                        <span className="hidden sm:inline">หน้าเว็บ</span>
                     </Link>
                 </header>
 
