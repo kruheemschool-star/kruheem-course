@@ -14,6 +14,7 @@ interface LessonSidebarProps {
     activeLesson: Lesson | null;
     progressPercent: number;
     examLessons: Lesson[];
+    docLessons?: Lesson[];
     groupedLessons: { header: Lesson; items: Lesson[] }[];
     openSections: string[];
     toggleSection: (id: string) => void;
@@ -37,6 +38,7 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
     activeLesson,
     progressPercent,
     examLessons,
+    docLessons = [],
     groupedLessons,
     openSections,
     toggleSection,
@@ -124,6 +126,58 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
                     )}
 
                     {/* ℹ️ ปุ่ม "ดาวน์โหลดเอกสาร" ถูกย้ายไปเป็นปุ่มลอยมุมขวาบนของวิดีโอ (ใน LessonContent) เพื่อให้สังเกตได้ง่ายขึ้น */}
+
+                    {/* ✅ เอกสารแจก (เช็คลิสต์ ฯลฯ) — การ์ดของตัวเอง ไม่ยุบ ไม่ปนกับรายการข้อสอบ
+                        เดิมบทพวกนี้ถูกเหมารวมเป็นชุดข้อสอบ เลยไปจมอยู่ท้ายรายการยาวๆ ที่ต้องกดกางก่อน
+                        ของแจกต้องเห็นตั้งแต่เปิดคอร์ส ไม่งั้นเท่ากับไม่มี */}
+                    {docLessons.length > 0 && (
+                        <div className="w-full px-2 space-y-2">
+                            {docLessons.map((docLesson: Lesson) => {
+                                const isActive = activeLesson?.id === docLesson.id;
+                                const isUnlocked = isLessonUnlocked(docLesson);
+                                return (
+                                    <button
+                                        key={docLesson.id}
+                                        onClick={() => {
+                                            if (!isUnlocked) return;
+                                            changeLesson(docLesson);
+                                            setIsMobileMenuOpen(false);
+                                        }}
+                                        disabled={!isUnlocked}
+                                        className={`w-full relative overflow-hidden rounded-2xl p-3.5 text-left transition-all duration-300 group border
+                                            ${isActive
+                                                ? 'border-teal-400 dark:border-teal-500 shadow-md shadow-teal-200/50 dark:shadow-teal-900/30'
+                                                : 'border-teal-200/70 dark:border-teal-700/40 hover:shadow-lg hover:shadow-teal-200/30 dark:hover:shadow-teal-900/20 hover:-translate-y-0.5 active:scale-[0.98]'}
+                                            ${!isUnlocked ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                                        style={{ background: 'linear-gradient(135deg, #F0FDFA 0%, #CCFBF1 45%, #A7F3D0 100%)' }}
+                                    >
+                                        <div className="relative flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-md shadow-teal-300/50 dark:shadow-teal-900/50 flex-shrink-0">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                    <polyline points="7 10 12 15 17 10" />
+                                                    <line x1="12" y1="15" x2="12" y2="3" />
+                                                </svg>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-extrabold text-sm text-teal-900 dark:text-teal-100 tracking-tight line-clamp-2 leading-snug">
+                                                    {docLesson.title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️\s]+/u, '')}
+                                                </div>
+                                                <div className="text-[11px] text-teal-700/80 dark:text-teal-400/80 font-semibold mt-0.5">
+                                                    {isUnlocked ? 'พิมพ์แปะไว้ ติกตามความก้าวหน้า' : 'ลงทะเบียนเพื่อดาวน์โหลด'}
+                                                </div>
+                                            </div>
+                                            {!isUnlocked
+                                                ? <span className="text-xs flex-shrink-0">🔒</span>
+                                                : <span className={`transform transition-transform duration-300 text-teal-600/60 flex-shrink-0 ${isActive ? 'translate-x-0.5' : ''}`}>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+                                                </span>}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     {/* ✅ SPECIAL EXAM SECTION — Eye-catching Card */}
                     {examLessons.length > 0 && (

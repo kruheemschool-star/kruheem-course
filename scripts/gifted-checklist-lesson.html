@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เช็คลิสต์พิชิต 40 แนวข้อสอบ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Sarabun', -apple-system, 'Segoe UI', sans-serif;
+    background: linear-gradient(160deg, #fefdf9 0%, #f0fdfa 55%, #fefdf9 100%);
+    color: #1e293b;
+    min-height: 100vh;
+    padding: 28px 18px 44px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 30px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 22px;
+    padding: 30px;
+    box-shadow: 0 8px 30px rgba(13, 148, 136, 0.08);
+    align-items: center;
+  }
+  .preview { position: relative; text-align: center; }
+  .preview img {
+    width: 100%;
+    max-width: 300px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.14);
+    transform: rotate(-1.6deg);
+    transition: transform .3s ease;
+  }
+  .preview img:hover { transform: rotate(0deg) scale(1.02); }
+  .badge {
+    position: absolute;
+    top: -10px; right: 2px;
+    background: #c2410c;
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 999px;
+    box-shadow: 0 4px 10px rgba(194, 65, 12, 0.35);
+    transform: rotate(2deg);
+  }
+  .kicker {
+    display: inline-block;
+    background: #ccfbf1;
+    color: #0f766e;
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+    letter-spacing: .2px;
+  }
+  h1 { font-size: 27px; font-weight: 800; color: #134e4a; line-height: 1.25; margin-bottom: 8px; }
+  .lead { font-size: 15.5px; color: #475569; line-height: 1.65; margin-bottom: 14px; }
+  .feat { list-style: none; margin-bottom: 20px; }
+  .feat li {
+    position: relative;
+    padding-left: 26px;
+    font-size: 14px;
+    color: #334155;
+    line-height: 1.55;
+    margin-bottom: 7px;
+  }
+  .feat li::before {
+    content: "✓";
+    position: absolute; left: 0; top: 0;
+    width: 18px; height: 18px;
+    background: #0d9488;
+    color: #fff;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    background: linear-gradient(135deg, #0d9488, #0f766e);
+    color: #fff;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 800;
+    border: 0;
+    border-radius: 14px;
+    padding: 15px 30px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(13, 148, 136, 0.35);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(13, 148, 136, 0.42); }
+  .btn:active { transform: translateY(0); }
+  .btn svg { width: 21px; height: 21px; flex-shrink: 0; }
+  .alt { font-size: 12.5px; color: #94a3b8; margin-top: 10px; }
+  .alt a { color: #0f766e; font-weight: 600; }
+  .warn {
+    margin-top: 14px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 12px;
+    padding: 11px 14px;
+    font-size: 13.5px;
+    color: #92400e;
+    line-height: 1.55;
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 18px;
+  }
+  .step {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 18px 16px 16px;
+    text-align: center;
+  }
+  .step .ic { font-size: 30px; margin-bottom: 8px; }
+  .step .no {
+    display: inline-block;
+    background: #f0fdfa;
+    color: #0f766e;
+    font-size: 11.5px;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: 999px;
+    margin-bottom: 6px;
+  }
+  .step h3 { font-size: 16px; font-weight: 800; color: #134e4a; margin-bottom: 4px; }
+  .step p { font-size: 13px; color: #64748b; line-height: 1.55; }
+
+  .parents {
+    margin-top: 18px;
+    background: #fff7ed;
+    border-left: 4px solid #c2410c;
+    border-radius: 14px;
+    padding: 16px 20px;
+    font-size: 14px;
+    color: #7c2d12;
+    line-height: 1.7;
+  }
+  .parents strong { color: #9a3412; }
+
+  .foot { text-align: center; margin-top: 26px; font-size: 12px; color: #94a3b8; }
+
+  @media (max-width: 720px) {
+    .hero { grid-template-columns: 1fr; padding: 22px 18px; gap: 22px; }
+    .preview img { max-width: 240px; }
+    h1 { font-size: 23px; }
+    .steps { grid-template-columns: 1fr; }
+    .btn { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="preview">
+        <img src="https://firebasestorage.googleapis.com/v0/b/kruheem-course-45088.firebasestorage.app/o/course-docs%2FHiHvqQmFz9s41oxW8lne%2Fchecklist-40-topics-preview-v20260817.png?alt=media&token=959ba724-c64b-4acc-bddd-533c10325ae5" alt="ตัวอย่างเช็คลิสต์ 40 แนวข้อสอบ">
+        <span class="badge">แผ่นเดียวจบ</span>
+      </div>
+      <div class="info">
+        <span class="kicker">เครื่องมือคู่ใจประจำคอร์ส</span>
+        <h1>เช็คลิสต์พิชิต 40 แนวข้อสอบ</h1>
+        <p class="lead">พิมพ์แผ่นเดียว แปะข้างโต๊ะอ่านหนังสือ ติกทีละหัวข้อ — เห็นความก้าวหน้าของตัวเองทุกวัน กำลังใจก็มาทุกวัน</p>
+        <ul class="feat">
+          <li>ครบทั้ง 40 แนวข้อสอบ ติกแยกได้ทั้ง "ดูวิดีโอ" และ "ทำโจทย์ 100 ข้อ"</li>
+          <li>แบ่งหมวดด้วยสี มองแวบเดียวรู้เลยว่าหมวดไหนเก็บไปถึงไหนแล้ว</li>
+          <li>มีช่องบันทึกคะแนนแนวข้อสอบชุดที่ 1–3 และคำแนะนำการเรียน 5 ข้อจากครูฮีม</li>
+        </ul>
+        <!-- ลิงก์ธรรมดา ไม่ใช่ปุ่ม JavaScript — เบราว์เซอร์ในแอปเฟซบุ๊ก/ไลน์บล็อกสคริปต์เปิดหน้าต่างเงียบๆ
+             แต่ลิงก์จริงยังกดค้างเพื่อเปิด/บันทึกได้เสมอ -->
+        <a id="dl" class="btn" href="https://firebasestorage.googleapis.com/v0/b/kruheem-course-45088.firebasestorage.app/o/course-docs%2FHiHvqQmFz9s41oxW8lne%2Fchecklist-40-topics-v20260817.pdf?alt=media&amp;token=2fe0ae34-983b-4a04-8029-92e21c6a6049" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          เปิดเช็คลิสต์เพื่อพิมพ์ (ไฟล์ 1 หน้า)
+        </a>
+        <div class="alt">ถ้าแตะแล้วไม่มีอะไรขึ้น ให้แตะค้างไว้ แล้วเลือก "เปิดในแท็บใหม่" หรือ "ดาวน์โหลดลิงก์"</div>
+        <div id="inapp" class="warn" hidden>💡 ตอนนี้เปิดจากแอปเฟซบุ๊กหรือไลน์อยู่ ถ้ากดปุ่มแล้วไฟล์ไม่ขึ้น ให้กดเมนู ⋯ มุมขวาบน แล้วเลือก "เปิดในเบราว์เซอร์" ก่อนนะครับ</div>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="ic">🖨️</div>
+        <div class="no">ขั้นที่ 1</div>
+        <h3>พิมพ์</h3>
+        <p>ขนาดมาตรฐานหนึ่งแผ่น พิมพ์ขาวดำก็ใช้ได้ พิมพ์สีจะเห็นหมวดชัดสวยเลย</p>
+      </div>
+      <div class="step">
+        <div class="ic">📌</div>
+        <div class="no">ขั้นที่ 2</div>
+        <h3>แปะ</h3>
+        <p>ข้างโต๊ะอ่านหนังสือ หน้าตู้เย็น หรือที่ที่เดินผ่านทุกวัน ให้มันคอยมองเรา</p>
+      </div>
+      <div class="step">
+        <div class="ic">✅</div>
+        <div class="no">ขั้นที่ 3</div>
+        <h3>ติก</h3>
+        <p>ดูวิดีโอจบ ทำโจทย์เสร็จ ค่อยติกช่องนั้นด้วยความภูมิใจ แล้วไปต่อหัวข้อถัดไป</p>
+      </div>
+    </div>
+
+    <div class="parents">
+      <strong>ฝากถึงคุณพ่อคุณแม่ครับ</strong> — แผ่นนี้แปะไว้ตรงไหน ลูกติกไปกี่ช่อง คือคำตอบของคำถามว่า "อ่านหนังสือหรือยัง" โดยไม่ต้องเอ่ยถามเลยครับ เห็นลูกติกเพิ่มเมื่อไหร่ ชมสักคำหนึ่ง กำลังใจจากบ้านสำคัญกว่าทุกเทคนิคในคอร์สนี้ครับ
+    </div>
+
+    <div class="foot">คอร์สติวเข้ม Gifted ม.1 • ครูฮีม kruheemmath.com • ฉบับเดือนสิงหาคม 2569</div>
+  </div>
+
+<script>
+  // ตัวลิงก์เป็น <a> จริง — สคริปต์พังหรือไม่รัน ก็ยังกดและกดค้างเพื่อบันทึกได้
+  // สคริปต์นี้แค่กันกรณีหน้านี้ถูกฝังในกรอบที่ห้ามเปิดแท็บใหม่: ถ้าเปิดแท็บไม่ได้
+  // ให้เปิดไฟล์ในกรอบแทน จะได้ไม่กลายเป็นปุ่มที่กดแล้วเงียบ
+  var dl = document.getElementById('dl');
+  dl.addEventListener('click', function (e) {
+    var win = null;
+    try { win = window.open(dl.href, '_blank'); } catch (err) { win = null; }
+    e.preventDefault();
+    if (!win) window.location.href = dl.href;
+  });
+  var ua = navigator.userAgent || '';
+  if (/FBAN|FBAV|FB_IAB|FBIOS|Line\/|LIFF/i.test(ua)) {
+    document.getElementById('inapp').hidden = false;
+  }
+</script>
+</body>
+</html>

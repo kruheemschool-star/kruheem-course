@@ -262,7 +262,11 @@ function CoursePlayer() {
 
     const progressPercent = useMemo(() => {
         if (visibleLessons.length === 0) return 0;
-        const learnableLessons = visibleLessons.filter(l => l.type !== 'header');
+        // ชุดตะลุยโจทย์ (type 'html') ไม่นับเป็นความคืบหน้าของคอร์ส — เป็นคลังไว้ฝึกซ้ำ
+        // ไม่ใช่บทที่ต้อง "เรียนจบ" และการ์ดคอร์สในหน้า /my-courses ก็นับเฉพาะบทเรียนจริง
+        // อยู่แล้ว (ดู videoCountMap) เดิมหน้านี้นับรวมชุดข้อสอบด้วย ทำให้สองหน้าโชว์ %
+        // ไม่ตรงกัน และพอเพิ่มชุดข้อสอบทีละมากๆ แถบของเด็กที่เรียนจบแล้วก็ร่วงทันที
+        const learnableLessons = visibleLessons.filter(l => l.type !== 'header' && l.type !== 'html');
         const totalLearnable = learnableLessons.length;
         if (totalLearnable === 0) return 0;
         const validCompletedCount = completedLessons.filter(id => learnableLessons.some(l => l.id === id)).length;
@@ -324,8 +328,17 @@ function CoursePlayer() {
     };
 
     // ✅ Separate Exam Lessons (For Prominent Display)
+    // บทแบบ 'html' มีสองแบบ: ชุดข้อสอบ (content = JSON questions → ExamRunner) กับ
+    // หน้าเอกสารแจก เช่น เช็คลิสต์ (htmlCode = หน้าเว็บ, content ว่าง) — แยกกันด้วยว่า
+    // parse questions ได้ไหม ไม่ใช่ด้วยชื่อบท เอกสารแจกจะได้ไม่ไปจมอยู่ในรายการข้อสอบ
+    // (ทั้งสองแบบยังเป็น type 'html' เหมือนเดิม จึงไม่ถูกนับใน % ความคืบหน้า)
     const examLessons = useMemo(() => {
-        return visibleLessons.filter(l => l.type === 'html');
+        return visibleLessons.filter(l => l.type === 'html' && !!tryParseQuestions(l.content || ""));
+    }, [visibleLessons]);
+
+    // ✅ เอกสารแจกดาวน์โหลด (เช็คลิสต์ ฯลฯ) — โชว์เป็นการ์ดของตัวเองในเมนู
+    const docLessons = useMemo(() => {
+        return visibleLessons.filter(l => l.type === 'html' && !tryParseQuestions(l.content || ""));
     }, [visibleLessons]);
 
     // P3.2: cross-set topic drill — pool questions of one weak sub-topic across
@@ -542,6 +555,7 @@ function CoursePlayer() {
                 activeLesson={activeLesson}
                 progressPercent={progressPercent}
                 examLessons={examLessons}
+                docLessons={docLessons}
                 groupedLessons={groupedLessons}
                 openSections={openSections}
                 toggleSection={toggleSection}

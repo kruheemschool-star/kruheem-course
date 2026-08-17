@@ -375,11 +375,13 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                             }
                             return (
                                 <div className="w-full min-h-full bg-white dark:bg-slate-900">
+                                    {/* allow-popups: บทแบบ html ที่เป็นหน้าเอกสารแจก (เช่น เช็คลิสต์)
+                                        ต้องเปิดไฟล์ในแท็บใหม่ได้ ไม่มีแฟล็กนี้ปุ่มดาวน์โหลดจะเงียบสนิท */}
                                     <iframe
                                         srcDoc={activeLesson.htmlCode || ""}
                                         className="w-full h-full min-h-[85vh] border-0"
                                         title="Lesson Content"
-                                        sandbox="allow-scripts allow-same-origin"
+                                        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
                                     />
                                 </div>
                             );
