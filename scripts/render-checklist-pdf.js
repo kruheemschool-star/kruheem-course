@@ -14,6 +14,17 @@ const { chromium } = require('playwright');
 const TARGETS = {
   gifted: { src: 'gifted-checklist-a4.html', name: 'checklist-40-topics' },
   p6: { src: 'p6-checklist-a4.html', name: 'p6-checklist-16-chapters' },
+  equation: { src: 'equation-checklist-a4.html', name: 'equation-checklist-19-levels' },
+  banyat: { src: 'banyat-checklist-a4.html', name: 'banyat-checklist-15-clips' },
+  // คอร์สมัธยม — ไฟล์ HTML สร้างอัตโนมัติด้วย gen-chapter-checklist.js
+  m1t1: { src: 'generated/m1t1-checklist-a4.html', name: 'm1t1-checklist' },
+  m1t2: { src: 'generated/m1t2-checklist-a4.html', name: 'm1t2-checklist' },
+  m2t1: { src: 'generated/m2t1-checklist-a4.html', name: 'm2t1-checklist' },
+  m3t1: { src: 'generated/m3t1-checklist-a4.html', name: 'm3t1-checklist' },
+  m4t1: { src: 'generated/m4t1-checklist-a4.html', name: 'm4t1-checklist' },
+  m4t2: { src: 'generated/m4t2-checklist-a4.html', name: 'm4t2-checklist' },
+  m5t1: { src: 'generated/m5t1-checklist-a4.html', name: 'm5t1-checklist' },
+  m5t2: { src: 'generated/m5t2-checklist-a4.html', name: 'm5t2-checklist' },
 };
 
 const key = process.argv[2];
@@ -31,6 +42,41 @@ const OUT_DIR = path.resolve(__dirname, 'out', key);
   const page = await browser.newPage({ viewport: { width: 794, height: 1123 } });
   await page.goto('file://' + SRC, { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
+
+  // auto-fit: แผ่นแบบช่องติกรายคลิป (คอร์สมัธยม) มีคลิปไม่เท่ากันในแต่ละคอร์ส
+  // ถ้าตั้งขนาดช่องตายตัว คอร์สคลิปน้อยจะเหลือหน้าโล่งครึ่งแผ่น — ขยายช่องขึ้นทีละพิกเซล
+  // จนเกือบเต็มหน้าแล้วถอยกลับหนึ่งขั้น จึงได้ช่องใหญ่ที่สุดที่ยังพอดีหน้าเสมอ
+  const fitted = await page.evaluate(() => {
+    const sheet = document.querySelector('.page');
+    const cell = document.querySelector('.cell');
+    if (!sheet || !cell) return null;
+    const start = Math.round(parseFloat(getComputedStyle(cell).width));
+    const style = document.createElement('style');
+    document.head.appendChild(style);
+    const fits = () => sheet.scrollHeight <= Math.round(sheet.getBoundingClientRect().height) + 1;
+    // เพดาน 30px — ใหญ่กว่านี้ช่องจะดูเป็นตารางเปล่ามากกว่าเช็คลิสต์
+    let best = start;
+    for (let s = start; s <= 30; s++) {
+      style.textContent = `.cell{width:${s}px;height:${s}px}`;
+      if (fits()) best = s; else break;
+    }
+    style.textContent = `.cell{width:${best}px;height:${best}px}`;
+
+    // ที่เหลือหลังช่องเต็มเพดานแล้ว ยกให้บรรทัดจดโน้ต จะได้ไม่มีหน้าโล่ง
+    const notes = document.querySelector('.notes');
+    let added = 0;
+    if (notes) {
+      while (added < 8) {
+        const line = document.createElement('div');
+        line.className = 'note-line';
+        notes.appendChild(line);
+        if (!fits()) { line.remove(); break; }
+        added++;
+      }
+    }
+    return { start, best, added };
+  });
+  if (fitted) console.log(`auto-fit ช่องติก: ${fitted.start}px → ${fitted.best}px | เพิ่มบรรทัดโน้ต ${fitted.added}`);
 
   const metrics = await page.evaluate(() => {
     const el = document.querySelector('.page');

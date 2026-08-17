@@ -56,3 +56,7 @@ scripts/out/
 # Playwright
 /playwright-report/
 /test-results/
+
+# ไฟล์เช็คลิสต์ที่สร้างอัตโนมัติจากโครงคอร์สใน Firestore (สร้างใหม่ได้ด้วย gen-*.js)
+scripts/generated/*-checklist-a4.html
+scripts/generated/*-checklist-lesson.html

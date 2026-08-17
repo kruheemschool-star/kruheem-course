@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>เช็คลิสต์ 15 คลิป — คอร์สการเทียบบัญญัติไตรยางค์</title>
+<style>
+  @font-face { font-family: 'Sarabun'; font-weight: 400; src: url('fonts/Sarabun-Regular.ttf') format('truetype'); }
+  @font-face { font-family: 'Sarabun'; font-weight: 700; src: url('fonts/Sarabun-Bold.ttf') format('truetype'); }
+  @font-face { font-family: 'Sarabun'; font-weight: 800; src: url('fonts/Sarabun-Bold.ttf') format('truetype'); }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #fff; }
+  body { font-family: 'Sarabun', sans-serif; color: #1C1917; }
+
+  .page {
+    width: 794px; height: 1123px;
+    padding: 34px 36px 20px;
+    background: #FFFDF7;
+    display: flex; flex-direction: column; gap: 13px;
+    overflow: hidden;
+  }
+
+  .head {
+    display: grid; grid-template-columns: 1fr 232px; gap: 18px;
+    border: 2.5px solid #052A25; border-radius: 14px;
+    padding: 13px 16px; background: #fff; align-items: center;
+  }
+  .kicker {
+    display: inline-block; border: 1.5px solid #0F766E; color: #0F766E;
+    font-size: 11.5px; font-weight: 700; padding: 2px 10px;
+    border-radius: 99px; margin-bottom: 5px;
+  }
+  h1 { font-size: 26px; font-weight: 800; color: #052A25; line-height: 1.15; letter-spacing: -.3px; }
+  .course-line { font-size: 12.5px; color: #3F3F46; margin-top: 4px; line-height: 1.45; }
+  .course-line .by { color: #78716C; }
+  .nowrap { white-space: nowrap; }
+
+  .fields { display: flex; flex-direction: column; gap: 7px; }
+  .field { font-size: 11.5px; color: #3F3F46; font-weight: 700; display: flex; align-items: baseline; gap: 5px; }
+  .field .line { flex: 1; border-bottom: 1.5px dashed #A8A29E; height: 13px; }
+
+  .parts {
+    display: flex; justify-content: space-between; flex-wrap: wrap;
+    gap: 5px 10px; background: #F6F1E4; border-radius: 10px; padding: 7px 11px;
+  }
+  .part { display: flex; align-items: center; gap: 4px; }
+  .chip { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+  .part b { font-size: 10.5px; font-weight: 700; color: #292524; white-space: nowrap; }
+  .part .range { font-size: 10.5px; color: #57534E; white-space: nowrap; }
+
+  .thead {
+    display: grid; grid-template-columns: 30px 1fr 30px 30px 62px;
+    column-gap: 8px; align-items: end;
+    border-bottom: 2px solid #052A25; padding-bottom: 6px; margin-bottom: 12px;
+  }
+  .thead .t-topic { font-size: 11.5px; font-weight: 800; color: #052A25; grid-column: 2; }
+  .thead .t-a, .thead .t-b { font-size: 9.5px; font-weight: 800; line-height: 1.15; text-align: center; }
+  .thead .t-a { color: #0F766E; }
+  .thead .t-b { color: #C2410C; }
+  .thead .t-date { font-size: 9px; font-weight: 700; color: #78716C; text-align: center; }
+
+  .rows { display: grid; row-gap: 10px; }
+  .row {
+    display: grid; grid-template-columns: 30px 1fr 30px 30px 62px;
+    column-gap: 8px; align-items: center;
+  }
+  .num {
+    height: 22px; border-radius: 6px; color: #fff;
+    font-size: 11px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .topic { font-size: 13px; color: #1C1917; line-height: 1.25; }
+  .box { width: 17px; height: 17px; border: 1.6px solid #A8A29E; border-radius: 4px; margin: 0 auto; }
+  .date-line { border-bottom: 1.2px dashed #C6C2BC; height: 14px; }
+
+  .notes {
+    border: 1.5px dashed #A8A29E; border-radius: 12px;
+    padding: 9px 14px 12px; background: #FEFDFB;
+  }
+  .notes-title { font-size: 11.5px; font-weight: 800; color: #57534E; margin-bottom: 9px; }
+  .note-line { border-bottom: 1.2px dashed #D6D3D1; height: 21px; }
+
+  .tips {
+    border: 2.5px solid #052A25; border-radius: 14px;
+    background: #fff; padding: 11px 15px 12px;
+  }
+  .tips-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .tips-head h2 { font-size: 16px; font-weight: 800; color: #052A25; }
+  .tips-badge {
+    width: 22px; height: 22px; flex-shrink: 0;
+    border: 2px solid #052A25; border-radius: 7px;
+    font-size: 12px; font-weight: 800; color: #052A25;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tips-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; row-gap: 6px; }
+  .tip { display: flex; gap: 6px; font-size: 13.5px; line-height: 1.45; color: #292524; }
+  .tip .n { color: #0F766E; font-weight: 800; flex-shrink: 0; }
+  .tip.full { grid-column: 1 / -1; }
+
+  .parents {
+    background: #FFF7ED; border-left: 4px solid #C2410C; border-radius: 10px;
+    padding: 10px 15px; font-size: 12.5px; line-height: 1.55; color: #431407;
+  }
+  .parents strong { color: #7C2D12; font-weight: 800; }
+
+  .foot { font-size: 11.5px; color: #8A8580; text-align: center; margin-top: auto; }
+</style>
+</head>
+<body>
+<section class="page">
+
+  <div class="head">
+    <div>
+      <span class="kicker">เครื่องมือคู่ใจประจำคอร์ส · แผ่นเดียวจบ</span>
+      <h1>เช็คลิสต์พิชิตบัญญัติไตรยางค์</h1>
+      <div class="course-line">คอร์สการเทียบบัญญัติไตรยางค์ — 15 คลิป ไล่จากพื้นฐานถึงแนวข้อสอบ<br><span class="by nowrap">ครูฮีม · kruheemmath.com</span></div>
+    </div>
+    <div class="fields">
+      <div class="field">ชื่อ <span class="line"></span></div>
+      <div class="field">โรงเรียน/ห้อง <span class="line"></span></div>
+      <div class="field">เริ่มติกวันที่ <span class="line"></span></div>
+    </div>
+  </div>
+
+  <div class="parts" id="parts"></div>
+
+  <div>
+    <div class="thead">
+      <div class="t-topic">คลิป / หัวข้อ</div>
+      <div class="t-a">ดู<br>จบ</div>
+      <div class="t-b">ทำเอง<br>ได้</div>
+      <div class="t-date">เสร็จวันที่</div>
+    </div>
+    <div class="rows" id="rows"></div>
+  </div>
+
+  <div class="notes">
+    <div class="notes-title">จดไว้กันลืม — ข้อที่ยังทำไม่ได้ ต้องกลับมาดูซ้ำ</div>
+    <div class="note-line"></div>
+  </div>
+
+  <div class="tips">
+    <div class="tips-head">
+      <span class="tips-badge">5</span>
+      <h2>คำแนะนำในการเรียนจากครูฮีม</h2>
+    </div>
+    <div class="tips-list">
+      <div class="tip"><span class="n">1.</span><span>ดูคลิปแล้วหยุดทำตามทันที บัญญัติไตรยางค์ต้องลงมือคิดเอง ดูเฉย ๆ ไม่ติดมือ</span></div>
+      <div class="tip"><span class="n">2.</span><span>คลิปที่ 2–3 คือหัวใจ ต้องแยกให้ออกว่าโจทย์เป็นแปรผันตรงหรือผกผัน ก่อนลงมือคิด</span></div>
+      <div class="tip"><span class="n">3.</span><span>ติกช่อง "ทำเองได้" เมื่อปิดเฉลยแล้วทำถูกด้วยมือตัวเอง ไม่ใช่แค่ดูแล้วเข้าใจ</span></div>
+      <div class="tip"><span class="n">4.</span><span>2 ชั้นกับ 3 ชั้นใช้หลักเดียวกัน ต่างแค่จำนวนขั้น ถ้าชั้นเดียวยังไม่แน่นอย่าเพิ่งข้าม</span></div>
+      <div class="tip full"><span class="n">5.</span><span>เก็บครบ 12 คลิปแรกแล้วค่อยลุยแนวข้อสอบ 3 คลิปสุดท้าย ลองทำเองก่อนดูเฉลยทุกข้อ แล้วจะรู้ว่าใช้เป็นจริง</span></div>
+    </div>
+  </div>
+
+  <div class="parents">
+    <strong>ฝากถึงคุณพ่อคุณแม่ครับ</strong> — บัญญัติไตรยางค์คือเครื่องมือที่ลูกจะได้ใช้ยาวไปถึงเรื่องอัตราส่วน ร้อยละ และโจทย์ปัญหาทุกแบบ แผ่นนี้แปะไว้ให้เห็นทุกวัน เห็นลูกติกเพิ่มเมื่อไหร่ ชมสักคำหนึ่ง กำลังใจจากบ้านสำคัญกว่าทุกเทคนิคในคอร์สนี้ครับ
+  </div>
+
+  <div class="foot">พิมพ์แผ่นนี้แปะข้างโต๊ะอ่านหนังสือ — เห็นทุกวัน ติกทุกวัน เก่งขึ้นทุกวัน · ฉบับเดือนสิงหาคม 2569 · kruheemmath.com</div>
+</section>
+
+<script>
+  var PARTS = [
+    { name: 'พื้นฐาน',    list: 'คลิป 1–5',   color: '#D97706' },
+    { name: '2 ชั้น',      list: 'คลิป 6–10',  color: '#2563EB' },
+    { name: '3 ชั้น',      list: 'คลิป 11–12', color: '#7C3AED' },
+    { name: 'แนวข้อสอบ',  list: 'คลิป 13–15', color: '#E11D48' }
+  ];
+
+  // 15 คลิปจริงในคอร์ส (EP01-EP15) — คลิปที่ชื่อซ้ำกันเติมลำดับกำกับให้แยกออก
+  var EP = [
+    ['เทคนิคการเทียบบัญญัติไตรยางค์',        '#D97706'],
+    ['การแปรผันตรงและการแปรผกผัน',           '#D97706'],
+    ['ตัวอย่างการผันตรงและผกผัน',             '#D97706'],
+    ['แบบฝึกหัดการเทียบบัญญัติไตรยางค์ (1)',  '#D97706'],
+    ['แบบฝึกหัดการเทียบบัญญัติไตรยางค์ (2)',  '#D97706'],
+    ['การเทียบบัญญัติไตรยางค์ 2 ชั้น',        '#2563EB'],
+    ['แบบฝึกหัด 2 ชั้น (1)',                  '#2563EB'],
+    ['แบบฝึกหัด 2 ชั้น (2)',                  '#2563EB'],
+    ['แบบฝึกหัด 2 ชั้น (3)',                  '#2563EB'],
+    ['แบบฝึกหัด 2 ชั้น (4)',                  '#2563EB'],
+    ['การเทียบบัญญัติไตรยางค์ 3 ชั้น',        '#7C3AED'],
+    ['แบบฝึกหัด 3 ชั้น',                      '#7C3AED'],
+    ['แนวข้อสอบ 3 ชั้น (1)',                  '#E11D48'],
+    ['แนวข้อสอบ 3 ชั้น (2)',                  '#E11D48'],
+    ['แนวข้อสอบ 3 ชั้น (3)',                  '#E11D48']
+  ];
+
+  document.getElementById('parts').innerHTML = PARTS.map(function (p) {
+    return '<div class="part"><span class="chip" style="background:' + p.color + '"></span>' +
+           '<b>' + p.name + '</b><span class="range">' + p.list + '</span></div>';
+  }).join('');
+
+  document.getElementById('rows').innerHTML = EP.map(function (e, i) {
+    return '<div class="row">' +
+      '<div class="num" style="background:' + e[1] + '">' + (i + 1) + '</div>' +
+      '<div class="topic">' + e[0] + '</div>' +
+      '<div><div class="box"></div></div>' +
+      '<div><div class="box"></div></div>' +
+      '<div class="date-line"></div>' +
+    '</div>';
+  }).join('');
+</script>
+</body>
+</html>

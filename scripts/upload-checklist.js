@@ -16,6 +16,16 @@ const crypto = require('crypto');
 const TARGETS = {
   gifted: { courseId: 'HiHvqQmFz9s41oxW8lne', name: 'checklist-40-topics' },
   p6: { courseId: 'lBj1ZUlnBiU8vv3lm94y', name: 'p6-checklist-16-chapters' },
+  equation: { courseId: 'z41lCWEynOVjHhaoeT9B', name: 'equation-checklist-19-levels' },
+  banyat: { courseId: 'xELVM7Nbeua9jm0NjJK7', name: 'banyat-checklist-15-clips' },
+  m1t1: { courseId: 'fhoc1u2JT8WghFHapzx8', name: 'm1t1-checklist' },
+  m1t2: { courseId: 'fu5mtwI48TrhJwXtMev4', name: 'm1t2-checklist' },
+  m2t1: { courseId: 'dEdh5HfBU7zCSdJsdGK5', name: 'm2t1-checklist' },
+  m3t1: { courseId: 'XCHje0hKhhGD2jd5RMnz', name: 'm3t1-checklist' },
+  m4t1: { courseId: 'RPEJPtOJg3sSL7P2AyPi', name: 'm4t1-checklist' },
+  m4t2: { courseId: 'ZhpY3GMWh3SOua5yAVnu', name: 'm4t2-checklist' },
+  m5t1: { courseId: 'nQIVvwyuJkrwK0pYQJKB', name: 'm5t1-checklist' },
+  m5t2: { courseId: 'IFAiTpvLzOFEm7aIn3A5', name: 'm5t2-checklist' },
 };
 
 const key = process.argv[2];
