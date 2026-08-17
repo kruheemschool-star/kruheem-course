@@ -11,175 +11,199 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Sarabun', -apple-system, 'Segoe UI', sans-serif;
-    background: linear-gradient(160deg, #fefdf9 0%, #f0fdfa 55%, #fefdf9 100%);
-    color: #1e293b;
+    background: #FBF7EE;
+    color: #1C1917;
     min-height: 100vh;
-    padding: 28px 18px 44px;
+    padding: 26px 20px 44px;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 920px; margin: 0 auto; }
+  .wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 
+  /* ---------- ฮีโร่บล็อกเข้ม ---------- */
   .hero {
+    background: #052A25;
+    border-radius: 30px;
+    padding: 32px;
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
     gap: 30px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 22px;
-    padding: 30px;
-    box-shadow: 0 8px 30px rgba(13, 148, 136, 0.08);
     align-items: center;
+    box-shadow: 0 26px 60px rgba(5, 42, 37, .35);
+    animation: riseIn .6s cubic-bezier(.22, 1, .36, 1) .15s both;
   }
-  .preview { position: relative; text-align: center; }
-  .preview img {
+  .shot { justify-self: center; width: 100%; max-width: 380px; }
+  .shot img {
+    display: block;
     width: 100%;
-    max-width: 300px;
-    border: 1px solid #e2e8f0;
+    background: #fff;
+    padding: 8px;
     border-radius: 10px;
-    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.14);
-    transform: rotate(-1.6deg);
-    transition: transform .3s ease;
+    box-shadow: 0 20px 44px rgba(0, 0, 0, .38);
+    transform: rotate(-2.2deg);
+    transition: transform .35s cubic-bezier(.22, 1, .36, 1);
+    animation: tiltIn .8s cubic-bezier(.22, 1, .36, 1) .22s both;
   }
-  .preview img:hover { transform: rotate(0deg) scale(1.02); }
-  .badge {
-    position: absolute;
-    top: -10px; right: 2px;
-    background: #c2410c;
-    color: #fff;
-    font-size: 12.5px;
-    font-weight: 700;
-    padding: 5px 12px;
-    border-radius: 999px;
-    box-shadow: 0 4px 10px rgba(194, 65, 12, 0.35);
-    transform: rotate(2deg);
-  }
+  .shot img:hover { transform: rotate(0deg) scale(1.03); }
+
   .kicker {
     display: inline-block;
-    background: #ccfbf1;
-    color: #0f766e;
+    background: rgba(94, 234, 212, .14);
+    border: 1px solid rgba(94, 234, 212, .34);
+    color: #5EEAD4;
     font-size: 12.5px;
-    font-weight: 700;
-    padding: 4px 12px;
-    border-radius: 999px;
-    margin-bottom: 10px;
-    letter-spacing: .2px;
+    font-weight: 800;
+    padding: 4px 13px;
+    border-radius: 99px;
+    margin-bottom: 12px;
   }
-  h1 { font-size: 27px; font-weight: 800; color: #134e4a; line-height: 1.25; margin-bottom: 8px; }
-  .lead { font-size: 15.5px; color: #475569; line-height: 1.65; margin-bottom: 14px; }
-  .feat { list-style: none; margin-bottom: 20px; }
+  h1 {
+    font-size: clamp(26px, 3.2vw, 34px);
+    font-weight: 800;
+    line-height: 1.25;
+    color: #fff;
+    letter-spacing: -.5px;
+    margin-bottom: 12px;
+  }
+  h1 .accent { color: #5EEAD4; }
+  .lead { font-size: 16px; line-height: 1.7; color: #CCFBF1; margin-bottom: 16px; }
+  .feat { list-style: none; margin-bottom: 22px; display: flex; flex-direction: column; gap: 8px; }
   .feat li {
     position: relative;
-    padding-left: 26px;
-    font-size: 14px;
-    color: #334155;
+    padding-left: 27px;
+    font-size: 14.5px;
     line-height: 1.55;
-    margin-bottom: 7px;
+    color: #E7F6F2;
   }
   .feat li::before {
     content: "✓";
-    position: absolute; left: 0; top: 0;
-    width: 18px; height: 18px;
-    background: #0d9488;
-    color: #fff;
+    position: absolute; left: 0; top: 1px;
+    width: 19px; height: 19px;
+    background: #14B8A6;
+    color: #052A25;
     border-radius: 6px;
     font-size: 12px;
     font-weight: 800;
     display: flex; align-items: center; justify-content: center;
-    margin-top: 2px;
   }
+  .feat li:nth-child(3)::before { background: #F472B6; color: #4A0B2C; }
+
   .btn {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 11px;
     text-decoration: none;
-    background: linear-gradient(135deg, #0d9488, #0f766e);
-    color: #fff;
+    background: linear-gradient(135deg, #FDE047, #FBBF24);
+    color: #3F2A02;
     font-family: inherit;
-    font-size: 17px;
+    font-size: 20px;
     font-weight: 800;
     border: 0;
-    border-radius: 14px;
-    padding: 15px 30px;
+    border-radius: 16px;
+    padding: 16px 32px;
     cursor: pointer;
-    box-shadow: 0 8px 20px rgba(13, 148, 136, 0.35);
-    transition: transform .15s ease, box-shadow .15s ease;
+    animation: glowPulse 2.8s ease-in-out infinite;
+    transition: transform .18s ease;
   }
-  .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(13, 148, 136, 0.42); }
-  .btn:active { transform: translateY(0); }
-  .btn svg { width: 21px; height: 21px; flex-shrink: 0; }
-  .alt { font-size: 12.5px; color: #94a3b8; margin-top: 10px; }
-  .alt a { color: #0f766e; font-weight: 600; }
+  .btn:hover { transform: translateY(-3px); }
+  .btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+  .alt { font-size: 12.5px; color: #94A3A0; margin-top: 11px; }
   .warn {
     margin-top: 14px;
-    background: #fffbeb;
-    border: 1px solid #fcd34d;
+    background: #FFFBEB;
+    border: 1px solid #FCD34D;
     border-radius: 12px;
     padding: 11px 14px;
     font-size: 13.5px;
-    color: #92400e;
+    color: #92400E;
     line-height: 1.55;
   }
 
+  /* ---------- การ์ด 3 ขั้น ---------- */
   .steps {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 14px;
-    margin-top: 18px;
   }
   .step {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 18px 16px 16px;
+    background: #FFFDF8;
+    border: 1px solid #EADFC8;
+    border-radius: 22px;
+    padding: 22px 20px 20px;
     text-align: center;
   }
-  .step .ic { font-size: 30px; margin-bottom: 8px; }
+  .step:nth-child(1) { animation: riseIn .55s cubic-bezier(.22, 1, .36, 1) .22s both; }
+  .step:nth-child(2) { animation: riseIn .55s cubic-bezier(.22, 1, .36, 1) .29s both; }
+  .step:nth-child(3) { animation: riseIn .55s cubic-bezier(.22, 1, .36, 1) .36s both; }
+  .step .ic { font-size: 32px; margin-bottom: 9px; }
   .step .no {
     display: inline-block;
-    background: #f0fdfa;
-    color: #0f766e;
+    background: #CCFBF1;
+    color: #06302B;
     font-size: 11.5px;
     font-weight: 800;
-    padding: 2px 10px;
-    border-radius: 999px;
-    margin-bottom: 6px;
+    padding: 3px 11px;
+    border-radius: 99px;
+    margin-bottom: 7px;
   }
-  .step h3 { font-size: 16px; font-weight: 800; color: #134e4a; margin-bottom: 4px; }
-  .step p { font-size: 13px; color: #64748b; line-height: 1.55; }
+  .step:nth-child(2) .no { background: #FFEDD5; color: #7C2D12; }
+  .step:nth-child(3) .no { background: #EEF2FF; color: #312E81; }
+  .step h3 { font-size: 21px; font-weight: 800; color: #052A25; margin-bottom: 5px; }
+  .step:nth-child(2) h3 { color: #7C2D12; }
+  .step:nth-child(3) h3 { color: #312E81; }
+  .step p { font-size: 13.5px; color: #57534E; line-height: 1.6; }
 
+  /* ---------- กล่องฝากถึงผู้ปกครอง ---------- */
   .parents {
-    margin-top: 18px;
-    background: #fff7ed;
-    border-left: 4px solid #c2410c;
-    border-radius: 14px;
-    padding: 16px 20px;
-    font-size: 14px;
-    color: #7c2d12;
-    line-height: 1.7;
+    background: #FFFDF8;
+    border: 1px solid #EADFC8;
+    border-left: 5px solid #7C2D12;
+    border-radius: 24px;
+    padding: 20px 24px;
+    font-size: 14.5px;
+    color: #57534E;
+    line-height: 1.75;
+    animation: riseIn .55s cubic-bezier(.22, 1, .36, 1) .36s both;
   }
-  .parents strong { color: #9a3412; }
+  .parents strong { color: #7C2D12; }
 
-  .foot { text-align: center; margin-top: 26px; font-size: 12px; color: #94a3b8; }
+  .foot { text-align: center; font-size: 12px; color: #A8A29E; }
+  .foot a { color: #0F766E; text-decoration: none; font-weight: 600; }
+  .foot a:hover { color: #134E4A; }
 
-  @media (max-width: 720px) {
-    .hero { grid-template-columns: 1fr; padding: 22px 18px; gap: 22px; }
-    .preview img { max-width: 240px; }
-    h1 { font-size: 23px; }
-    .steps { grid-template-columns: 1fr; }
-    .btn { width: 100%; justify-content: center; }
+  /* ---------- อนิเมชัน ---------- */
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes tiltIn {
+    from { opacity: 0; transform: rotate(-6deg) translateY(24px) scale(.96); }
+    to   { opacity: 1; transform: rotate(-2.2deg) translateY(0) scale(1); }
+  }
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 8px 20px rgba(251, 191, 36, .30); }
+    50%      { box-shadow: 0 12px 30px rgba(251, 191, 36, .55); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero, .shot img, .step, .parents, .btn { animation: none !important; }
+  }
+
+  @media (max-width: 620px) {
+    body { padding: 18px 14px 34px; }
+    .hero { padding: 24px 20px; border-radius: 24px; }
+    .btn { width: 100%; justify-content: center; font-size: 17px; padding: 15px 22px; }
   }
 </style>
 </head>
 <body>
   <div class="wrap">
+
     <div class="hero">
-      <div class="preview">
-        <img src="https://firebasestorage.googleapis.com/v0/b/kruheem-course-45088.firebasestorage.app/o/course-docs%2FHiHvqQmFz9s41oxW8lne%2Fchecklist-40-topics-preview-v20260817.png?alt=media&token=959ba724-c64b-4acc-bddd-533c10325ae5" alt="ตัวอย่างเช็คลิสต์ 40 แนวข้อสอบ">
-        <span class="badge">แผ่นเดียวจบ</span>
+      <div class="shot">
+        <img src="https://firebasestorage.googleapis.com/v0/b/kruheem-course-45088.firebasestorage.app/o/course-docs%2FHiHvqQmFz9s41oxW8lne%2Fchecklist-40-topics-preview-v20260817b.png?alt=media&amp;token=c0b50b59-f47a-4408-a469-0d9d2c3f64c8" alt="ตัวอย่างเช็คลิสต์ 40 แนวข้อสอบ ขนาด A4">
       </div>
       <div class="info">
         <span class="kicker">เครื่องมือคู่ใจประจำคอร์ส</span>
-        <h1>เช็คลิสต์พิชิต 40 แนวข้อสอบ</h1>
+        <h1>40 แนวข้อสอบ ติกให้ครบ<br><span class="accent">แล้วเดินเข้าห้องสอบแบบมั่นใจ</span></h1>
         <p class="lead">พิมพ์แผ่นเดียว แปะข้างโต๊ะอ่านหนังสือ ติกทีละหัวข้อ — เห็นความก้าวหน้าของตัวเองทุกวัน กำลังใจก็มาทุกวัน</p>
         <ul class="feat">
           <li>ครบทั้ง 40 แนวข้อสอบ ติกแยกได้ทั้ง "ดูวิดีโอ" และ "ทำโจทย์ 100 ข้อ"</li>
@@ -188,7 +212,7 @@
         </ul>
         <!-- ลิงก์ธรรมดา ไม่ใช่ปุ่ม JavaScript — เบราว์เซอร์ในแอปเฟซบุ๊ก/ไลน์บล็อกสคริปต์เปิดหน้าต่างเงียบๆ
              แต่ลิงก์จริงยังกดค้างเพื่อเปิด/บันทึกได้เสมอ -->
-        <a id="dl" class="btn" href="https://firebasestorage.googleapis.com/v0/b/kruheem-course-45088.firebasestorage.app/o/course-docs%2FHiHvqQmFz9s41oxW8lne%2Fchecklist-40-topics-v20260817.pdf?alt=media&amp;token=2fe0ae34-983b-4a04-8029-92e21c6a6049" target="_blank" rel="noopener">
+        <a id="dl" class="btn" href="https://firebasestorage.googleapis.com/v0/b/kruheem-course-45088.firebasestorage.app/o/course-docs%2FHiHvqQmFz9s41oxW8lne%2Fchecklist-40-topics-v20260817b.pdf?alt=media&amp;token=1698171f-54fd-4845-b628-4e64bf2a90f9" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           เปิดเช็คลิสต์เพื่อพิมพ์ (ไฟล์ 1 หน้า)
         </a>
@@ -222,7 +246,7 @@
       <strong>ฝากถึงคุณพ่อคุณแม่ครับ</strong> — แผ่นนี้แปะไว้ตรงไหน ลูกติกไปกี่ช่อง คือคำตอบของคำถามว่า "อ่านหนังสือหรือยัง" โดยไม่ต้องเอ่ยถามเลยครับ เห็นลูกติกเพิ่มเมื่อไหร่ ชมสักคำหนึ่ง กำลังใจจากบ้านสำคัญกว่าทุกเทคนิคในคอร์สนี้ครับ
     </div>
 
-    <div class="foot">คอร์สติวเข้ม Gifted ม.1 • ครูฮีม kruheemmath.com • ฉบับเดือนสิงหาคม 2569</div>
+    <div class="foot">คอร์สติวเข้ม Gifted ม.1 • ครูฮีม <a href="https://kruheemmath.com" target="_blank" rel="noopener">kruheemmath.com</a> • ฉบับเดือนสิงหาคม 2569</div>
   </div>
 
 <script>

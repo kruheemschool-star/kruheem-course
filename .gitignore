@@ -50,6 +50,9 @@ serviceAccountKey.json
 public/.backup-images-*/
 scripts/_backups/
 
+# ไฟล์ที่สคริปต์เรนเดอร์ออกมา (PDF/PNG) — สร้างใหม่ได้เสมอจากไฟล์ .html ต้นฉบับ
+scripts/out/
+
 # Playwright
 /playwright-report/
 /test-results/
