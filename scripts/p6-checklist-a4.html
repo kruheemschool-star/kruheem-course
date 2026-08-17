@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>เช็คลิสต์พิชิต 16 บท — ป.6 สอบเข้า ม.1</title>
+<style>
+  @font-face { font-family: 'Sarabun'; font-weight: 400; src: url('fonts/Sarabun-Regular.ttf') format('truetype'); }
+  @font-face { font-family: 'Sarabun'; font-weight: 700; src: url('fonts/Sarabun-Bold.ttf') format('truetype'); }
+  @font-face { font-family: 'Sarabun'; font-weight: 800; src: url('fonts/Sarabun-Bold.ttf') format('truetype'); }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #fff; }
+  body { font-family: 'Sarabun', sans-serif; color: #1C1917; }
+
+  .page {
+    width: 794px;
+    height: 1123px;
+    padding: 34px 36px 20px;
+    background: #FFFDF7;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  /* ---------- แถบหัว ---------- */
+  .head {
+    display: grid;
+    grid-template-columns: 1fr 232px;
+    gap: 18px;
+    border: 2.5px solid #052A25;
+    border-radius: 14px;
+    padding: 13px 16px;
+    background: #fff;
+    align-items: center;
+  }
+  .kicker {
+    display: inline-block;
+    border: 1.5px solid #0F766E;
+    color: #0F766E;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 99px;
+    margin-bottom: 5px;
+  }
+  h1 { font-size: 27px; font-weight: 800; color: #052A25; line-height: 1.15; letter-spacing: -.3px; }
+  .course-line { font-size: 12.5px; color: #3F3F46; margin-top: 4px; line-height: 1.45; }
+  .course-line .by { color: #78716C; }
+  .nowrap { white-space: nowrap; }
+
+  .fields { display: flex; flex-direction: column; gap: 7px; }
+  .field { font-size: 11.5px; color: #3F3F46; font-weight: 700; display: flex; align-items: baseline; gap: 5px; }
+  .field .line { flex: 1; border-bottom: 1.5px dashed #A8A29E; height: 13px; }
+
+  /* ---------- แถบหมวด ---------- */
+  .parts {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 5px 10px;
+    background: #F6F1E4;
+    border-radius: 10px;
+    padding: 7px 11px;
+  }
+  .part { display: flex; align-items: center; gap: 4px; }
+  .chip { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+  .part b { font-size: 10.5px; font-weight: 700; color: #292524; white-space: nowrap; }
+  .part .range { font-size: 10.5px; color: #57534E; white-space: nowrap; }
+
+  /* ---------- ตาราง 16 บท ---------- */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .thead {
+    display: grid;
+    grid-template-columns: 24px 1fr 26px 28px 28px 46px;
+    column-gap: 5px;
+    align-items: end;
+    border-bottom: 2px solid #052A25;
+    padding-bottom: 6px;
+    margin-bottom: 11px;
+  }
+  .thead .t-topic { font-size: 11.5px; font-weight: 800; color: #052A25; grid-column: 2; }
+  .thead .t-clip { font-size: 9px; font-weight: 700; color: #78716C; text-align: center; }
+  .thead .t-video, .thead .t-quiz { font-size: 9.5px; font-weight: 800; line-height: 1.15; text-align: center; }
+  .thead .t-video { color: #0F766E; }
+  .thead .t-quiz { color: #C2410C; }
+  .thead .t-date { font-size: 9px; font-weight: 700; color: #78716C; text-align: center; }
+
+  .rows { display: grid; row-gap: 18px; }
+  .row {
+    display: grid;
+    grid-template-columns: 24px 1fr 26px 28px 28px 46px;
+    column-gap: 5px;
+    align-items: center;
+  }
+  .date-line { border-bottom: 1.2px dashed #C6C2BC; height: 13px; }
+  .num {
+    height: 22px;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .topic { font-size: 12.5px; color: #1C1917; line-height: 1.25; }
+  .clips { font-size: 10px; color: #78716C; text-align: center; white-space: nowrap; }
+  .box {
+    width: 16px; height: 16px;
+    border: 1.6px solid #A8A29E;
+    border-radius: 4px;
+    margin: 0 auto;
+  }
+  .box.none {
+    border-style: none;
+    height: 16px;
+    display: flex; align-items: center; justify-content: center;
+    color: #C6C2BC; font-size: 13px;
+  }
+
+  /* ---------- เก็งข้อสอบ 10 ชุด ---------- */
+  .mock {
+    border: 2px solid #C2410C;
+    border-radius: 14px;
+    background: #FFF7ED;
+    padding: 10px 14px 11px;
+  }
+  .mock-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+  .mock-head h3 { font-size: 14px; font-weight: 800; color: #7C2D12; }
+  .mock-head .sub { font-size: 11px; color: #9A3412; }
+  .mock-list { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px 12px; }
+  .mock-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #431407; }
+  .mock-item .mbox { width: 14px; height: 14px; border: 1.5px solid #C2410C; border-radius: 4px; flex-shrink: 0; }
+  .mock-item .mlabel { font-weight: 700; white-space: nowrap; }
+  .mock-item .mscore { flex: 1; border-bottom: 1.2px solid #FDBA74; height: 11px; min-width: 16px; }
+  .mock-item .munit { font-size: 10px; color: #9A3412; white-space: nowrap; }
+
+  /* ---------- คำแนะนำ ---------- */
+  .tips {
+    border: 2.5px solid #052A25;
+    border-radius: 14px;
+    background: #fff;
+    padding: 11px 15px 12px;
+  }
+  .tips-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .tips-head h2 { font-size: 16px; font-weight: 800; color: #052A25; }
+  .tips-badge {
+    width: 22px; height: 22px; flex-shrink: 0;
+    border: 2px solid #052A25; border-radius: 7px;
+    font-size: 12px; font-weight: 800; color: #052A25;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tips-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; row-gap: 6px; }
+  .tip { display: flex; gap: 6px; font-size: 13.5px; line-height: 1.45; color: #292524; }
+  .tip .n { color: #0F766E; font-weight: 800; flex-shrink: 0; }
+  .tip.full { grid-column: 1 / -1; }
+
+  .notes {
+    border: 1.5px dashed #A8A29E;
+    border-radius: 12px;
+    padding: 9px 14px 12px;
+    background: #FEFDFB;
+  }
+  .notes-title { font-size: 11.5px; font-weight: 800; color: #57534E; margin-bottom: 9px; }
+  .note-line { border-bottom: 1.2px dashed #D6D3D1; height: 21px; }
+
+  /* พื้นอ่อน + แถบซ้ายหนา แทนพื้นสีเข้ม เพื่อให้พิมพ์ขาวดำแล้วยังอ่านชัด */
+  .parents {
+    background: #FFF7ED;
+    border-left: 4px solid #C2410C;
+    border-radius: 10px;
+    padding: 10px 15px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: #431407;
+  }
+  .parents strong { color: #7C2D12; font-weight: 800; }
+
+  .foot { font-size: 11.5px; color: #8A8580; text-align: center; margin-top: auto; }
+</style>
+</head>
+<body>
+<section class="page">
+
+  <div class="head">
+    <div>
+      <span class="kicker">เครื่องมือคู่ใจประจำคอร์ส · แผ่นเดียวจบ</span>
+      <h1>เช็คลิสต์พิชิต 16 บท สอบเข้า ม.1</h1>
+      <div class="course-line">คอร์ส ป.6 สอบเข้าชั้น ม.1 — 207 คลิป · โจทย์ 2,080 ข้อ<br><span class="by nowrap">ครูฮีม · kruheemmath.com</span></div>
+    </div>
+    <div class="fields">
+      <div class="field">ชื่อ <span class="line"></span></div>
+      <div class="field">โรงเรียน/ห้อง <span class="line"></span></div>
+      <div class="field">เริ่มติกวันที่ <span class="line"></span></div>
+    </div>
+  </div>
+
+  <div class="parts" id="parts"></div>
+
+  <div class="grid">
+    <div>
+      <div class="thead">
+        <div class="t-topic">บทเรียน</div>
+        <div class="t-clip">คลิป</div>
+        <div class="t-video">ดู<br>ครบ</div>
+        <div class="t-quiz">ทำ<br>โจทย์</div>
+        <div class="t-date">เสร็จวันที่</div>
+      </div>
+      <div class="rows" id="col1"></div>
+    </div>
+    <div>
+      <div class="thead">
+        <div class="t-topic">บทเรียน</div>
+        <div class="t-clip">คลิป</div>
+        <div class="t-video">ดู<br>ครบ</div>
+        <div class="t-quiz">ทำ<br>โจทย์</div>
+        <div class="t-date">เสร็จวันที่</div>
+      </div>
+      <div class="rows" id="col2"></div>
+    </div>
+  </div>
+
+  <div class="mock">
+    <div class="mock-head">
+      <h3>ด่านสุดท้าย · เก็งข้อสอบ 10 ชุด</h3>
+      <span class="sub">ชุดละ 30 ข้อ — ทำหลังเก็บครบ 16 บท จับเวลาเหมือนสอบจริง</span>
+    </div>
+    <div class="mock-list" id="mocks"></div>
+  </div>
+
+  <div class="tips">
+    <div class="tips-head">
+      <span class="tips-badge">5</span>
+      <h2>คำแนะนำในการเรียนจากครูฮีม</h2>
+    </div>
+    <div class="tips-list">
+      <div class="tip"><span class="n">1.</span><span>ดูคลิปในบทให้ครบก่อน แล้วค่อยลุยชุดโจทย์ของบทนั้น ติกช่องซ้ายแล้วถึงติกช่องขวา</span></div>
+      <div class="tip"><span class="n">2.</span><span>บทละ 2–3 วันกำลังดี อย่าข้ามบท เพราะบทหลังใช้ความรู้จากบทก่อนหน้าต่อ</span></div>
+      <div class="tip"><span class="n">3.</span><span>บทที่ 1–3 คือรากฐาน ถ้ายังไม่แน่นอย่าเพิ่งไปต่อ กลับมาดูซ้ำให้ชินมือก่อน</span></div>
+      <div class="tip"><span class="n">4.</span><span>เรขาคณิต (บท 4, 5, 10–12, 14) ออกข้อสอบเยอะที่สุด เผื่อเวลาให้มากกว่าบทอื่น</span></div>
+      <div class="tip full"><span class="n">5.</span><span>บทที่ 7 และ 16 ยังไม่มีชุดโจทย์ในคอร์ส ให้ฝึกจากแบบฝึกท้ายคลิปแทน แล้วไปวัดผลจริงในเก็งข้อสอบ 10 ชุด จดคะแนนไว้ทุกชุดจะได้เห็นว่าตัวเองพัฒนาขึ้นแค่ไหน</span></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="notes-title">จดไว้กันลืม — ข้อที่ยังทำไม่ได้ ต้องกลับมาดูซ้ำก่อนสอบ</div>
+    <div class="note-line"></div>
+    <div class="note-line"></div>
+    <div class="note-line"></div>
+  </div>
+
+  <div class="parents">
+    <strong>ฝากถึงคุณพ่อคุณแม่ครับ</strong> — ลูกติกไปกี่ช่องแล้ว คือคำตอบของคำถามว่า "อ่านหนังสือหรือยัง" โดยไม่ต้องเอ่ยถามเลยครับ เห็นติกเพิ่มเมื่อไหร่ ชมสักคำ กำลังใจจากบ้านสำคัญกว่าทุกเทคนิคในคอร์สนี้ครับ
+  </div>
+
+  <div class="foot">พิมพ์แผ่นนี้แปะข้างโต๊ะอ่านหนังสือ — เห็นทุกวัน ติกทุกวัน ใกล้เป้าหมายขึ้นทุกวัน · ฉบับเดือนสิงหาคม 2569 · kruheemmath.com</div>
+</section>
+
+<script>
+  // หมวดตามธรรมชาติของเนื้อหา (เลขบทเรียงตามคอร์สจริง สีบอกหมวด)
+  var PARTS = [
+    { name: 'จำนวนและการคำนวณ', list: '1, 3, 7–9', color: '#D97706' },
+    { name: 'สมการ',            list: '2',        color: '#DB2777' },
+    { name: 'เรขาคณิต',          list: '4, 5, 10–12, 14', color: '#7C3AED' },
+    { name: 'ทิศ/แผนผัง/ประยุกต์', list: '6, 13',  color: '#059669' },
+    { name: 'สถิติ-ความน่าจะเป็น', list: '15, 16', color: '#2563EB' }
+  ];
+
+  // 16 บทจริงในคอร์ส: [ชื่อบท, จำนวนคลิป, จำนวนข้อในชุดโจทย์ (0 = ยังไม่มีชุด), สีหมวด]
+  var CH = [
+    ['จำนวนและการบวก ลบ คูณ หาร', 18, 210, '#D97706'],
+    ['สมการและการแก้สมการ',        19, 220, '#DB2777'],
+    ['ตัวประกอบของจำนวนนับ',       16, 250, '#D97706'],
+    ['มุมและส่วนของเส้นตรง',        11, 100, '#7C3AED'],
+    ['เส้นขนาน',                    9, 100, '#7C3AED'],
+    ['ทิศและแผนผัง',               11, 100, '#059669'],
+    ['เศษส่วน',                    14,   0, '#D97706'],
+    ['การบวกลบคูณหารทศนิยม',       15, 100, '#D97706'],
+    ['การหารทศนิยม',               11, 100, '#D97706'],
+    ['รูปสี่เหลี่ยม',               14, 100, '#7C3AED'],
+    ['รูปสามเหลี่ยม',              17, 100, '#7C3AED'],
+    ['รูปวงกลม',                   13, 100, '#7C3AED'],
+    ['บทประยุกต์',                 10, 100, '#059669'],
+    ['รูปทรงและปริมาตร',            9, 100, '#7C3AED'],
+    ['แผนภูมิและกราฟ',             14, 100, '#2563EB'],
+    ['ความน่าจะเป็น',               6,   0, '#2563EB']
+  ];
+
+  document.getElementById('parts').innerHTML = PARTS.map(function (p) {
+    return '<div class="part"><span class="chip" style="background:' + p.color + '"></span>' +
+           '<b>' + p.name + '</b><span class="range">' + p.list + '</span></div>';
+  }).join('');
+
+  var rowHtml = function (i) {
+    var c = CH[i];
+    var quizCell = c[2] > 0
+      ? '<div><div class="box"></div></div>'
+      : '<div><div class="box none">–</div></div>';
+    return '<div class="row">' +
+      '<div class="num" style="background:' + c[3] + '">' + (i + 1) + '</div>' +
+      '<div class="topic">' + c[0] + '</div>' +
+      '<div class="clips">' + c[1] + '</div>' +
+      '<div><div class="box"></div></div>' +
+      quizCell +
+      '<div class="date-line"></div>' +
+    '</div>';
+  };
+  var c1 = '', c2 = '';
+  for (var i = 0; i < 8; i++) c1 += rowHtml(i);
+  for (var i = 8; i < 16; i++) c2 += rowHtml(i);
+  document.getElementById('col1').innerHTML = c1;
+  document.getElementById('col2').innerHTML = c2;
+
+  var m = '';
+  for (var s = 1; s <= 10; s++) {
+    m += '<div class="mock-item"><span class="mbox"></span><span class="mlabel">ชุด ' + s + '</span>' +
+         '<span class="mscore"></span><span class="munit">/30</span></div>';
+  }
+  document.getElementById('mocks').innerHTML = m;
+</script>
+</body>
+</html>

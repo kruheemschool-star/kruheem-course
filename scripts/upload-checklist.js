@@ -1,8 +1,9 @@
 /**
- * upload-gifted-checklist.js — อัปโหลด PDF + รูป preview จาก scripts/out/
- * ขึ้น Firebase Storage พร้อม download token แล้วพิมพ์ URL ออกมา
+ * upload-checklist.js — อัปโหลด PDF + รูป preview ของเช็คลิสต์ขึ้น Firebase Storage
+ * พร้อม download token แล้วพิมพ์ URL ออกมาให้เอาไปแปะในหน้าบทเรียน
  *
- *   node scripts/upload-gifted-checklist.js [--tag v2]
+ *   node scripts/upload-checklist.js gifted --tag v20260817b
+ *   node scripts/upload-checklist.js p6     --tag v20260817
  *
  * ตั้งชื่อไฟล์แบบมีเวอร์ชันเสมอ เพราะไฟล์เดิมถูก cache แบบ immutable —
  * ทับชื่อเดิมแล้วคนที่เคยเปิดจะยังเห็นของเก่า
@@ -12,6 +13,21 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+const TARGETS = {
+  gifted: { courseId: 'HiHvqQmFz9s41oxW8lne', name: 'checklist-40-topics' },
+  p6: { courseId: 'lBj1ZUlnBiU8vv3lm94y', name: 'p6-checklist-16-chapters' },
+};
+
+const key = process.argv[2];
+if (!TARGETS[key]) {
+  console.error('ใช้: node scripts/upload-checklist.js <' + Object.keys(TARGETS).join('|') + '> [--tag vYYYYMMDD]');
+  process.exit(1);
+}
+const T = TARGETS[key];
+const tagArg = process.argv.indexOf('--tag');
+const TAG = tagArg > -1 ? process.argv[tagArg + 1] : 'v1';
+const OUT = path.resolve(__dirname, 'out', key);
+
 const serviceAccount = require(path.resolve(__dirname, 'seed-gifted-m1/serviceAccountKey.json'));
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
@@ -19,15 +35,10 @@ admin.initializeApp({
 });
 const bucket = admin.storage().bucket();
 
-const COURSE_ID = 'HiHvqQmFz9s41oxW8lne';
-const tagArg = process.argv.indexOf('--tag');
-const TAG = tagArg > -1 ? process.argv[tagArg + 1] : 'v2';
-const OUT = path.resolve(__dirname, 'out');
-
 async function upload(localFile, remoteName, contentType) {
   const buf = fs.readFileSync(localFile);
   const token = crypto.randomUUID();
-  const storagePath = `course-docs/${COURSE_ID}/${remoteName}`;
+  const storagePath = `course-docs/${T.courseId}/${remoteName}`;
   await bucket.file(storagePath).save(buf, {
     resumable: false,
     contentType,
@@ -43,12 +54,12 @@ async function upload(localFile, remoteName, contentType) {
 }
 
 (async () => {
-  const pdf = path.join(OUT, 'checklist-40-topics.pdf');
-  const png = path.join(OUT, 'checklist-40-topics-preview.png');
+  const pdf = path.join(OUT, T.name + '.pdf');
+  const png = path.join(OUT, T.name + '-preview.png');
   for (const f of [pdf, png]) {
-    if (!fs.existsSync(f)) throw new Error(`ไม่พบ ${f} — รัน node scripts/render-gifted-checklist-pdf.js ก่อน`);
+    if (!fs.existsSync(f)) throw new Error(`ไม่พบ ${f} — รัน node scripts/render-checklist-pdf.js ${key} ก่อน`);
   }
-  await upload(pdf, `checklist-40-topics-${TAG}.pdf`, 'application/pdf');
-  await upload(png, `checklist-40-topics-preview-${TAG}.png`, 'image/png');
+  await upload(pdf, `${T.name}-${TAG}.pdf`, 'application/pdf');
+  await upload(png, `${T.name}-preview-${TAG}.png`, 'image/png');
   process.exit(0);
 })().catch((e) => { console.error('ERROR:', e.message); process.exit(1); });
