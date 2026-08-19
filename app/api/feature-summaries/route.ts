@@ -16,7 +16,7 @@ export async function GET() {
         const docs = await listCollection(
             "summaries",
             ["title", "coverImage", "status"],
-            { revalidate: 900 }
+            { revalidate: 900, tags: ["summaries-feed"] }
         );
         const summaries = docs
             .map((d) => ({

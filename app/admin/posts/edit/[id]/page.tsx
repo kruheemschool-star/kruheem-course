@@ -6,6 +6,7 @@ import { Save, Image as ImageIcon, Eye, Code, Trash2, FileJson, FilePen, Search,
 import TiptapEditor from "@/components/TiptapEditor";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { bustContentCache } from "@/lib/bustContentCache";
 import { collectArticleImagePaths, purgeUnreferencedArticleImages } from "@/lib/articleImages";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
@@ -131,6 +132,7 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                 views: currentData?.views !== undefined ? currentData.views : 0,
             });
 
+            bustContentCache("posts", { slug: slug.toLowerCase().replace(/\s+/g, "-") }); // /blog + บทความนี้สดทันที
             alert("อัปเดตบทความเรียบร้อย! 🎉");
 
         } catch (error) {
@@ -149,6 +151,7 @@ export default function EditPostPage({ params }: { params: Promise<{ id: string 
                 await deleteDoc(doc(db, "posts", id));
                 // เก็บกวาดรูปบน Storage ที่ไม่มีบทความไหนใช้แล้ว (กันรูปที่แชร์กับบทความอื่น)
                 await purgeUnreferencedArticleImages(images);
+                bustContentCache("posts");
                 router.push("/admin/posts");
             } catch (error) {
                 console.error("Error deleting post:", error);

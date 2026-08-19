@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, deleteDoc, doc, writeBatch } from "firebase/firestore";
+import { bustContentCache } from "@/lib/bustContentCache";
 import { collectArticleImagePaths, purgeUnreferencedArticleImages } from "@/lib/articleImages";
 import { Plus, Edit, Trash2, BookOpen, ChevronUp, ChevronDown, FileText, CheckCircle2, PencilLine, CalendarPlus } from "lucide-react";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
@@ -49,6 +50,7 @@ export default function AdminSummariesPage() {
                 const images = await collectArticleImagePaths("summaries", id);
                 await deleteDoc(doc(db, "summaries", id));
                 setSummaries(prev => prev.filter(s => s.id !== id));
+                bustContentCache("summaries"); // หน้า /summary เอาออกทันที (แคช 1 ชม. ถูกบัสต์)
                 // เก็บกวาดรูปบน Storage ที่ไม่มีบทความไหนใช้แล้ว (กันรูปที่แชร์กับบทความอื่น)
                 await purgeUnreferencedArticleImages(images);
             } catch (error) {
@@ -82,6 +84,7 @@ export default function AdminSummariesPage() {
             batch.update(doc(db, "summaries", newList[index].id), { order: newList[index].order });
             batch.update(doc(db, "summaries", newList[targetIndex].id), { order: newList[targetIndex].order });
             await batch.commit();
+            bustContentCache("summaries"); // /summary เรียงตาม order — ให้ลำดับใหม่ขึ้นทันที
         } catch (error) {
             console.error("Error updating order:", error);
             fetchSummaries(); // Refresh on error

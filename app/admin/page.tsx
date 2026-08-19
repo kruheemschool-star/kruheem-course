@@ -105,7 +105,7 @@ export default function AdminDashboard() {
         loading: learningLoading, hasFetched: learningFetched, fetchStats: fetchLearningStats,
         overallCompletionRate, courseCompletionRates, averageActiveDays, activeStudentsTrend,
         mostEngagingLessons, dropOffPoints, topActiveStudents,
-    } = useAdminLearningStats();
+    } = useAdminLearningStats(enrollments); // ส่งชุดที่ useAdminStats โหลดแล้ว — ไม่สแกนซ้ำ
 
     const [isRefreshing, setIsRefreshing] = useState(false);
     const handleRefresh = async () => {

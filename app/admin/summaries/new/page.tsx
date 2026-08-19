@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, Wand2, Eye, Code, Info } from "lucide-react";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
+import { bustContentCache } from "@/lib/bustContentCache";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import { useRouter } from "next/navigation";
@@ -127,6 +128,7 @@ export default function NewSummaryPage() {
                 updatedAt: serverTimestamp(),
             });
 
+            bustContentCache("summaries", { slug: slug.toLowerCase().replace(/\s+/g, "-") }); // /summary + หน้านี้สดทันที
             alert("บันทึกเรียบร้อย! 🎉");
             router.push("/admin/summaries");
 

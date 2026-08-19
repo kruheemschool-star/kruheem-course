@@ -6,6 +6,7 @@ import { Save, Image as ImageIcon, Eye, Code, FileJson, PenLine, Search, Check }
 import TiptapEditor from "@/components/TiptapEditor";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
+import { bustContentCache } from "@/lib/bustContentCache";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import imageCompression from "browser-image-compression";
@@ -100,6 +101,7 @@ export default function NewPostPage() {
                 views: 0
             });
 
+            bustContentCache("posts", { slug: slug.toLowerCase().replace(/\s+/g, "-") }); // /blog + บทความนี้สดทันที
             alert("บันทึกบทความเรียบร้อย! 🎉");
             router.push("/admin/posts");
 

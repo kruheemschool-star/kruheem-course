@@ -7,6 +7,7 @@ import Image from "next/image";
 import { Plus, Edit, Trash2, Eye, ImageIcon, FileText, CheckCircle2, FilePen, Newspaper } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { bustContentCache } from "@/lib/bustContentCache";
 import { collectArticleImagePaths, purgeUnreferencedArticleImages } from "@/lib/articleImages";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
@@ -53,6 +54,7 @@ export default function AdminPostsPage() {
                 const images = await collectArticleImagePaths("posts", id);
                 await deleteDoc(doc(db, "posts", id));
                 setPosts(prev => prev.filter(p => p.id !== id));
+                bustContentCache("posts"); // หน้า /blog เอาออกทันที (แคช 1 ชม. ถูกบัสต์)
                 // เก็บกวาดรูปบน Storage ที่ไม่มีบทความไหนใช้แล้ว (กันรูปที่แชร์กับบทความอื่น)
                 await purgeUnreferencedArticleImages(images);
             } catch (error) {

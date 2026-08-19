@@ -3,6 +3,7 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where, doc, getDoc, deleteDoc, orderBy, limit, Timestamp, getCountFromServer } from "firebase/firestore";
 import { pageLabel } from "@/lib/pageLabel";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import { readAdminCache, writeAdminCache, tsToMs, msToTs, ADMIN_STATS_CACHE_KEY } from "@/lib/adminCache";
 
 // Exam/course titles can contain embedded newlines (e.g. "แบบฝึกหัด\nสอบเข้า ม.1");
 // collapse whitespace so the online-users activity line reads as one clean phrase.
@@ -48,6 +49,40 @@ interface RecentActivity {
     description: string;
 }
 
+// แคชผลสแกนแดชบอร์ด 30 นาที (sessionStorage) — เดิมทุกการเปิด/เปลี่ยนปี = สแกน
+// enrollments approved ทั้งชุด (~1,435 reads) ใหม่หมด ทั้งที่กรองปีทำบนเครื่องอยู่แล้ว
+// ผลชุดเดียวจึงใช้ได้ทุกปี; ปุ่ม "รีเฟรช" ยังบังคับอ่านสดเสมอ (fetchData ที่ export)
+// และหน้าอนุมัติสลิป/ลงทะเบียนให้ จะ clearAdminCache(ADMIN_STATS_CACHE_KEY) หลังแก้ข้อมูล
+const STATS_CACHE_TTL = 30 * 60 * 1000;
+
+// เก็บ "เฉพาะฟิลด์ที่จอใช้จริง" — spread ทั้ง doc (สลิป/เบอร์/คูปอง ฯลฯ) ทำให้ก้อน
+// JSON โต 1.5-3MB เสี่ยงชนโควตา sessionStorage (~5MB) จนแคชพังเงียบ
+// ฟิลด์ชุดนี้ตรวจกับผู้ใช้ครบแล้ว: stats memo (approvedAt/createdAt/price/
+// userEmail/userName/courseTitle) + admin page (userEmail, createdAt.toDate)
+// + useAdminLearningStats (courseId/userId/userName/userEmail/createdAt.seconds)
+interface CachedEnrollment {
+    id: string;
+    price?: number | string;
+    status?: string;
+    courseTitle?: string;
+    courseId?: string;
+    userId?: string;
+    userEmail?: string;
+    userName?: string;
+    approvedAtMs?: number;
+    createdAtMs?: number;
+}
+interface CachedStats {
+    enrollments: CachedEnrollment[];
+    ticketsCount: number;
+    dailyVisits: Record<string, number>;
+    totalVisits: number;
+    deviceStats: { mobile: number; tablet: number; desktop: number };
+    sourceStats: Record<string, number>;
+    pageViewStats: Record<string, number>;
+    menuCovers: MenuCovers;
+}
+
 export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number) => {
     const [loading, setLoading] = useState(true);
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
@@ -68,18 +103,60 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
     const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
 
     useEffect(() => {
+        // เปลี่ยนปี = กรองบนเครื่องจาก state เดิม — ไม่ต้อง parse แคช/สแกนใหม่
+        if (enrollments.length > 0) { setLoading(false); return; }
         setLoading(true);
-        fetchData();
+        fetchData(false); // mount แรก → ใช้แคชก่อนถ้ายังสด
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedYear]);
 
-    const fetchData = async () => {
+    /** shape ใน cache = shape เดียวที่ใช้คืน state ทั้งสองเส้นทาง (สด/แคช)
+     *  — กันสองก๊อปปี้ของ logic เดียวกันเพี้ยนจากกันเงียบๆ */
+    const applyStats = (data: CachedStats) => {
+        setEnrollments(data.enrollments.map((e) => ({
+            ...e,
+            approvedAt: msToTs(e.approvedAtMs),
+            createdAt: msToTs(e.createdAtMs),
+        } as Enrollment)));
+        setTicketsCount(data.ticketsCount);
+        setDailyVisits(data.dailyVisits);
+        setTotalVisits(data.totalVisits);
+        setDeviceStats(data.deviceStats);
+        setSourceStats(data.sourceStats);
+        setPageViewStats(data.pageViewStats);
+        setMenuCovers(data.menuCovers);
+        const sorted = data.enrollments
+            .filter((e) => typeof e.approvedAtMs === "number")
+            .sort((a, b) => (b.approvedAtMs || 0) - (a.approvedAtMs || 0))
+            .slice(0, 5);
+        setRecentActivities(sorted.map((e) => ({
+            id: e.id,
+            type: 'enrollment' as const,
+            userName: e.userName || e.userEmail || 'Unknown',
+            timestamp: new Date(e.approvedAtMs || 0),
+            description: `ลงทะเบียนคอร์ส ${e.courseTitle}`,
+        })));
+    };
+
+    const fetchData = async (force = true) => {
+        if (!force) {
+            const cached = readAdminCache<CachedStats>(ADMIN_STATS_CACHE_KEY, STATS_CACHE_TTL);
+            if (cached) {
+                applyStats(cached);
+                setLoading(false);
+                return;
+            }
+        }
         try {
             // === ALL initial queries in ONE Promise.all ===
             // Total: 4 queries (was 5+2 child = 7)
             // Removed: duplicate pending count (use AuthContext), menu covers & recent activity lifted here
+            // enrollOk: ห้ามเก็บแคชถ้าคิวรีหลักล้ม — ไม่งั้นค่าศูนย์จาก fallback
+            // จะค้างโชว์ 30 นาที (เดิม fail แล้วหายเองตอนเปิดหน้าครั้งถัดไป)
+            let enrollOk = true;
             const [snapApproved, countTickets, statsDoc, pageDoc, menuDoc] = await Promise.all([
                 getDocs(query(collection(db, "enrollments"), where("status", "==", "approved")))
-                    .catch(err => { console.error("Enrollments fetch err:", err); return { docs: [] }; }),
+                    .catch(err => { console.error("Enrollments fetch err:", err); enrollOk = false; return { docs: [] }; }),
                 getCountFromServer(query(collection(db, "support_tickets"), where("status", "==", "pending")))
                     .catch(err => { console.error("Tickets fetch err:", err); return { data: () => ({ count: 0 }) }; }),
                 getDoc(doc(db, "stats", "daily_visits"))
@@ -90,64 +167,54 @@ export const useAdminStats = (selectedYear: number, pendingCountFromAuth: number
                     .catch(err => { console.error("Menu covers fetch err:", err); return { exists: () => false, data: () => ({}) }; }),
             ]);
 
-            // Process enrollments
-            const approvedData = snapApproved.docs ? snapApproved.docs.map(d => ({ id: d.id, ...d.data() } as Enrollment)) : [];
-            setEnrollments(approvedData);
-            setTicketsCount(countTickets.data().count);
+            // แปลงผลทุกคิวรีเป็น CachedStats "ครั้งเดียว" แล้วใช้ทั้งคืน state และเก็บแคช
+            const statsData = statsDoc.exists() ? (statsDoc.data() as Record<string, unknown>) : {};
+            const dailyVisits: Record<string, number> = {};
+            Object.keys(statsData).forEach((k) => {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(k) && typeof statsData[k] === 'number') dailyVisits[k] = statsData[k] as number;
+            });
+            const sourceStats: Record<string, number> = {};
+            ['google', 'facebook', 'line', 'instagram', 'youtube', 'tiktok', 'direct', 'other'].forEach((src) => {
+                if (statsData[`source_${src}`]) sourceStats[src] = statsData[`source_${src}`] as number;
+            });
+            const pageData = pageDoc.exists() ? (pageDoc.data() as Record<string, unknown>) : {};
+            const pageViewStats: Record<string, number> = {};
+            Object.keys(pageData).forEach((k) => {
+                if (k.startsWith('/') && typeof pageData[k] === 'number') pageViewStats[k] = pageData[k] as number;
+            });
 
-            // Derive recent activities from approved enrollments (no separate query needed!)
-            const sorted = [...approvedData]
-                .filter(e => e.approvedAt?.toDate)
-                .sort((a, b) => (b.approvedAt?.toDate?.()?.getTime() || 0) - (a.approvedAt?.toDate?.()?.getTime() || 0))
-                .slice(0, 5);
-            setRecentActivities(sorted.map(e => ({
-                id: e.id,
-                type: 'enrollment' as const,
-                userName: e.userName || e.userEmail || 'Unknown',
-                timestamp: e.approvedAt?.toDate() || new Date(),
-                description: `ลงทะเบียนคอร์ส ${e.courseTitle}`
-            })));
+            const snapshot: CachedStats = {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                enrollments: (snapApproved.docs || []).map((d: any) => {
+                    const e = d.data();
+                    return {
+                        id: d.id,
+                        price: e.price,
+                        status: e.status,
+                        courseTitle: e.courseTitle,
+                        courseId: e.courseId,
+                        userId: e.userId,
+                        userEmail: e.userEmail,
+                        userName: e.userName,
+                        approvedAtMs: tsToMs(e.approvedAt),
+                        createdAtMs: tsToMs(e.createdAt),
+                    };
+                }),
+                ticketsCount: countTickets.data().count,
+                dailyVisits,
+                totalVisits: (statsData.total_visits as number) || 0,
+                deviceStats: {
+                    mobile: (statsData.device_mobile as number) || 0,
+                    tablet: (statsData.device_tablet as number) || 0,
+                    desktop: (statsData.device_desktop as number) || 0,
+                },
+                sourceStats,
+                pageViewStats,
+                menuCovers: menuDoc.exists() ? ((menuDoc.data() as { covers?: MenuCovers })?.covers || {}) : {},
+            };
 
-            // Process stats
-            if (statsDoc.exists()) {
-                const data = statsDoc.data();
-                const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-                const filteredVisits: Record<string, number> = {};
-                Object.keys(data).forEach(key => {
-                    if (datePattern.test(key) && typeof data[key] === 'number') {
-                        filteredVisits[key] = data[key];
-                    }
-                });
-                setDailyVisits(filteredVisits);
-                setTotalVisits(data.total_visits || 0);
-                setDeviceStats({
-                    mobile: data.device_mobile || 0,
-                    tablet: data.device_tablet || 0,
-                    desktop: data.device_desktop || 0,
-                });
-                const sources: Record<string, number> = {};
-                ['google', 'facebook', 'line', 'instagram', 'youtube', 'tiktok', 'direct', 'other'].forEach(src => {
-                    if (data[`source_${src}`]) sources[src] = data[`source_${src}`];
-                });
-                setSourceStats(sources);
-            }
-
-            // Page Views
-            if (pageDoc.exists()) {
-                const pageData = pageDoc.data();
-                const pages: Record<string, number> = {};
-                Object.keys(pageData).forEach(key => {
-                    if (key.startsWith('/') && typeof pageData[key] === 'number') {
-                        pages[key] = pageData[key];
-                    }
-                });
-                setPageViewStats(pages);
-            }
-
-            // Menu Covers (lifted from useMenuCovers)
-            if (menuDoc.exists()) {
-                setMenuCovers(menuDoc.data()?.covers || {});
-            }
+            applyStats(snapshot);
+            if (enrollOk) writeAdminCache<CachedStats>(ADMIN_STATS_CACHE_KEY, snapshot);
 
         } catch (error) {
             console.error("Error fetching admin stats:", error);

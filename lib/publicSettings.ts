@@ -22,4 +22,9 @@
 //   • ฝั่งอ่านเซิร์ฟเวอร์ทุกจุดต้องใช้ revalidate ค่าเดียวกัน (ค่าคงที่ข้างล่าง)
 //     เพราะ Next แคช fetch ตาม URL — ตั้งไม่ตรงกันแล้วแคชจะตีกันเอง
 export const PUBLIC_SETTINGS_DOC = "settings/homepage_promotion";
-export const PUBLIC_SETTINGS_REVALIDATE = 30;
+//   • เดิม 30 วิ = เว็บอ่าน doc นี้ซ้ำสูงสุด ~2,880 ครั้ง/วันทิ้งเปล่า — ยืดเป็น 1 ชม.
+//     แล้วให้หน้าแอดมิน (โปรโมชัน/นับถอยหลัง/สวิตช์คลังข้อสอบ) ยิง
+//     /api/revalidate-content หลังบันทึก เพื่อ bust แคชทันที = สดเท่าเดิม อ่านน้อยลง ~99%
+export const PUBLIC_SETTINGS_REVALIDATE = 3600;
+// ทุก fetch ของ doc นี้ต้องติด tag เดียวกัน เพื่อให้ revalidateTag บัสต์ครบทุกจุด
+export const PUBLIC_SETTINGS_TAGS = ["public-settings"];

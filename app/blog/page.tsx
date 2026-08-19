@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { db } from "@/lib/firebase";
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import { listCollection } from "@/lib/firestoreRest";
 import Navbar from "@/components/Navbar";
 import { BookOpen, ArrowLeft } from "lucide-react";
 import Image from "next/image";
@@ -9,7 +8,9 @@ import Image from "next/image";
 // cover — fetching here (server, cached, metadata-only) instead of the
 // browser keeps every post's full `content` blob off the user's
 // connection and removes the per-visit client Firestore download.
-export const revalidate = 300;
+// 1 ชม. (เดิม 5 นาที) — บทความใหม่/แก้/ลบจากหน้าแอดมินยังโผล่ทันทีผ่าน
+// /api/revalidate-content; ลิงก์ตรงไปบทความใหม่ ( /blog/[slug] ) ไม่เคยติดแคชอยู่แล้ว
+export const revalidate = 3600;
 
 interface Post {
     id: string;
@@ -22,22 +23,42 @@ interface Post {
 
 async function getPosts(): Promise<Post[]> {
     try {
-        const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(q);
-        const posts = querySnapshot.docs.map((d) => {
-            const data = d.data();
-            return {
+        // Firestore REST + field mask: หน้า list ใช้แค่ title/slug/cover — ไม่ดึง
+        // `content` เต็ม (หลาย ร้อยKB ต่อโพสต์) เหมือนที่ client SDK ทำ; tag ให้
+        // /api/revalidate-content บัสต์ทันทีตอนแอดมินบันทึก
+        // ลองซ้ำ 1 ครั้งก่อนยอมแพ้ — กันหน้า /blog ว่างถูกแช่ใน ISR ทั้งชั่วโมง
+        // เพราะ REST สะดุดจังหวะเดียวตอน rebuild
+        let docs;
+        try {
+            docs = await listCollection(
+                "posts",
+                ["title", "slug", "coverImage", "status", "createdAt"],
+                { revalidate: 3600, tags: ["posts-feed"] }
+            );
+        } catch {
+            await new Promise((r) => setTimeout(r, 600));
+            docs = await listCollection(
+                "posts",
+                ["title", "slug", "coverImage", "status", "createdAt"],
+                { revalidate: 3600, tags: ["posts-feed"] }
+            );
+        }
+        return docs
+            .map((d) => ({
                 id: d.id,
-                title: data.title || "",
-                slug: data.slug || "",
-                coverImage: data.coverImage || "",
-                status: data.status || "",
-                // Serialize Firestore Timestamp for safety (not rendered, kept for parity)
-                createdAt: data.createdAt?.toDate?.().toISOString() || null,
-            } as Post;
-        });
-        // Only published (support legacy posts without a status field)
-        return posts.filter((p) => p.status === "published" || !p.status);
+                title: (d.title as string) || "",
+                slug: (d.slug as string) || "",
+                coverImage: (d.coverImage as string) || "",
+                status: (d.status as string) || "",
+                // REST คืน timestamp เป็น ISO string อยู่แล้ว
+                createdAt: (d.createdAt as string) || null,
+            } as Post))
+            // เฉพาะที่เผยแพร่ (โพสต์รุ่นเก่าไม่มี field status = ถือว่าเผยแพร่)
+            // และต้องมี createdAt — ตรงกับ orderBy เดิมที่ตัด doc ไม่มีฟิลด์นี้ทิ้ง
+            .filter((p) => (p.status === "published" || !p.status) && p.createdAt)
+            // เรียงใหม่→เก่าแบบตัวเลขเวลา — เทียบ ISO ตรงๆ พังกรณีวินาทีเดียวกัน
+            // ("10:00:00Z" > "10:00:00.123Z" เพราะ '.' < 'Z' ในตาราง lexicographic)
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     } catch (error) {
         console.error("Error fetching posts:", error);
         return [];

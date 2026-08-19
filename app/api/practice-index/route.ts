@@ -66,7 +66,8 @@ const getPracticeIndexGz = unstable_cache(
         return gzipSync(Buffer.from(JSON.stringify(index), "utf8")).toString("base64");
     },
     ["practice-index-v1"],
-    { revalidate: 3600, tags: ["exams-feed"] }
+    // 24 ชม. — เหตุผลเดียวกับ exam-search: rebuild = ดูดคลังทั้งก้อน
+    { revalidate: 86400, tags: ["exams-feed"] }
 );
 
 export async function GET() {

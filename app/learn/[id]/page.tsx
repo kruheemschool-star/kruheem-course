@@ -354,10 +354,10 @@ function CoursePlayer() {
             const wrongKeys = new Set<string>();
             const seenKeys = new Set<string>();
             try {
-                const snap = await getDocs(collection(db, "users", user.uid, "lessonExamResults"));
+                // กรอง courseId ฝั่งเซิร์ฟเวอร์ — ไม่ต้องอ่านผลสอบของคอร์สอื่นมาทิ้ง
+                const snap = await getDocs(query(collection(db, "users", user.uid, "lessonExamResults"), where("courseId", "==", courseId)));
                 snap.docs.forEach((d) => {
                     const r = d.data() as any;
-                    if ((r.courseId || "") !== courseId) return;
                     Object.keys(r.wrongQuestions || {}).forEach((k) => wrongKeys.add(k));
                     Object.keys(r.seen || {}).forEach((k) => seenKeys.add(k));
                 });

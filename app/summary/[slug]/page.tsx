@@ -17,7 +17,7 @@ async function findSummaryBySlug(slug: string): Promise<FsDoc | undefined> {
     const docs = await listCollection(
         "summaries",
         ["slug", "title", "seo_title", "meta_description", "status"],
-        { revalidate: 3600 }
+        { revalidate: 3600, tags: ["summaries-feed"] }
     );
     return docs.find((d) => d.slug === slug || d.id === slug);
 }

@@ -17,7 +17,7 @@ export async function GET() {
         const docs = await listCollection(
             "posts",
             ["title", "coverImage", "status", "createdAt"],
-            { revalidate: 900 }
+            { revalidate: 900, tags: ["posts-feed"] }
         );
         const posts = docs
             .map((d) => ({

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, Wand2, Eye, Code, Trash2, Info, PenTool, Layers } from "lucide-react";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { bustContentCache } from "@/lib/bustContentCache";
 import { collectArticleImagePaths, purgeUnreferencedArticleImages } from "@/lib/articleImages";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
@@ -244,6 +245,7 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                 updatedAt: serverTimestamp(),
             });
 
+            bustContentCache("summaries", { slug: slug.toLowerCase().replace(/\s+/g, "-") }); // /summary + หน้านี้สดทันที
             alert("อัปเดตเรียบร้อย! 🎉");
         } catch (error) {
             console.error("Error:", error);
@@ -261,6 +263,7 @@ export default function EditSummaryPage({ params }: { params: Promise<{ id: stri
                 await deleteDoc(doc(db, "summaries", id));
                 // เก็บกวาดรูปบน Storage ที่ไม่มีบทความไหนใช้แล้ว (กันรูปที่แชร์กับบทความอื่น)
                 await purgeUnreferencedArticleImages(images);
+                bustContentCache("summaries");
                 router.push("/admin/summaries");
             } catch (error) {
                 console.error("Error:", error);

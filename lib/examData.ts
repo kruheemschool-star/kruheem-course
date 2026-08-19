@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { getDocument } from "@/lib/firestoreRest";
-import { PUBLIC_SETTINGS_DOC, PUBLIC_SETTINGS_REVALIDATE } from "@/lib/publicSettings";
+import { PUBLIC_SETTINGS_DOC, PUBLIC_SETTINGS_REVALIDATE, PUBLIC_SETTINGS_TAGS } from "@/lib/publicSettings";
 
 // Shared exam-set loader for /exam/[id] and /exam/[id]/print.
 //
@@ -21,7 +21,10 @@ export const getExamData = cache(async (id: string): Promise<any | null> => {
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
             const data = await getDocument(`exams/${id}`, {
-                revalidate: 3600,
+                // 24 ชม. — ปลอดภัยเพราะแอดมินบันทึกแล้ว /api/revalidate-exams
+                // บัสต์ tag นี้ทันที; เดิม 1 ชม. = อ่าน doc ใหญ่ (สูงสุด ~1MiB)
+                // ซ้ำทุกชั่วโมงต่อชุดทิ้งเปล่า ทั้ง reads และ egress
+                revalidate: 86400,
                 tags: ["exams-feed"],
             });
             if (!data) break; // Document doesn't exist — no need to retry
@@ -73,7 +76,7 @@ export const getExamConfig = cache(async (): Promise<{ showExamDashboard?: boole
         // (doc เดียวใน settings ที่ rules เปิดให้เซิร์ฟเวอร์อ่านแบบไม่ล็อกอินได้ —
         // ห้ามอ่าน settings/examConfig ตรงๆ จะโดน 403 เงียบ ดู lib/publicSettings.ts)
         // doc เดียว ทุกหน้าข้อสอบแชร์แคชเดียวกัน — ไม่เพิ่มยอดอ่านต่อวิว
-        const data = await getDocument(PUBLIC_SETTINGS_DOC, { revalidate: PUBLIC_SETTINGS_REVALIDATE });
+        const data = await getDocument(PUBLIC_SETTINGS_DOC, { revalidate: PUBLIC_SETTINGS_REVALIDATE, tags: PUBLIC_SETTINGS_TAGS });
         const cfg = data?.examConfig as { showExamDashboard?: boolean; enableResultTracking?: boolean } | undefined;
         if (cfg) return cfg;
     } catch { /* ignore */ }

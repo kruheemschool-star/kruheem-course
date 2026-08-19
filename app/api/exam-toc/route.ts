@@ -28,7 +28,7 @@ const getToc = unstable_cache(
         const docs: FsDoc[] = await listCollection(
             "exams",
             ["title", "level", "category", "questionCount", "isFree", "order", "createdAt", "hidden"],
-            { revalidate: 3600 }
+            { revalidate: 86400, tags: ["exams-feed"] }
         );
 
         const exams = docs
@@ -52,7 +52,7 @@ const getToc = unstable_cache(
         return { exams };
     },
     ["exam-toc-v1"],
-    { revalidate: 3600, tags: ["exams-feed"] }
+    { revalidate: 86400, tags: ["exams-feed"] }
 );
 
 export async function GET() {

@@ -454,6 +454,11 @@ export default function AdminStudentsPage() {
         if (enrollments.length > 0) {
             const needsFix = enrollments.some(item => item.status === 'approved' && (!item.expiryDate || !item.approvedAt));
             if (needsFix) {
+                // ตั้งใจคง query ตรงแบบเดิมไว้ — ตาราง in-memory โหลดด้วย
+                // orderBy(createdAt) ซึ่ง "ตัด doc ที่ไม่มี createdAt ทิ้ง" แต่ doc
+                // รุ่นเก่าที่ขาด createdAt คือกลุ่มเดียวกับที่มักขาด expiryDate
+                // (เป้าหมายของงานซ่อมนี้พอดี) query นี้รันเฉพาะตอนเจอแถวที่ต้องซ่อม
+                // ซึ่งเกิดครั้งเดียวแล้วจบ ไม่ใช่ทุกการเปิดหน้า
                 const fixData = async () => {
                     const q = query(collection(db, "enrollments"), where("status", "==", "approved"));
                     const snapshot = await getDocs(q);

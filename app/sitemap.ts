@@ -95,7 +95,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     let blogRoutes: MetadataRoute.Sitemap = []
 
     try {
-        const docs = await listCollection('posts', ['slug', 'status', 'createdAt', 'updatedAt'], { revalidate: 3600 })
+        const docs = await listCollection('posts', ['slug', 'status', 'createdAt', 'updatedAt'], { revalidate: 86400, tags: ['posts-feed'] })
 
         blogRoutes = docs
             .filter((d: FsDoc) => d.createdAt != null)
@@ -114,7 +114,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     let examRoutes: MetadataRoute.Sitemap = []
 
     try {
-        const docs = await listCollection('exams', ['createdAt', 'updatedAt'], { revalidate: 3600, tags: ['exams-feed'] })
+        const docs = await listCollection('exams', ['createdAt', 'updatedAt'], { revalidate: 86400, tags: ['exams-feed'] })
 
         examRoutes = docs
             .filter((d: FsDoc) => d.createdAt != null)
@@ -132,7 +132,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     let courseRoutes: MetadataRoute.Sitemap = []
 
     try {
-        const docs = await listCollection('courses', ['createdAt', 'updatedAt'], { revalidate: 3600 })
+        const docs = await listCollection('courses', ['createdAt', 'updatedAt'], { revalidate: 86400 })
 
         courseRoutes = docs
             .filter((d: FsDoc) => d.createdAt != null)
@@ -150,7 +150,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     let summaryRoutes: MetadataRoute.Sitemap = []
 
     try {
-        const docs = await listCollection('summaries', ['slug', 'createdAt', 'updatedAt'], { revalidate: 3600 })
+        const docs = await listCollection('summaries', ['slug', 'createdAt', 'updatedAt'], { revalidate: 86400, tags: ['summaries-feed'] })
 
         summaryRoutes = docs
             .filter((d: FsDoc) => d.createdAt != null)

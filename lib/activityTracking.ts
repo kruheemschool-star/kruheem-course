@@ -32,23 +32,14 @@ export async function logLearningActivity(userId: string): Promise<void> {
     const activityRef = doc(db, 'users', userId, 'activity', dateStr);
 
     try {
-        const activitySnap = await getDoc(activityRef);
-
-        if (activitySnap.exists()) {
-            // Increment lesson count for today
-            await setDoc(activityRef, {
-                lessonsCompleted: increment(1),
-                lastUpdated: new Date(),
-            }, { merge: true });
-        } else {
-            // Create new activity record for today
-            await setDoc(activityRef, {
-                lessonsCompleted: 1,
-                date: dateStr,
-                createdAt: new Date(),
-                lastUpdated: new Date(),
-            });
-        }
+        // เขียนทีเดียวจบ: increment() + merge สร้าง doc ใหม่ให้เองถ้ายังไม่มี
+        // — เดิม getDoc ก่อนทุกครั้ง = 1 read ทิ้งเปล่าต่อการจบบทเรียน
+        // (ผู้อ่านฝั่งเดียวคือ fetchWeeklyActivity ซึ่งใช้แค่ lessonsCompleted)
+        await setDoc(activityRef, {
+            lessonsCompleted: increment(1),
+            date: dateStr,
+            lastUpdated: new Date(),
+        }, { merge: true });
     } catch (error) {
         console.error('Error logging learning activity:', error);
     }

@@ -7,6 +7,7 @@ import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 import { withTimeout, isNetTimeout, NET_TIMEOUT_MESSAGE, reviveConnection } from "@/lib/netGuard";
+import { clearAdminCache, ADMIN_STATS_CACHE_KEY } from "@/lib/adminCache";
 import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Mail, Phone, Clock, Inbox, ZoomIn, Users, StickyNote, BookOpen, Pencil, Search, Loader2, ArrowRight, Receipt, Ticket } from "lucide-react";
 
 type CourseLite = { id: string; title: string; price?: number; allowedExamLevel?: string | null; category?: string; image?: string };
@@ -354,6 +355,8 @@ export default function AdminEnrollmentsPage() {
 
             setCheckedIds((prev) => prev.filter((id) => !confirmApproveIds.includes(id)));
             setConfirmApproveIds(null);
+            // ยอดรายได้/นักเรียนบนแดชบอร์ดเปลี่ยนแล้ว — ล้างแคช 30 นาทีทิ้ง
+            clearAdminCache(ADMIN_STATS_CACHE_KEY);
             refreshPendingCount(); // recount badge immediately (self-guarded, fire-and-forget)
         } finally {
             // ต้องอยู่ใน finally เสมอ — ไม่งั้นถ้าหลุดออกกลางคัน ปุ่ม "ยืนยัน"
@@ -368,6 +371,7 @@ export default function AdminEnrollmentsPage() {
             try {
                 await withTimeout(deleteDoc(doc(db, "enrollments", id)), 20000, "ลบใบแจ้งโอน");
                 schedulePublicStatsRecalc();
+                clearAdminCache(ADMIN_STATS_CACHE_KEY);
                 setCheckedIds((prev) => prev.filter((x) => x !== id));
                 refreshPendingCount(); // deleting a pending row changes the badge — recount now
             } catch (error) {

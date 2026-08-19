@@ -19,7 +19,7 @@ const getSummaryToc = unstable_cache(
         const docs = await listCollection(
             "summaries",
             ["title", "slug", "order", "status"],
-            { revalidate: 300 }
+            { revalidate: 3600, tags: ["summaries-feed"] }
         );
         const summaries = docs
             .filter((d) => (d.status as string) === "published")
@@ -35,7 +35,8 @@ const getSummaryToc = unstable_cache(
         return { summaries };
     },
     ["summary-toc-v1"],
-    { revalidate: 300 }
+    // 1 ชม. + tag — /api/revalidate-content บัสต์ทันทีตอนแอดมินบันทึกสรุป
+    { revalidate: 3600, tags: ["summaries-feed"] }
 );
 
 export async function GET() {

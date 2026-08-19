@@ -1,6 +1,5 @@
 import { Metadata } from 'next';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { listCollection } from '@/lib/firestoreRest';
 import Navbar from '@/components/Navbar';
 import { BookOpen } from 'lucide-react';
 import SummaryGrid from '@/components/SummaryGrid';
@@ -11,8 +10,9 @@ export const metadata: Metadata = {
     keywords: ['สรุปสูตรคณิต', 'ชีทสรุป', 'Short Note คณิต', 'ทบทวนก่อนสอบ', 'Kruheem'],
 };
 
-// ISR: Cache for 5 minutes, new summaries appear within 5 min
-export const revalidate = 300;
+// ISR: 1 ชม. — เดิม 5 นาที = อ่าน summaries ทั้งชุด (รวมเนื้อหาเต็ม) สูงสุด 288 รอบ/วัน
+// สรุปที่เพิ่ม/แก้/ลบยังโผล่ทันที: หน้าแอดมินยิง /api/revalidate-content หลังบันทึก
+export const revalidate = 3600;
 
 interface Summary {
     id: string;
@@ -30,60 +30,52 @@ interface Summary {
 
 async function getSummaries(): Promise<Summary[]> {
     try {
-        // Optimized query: filter at Firestore level + order by 'order' field
-        const q = query(
-            collection(db, 'summaries'),
-            where('status', '==', 'published'),
-            orderBy('order', 'asc')
-        );
-        const snapshot = await getDocs(q);
+        // อ่านผ่าน Firestore REST + field mask — โปรเจกต์เฉพาะฟิลด์การ์ด ไม่ดึง
+        // เนื้อหาเต็ม (content หลาย KB ต่อบท ไม่ได้ใช้ในหน้า list) และติด tag
+        // ให้ /api/revalidate-content บัสต์ทันทีตอนแอดมินบันทึก
+        // ลองซ้ำ 1 ครั้งก่อนยอมแพ้ — ถ้าคืน [] เพราะเน็ตสะดุดชั่วคราว หน้า "ว่าง"
+        // จะถูกแช่ใน ISR นานถึง 1 ชม. (เดิม TTL 5 นาทีความเสี่ยงนี้เล็กกว่ามาก)
+        let docs;
+        try {
+            docs = await listCollection(
+                'summaries',
+                [
+                    'title', 'slug', 'order', 'status', 'excerpt', 'meta_description',
+                    'coverImage', 'category', 'readingTime', 'viewCount',
+                ],
+                { revalidate: 3600, tags: ['summaries-feed'] }
+            );
+        } catch {
+            await new Promise((r) => setTimeout(r, 600));
+            docs = await listCollection(
+                'summaries',
+                [
+                    'title', 'slug', 'order', 'status', 'excerpt', 'meta_description',
+                    'coverImage', 'category', 'readingTime', 'viewCount',
+                ],
+                { revalidate: 3600, tags: ['summaries-feed'] }
+            );
+        }
 
-        // Map to plain objects (no client-side filtering needed)
-        return snapshot.docs.map(doc => {
-            const d = doc.data();
-            return {
-                id: doc.id,
-                title: d.title || '',
-                slug: d.slug || '',
-                order: d.order || 0,
-                status: d.status || '',
-                excerpt: d.excerpt || '',
-                meta_description: d.meta_description || '',
-                coverImage: d.coverImage || '',
-                category: d.category || '',
-                readingTime: d.readingTime || 0,
-                viewCount: d.viewCount || 0,
-            } as Summary;
-        });
+        return docs
+            .filter((d) => (d.status as string) === 'published')
+            .map((d) => ({
+                id: d.id,
+                title: (d.title as string) || '',
+                slug: (d.slug as string) || '',
+                order: (d.order as number | undefined) ?? 0,
+                status: (d.status as string) || '',
+                excerpt: (d.excerpt as string) || '',
+                meta_description: (d.meta_description as string) || '',
+                coverImage: (d.coverImage as string) || '',
+                category: (d.category as string) || '',
+                readingTime: (d.readingTime as number | undefined) ?? 0,
+                viewCount: (d.viewCount as number | undefined) ?? 0,
+            } as Summary))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
     } catch (error) {
         console.error('Error fetching summaries:', error);
-        // Fallback: try without orderBy in case index doesn't exist
-        try {
-            const fallbackQuery = query(collection(db, 'summaries'));
-            const snapshot = await getDocs(fallbackQuery);
-            return snapshot.docs
-                .map(doc => {
-                    const d = doc.data();
-                    return {
-                        id: doc.id,
-                        title: d.title || '',
-                        slug: d.slug || '',
-                        order: d.order || 0,
-                        status: d.status || '',
-                        excerpt: d.excerpt || '',
-                        meta_description: d.meta_description || '',
-                        coverImage: d.coverImage || '',
-                        category: d.category || '',
-                        readingTime: d.readingTime || 0,
-                        viewCount: d.viewCount || 0,
-                    } as Summary;
-                })
-                .filter(s => s.status === 'published')
-                .sort((a, b) => (a.order || 0) - (b.order || 0));
-        } catch (fallbackError) {
-            console.error('Fallback query also failed:', fallbackError);
-            return [];
-        }
+        return [];
     }
 }
 

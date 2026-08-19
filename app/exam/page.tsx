@@ -13,8 +13,10 @@ export const metadata: Metadata = {
     keywords: ["ฝึกทำโจทย์คณิต", "คลังข้อสอบ", "จับเวลาทำข้อสอบ", "จำลองสอบ", "ตะลุยโจทย์", "ข้อสอบ A-Level"],
 };
 
-// ISR: Cache for 5 minutes, admin changes reflect within 5 min
-export const revalidate = 300;
+// ISR: 1 ชม. — เดิม 5 นาที = สแกน exams ทั้ง 103 doc ใหม่สูงสุด 288 รอบ/วัน
+// (ตัวกิน reads อันดับ 1 ของทั้งเว็บ) การแก้ของแอดมินยังโผล่ทันทีเหมือนเดิม
+// เพราะหน้าแอดมินยิง /api/revalidate-exams (revalidatePath + tag exams-feed) ทุกครั้งที่บันทึก
+export const revalidate = 3600;
 
 // 1. Fetch Data on Server (Metadata only - fast load)
 // Reads via the Firestore REST API (see lib/firestoreRest). The Firebase
@@ -24,7 +26,7 @@ export const revalidate = 300;
 // reflected on the public page. The REST read is reliable in every runtime.
 async function getEnrollmentCount() {
     try {
-        const doc = await getDocument("public_stats/enrollments", { revalidate: 300 });
+        const doc = await getDocument("public_stats/enrollments", { revalidate: 3600 });
         return (doc?.count as number | undefined) ?? 0;
     } catch (error) {
         console.error("Error fetching public enrollment count:", error);
@@ -46,7 +48,8 @@ async function getExams() {
                 "themeColor", "coverImage", "tags", "isFree", "questionCount",
                 "order", "createdAt", "updatedAt", "hidden",
             ],
-            { revalidate: 300 }
+            // 24 ชม. + tag — /api/revalidate-exams บัสต์ทันทีตอนแอดมินบันทึก
+            { revalidate: 86400, tags: ["exams-feed"] }
         );
 
         const examList = docs

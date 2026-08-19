@@ -44,7 +44,9 @@ const getSearchIndexGz = unstable_cache(
         return gzipSync(Buffer.from(JSON.stringify(index), "utf8")).toString("base64");
     },
     ["exam-search-index-v1"],
-    { revalidate: 3600, tags: ["exams-feed"] }
+    // 24 ชม. — การ rebuild แต่ละครั้งดูดคลังทั้งก้อน (~94MB ก่อนบีบ) เดิมทุก 1 ชม.
+    // = ตัวกิน bandwidth อันดับ 1; tag exams-feed ยังบัสต์ทันทีตอนแอดมินบันทึก
+    { revalidate: 86400, tags: ["exams-feed"] }
 );
 
 export async function GET() {

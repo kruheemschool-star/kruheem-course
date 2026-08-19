@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { bustContentCache } from "@/lib/bustContentCache";
 import { db } from "@/lib/firebase";
 import { Loader2, Check, AlertCircle, Clock, Save, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { DEFAULT_COUNTDOWN, DEFAULT_QUOTES } from "@/components/home/ExamCountdownHero";
@@ -83,6 +84,7 @@ export default function AdminCountdownPage() {
                     updatedAt: serverTimestamp(),
                 },
             }, { merge: true });
+            bustContentCache("settings"); // หน้าแรกเห็นค่าที่แก้ทันที (แคช 1 ชม. ถูกบัสต์)
             showMessage("success", "บันทึกแล้ว — รีเฟรชหน้าแรกเพื่อดูผล");
         } catch (e) {
             console.error("[admin/countdown] save failed:", e);

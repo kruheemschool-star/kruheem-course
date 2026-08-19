@@ -25,9 +25,17 @@ import {
     Pencil, X,
 } from "lucide-react";
 import { withTimeout, isNetTimeout, NET_TIMEOUT_MESSAGE } from "@/lib/netGuard";
+import { readAdminCache, writeAdminCache, clearAdminCache, ADMIN_STATS_CACHE_KEY } from "@/lib/adminCache";
 
 const MAX_SLIPS = 5;
 const USERS_CAP = 3000; // safety cap — well above current member count
+
+// แคชผลสแกนทะเบียน 10 นาที (sessionStorage) — เดิมทุกการเปิดหน้า = อ่าน users
+// ทั้งชุด + enrollments ทั้งชุด (~2,900 reads); ข้อมูลในนี้เป็น JSON ล้วนอยู่แล้ว
+// (สร้าง createdAtMs เป็นตัวเลขตั้งแต่ map) เก็บ/คืนได้ตรงๆ; ปุ่มรีเฟรชและทุก
+// การแก้ไขข้อมูลจะล้างแคชเพื่อไม่ให้เห็นของเก่า
+const REG_CACHE_KEY = "admin-registrations-v1";
+const REG_CACHE_TTL = 10 * 60 * 1000;
 
 type Member = {
     id: string;
@@ -100,8 +108,19 @@ export default function AdminRegistrationsPage() {
     const [submitting, setSubmitting] = useState<"approved" | "pending" | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (force = false) => {
         setLoading(true);
+        if (!force) {
+            const cached = readAdminCache<{ members: Member[]; enrollments: Enr[]; courses: CourseLite[]; capped: boolean }>(REG_CACHE_KEY, REG_CACHE_TTL);
+            if (cached) {
+                setMembers(cached.members);
+                setEnrollments(cached.enrollments);
+                setCourses(cached.courses);
+                setCapped(cached.capped);
+                setLoading(false);
+                return;
+            }
+        }
         try {
             const [uSnap, eSnap, cSnap] = await Promise.all([
                 // ไม่ orderBy เพื่อให้สมาชิกเก่าที่ยังไม่มี createdAt ติดมาด้วย แล้วค่อยเรียงฝั่งเรา
@@ -110,8 +129,10 @@ export default function AdminRegistrationsPage() {
                 getDocs(query(collection(db, "courses"), orderBy("createdAt", "desc"))),
             ]);
 
-            setCapped(uSnap.size >= USERS_CAP);
-            setMembers(uSnap.docs.map((d) => {
+            // map ครั้งเดียว แล้วใช้ก้อนเดียวกันทั้ง setState และเก็บแคช —
+            // สอง mapper แยกกันจะ drift ได้ (เพิ่มฟิลด์ฝั่งหนึ่งลืมอีกฝั่ง = โชว์ค่าว่าง
+            // เฉพาะตอนโหลดจากแคช แกะบั๊กยากมาก)
+            const membersData = uSnap.docs.map((d) => {
                 const data = d.data() as Record<string, unknown>;
                 const created = data.createdAt as { toDate?: () => Date } | undefined;
                 return {
@@ -124,8 +145,8 @@ export default function AdminRegistrationsPage() {
                     avatar: (data.avatar as string) || "",
                     createdAtMs: created?.toDate ? created.toDate().getTime() : 0,
                 };
-            }));
-            setEnrollments(eSnap.docs.map((d) => {
+            });
+            const enrollmentsData = eSnap.docs.map((d) => {
                 const data = d.data() as Record<string, unknown>;
                 const created = data.createdAt as { toDate?: () => Date } | undefined;
                 return {
@@ -137,8 +158,26 @@ export default function AdminRegistrationsPage() {
                     status: data.status as string,
                     createdAtMs: created?.toDate ? created.toDate().getTime() : 0,
                 };
-            }));
-            setCourses(cSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<CourseLite, "id">) })));
+            });
+            // เก็บเฉพาะฟิลด์ CourseLite — spread ทั้ง doc จะพ่วง salesPage ก้อนโต
+            // หลายร้อย KB ต่อคอร์สลง sessionStorage จนเสี่ยงชนโควตา ~5MB
+            const coursesData: CourseLite[] = cSnap.docs.map((d) => {
+                const c = d.data() as Record<string, unknown>;
+                return {
+                    id: d.id,
+                    title: (c.title as string) || "",
+                    price: c.price as number | undefined,
+                    allowedExamLevel: (c.allowedExamLevel as string | null | undefined) ?? null,
+                    category: c.category as string | undefined,
+                    image: c.image as string | undefined,
+                };
+            });
+            const capped = uSnap.size >= USERS_CAP;
+            setCapped(capped);
+            setMembers(membersData);
+            setEnrollments(enrollmentsData);
+            setCourses(coursesData);
+            writeAdminCache(REG_CACHE_KEY, { members: membersData, enrollments: enrollmentsData, courses: coursesData, capped });
         } catch (err) {
             console.error("registrations fetch failed:", err);
             toast.error("โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
@@ -234,6 +273,8 @@ export default function AdminRegistrationsPage() {
             setEnrollName(editName.trim());
             setEnrollPhone(editPhone.trim());
             setEditingProfile(false);
+            clearAdminCache(REG_CACHE_KEY);
+            clearAdminCache(ADMIN_STATS_CACHE_KEY); // แดชบอร์ด/รายงานต้องเห็นยอดใหม่ ไม่ใช่แคช 30 นาที // เปิดหน้าครั้งหน้าให้เห็นชื่อ/เบอร์ใหม่แน่ๆ
             toast.success("บันทึกข้อมูลแล้ว");
         } catch (err) {
             console.error(err);
@@ -253,6 +294,7 @@ export default function AdminRegistrationsPage() {
                 adminNoteUpdatedAt: serverTimestamp(),
             }), 20000, "บันทึกหมายเหตุ");
             setMembers((prev) => prev.map((m) => (m.id === selected.id ? { ...m, adminNote: noteDraft.trim() } : m)));
+            clearAdminCache(REG_CACHE_KEY);
             toast.success("บันทึกหมายเหตุแล้ว");
         } catch (err) {
             console.error(err);
@@ -321,12 +363,13 @@ export default function AdminRegistrationsPage() {
             const accessType = duration === "lifetime" ? "lifetime" : "limited";
 
             const created: string[] = [];
+            const createdDocs: { id: string; courseId: string; title: string }[] = [];
             const skipped: string[] = [];
             for (const courseId of selCourses) {
                 const c = courses.find((x) => x.id === courseId);
                 const title = c?.title || "ไม่ระบุชื่อคอร์ส";
                 if (already.has(courseId)) { skipped.push(title); continue; }
-                await addDoc(collection(db, "enrollments"), {
+                const newRef = await addDoc(collection(db, "enrollments"), {
                     userId: selected.id,
                     userName: enrollName.trim(),
                     userTel: enrollPhone.trim(),
@@ -348,6 +391,7 @@ export default function AdminRegistrationsPage() {
                     ...(mode === "approved" ? { approvedAt: now, expiryDate, accessType } : {}),
                 });
                 created.push(title);
+                createdDocs.push({ id: newRef.id, courseId, title });
             }
 
             // 3) ชื่อ/เบอร์ที่ครูเพิ่งกรอก → เก็บกลับเข้าโปรไฟล์ ถ้าโปรไฟล์ยังว่าง
@@ -356,7 +400,13 @@ export default function AdminRegistrationsPage() {
             if (!selected.displayName && enrollName.trim()) profilePatch.displayName = enrollName.trim();
             if (!selected.phoneNumber && enrollPhone.trim()) profilePatch.phoneNumber = enrollPhone.trim();
             if (Object.keys(profilePatch).length) {
-                try { await updateDoc(doc(db, "users", selected.id), profilePatch); } catch { /* non-blocking */ }
+                try {
+                    await updateDoc(doc(db, "users", selected.id), profilePatch);
+                    // สะท้อนชื่อ/เบอร์ที่เพิ่งเขียนกลับเข้าตารางบนจอทันที — เดิมพึ่ง
+                    // fetchData() เต็มรอบ พอเปลี่ยนเป็นแพตช์ state ต้องแพตช์ตรงนี้ด้วย
+                    // ไม่งั้นแผงข้อมูลสมาชิกยังโชว์ชื่อว่างจนกว่าจะเปิดหน้าใหม่
+                    setMembers((prev) => prev.map((m) => (m.id === selected.id ? { ...m, ...profilePatch } : m)));
+                } catch { /* non-blocking */ }
             }
 
             // 4) อนุมัติแล้ว → อัปเดตตัวเลข "นักเรียนทั้งหมด" หน้าเว็บ (best-effort)
@@ -377,7 +427,22 @@ export default function AdminRegistrationsPage() {
             if (skipped.length > 0) toast(`ข้าม ${skipped.length} คอร์สที่มีสิทธิ์เรียนอยู่แล้ว`, { icon: "ℹ️" });
 
             if (mode === "pending") refreshPendingCount();
-            await fetchData();
+            // เดิม: fetchData() = สแกน users+enrollments ใหม่ทั้งชุด (~2,900 reads)
+            // ต่อการลงทะเบียนให้ 1 ครั้ง — เรารู้ข้อมูลใบที่เพิ่งสร้างครบแล้ว
+            // แพตช์ state ตรงๆ แล้วล้างแคชให้การเปิดหน้าครั้งหน้าอ่านสดพอ
+            setEnrollments((prev) => [
+                ...createdDocs.map((cd) => ({
+                    id: cd.id,
+                    userId: selected.id,
+                    userEmail: selected.email || "",
+                    courseId: cd.courseId,
+                    courseTitle: cd.title,
+                    status: mode,
+                    createdAtMs: now.getTime(),
+                })),
+                ...prev,
+            ]);
+            clearAdminCache(REG_CACHE_KEY);
         } catch (err) {
             console.error(err);
             toast.error(isNetTimeout(err) ? NET_TIMEOUT_MESSAGE : "ดำเนินการไม่สำเร็จ ลองอีกครั้ง");
@@ -428,7 +493,7 @@ export default function AdminRegistrationsPage() {
                     ))}
                 </div>
                 <div className="flex items-center gap-2">
-                    <button type="button" onClick={fetchData} className="kh-btn-ghost" title="โหลดข้อมูลใหม่">
+                    <button type="button" onClick={() => fetchData(true)} className="kh-btn-ghost" title="โหลดข้อมูลใหม่">
                         <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                     </button>
                     <Link href="/admin/enrollments" className="kh-btn-ghost"><Wallet size={16} /> ตรวจสอบชำระเงิน</Link>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { auth, db } from "@/lib/firebase";
-import { collection, getDocs, getDoc, query, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, getDoc, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc, setDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, FileJson, GripVertical, Unlock, Lock, Eye, EyeOff, ClipboardCheck, ClipboardList, BarChart3, Settings, FolderPlus, AlertCircle, Pencil, Check, X, ChevronDown, ChevronUp, Download, FileText, BookOpen, Loader2 } from "lucide-react";
@@ -17,6 +17,8 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import React from "react";
+import { bustContentCache, postRevalidate } from "@/lib/bustContentCache";
+import { listCollection } from "@/lib/firestoreRest";
 
 // Sortable Table Row Component
 function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onToggleHidden, onToggleAnswerChecking, onCategoryChange, onExport }: { exam: any; categoryOptions: string[]; onDelete: (id: string) => void; onToggleFree: (id: string, currentStatus: boolean) => void; onToggleHidden: (id: string, currentStatus: boolean) => void; onToggleAnswerChecking: (id: string, currentStatus: boolean) => void; onCategoryChange: (id: string, newCategory: string) => void; onExport: (exam: any) => void }) {
@@ -87,7 +89,7 @@ function SortableExamRow({ exam, categoryOptions, onDelete, onToggleFree, onTogg
                 </span>
             </td>
             <td className="text-center kh-num kh-ink2 font-bold">
-                {exam.questions?.length || 0}
+                {exam.questionCount ?? 0}
             </td>
             <td className="text-center">
                 <button
@@ -249,6 +251,14 @@ function ExamExportModal({ exam, onClose }: { exam: any; onClose: () => void }) 
         let cancelled = false;
         (async () => {
             let qs = parseExamQuestions(exam.questions);
+            if (qs.length === 0) {
+                // แถวในตารางเป็น metadata-only แล้ว (ไม่แบก questions มาด้วย) —
+                // ดึง doc เต็มเฉพาะชุดที่จะ export ตอนนี้ (1 read เมื่อกดเท่านั้น)
+                try {
+                    const snap = await getDoc(doc(db, "exams", exam.id));
+                    if (snap.exists()) qs = parseExamQuestions((snap.data() as any).questions);
+                } catch { /* ignore — falls through to questionsUrl/empty */ }
+            }
             if (qs.length === 0 && exam.questionsUrl) {
                 try {
                     const res = await fetch(exam.questionsUrl, { signal: AbortSignal.timeout(8000) });
@@ -407,7 +417,8 @@ export default function ExamManagerPage() {
         const total = exams.length;
         const free = exams.filter(e => e.isFree).length;
         const hidden = exams.filter(e => e.hidden).length;
-        const totalQuestions = exams.reduce((sum, e) => sum + (e.questions?.length || 0), 0);
+        // นับจาก questionCount (ตรวจแล้ว 2026-08-19: มีครบทุก doc บนโปรดักชัน)
+        const totalQuestions = exams.reduce((sum, e) => sum + (e.questionCount ?? 0), 0);
         return { total, free, hidden, totalQuestions };
     }, [exams]);
 
@@ -436,6 +447,7 @@ export default function ExamManagerPage() {
             // merge: true จำเป็น — doc นี้แชร์กับแบนเนอร์โปรโมชัน/การ์ดนับถอยหลัง
             // และ nested merge จะคงสวิตช์อีกตัวใน examConfig ไว้
             await setDoc(doc(db, pubCol, pubId), { examConfig: { [field]: newVal } }, { merge: true });
+            bustContentCache("settings"); // หน้าคลังข้อสอบอ่านสวิตช์นี้ผ่านแคช 1 ชม. — บัสต์ให้มีผลทันที
             setExamConfig(prev => ({ ...prev, [field]: newVal }));
         } catch (e) { console.error('Error updating exam config:', e); alert('เกิดข้อผิดพลาด'); }
     };
@@ -443,9 +455,20 @@ export default function ExamManagerPage() {
     const fetchExams = async () => {
         setLoading(true);
         try {
-            const q = query(collection(db, "exams"));
-            const snapshot = await getDocs(q);
-            const fetchedExams = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // อ่านผ่าน Firestore REST + field mask แทน getDocs ทั้ง doc —
+            // เดิม client SDK ไม่มี projection เลยดาวน์โหลด questions เต็มทุกชุด
+            // (~24MB ต่อการเปิดหน้า 1 ครั้ง — audit 2026-08-19) ทั้งที่ตารางใช้แค่
+            // ข้อมูลหัวชุด; จำนวนข้ออ่านจาก questionCount ที่เก็บคู่กันอยู่แล้ว
+            // (โจทย์เต็มค่อยดึงเป็นราย doc ตอนกด export — ดู ExamExportModal)
+            const fetchedExams: any[] = await listCollection(
+                "exams",
+                [
+                    "title", "description", "level", "category", "difficulty",
+                    "isFree", "hidden", "showAnswerChecking", "questionsUrl",
+                    "questionCount", "order", "createdAt", "themeColor", "coverImage",
+                ],
+                { noStore: true }
+            );
 
             // Sort by order field, fallback to createdAt desc
             fetchedExams.sort((a: any, b: any) => {
@@ -453,9 +476,9 @@ export default function ExamManagerPage() {
                 const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
                 if (orderA !== orderB) return orderA - orderB;
 
-                // Fallback to createdAt desc
-                const timeA = a.createdAt?.seconds || 0;
-                const timeB = b.createdAt?.seconds || 0;
+                // Fallback to createdAt desc (REST คืน timestamp เป็น ISO string)
+                const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
                 return timeB - timeA;
             });
 
@@ -553,18 +576,8 @@ export default function ExamManagerPage() {
     // waiting up to 5 min for the next time-based revalidation. Best-effort and
     // fire-and-forget: the Firestore write is what matters; if this fails the
     // page just falls back to its normal revalidate window, so we only warn.
-    const revalidateExamPages = async () => {
-        try {
-            const token = await auth.currentUser?.getIdToken();
-            if (!token) return;
-            await fetch("/api/revalidate-exams", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
-            });
-        } catch (e) {
-            console.warn("Revalidate exam pages failed (non-fatal):", e);
-        }
-    };
+    // ใช้ helper กลาง — ก้อน getIdToken→POST เดิมถูกก๊อปไว้หลายหน้าแล้วเริ่ม drift
+    const revalidateExamPages = () => postRevalidate("/api/revalidate-exams");
 
     const handleDelete = (id: string) => {
         confirmModal("ยืนยันการลบชุดข้อสอบ", "คุณแน่ใจหรือไม่ว่าจะลบชุดข้อสอบนี้? การกระทำนี้ไม่สามารถย้อนกลับได้", async () => {

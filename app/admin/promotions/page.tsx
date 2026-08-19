@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { bustContentCache } from "@/lib/bustContentCache";
 import { ref, deleteObject } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import { PROMO_STATS_DOC } from "@/lib/promoTracking";
@@ -122,6 +123,7 @@ export default function AdminPromotions() {
             if (originalImageUrl.current && originalImageUrl.current !== imageUrl) {
                 deleteImageByUrl(originalImageUrl.current);
             }
+            bustContentCache("settings"); // หน้าแรกเห็นแบนเนอร์ใหม่ทันที (แคช 1 ชม. ถูกบัสต์)
             originalImageUrl.current = imageUrl;
             snapshot.current = JSON.stringify({ enabled, imageUrl, title, subtitle, ctaText, ctaLink, theme, bgStyle, badgeText, startDate, endDate, showCountdown });
             setSavedAt(new Date().toLocaleTimeString("th-TH"));

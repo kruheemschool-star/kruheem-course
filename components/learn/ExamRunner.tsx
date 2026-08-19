@@ -26,7 +26,7 @@ import {
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown, Pause, Play, Coffee } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, updateDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, serverTimestamp } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
@@ -607,10 +607,12 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                     seen,
                     updatedAt: serverTimestamp(),
                 });
-                const allSnap = await getDocs(collection(db, 'users', user.uid, 'lessonExamResults'));
+                // กรอง courseId ฝั่งเซิร์ฟเวอร์ — เดิมอ่านผลสอบทุกคอร์สทั้ง collection
+                // แล้วค่อยกรองบนเครื่อง (โตตามจำนวนชุดที่เด็กเคยทำสะสม)
+                const allSnap = await getDocs(query(collection(db, 'users', user.uid, 'lessonExamResults'), where('courseId', '==', courseId)));
                 const weak = allSnap.docs
                     .map((d) => d.data() as StoredResult)
-                    .filter((d) => (d.courseId || '') === courseId && d.lessonId !== lessonId && d.lessonId !== 'topic-drill' && !!d.lessonTitle && typeof d.bestPercent === 'number' && d.bestPercent < 70)
+                    .filter((d) => d.lessonId !== lessonId && d.lessonId !== 'topic-drill' && !!d.lessonTitle && typeof d.bestPercent === 'number' && d.bestPercent < 70)
                     .sort((a, b) => (a.bestPercent || 0) - (b.bestPercent || 0))
                     .slice(0, 3)
                     .map((d) => ({ title: d.lessonTitle as string, percent: d.bestPercent as number }));

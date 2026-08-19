@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { auth, db } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, deleteField } from "firebase/firestore";
 import { uploadPublicFile, uploadPrivateFile, deleteStorageFile } from "@/lib/pdfUpload";
 import { uploadImageToStorage } from "@/lib/upload";
@@ -9,6 +9,7 @@ import { useConfirmModal } from "@/hooks/useConfirmModal";
 import type { ExamPaper, ExamPaperFile, ExamPaperAnalysis } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
 import { Plus, FileText, Trash2, Pencil, Eye, EyeOff, ImagePlus, UploadCloud, FileCheck2, X, Loader2, Lock, GripVertical, BarChart3 } from "lucide-react";
+import { postRevalidate } from "@/lib/bustContentCache";
 
 // A file row in the editor: either already-uploaded (has `path`) or freshly
 // staged (has `file`, not yet uploaded).
@@ -94,16 +95,7 @@ export default function AdminExamPapersPage() {
 
     // Bust the public shop's ISR cache so admin changes show instantly instead of
     // waiting out the 5-minute window. Best-effort — the change is already saved.
-    const bustShopCache = useCallback(async () => {
-        try {
-            const token = await auth.currentUser?.getIdToken();
-            if (!token) return;
-            await fetch("/api/revalidate-exam-papers", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
-            });
-        } catch { /* non-fatal */ }
-    }, []);
+    const bustShopCache = useCallback(() => postRevalidate("/api/revalidate-exam-papers"), []);
 
     const openCreate = () => {
         setEditingId(null);

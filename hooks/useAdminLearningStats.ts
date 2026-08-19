@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { db } from "@/lib/firebase";
 import {
     collection, getDocs, query, where, doc, getDoc,
@@ -82,7 +82,14 @@ async function processBatch<T, R>(items: T[], batchSize: number, fn: (item: T) =
     return results;
 }
 
-export const useAdminLearningStats = () => {
+// รับ enrollments ที่ useAdminStats โหลดไว้แล้ว (แดชบอร์ดใช้สองฮุคนี้คู่กันเสมอ)
+// — เดิมกดปุ่ม "โหลดข้อมูลการเรียน" แล้วยิง query approved ทั้งชุดซ้ำอีกรอบ
+// (~1,435 reads ทิ้งเปล่า audit 2026-08-19); ถ้าไม่ได้ส่งมา/ว่าง ค่อยยิงเอง
+export const useAdminLearningStats = (preloadedEnrollments?: any[]) => {
+    // fetchStats ถูก memo ด้วย useCallback — อ่านผ่าน ref เพื่อให้ได้ค่าล่าสุดเสมอ
+    // (enrollments มาถึงทีหลังตอน useAdminStats โหลดเสร็จ)
+    const preloadedRef = useRef(preloadedEnrollments);
+    preloadedRef.current = preloadedEnrollments;
     const [loading, setLoading] = useState(false);
     const [hasFetched, setHasFetched] = useState(false);
     const [overallCompletionRate, setOverallCompletionRate] = useState(0);
@@ -103,11 +110,17 @@ export const useAdminLearningStats = () => {
 
     const fetchLearningStats = async () => {
         try {
-            // 1. Get all approved enrollments
-            const enrollSnap = await getDocs(
-                query(collection(db, "enrollments"), where("status", "==", "approved"))
-            );
-            const enrollments = enrollSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+            // 1. Get all approved enrollments — ใช้ของที่แดชบอร์ดโหลดไว้แล้วถ้ามี
+            let enrollments: any[];
+            const preloaded = preloadedRef.current;
+            if (preloaded && preloaded.length > 0) {
+                enrollments = preloaded;
+            } else {
+                const enrollSnap = await getDocs(
+                    query(collection(db, "enrollments"), where("status", "==", "approved"))
+                );
+                enrollments = enrollSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+            }
 
             // 2. Get unique courses and their lesson counts
             const courseIds = [...new Set(enrollments.map(e => e.courseId).filter(Boolean))];

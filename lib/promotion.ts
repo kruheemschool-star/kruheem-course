@@ -1,5 +1,5 @@
 import { getDocument } from "@/lib/firestoreRest";
-import { PUBLIC_SETTINGS_DOC, PUBLIC_SETTINGS_REVALIDATE } from "@/lib/publicSettings";
+import { PUBLIC_SETTINGS_DOC, PUBLIC_SETTINGS_REVALIDATE, PUBLIC_SETTINGS_TAGS } from "@/lib/publicSettings";
 import type { PromotionData } from "@/components/home/PromotionBanner";
 
 // doc นี้ถูกแชร์กับการตั้งค่าสาธารณะอื่น (countdown / examConfig) — ดู lib/publicSettings.ts
@@ -17,7 +17,7 @@ const PROMO_DOC = PUBLIC_SETTINGS_DOC;
  */
 export async function getActivePromotion(): Promise<PromotionData | null> {
     try {
-        const doc = await getDocument(PROMO_DOC, { revalidate: PUBLIC_SETTINGS_REVALIDATE });
+        const doc = await getDocument(PROMO_DOC, { revalidate: PUBLIC_SETTINGS_REVALIDATE, tags: PUBLIC_SETTINGS_TAGS });
         if (!doc || doc.enabled !== true) return null;
 
         const title = (doc.title as string) || "";

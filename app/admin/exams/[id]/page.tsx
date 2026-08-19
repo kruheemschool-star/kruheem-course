@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { auth, db, storage } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
@@ -16,6 +16,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { withTimeout, isNetTimeout, NET_TIMEOUT_MESSAGE } from "@/lib/netGuard";
+import { postRevalidate } from "@/lib/bustContentCache";
 
 interface SortableQuestionBlockProps {
     id: string;
@@ -951,18 +952,7 @@ export default function ExamEditorPage() {
             // Bust the student-facing exam caches (listing, exam pages, search
             // index, homepage carousel) so this edit shows up immediately —
             // same best-effort, fire-and-forget call /admin/exams makes.
-            (async () => {
-                try {
-                    const token = await auth.currentUser?.getIdToken();
-                    if (!token) return;
-                    await fetch("/api/revalidate-exams", {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
-                } catch (e) {
-                    console.warn("Revalidate exam pages failed (non-fatal):", e);
-                }
-            })();
+            postRevalidate("/api/revalidate-exams");
 
             // Show simple toast or alert
             // alert("บันทึกข้อมูลเรียบร้อยแล้ว!"); // Remove alert to make it smoother

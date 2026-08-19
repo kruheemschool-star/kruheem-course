@@ -11,7 +11,7 @@ import { listCollection } from "@/lib/firestoreRest";
 // 1 hour (not 5 min) is safe because admin exam changes bust this cache
 // on-demand: /api/revalidate-exams calls revalidateTag("exams-feed") +
 // revalidatePath("/api/feature-exams"), so edits still appear instantly.
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 // Metadata-only feed for the homepage FeatureCarousel.
 // Ordering matches the previous Firestore query (orderBy createdAt asc),
@@ -23,7 +23,7 @@ export async function GET() {
         const docs = await listCollection(
             "exams",
             ["title", "coverImage", "createdAt"],
-            { revalidate: 3600, tags: ["exams-feed"] }
+            { revalidate: 86400, tags: ["exams-feed"] }
         );
 
         const exams = docs
