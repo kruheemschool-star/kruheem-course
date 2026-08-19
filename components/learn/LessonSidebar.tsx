@@ -59,6 +59,12 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
     const examQuestionCounts = useMemo(() => {
         const counts: Record<string, number> = {};
         examLessons.forEach((exam) => {
+            // รายการจากสารบัญมี questionCount มาให้เลย (ไม่มี content ให้ parse)
+            const fromIndex = (exam as any).questionCount as number | undefined;
+            if (fromIndex && fromIndex > 0) {
+                counts[exam.id] = fromIndex;
+                return;
+            }
             const questions = tryParseQuestions(exam.content || '');
             if (questions) {
                 counts[exam.id] = questions.length;

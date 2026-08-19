@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { getCachedData } from "@/lib/dataCache";
+import { fetchLessonsList } from "@/lib/lessonsIndex";
 import { getProficiencyLevel, projectAttemptsToGoal } from "@/lib/exam-utils";
 import Link from "next/link";
 import {
@@ -242,18 +243,16 @@ export default function ParentDashboard() {
 
                 for (const course of filteredCourses) {
                     // Cached per-course — shared with my-courses and learn/[id]
-                    const lessonDocs = await getCachedData<Lesson[]>(`lessons-${course.id}`, async () => {
-                        const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
-                        return lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }) as Lesson);
-                    });
-                    const lessonList = lessonDocs
-                        .slice()
-                        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+                    // สารบัญ 1 read แทนสแกนเต็ม (เรียงมาแล้ว; fallback อ่านเต็มเมื่อไม่มี)
+                    const lessonDocs = await getCachedData<Lesson[]>(`lessons-list-${course.id}`, () => fetchLessonsList(course.id) as Promise<Lesson[]>);
+                    const lessonList = lessonDocs.slice();
 
                     const videoLessons = lessonList.filter(l => l.type === 'video' && !l.isHidden);
                     // นับชุดตะลุยโจทย์ในคอร์ส (html + เนื้อหาเป็น JSON array ของโจทย์)
                     examSetCount += lessonList.filter((l) => {
                         if (l.type !== 'html' || l.isHidden) return false;
+                        // รายการจากสารบัญใช้ธง jsonish ที่คำนวณไว้ตอนสร้างสารบัญ
+                        if ((l as any).jsonish !== undefined || (l as any)._light) return !!(l as any).jsonish;
                         const raw = ((l as any).content || (l as any).htmlCode || '').trim();
                         return raw.startsWith('[') || raw.startsWith('{');
                     }).length;

@@ -4,6 +4,7 @@ import { db } from "@/lib/firebase";
 import { logLearningActivity } from "@/lib/activityTracking";
 import { doc, getDoc, collection, getDocs, query, orderBy, setDoc, onSnapshot, where, serverTimestamp } from "firebase/firestore";
 import { getCachedData } from "@/lib/dataCache";
+import { fetchLessonsList } from "@/lib/lessonsIndex";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useUserAuth } from "@/context/AuthContext";
@@ -174,27 +175,16 @@ function CoursePlayer() {
                 });
                 if (courseData) setCourse(courseData);
 
-                // ✅ Cached lessons — shared with my-courses and parent-dashboard
-                const lessonDocs = await getCachedData<any[]>(`lessons-${courseId}`, async () => {
-                    const q = query(collection(db, "courses", courseId, "lessons"));
-                    const querySnapshot = await getDocs(q);
-                    return querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                });
-                const lessonList = (lessonDocs as Lesson[]).slice(); // copy to avoid mutating cache
-
-                // ✅ Sort by order first, then createdAt
-                lessonList.sort((a: any, b: any) => {
-                    const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
-                    const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
-
-                    if (orderA !== orderB) return orderA - orderB;
-
-                    const timeA = a.createdAt?.seconds || 0;
-                    const timeB = b.createdAt?.seconds || 0;
-                    return timeA - timeB;
-                });
-
-                setLessons(lessonList);
+                // ✅ สารบัญบทเรียน (1 read) แทนการอ่านบททุกใบเต็ม (ป.6 = 281 reads
+                //    + 8.8MB ต่อการเปิดสด) — รายการที่ได้เป็น "รายการย่อ" ไม่มี content
+                //    เนื้อหาเต็มดึงเฉพาะบทที่ผู้เรียนกดเปิด (ดู hydrateLesson)
+                //    ถ้าคอร์สยังไม่มีสารบัญ helper จะ fallback อ่านเต็มแบบเดิมให้เอง
+                //    (คีย์ cache ใหม่ — ห้ามใช้ `lessons-` เดิมเพราะรูปข้อมูลไม่เหมือนกัน)
+                const lessonDocs = await getCachedData<any[]>(
+                    `lessons-list-${courseId}${lessonIdParam ? `-need-${lessonIdParam}` : ""}`,
+                    () => fetchLessonsList(courseId, lessonIdParam ? { mustInclude: lessonIdParam } : undefined)
+                );
+                setLessons((lessonDocs as Lesson[]).slice()); // เรียงมาแล้วจาก helper
             } catch (error) {
                 console.error("Error:", error);
             } finally {
@@ -220,12 +210,12 @@ function CoursePlayer() {
         if (lessonIdParam) {
             const target = visibleLessons.find(l => l.id === lessonIdParam);
             if (target && target.id !== activeLesson?.id) {
-                setActiveLesson(target);
+                changeLesson(target); // hydrate เนื้อหาเต็มให้ด้วย (ลิงก์ตรง/เรียนต่อ)
             }
         } else if (!activeLesson) {
             const firstLearnable = visibleLessons.find(l => l.type !== 'header');
             if (firstLearnable) {
-                setActiveLesson(firstLearnable);
+                changeLesson(firstLearnable);
             }
         }
     }, [visibleLessons, lessonIdParam]);
@@ -287,11 +277,39 @@ function CoursePlayer() {
         return `${m}:${sec.toString().padStart(2, "0")}`;
     };
 
+    // ดึง doc เต็มของบทหนึ่งใบ (แคชต่อบท) — รายการจากสารบัญไม่มี content มาด้วย
+    // บทวิดีโอเล่นได้ทันทีจาก videoId ในสารบัญ ส่วนชุดข้อสอบ/เอกสาร/แฟลชการ์ด
+    // ต้องรอ doc เต็ม (โหลดเฉพาะใบแรกที่เปิด ครั้งเดียวต่อบท)
+    const hydrateLesson = async (lesson: Lesson): Promise<Lesson> => {
+        if (lesson.type === 'header') return lesson;
+        // hydrate เฉพาะรายการย่อจากสารบัญ (_light) — doc จากเส้น fallback เป็นของเต็ม
+        // อยู่แล้วแม้บางใบไม่มีฟิลด์ content (เช่นวิดีโอรุ่นเก่า) ห้ามยิงซ้ำ
+        if (!(lesson as any)._light || (lesson as any)._hydrated) return lesson;
+        const full = await getCachedData<any>(`lesson-full-${courseId}-${lesson.id}`, async () => {
+            const snap = await getDoc(doc(db, "courses", courseId, "lessons", lesson.id));
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+        });
+        // _hydrated กันยิงซ้ำกับบท (เช่นวิดีโอ) ที่ doc เต็มก็ไม่มีฟิลด์ content
+        return full ? ({ ...lesson, ...full, _light: false, _hydrated: true } as Lesson) : lesson;
+    };
+
     const changeLesson = (lesson: Lesson | null) => {
-        if (lesson?.id === activeLesson?.id) return;
-        setActiveLesson(lesson);
+        // บทเดิมที่ hydrate เสร็จแล้ว = no-op; แต่ถ้ายัง _light อยู่ (โหลดพลาดรอบก่อน)
+        // ให้กดซ้ำเพื่อ retry ได้
+        if (lesson?.id === activeLesson?.id && !(activeLesson as any)?._light) return;
+        setActiveLesson(lesson); // โชว์หัวเรื่อง/วิดีโอทันที ไม่ต้องรอเนื้อหาเต็ม
         setSelectedAnswer(null);
         setIsAnswered(false);
+        if (lesson && lesson.type !== 'header') {
+            hydrateLesson(lesson).then((full) => {
+                if (full === lesson) return;
+                // ผู้เรียนอาจกดบทอื่นไประหว่างโหลด — เติมเฉพาะเมื่อยังอยู่บทเดิม
+                setActiveLesson((cur) => (cur?.id === lesson.id ? full : cur));
+            }).catch((e) => {
+                // เน็ตสะดุด — คงรายการย่อไว้ (ยัง _light) ผู้เรียนกดบทเดิมซ้ำเพื่อลองใหม่ได้
+                console.warn('[learn] hydrate lesson failed:', e);
+            });
+        }
     }
 
     const markAsComplete = async (lessonId: string) => {
@@ -332,13 +350,17 @@ function CoursePlayer() {
     // หน้าเอกสารแจก เช่น เช็คลิสต์ (htmlCode = หน้าเว็บ, content ว่าง) — แยกกันด้วยว่า
     // parse questions ได้ไหม ไม่ใช่ด้วยชื่อบท เอกสารแจกจะได้ไม่ไปจมอยู่ในรายการข้อสอบ
     // (ทั้งสองแบบยังเป็น type 'html' เหมือนเดิม จึงไม่ถูกนับใน % ความคืบหน้า)
+    const isExamSetLesson = (l: Lesson) =>
+        l.type === 'html' && (((l as any).questionCount ?? 0) > 0 || !!tryParseQuestions(l.content || ""));
     const examLessons = useMemo(() => {
-        return visibleLessons.filter(l => l.type === 'html' && !!tryParseQuestions(l.content || ""));
+        return visibleLessons.filter(isExamSetLesson);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visibleLessons]);
 
     // ✅ เอกสารแจกดาวน์โหลด (เช็คลิสต์ ฯลฯ) — โชว์เป็นการ์ดของตัวเองในเมนู
     const docLessons = useMemo(() => {
-        return visibleLessons.filter(l => l.type === 'html' && !tryParseQuestions(l.content || ""));
+        return visibleLessons.filter(l => l.type === 'html' && !isExamSetLesson(l));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [visibleLessons]);
 
     // P3.2: cross-set topic drill — pool questions of one weak sub-topic across
@@ -348,7 +370,17 @@ function CoursePlayer() {
         if (!user || drillLoading) return;
         setDrillLoading(true);
         try {
-            const arrays = examLessons
+            // รายการจากสารบัญไม่มี content — ดึง doc เต็มของทุกชุดในคอร์สก่อน pool
+            // (ครั้งเดียวต่อ session ต่อชุด — แคชใน hydrateLesson) ทีละ 5 ใบ กันยิง
+            // พร้อมกัน 19+ ใบใส่เน็ตมือถือ; พลาดใบไหนข้ามใบนั้น (pool เท่าที่ได้)
+            const fullExamLessons: Lesson[] = [];
+            for (let i = 0; i < examLessons.length; i += 5) {
+                const chunk = await Promise.all(
+                    examLessons.slice(i, i + 5).map((l) => hydrateLesson(l).catch(() => l))
+                );
+                fullExamLessons.push(...chunk);
+            }
+            const arrays = fullExamLessons
                 .map((l) => tryParseQuestions((l as any).content || "") || [])
                 .filter((a): a is any[] => Array.isArray(a) && a.length > 0);
             const wrongKeys = new Set<string>();

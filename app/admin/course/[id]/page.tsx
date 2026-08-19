@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { db, storage } from "@/lib/firebase";
 import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, getDoc, query, orderBy, writeBatch, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -16,6 +16,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableLessonItem } from '@/components/admin/SortableLessonItem';
 import { useConfirmModal } from '@/hooks/useConfirmModal';
+import { syncLessonsIndex, LESSONS_INDEX_ID } from "@/lib/lessonsIndex";
 
 // 🎨 Global CSS for consistent KaTeX styling
 const katexGlobalStyles = `
@@ -377,6 +378,7 @@ export default function ManageLessonsPage() {
             // 2. Count only valid lessons (exclude headers)
             // Valid types: video, quiz, text, exercise, html, flashcard
             const validDocs = snapshot.docs.filter(d => {
+                if (d.id === LESSONS_INDEX_ID) return false; // doc สารบัญ ไม่ใช่บทเรียน
                 const data = d.data();
                 return data.type !== 'header';
             });
@@ -774,8 +776,12 @@ export default function ManageLessonsPage() {
         }
     };
 
+    const fetchSeqRef = useRef(0);
     const fetchCourseInfo = useCallback(async () => {
         if (!courseId) return;
+        // กัน refetch ซ้อน: สอง mutation ติดกัน → response เก่ากลับมาช้ากว่า
+        // จะทับทั้งตารางและสารบัญด้วยข้อมูลเก่า (แล้วค้างใน Firestore)
+        const seq = ++fetchSeqRef.current;
         try {
             const courseDoc = await getDoc(doc(db, "courses", courseId));
             if (courseDoc.exists()) setCourseTitle(courseDoc.data().title);
@@ -784,7 +790,10 @@ export default function ManageLessonsPage() {
             // For simplicity and robustness without manual index creation, we'll fetch all and sort in JS.
             const q = query(collection(db, "courses", courseId, "lessons"));
             const querySnapshot = await getDocs(q);
-            const fetchedLessons = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // _index = doc สารบัญอัตโนมัติ ไม่ใช่บทเรียน — ห้ามโผล่ในตารางแก้ไข
+            const fetchedLessons = querySnapshot.docs
+                .filter(doc => doc.id !== LESSONS_INDEX_ID)
+                .map(doc => ({ id: doc.id, ...doc.data() }));
 
             // Sort in memory
             fetchedLessons.sort((a: any, b: any) => {
@@ -801,7 +810,12 @@ export default function ManageLessonsPage() {
                 return timeA - timeB;
             });
 
+            if (seq !== fetchSeqRef.current) return; // มี refetch ใหม่กว่าแล้ว — ทิ้งชุดนี้
             setLessons(fetchedLessons);
+            // จุด rebuild สารบัญจุดเดียว: ทุก mutation ของหน้านี้ (เพิ่ม/แก้/ลบ/ย้าย/ซ่อน)
+            // จบด้วย fetchCourseInfo เสมอ — เขียนสารบัญตรงนี้จึงครอบทุกเส้นทางอัตโนมัติ
+            // (การเปิดหน้าเฉยๆ ก็เขียน 1 ครั้ง = จุด self-heal หลังรันสคริปต์ด้วย)
+            void syncLessonsIndex(courseId, fetchedLessons);
         } catch (error) { console.error("Error:", error); }
         finally { setLoading(false); }
     }, [courseId]);

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useUserAuth } from '@/context/AuthContext';
+import { fetchLessonsList } from '@/lib/lessonsIndex';
 import {
     BadgeRank,
     BadgeInfo,
@@ -61,10 +62,12 @@ export function useGamification() {
                 const videoLessonsByCourse: Record<string, { id: string; title: string }[]> = {};
                 await Promise.all(enrolledCourseIds.map(async (courseId) => {
                     try {
-                        const lessonsSnap = await getDocs(collection(db, 'courses', courseId, 'lessons'));
-                        const videoLessons = lessonsSnap.docs
-                            .filter(d => d.data().type === 'video')
-                            .map(d => ({ id: d.id, title: d.data().title }));
+                        // สารบัญ 1 read แทนสแกนบทเต็มทุกใบ (hook นี้ยัง orphaned แต่กัน
+                        // อนาคต wire แล้วลากค่าอ่านก้อนโตกลับมา)
+                        const lessonList = await fetchLessonsList(courseId);
+                        const videoLessons = lessonList
+                            .filter((l: any) => l.type === 'video')
+                            .map((l: any) => ({ id: l.id, title: l.title }));
                         if (videoLessons.length > 0) {
                             videoLessonsByCourse[courseId] = videoLessons;
                         }

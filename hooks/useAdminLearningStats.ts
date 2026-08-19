@@ -4,6 +4,7 @@ import {
     collection, getDocs, query, where, doc, getDoc,
     collectionGroup, orderBy, limit, Timestamp
 } from "firebase/firestore";
+import { fetchLessonsList } from "@/lib/lessonsIndex";
 
 // --- Interfaces ---
 export interface CourseCompletionData {
@@ -130,14 +131,14 @@ export const useAdminLearningStats = (preloadedEnrollments?: any[]) => {
             await processBatch(courseIds, 5, async (courseId) => {
                 try {
                     // Fetch course info AND lessons in parallel (2 queries at once instead of sequential)
-                    const [courseDoc, lessonsSnap] = await Promise.all([
+                    // สารบัญ 1 read แทนดึงบททุกใบเต็ม (คอร์สใหญ่ = หลายร้อย reads/MB)
+                    const [courseDoc, lessonList] = await Promise.all([
                         getDoc(doc(db, "courses", courseId)),
-                        getDocs(collection(db, "courses", courseId, "lessons")),
+                        fetchLessonsList(courseId),
                     ]);
                     const courseTitle = courseDoc.exists() ? (courseDoc.data().title || "ไม่ระบุ") : "ไม่ระบุ";
-                    const lessons = lessonsSnap.docs
-                        .map(d => ({ id: d.id, ...d.data() }))
-                        .filter((l: any) => l.type !== 'header' && !l.isHidden) as any[];
+                    const lessons = lessonList
+                        .filter((l: any) => l.type !== 'header' && l.type !== 'index' && !l.isHidden) as any[];
 
                     // Sort by order then createdAt
                     lessons.sort((a: any, b: any) => {

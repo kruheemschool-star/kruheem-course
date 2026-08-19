@@ -20,7 +20,9 @@ export default function BackupPage() {
                 const courseData = { id: doc.id, ...doc.data() } as any;
                 // Fetch lessons
                 const lessonsSnap = await getDocs(collection(db, "courses", doc.id, "lessons"));
-                courseData.lessons = lessonsSnap.docs.map(l => ({ id: l.id, ...l.data() }));
+                // _index = สารบัญอัตโนมัติ ไม่ใช่บทเรียน — ไม่เอาเข้าไฟล์สำรอง
+                // (กัน restore เขียนสารบัญเก่าแช่กลับไปทับของจริง)
+                courseData.lessons = lessonsSnap.docs.filter(l => l.id !== "_index").map(l => ({ id: l.id, ...l.data() }));
                 backupData.courses.push(courseData);
             }
 

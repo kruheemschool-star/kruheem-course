@@ -76,7 +76,8 @@ export function ProgressDashboardView({ examLessons, byLesson, loading, onClose,
     onStartTopicDrill?: (tag: string) => void;
 }) {
     // Real exam sets only (content parses to questions)
-    const examSets = examLessons.filter((l) => tryParseQuestions(l.content || ''));
+    // รายการจากสารบัญไม่มี content — เช็ค questionCount ที่คำนวณไว้แล้วก่อน
+    const examSets = examLessons.filter((l) => ((l as any).questionCount ?? 0) > 0 || tryParseQuestions(l.content || ''));
     const rows = examSets.map((l) => ({ lesson: l, r: byLesson[l.id] || null }));
     const done = rows.filter((x) => x.r) as { lesson: Lesson; r: StoredResult }[];
     const attemptedCount = done.length;

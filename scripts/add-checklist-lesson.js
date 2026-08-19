@@ -169,6 +169,9 @@ const tryParseQuestions = (raw) => {
     process.exit(0);
   }
   const ref = await lessonsCol.add(payload);
-  console.log(`\n✅ เพิ่มแล้ว: ${ref.id} — เปิดดูได้ทันทีที่ /learn/${T.courseId} (การ์ดเอกสารแจกในไซด์บาร์)`);
+  // เว็บอ่านเมนูบทเรียนจาก "สารบัญ" (lessons/_index) — ต้อง rebuild ไม่งั้นบทใหม่ล่องหน
+  const { rebuildLessonsIndex } = require('./lib/lessons-index');
+  await rebuildLessonsIndex(db, T.courseId);
+  console.log(`\n✅ เพิ่มแล้ว: ${ref.id} (สารบัญอัปเดตแล้ว) — เปิดดูได้ทันทีที่ /learn/${T.courseId} (การ์ดเอกสารแจกในไซด์บาร์)`);
   process.exit(0);
 })().catch((e) => { console.error('ERROR:', e.message); process.exit(1); });

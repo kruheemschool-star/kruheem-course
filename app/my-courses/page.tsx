@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, onSnapshot, QuerySnapshot, DocumentD
 import { useTheme } from "next-themes";
 import { auth, db } from "@/lib/firebase";
 import { getCachedData } from "@/lib/dataCache";
+import { fetchLessonsList } from "@/lib/lessonsIndex";
 import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -479,10 +480,8 @@ export default function MyCoursesPage() {
                         });
                         videoCountMap[course.id] = { videoIds: examsData.map((e) => e.id), total: examsData.length };
                     } else {
-                        const lessonDocs = await getCachedData(`lessons-${course.id}`, async () => {
-                            const lessonsSnap = await getDocs(collection(db, "courses", course.id, "lessons"));
-                            return lessonsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-                        });
+                        // สารบัญ 1 read แทนสแกนบทเรียนเต็มทุกใบ (helper fallback เองเมื่อไม่มี)
+                        const lessonDocs = await getCachedData<any[]>(`lessons-list-${course.id}`, () => fetchLessonsList(course.id));
                         const videoLessons = lessonDocs.filter((l: any) => l.type === "video" && !l.isHidden);
                         videoCountMap[course.id] = { videoIds: videoLessons.map((l: any) => l.id), total: videoLessons.length };
                     }

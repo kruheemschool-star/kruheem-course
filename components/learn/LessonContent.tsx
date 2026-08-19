@@ -248,7 +248,15 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                         : <div className="text-gray-400">No Cover Image</div>}
                 </div>
             ) : canWatchCurrent ? (
-                activeLesson?.type === 'quiz' ? (
+                // ช่วงรอ hydrate: รายการจากสารบัญ (_light) ยังไม่มีเนื้อหาเต็ม —
+                // ถ้าปล่อยผ่านลงไป บทข้อสอบจะเป็น iframe ขาวโล่ง และบทฝึกหัดจะขึ้น
+                // "ยังไม่มีข้อสอบ" ทั้งที่แค่กำลังโหลด (วิดีโอไม่ต้องรอ — เล่นจาก videoId ได้เลย)
+                (activeLesson as any)?._light && activeLesson?.type !== 'video' ? (
+                    <div className="w-full min-h-[60vh] flex flex-col items-center justify-center gap-4 bg-white dark:bg-slate-900">
+                        <div className="w-10 h-10 rounded-full border-4 border-indigo-100 border-t-indigo-500 animate-spin" />
+                        <p className="text-sm font-bold text-slate-400 dark:text-slate-500">กำลังโหลดบทเรียน...</p>
+                    </div>
+                ) : activeLesson?.type === 'quiz' ? (
                     <div className="w-full min-h-full flex flex-col items-center justify-center py-10 px-4 bg-slate-100 dark:bg-slate-950">
                         <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-800 p-8 md:p-12 text-center">
                             <h2 className="text-3xl font-bold text-slate-800 dark:text-white mb-8">{activeLesson.title}</h2>

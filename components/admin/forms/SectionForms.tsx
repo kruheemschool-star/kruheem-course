@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchLessonsList } from "@/lib/lessonsIndex";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import type {
@@ -250,8 +251,8 @@ export function CurriculumForm({ value, onChange, courseId }: { value: Curriculu
         if (existing > 0 && !confirm(`มีบทอยู่แล้ว ${existing} บท — ดึงใหม่ทับของเดิม?`)) return;
         setPulling(true);
         try {
-            const snap = await getDocs(collection(db, "courses", courseId, "lessons"));
-            const lessons = snap.docs.map((d) => ({ id: d.id, ...d.data() as { title?: string; type?: string; order?: number; isFree?: boolean; headerId?: string } }));
+            // สารบัญ 1 read แทนดึงบทเต็มทุกใบ (fallback อ่านเต็มเมื่อคอร์สยังไม่มีสารบัญ)
+            const lessons = await fetchLessonsList(courseId) as { id: string; title?: string; type?: string; order?: number; isFree?: boolean; headerId?: string }[];
             const headers = lessons.filter((l) => l.type === "header").sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
             if (headers.length === 0) { alert("ไม่พบบทเรียน (header) ในคอร์สนี้"); setPulling(false); return; }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchLessonsList } from "@/lib/lessonsIndex";
 import type {
     HeroData,
     HeroCardStat,
@@ -71,8 +72,8 @@ export default function HeroEditorForm({ value, onChange, courseId, courseTitle,
         try {
             const clean = (t?: string) =>
                 (t || "").replace(/^\[EP\d+\]\s*/i, "").replace(/^บทที่\s*\d+[\s:.\-–]*/u, "").trim();
-            const snap = await getDocs(collection(db, "courses", courseId, "lessons"));
-            const lessons = snap.docs.map((d) => ({ id: d.id, ...(d.data() as { title?: string; type?: string; order?: number; isFree?: boolean; headerId?: string }) }));
+            // สารบัญ 1 read แทนดึงบทเต็มทุกใบ (fallback อ่านเต็มเมื่อคอร์สยังไม่มีสารบัญ)
+            const lessons = await fetchLessonsList(courseId) as { id: string; title?: string; type?: string; order?: number; isFree?: boolean; headerId?: string }[];
             const headers = lessons.filter((l) => l.type === "header").sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
             let chapters: HeroChapter[];

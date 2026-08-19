@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, onSnapshot, collection, query, orderBy, getDocs, limit as firestoreLimit } from "firebase/firestore";
+import { fetchLessonsIndex } from "@/lib/lessonsIndex";
 import { getCachedData } from "@/lib/dataCache";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -65,14 +66,27 @@ export default function CourseSalesPage() {
                 if (courseDoc.exists()) setCourse(courseDoc.data());
 
                 try {
-                    const lessonsQ = query(
-                        collection(db, "courses", courseId, "lessons"),
-                        orderBy("order", "asc"),
-                        firestoreLimit(10),
-                    );
-                    const snap = await getDocs(lessonsQ);
-                    const firstVideo = snap.docs.find((d) => d.data().videoId);
-                    if (firstVideo) setPreviewVideoId(firstVideo.data().videoId);
+                    // สารบัญ 1 read แทน query 10 ใบ — หา videoId บทแรกได้เหมือนกัน
+                    const index = await fetchLessonsIndex(courseId);
+                    if (index) {
+                        // เจาะจงให้เท่าพฤติกรรมเดิมเป๊ะ: orderBy(order) limit(10) =
+                        // เฉพาะบทที่มี order 10 ใบแรก แล้วเอาใบแรกที่มี videoId
+                        // (ไม่สน isHidden — ของเดิมก็ไม่สน)
+                        const firstVideo = index
+                            .filter((l) => l.order !== undefined)
+                            .slice(0, 10)
+                            .find((l) => l.videoId);
+                        if (firstVideo?.videoId) setPreviewVideoId(firstVideo.videoId);
+                    } else {
+                        const lessonsQ = query(
+                            collection(db, "courses", courseId, "lessons"),
+                            orderBy("order", "asc"),
+                            firestoreLimit(10),
+                        );
+                        const snap = await getDocs(lessonsQ);
+                        const firstVideo = snap.docs.find((d) => d.data().videoId);
+                        if (firstVideo) setPreviewVideoId(firstVideo.data().videoId);
+                    }
                 } catch (_) { /* non-critical — card falls back to simulated player */ }
 
                 try {
