@@ -21,6 +21,7 @@ import { doc, setDoc, getDoc, deleteDoc, updateDoc, serverTimestamp } from 'fire
 import { db } from '@/lib/firebase';
 import { useTheme } from 'next-themes';
 import dynamic from 'next/dynamic';
+import { withTimeout } from "@/lib/netGuard";
 
 // Charts are loaded on demand (they only appear on the results screen), so
 // recharts stays out of the exam page's initial JS bundle. Fixed-height
@@ -90,11 +91,13 @@ const clearProgressFromLocal = (examId: string): void => {
 // (which deletes the doc), so Firestore writes are bounded to ~2 per exam.
 const saveProgressToCloud = async (uid: string, examId: string, data: SavedExamProgress) => {
     try {
-        await setDoc(doc(db, "users", uid, "inProgressExams", examId), {
+        // เพดานเวลา: แท็บที่เปิดค้างไว้นานอาจมีช่องสัญญาณ Firestore ที่ตายเงียบ
+        // setDoc จะไม่ resolve เลย ทำให้ปุ่ม "บันทึกไปทำต่ออุปกรณ์อื่น" ค้าง
+        await withTimeout(setDoc(doc(db, "users", uid, "inProgressExams", examId), {
             ...data,
             savedAt: serverTimestamp(),
             clientSavedAt: data.savedAt,
-        });
+        }), 20000, "บันทึกความคืบหน้าขึ้นคลาวด์");
         return true;
     } catch (e) {
         console.warn('[ExamCloudSave] Failed to save to cloud:', e);
@@ -104,7 +107,7 @@ const saveProgressToCloud = async (uid: string, examId: string, data: SavedExamP
 
 const loadProgressFromCloud = async (uid: string, examId: string): Promise<SavedExamProgress | null> => {
     try {
-        const snap = await getDoc(doc(db, "users", uid, "inProgressExams", examId));
+        const snap = await withTimeout(getDoc(doc(db, "users", uid, "inProgressExams", examId)), 15000, "อ่านความคืบหน้าจากคลาวด์");
         if (!snap.exists()) return null;
         const data = snap.data() as Partial<SavedExamProgress> & { clientSavedAt?: number };
         if (!data.answers || Object.keys(data.answers).length === 0) return null;

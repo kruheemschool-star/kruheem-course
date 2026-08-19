@@ -24,6 +24,7 @@ import {
     StickyNote, Loader2, GraduationCap, ImagePlus, MessageCircle, RefreshCw,
     Pencil, X,
 } from "lucide-react";
+import { withTimeout, isNetTimeout, NET_TIMEOUT_MESSAGE } from "@/lib/netGuard";
 
 const MAX_SLIPS = 5;
 const USERS_CAP = 3000; // safety cap — well above current member count
@@ -222,10 +223,10 @@ export default function AdminRegistrationsPage() {
         if (!editName.trim() && !editPhone.trim()) { toast.error("กรอกชื่อหรือเบอร์อย่างน้อย 1 อย่าง"); return; }
         setProfileSaving(true);
         try {
-            await updateDoc(doc(db, "users", selected.id), {
+            await withTimeout(updateDoc(doc(db, "users", selected.id), {
                 displayName: editName.trim(),
                 phoneNumber: editPhone.trim(),
-            });
+            }), 20000, "บันทึกชื่อ/เบอร์");
             setMembers((prev) => prev.map((m) => (m.id === selected.id
                 ? { ...m, displayName: editName.trim(), phoneNumber: editPhone.trim() }
                 : m)));
@@ -236,7 +237,7 @@ export default function AdminRegistrationsPage() {
             toast.success("บันทึกข้อมูลแล้ว");
         } catch (err) {
             console.error(err);
-            toast.error("บันทึกไม่สำเร็จ ลองอีกครั้ง");
+            toast.error(isNetTimeout(err) ? NET_TIMEOUT_MESSAGE : "บันทึกไม่สำเร็จ ลองอีกครั้ง");
         } finally {
             setProfileSaving(false);
         }
@@ -247,15 +248,15 @@ export default function AdminRegistrationsPage() {
         if (!selected) return;
         setNoteSaving(true);
         try {
-            await updateDoc(doc(db, "users", selected.id), {
+            await withTimeout(updateDoc(doc(db, "users", selected.id), {
                 adminNote: noteDraft.trim(),
                 adminNoteUpdatedAt: serverTimestamp(),
-            });
+            }), 20000, "บันทึกหมายเหตุ");
             setMembers((prev) => prev.map((m) => (m.id === selected.id ? { ...m, adminNote: noteDraft.trim() } : m)));
             toast.success("บันทึกหมายเหตุแล้ว");
         } catch (err) {
             console.error(err);
-            toast.error("บันทึกหมายเหตุไม่สำเร็จ");
+            toast.error(isNetTimeout(err) ? NET_TIMEOUT_MESSAGE : "บันทึกหมายเหตุไม่สำเร็จ");
         } finally {
             setNoteSaving(false);
         }
@@ -361,7 +362,7 @@ export default function AdminRegistrationsPage() {
             // 4) อนุมัติแล้ว → อัปเดตตัวเลข "นักเรียนทั้งหมด" หน้าเว็บ (best-effort)
             if (mode === "approved" && created.length > 0) {
                 try {
-                    const snap = await getDocs(query(collection(db, "enrollments"), where("status", "==", "approved")));
+                    const snap = await withTimeout(getDocs(query(collection(db, "enrollments"), where("status", "==", "approved"))), 30000, "นับนักเรียนทั้งหมด");
                     const emails = new Set<string>();
                     snap.docs.forEach((d) => { const em = d.data().userEmail; if (em) emails.add(em); });
                     await setDoc(doc(db, "public_stats", "enrollments"), { count: emails.size || snap.size }, { merge: true });
@@ -379,7 +380,7 @@ export default function AdminRegistrationsPage() {
             await fetchData();
         } catch (err) {
             console.error(err);
-            toast.error("ดำเนินการไม่สำเร็จ ลองอีกครั้ง");
+            toast.error(isNetTimeout(err) ? NET_TIMEOUT_MESSAGE : "ดำเนินการไม่สำเร็จ ลองอีกครั้ง");
         } finally {
             setSubmitting(null);
         }

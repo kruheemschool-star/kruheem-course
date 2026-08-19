@@ -14,6 +14,7 @@ import {
 import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, where, getDocs, getDoc, getCountFromServer } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { ADMIN_EMAILS } from "@/lib/constants";
+import { reviveConnection } from "@/lib/netGuard";
 
 interface UserProfile {
     displayName?: string;
@@ -55,6 +56,10 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     const [pendingCount, setPendingCount] = useState(0); // ✅
     const [hasCheckedActivity, setHasCheckedActivity] = useState(false);
     const lastProfileStr = useRef<string>("");
+    // ตัวนับรอบ re-subscribe ของ listener — onSnapshot ที่ error (เช่น token
+    // หมดอายุตอนเครื่องหลับ) จะ "ตายถาวร" ไม่ต่อกลับเอง ต้องสั่งต่อใหม่
+    const [profileRetry, setProfileRetry] = useState(0);
+    const [pendingRetry, setPendingRetry] = useState(0);
 
     const googleSignIn = useCallback(async () => {
         const provider = new GoogleAuthProvider();
@@ -175,6 +180,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         if (!user) return;
 
+        let retryTimer: ReturnType<typeof setTimeout> | null = null;
         const unsubscribeProfile = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data() as UserProfile;
@@ -192,10 +198,25 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         }, (error) => {
             console.error("Profile listener error:", error);
             setLoading(false);
+            // listener ที่ error จะหยุดส่งข้อมูลถาวร — ต่อสัญญาณแล้วสมัครใหม่
+            // ไม่งั้นโปรไฟล์/สิทธิ์จะค้างอยู่ที่ค่าเก่าจนกว่าจะรีเฟรชหน้า
+            void reviveConnection("profile-listener-error");
+            retryTimer = setTimeout(() => setProfileRetry((n) => n + 1), 5000);
         });
 
-        return () => unsubscribeProfile();
-    }, [user?.uid]);
+        return () => {
+            unsubscribeProfile();
+            if (retryTimer) clearTimeout(retryTimer);
+        };
+    }, [user?.uid, profileRetry]);
+
+    // 2c. กันหน้าเว็บค้างที่จอโหลด — ถ้า listener ไม่ตอบภายใน 10 วิ (เน็ตหลุด
+    //     ตอนพักหน้าจอ) ให้ปลดล็อกไปก่อน หน้าเว็บจะได้ใช้งานได้ ไม่หมุนค้าง
+    useEffect(() => {
+        if (!loading) return;
+        const id = setTimeout(() => setLoading(false), 10000);
+        return () => clearTimeout(id);
+    }, [loading]);
 
     // 2b. Activity Tracking & Heartbeat (WRITE ONLY - separated from listener to prevent loop)
     useEffect(() => {
@@ -290,13 +311,21 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
         const q = query(collection(db, "enrollments"), where("status", "==", "pending"));
+        let retryTimer: ReturnType<typeof setTimeout> | null = null;
         const unsubscribe = onSnapshot(
             q,
             (snap) => setPendingCount(snap.size),
-            (error) => console.error("Pending count listener error:", error)
+            (error) => {
+                console.error("Pending count listener error:", error);
+                void reviveConnection("pending-listener-error");
+                retryTimer = setTimeout(() => setPendingRetry((n) => n + 1), 5000);
+            }
         );
-        return () => unsubscribe();
-    }, [isAdmin]);
+        return () => {
+            unsubscribe();
+            if (retryTimer) clearTimeout(retryTimer);
+        };
+    }, [isAdmin, pendingRetry]);
 
     const contextValue = useMemo(() => ({
         user,

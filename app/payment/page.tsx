@@ -13,6 +13,7 @@ import ConfettiBurst from "@/components/gamification/ConfettiBurst";
 import { PAYMENT_INFO } from "@/lib/constants";
 import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slipFile";
 import { Library, Backpack, Compass, FunctionSquare, GraduationCap, ChevronRight, Check, User, QrCode, ImageUp, type LucideIcon } from "lucide-react";
+import { withTimeout, isNetTimeout, NET_TIMEOUT_MESSAGE } from "@/lib/netGuard";
 
 const UPLOAD_TIMEOUT = 120_000; // 120 seconds
 const MAX_SLIPS = 5; // attach up to 5 transfer slips
@@ -388,7 +389,9 @@ export default function PaymentPage() {
         });
       });
 
-      await Promise.all(promises);
+      // เพดานเวลา 45 วิ: ถ้าช่องสัญญาณ Firestore ตายเงียบ (แท็บถูกพักไว้นาน)
+      // addDoc จะไม่ resolve และไม่ reject — ปุ่ม "ยืนยัน" จะค้างหมุนตลอดกาล
+      await withTimeout(Promise.all(promises), 45000, "บันทึกใบแจ้งโอน");
 
       // เก็บชื่อ/เบอร์จากใบแจ้งโอนเข้าโปรไฟล์ (เฉพาะช่องที่ยังว่าง ไม่ทับของเดิม)
       // — หน้าสมัครสมาชิกไม่ถามชื่อ/เบอร์แล้ว จุดนี้คือที่แรกที่หลังบ้าน
@@ -448,6 +451,8 @@ export default function PaymentPage() {
         setSubmitError("ไม่มีสิทธิ์อัปโหลดไฟล์ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง");
       } else if (error?.code === 'storage/retry-limit-exceeded' || error?.code === 'storage/server-file-wrong-size') {
         setSubmitError("อัปโหลดไม่สำเร็จ — ลองปิดแอปแล้วเปิดใหม่ หรือเปิดหน้านี้ใน Chrome/Safari แล้วลองอีกครั้ง");
+      } else if (isNetTimeout(error)) {
+        setSubmitError(NET_TIMEOUT_MESSAGE);
       } else {
         setSubmitError(`เกิดข้อผิดพลาด กรุณาลองใหม่ (${error?.code || error?.message || 'unknown error'})`);
       }

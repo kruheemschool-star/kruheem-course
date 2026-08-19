@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { Mitr, IBM_Plex_Sans_Thai_Looped, IBM_Plex_Sans_Thai, IBM_Plex_Mono, Kanit, Sarabun } from 'next/font/google';
 import { DynamicVisitorTracker, DynamicChatWidget } from "@/components/ClientWrappers";
 import GooglePasswordBanner from "@/components/GooglePasswordBanner";
+import ConnectionWatchdog from "@/components/ConnectionWatchdog";
 
 const mitr = Mitr({
   weight: ['200', '300', '400', '500', '600', '700'],
@@ -147,6 +148,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           <div className="noise-overlay"></div>
           <AuthContextProvider>
+            {/* ต่อสัญญาณ Firestore/Auth ใหม่ทุกครั้งที่หน้าเว็บ "ตื่น"
+                — กันอาการเปิดค้างไว้นานแล้วกลับมากดปุ่มไม่ได้ */}
+            <ConnectionWatchdog />
             <DynamicVisitorTracker />
             {children}
             <GooglePasswordBanner />

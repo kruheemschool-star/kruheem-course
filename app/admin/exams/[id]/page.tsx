@@ -15,6 +15,7 @@ import { detectTagsFromQuestion, getAllAvailableTags, type DetectionResult } fro
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { withTimeout, isNetTimeout, NET_TIMEOUT_MESSAGE } from "@/lib/netGuard";
 
 interface SortableQuestionBlockProps {
     id: string;
@@ -942,7 +943,10 @@ export default function ExamEditorPage() {
                 return;
             }
 
-            await updateDoc(docRef, payload);
+            // เพดานเวลา 60 วิ (ชุดข้อสอบเป็น doc ขนาดใหญ่ ใช้เวลาอัปโหลดจริง) —
+            // ถ้าแท็บถูกเปิดค้างจนช่องสัญญาณตาย updateDoc จะไม่คืนค่าเลย
+            // ปุ่มบันทึกจะหมุนค้าง แล้วครูฮีมจะเข้าใจว่างานยังไม่เซฟ
+            await withTimeout(updateDoc(docRef, payload), 60000, "บันทึกชุดข้อสอบ");
 
             // Bust the student-facing exam caches (listing, exam pages, search
             // index, homepage carousel) so this edit shows up immediately —
@@ -978,6 +982,8 @@ export default function ExamEditorPage() {
             } else if (/permission|insufficient|unauthenticated|PERMISSION_DENIED/i.test(raw)) {
                 // Long editing sessions can outlive the login session.
                 alert("บันทึกไม่สำเร็จ: หมดสิทธิ์/เซสชันหมดอายุ กรุณารีเฟรชหน้าแล้วเข้าสู่ระบบใหม่อีกครั้ง");
+            } else if (isNetTimeout(error)) {
+                alert(`⚠️ ${NET_TIMEOUT_MESSAGE}\n\n(ข้อสอบที่แก้ไว้ยังอยู่บนหน้าจอ ไม่หาย — กดบันทึกอีกครั้งได้เลย)`);
             } else {
                 alert(`เกิดข้อผิดพลาดในการบันทึก\n\nรายละเอียด: ${raw || "ไม่ทราบสาเหตุ"}`);
             }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
+import { withTimeout, isNetTimeout, NET_TIMEOUT_MESSAGE, reviveConnection } from "@/lib/netGuard";
 import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Mail, Phone, Clock, Inbox, ZoomIn, Users, StickyNote, BookOpen, Pencil, Search, Loader2, ArrowRight, Receipt, Ticket } from "lucide-react";
 
 type CourseLite = { id: string; title: string; price?: number; allowedExamLevel?: string | null; category?: string; image?: string };
@@ -20,6 +21,9 @@ export default function AdminEnrollmentsPage() {
     const { refreshPendingCount } = useUserAuth();
     const [enrollments, setEnrollments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    // listener ที่ error (token หมดอายุตอนเครื่องหลับ ฯลฯ) จะตายถาวร ไม่ต่อเอง
+    // ตัวนับนี้สั่งสมัคร listener ใหม่ให้ คิวจะได้ไม่ค้างอยู่ที่ข้อมูลเก่า
+    const [listenerRetry, setListenerRetry] = useState(0);
 
     // Realtime: a single push-based listener so newly-submitted slips appear
     // instantly (no polling / no manual refresh). It is also the ONLY read of
@@ -31,6 +35,7 @@ export default function AdminEnrollmentsPage() {
             where("status", "==", "pending"),
             orderBy("createdAt", "desc")
         );
+        let retryTimer: ReturnType<typeof setTimeout> | null = null;
         const unsubscribe = onSnapshot(
             q,
             (snapshot) => {
@@ -46,10 +51,18 @@ export default function AdminEnrollmentsPage() {
                 })));
                 setLoading(false);
             },
-            (error) => { console.error("Enrollments listener error:", error); setLoading(false); }
+            (error) => {
+                console.error("Enrollments listener error:", error);
+                setLoading(false);
+                void reviveConnection("enrollments-listener-error");
+                retryTimer = setTimeout(() => setListenerRetry((n) => n + 1), 5000);
+            }
         );
-        return () => unsubscribe();
-    }, []);
+        return () => {
+            unsubscribe();
+            if (retryTimer) clearTimeout(retryTimer);
+        };
+    }, [listenerRetry]);
 
     // Presentational only: which slip row is highlighted in the master list
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -174,7 +187,7 @@ export default function AdminEnrollmentsPage() {
         coursesLoadedRef.current = true;
         setCoursesLoading(true);
         try {
-            const snap = await getDocs(query(collection(db, "courses"), orderBy("createdAt", "desc")));
+            const snap = await withTimeout(getDocs(query(collection(db, "courses"), orderBy("createdAt", "desc"))), 20000, "โหลดรายชื่อคอร์ส");
             setCourseOptions(snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<CourseLite, "id">) })));
         } catch (error) {
             console.error("Error loading courses:", error);
@@ -230,12 +243,12 @@ export default function AdminEnrollmentsPage() {
                 patch.price = newPrice;
                 patch.finalPrice = Math.max(0, newPrice - currentDiscount);
             }
-            await updateDoc(doc(db, "enrollments", editing.id), patch);
+            await withTimeout(updateDoc(doc(db, "enrollments", editing.id), patch), 20000, "บันทึกคอร์ส");
             toast.success("บันทึกคอร์สใหม่เรียบร้อย");
             closeCourseEditor();
         } catch (error) {
             console.error("Error updating course:", error);
-            toast.error("บันทึกไม่สำเร็จ ลองอีกครั้ง");
+            toast.error(isNetTimeout(error) ? NET_TIMEOUT_MESSAGE : "บันทึกไม่สำเร็จ ลองอีกครั้ง");
         } finally {
             setSavingCourse(false);
         }
@@ -285,25 +298,27 @@ export default function AdminEnrollmentsPage() {
         const expiryDate = new Date(now);
         expiryDate.setFullYear(expiryDate.getFullYear() + 5);
 
-        await updateDoc(doc(db, "enrollments", id), {
+        // เพดานเวลา: ถ้าช่องสัญญาณ Firestore ตายเงียบ (เครื่องเพิ่งตื่นจากหลับ)
+        // updateDoc จะไม่ resolve และไม่ reject — ปุ่มจะค้าง disabled ตลอดกาล
+        await withTimeout(updateDoc(doc(db, "enrollments", id), {
             status: "approved",
             approvedAt: now,
             expiryDate: expiryDate,
             accessType: "limited",
-        });
+        }), 20000, "อนุมัติใบแจ้งโอน");
 
         // ✅ Update Coupon Usage Logic
         const enrollment = enrollments.find(e => e.id === id);
         if (enrollment && enrollment.couponCode) {
             try {
                 const qCoupon = query(collection(db, "coupons"), where("code", "==", enrollment.couponCode));
-                const couponSnap = await getDocs(qCoupon);
+                const couponSnap = await withTimeout(getDocs(qCoupon), 15000, "อ่านคูปอง");
                 if (!couponSnap.empty) {
                     const couponDoc = couponSnap.docs[0];
-                    await updateDoc(doc(db, "coupons", couponDoc.id), {
+                    await withTimeout(updateDoc(doc(db, "coupons", couponDoc.id), {
                         usedCount: (couponDoc.data().usedCount || 0) + 1,
                         isUsed: true // Mark as used for single-use coupons (review rewards)
-                    });
+                    }), 15000, "อัปเดตคูปอง");
                 }
             } catch (couponError) {
                 console.error("Error updating coupon stats:", couponError);
@@ -316,40 +331,48 @@ export default function AdminEnrollmentsPage() {
         if (!confirmApproveIds || confirmApproveIds.length === 0) return;
         setApproving(true);
         let ok = 0;
+        let timedOut = false;
         const failed: string[] = [];
-        for (const id of confirmApproveIds) {
-            try {
-                await approveOne(id);
-                ok++;
-            } catch (error) {
-                console.error("Error approving", id, error);
-                failed.push(enrollments.find((e) => e.id === id)?.userName || id);
+        try {
+            for (const id of confirmApproveIds) {
+                try {
+                    await approveOne(id);
+                    ok++;
+                } catch (error) {
+                    console.error("Error approving", id, error);
+                    if (isNetTimeout(error)) timedOut = true;
+                    failed.push(enrollments.find((e) => e.id === id)?.userName || id);
+                }
             }
+
+            // ✅ Recalculate public_stats — debounced (one scan per burst of approvals)
+            schedulePublicStatsRecalc();
+
+            if (ok > 0) toast.success(`อนุมัติ ${ok} รายการเรียบร้อย (กำหนดเวลาเรียน 5 ปี)`);
+            if (timedOut) toast.error(NET_TIMEOUT_MESSAGE);
+            else if (failed.length > 0) toast.error(`ไม่สำเร็จ ${failed.length} รายการ: ${failed.join(", ")}`);
+
+            setCheckedIds((prev) => prev.filter((id) => !confirmApproveIds.includes(id)));
+            setConfirmApproveIds(null);
+            refreshPendingCount(); // recount badge immediately (self-guarded, fire-and-forget)
+        } finally {
+            // ต้องอยู่ใน finally เสมอ — ไม่งั้นถ้าหลุดออกกลางคัน ปุ่ม "ยืนยัน"
+            // กับ "ยกเลิก" จะติด disabled ค้าง แล้วฉากทึบของ modal จะบังทั้งหน้า
+            setApproving(false);
         }
-
-        // ✅ Recalculate public_stats — debounced (one scan per burst of approvals)
-        schedulePublicStatsRecalc();
-
-        if (ok > 0) toast.success(`อนุมัติ ${ok} รายการเรียบร้อย (กำหนดเวลาเรียน 5 ปี)`);
-        if (failed.length > 0) toast.error(`ไม่สำเร็จ ${failed.length} รายการ: ${failed.join(", ")}`);
-
-        setCheckedIds((prev) => prev.filter((id) => !confirmApproveIds.includes(id)));
-        setConfirmApproveIds(null);
-        setApproving(false);
-        refreshPendingCount(); // recount badge immediately (self-guarded, fire-and-forget)
     };
 
     // ฟังก์ชันปฏิเสธ/ลบ
     const handleDelete = async (id: string) => {
         confirmModal("ยืนยันการลบ", "ยืนยันการลบรายการนี้? (กรณีสลิปปลอมหรือข้อมูลผิด)", async () => {
             try {
-                await deleteDoc(doc(db, "enrollments", id));
+                await withTimeout(deleteDoc(doc(db, "enrollments", id)), 20000, "ลบใบแจ้งโอน");
                 schedulePublicStatsRecalc();
                 setCheckedIds((prev) => prev.filter((x) => x !== id));
                 refreshPendingCount(); // deleting a pending row changes the badge — recount now
             } catch (error) {
                 console.error("Error:", error);
-                toast.error("ลบไม่สำเร็จ ลองอีกครั้ง");
+                toast.error(isNetTimeout(error) ? NET_TIMEOUT_MESSAGE : "ลบไม่สำเร็จ ลองอีกครั้ง");
             }
         }, true);
     };
