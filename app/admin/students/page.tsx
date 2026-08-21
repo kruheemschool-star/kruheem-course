@@ -452,7 +452,11 @@ export default function AdminStudentsPage() {
     // Auto fix expiry data
     useEffect(() => {
         if (enrollments.length > 0) {
-            const needsFix = enrollments.some(item => item.status === 'approved' && (!item.expiryDate || !item.approvedAt));
+            // ข้อสอบ PDF (productType examPaper) เป็นสิทธิ์ตลอดชีพ "โดยตั้งใจไม่มี expiryDate"
+            // ห้ามนับว่าเป็นข้อมูลพัง ไม่งั้นงานซ่อมนี้จะประทับ 5 ปีทับสัญญาตลอดชีพ
+            const isLifetimeProduct = (x: { productType?: string; accessType?: string }) =>
+                x.productType === 'examPaper' || x.accessType === 'lifetime';
+            const needsFix = enrollments.some(item => item.status === 'approved' && !isLifetimeProduct(item) && (!item.expiryDate || !item.approvedAt));
             if (needsFix) {
                 // ตั้งใจคง query ตรงแบบเดิมไว้ — ตาราง in-memory โหลดด้วย
                 // orderBy(createdAt) ซึ่ง "ตัด doc ที่ไม่มี createdAt ทิ้ง" แต่ doc
@@ -465,6 +469,8 @@ export default function AdminStudentsPage() {
                     const updates = [];
                     for (const docSnap of snapshot.docs) {
                         const data = docSnap.data();
+                        // ใบข้อสอบ PDF / สิทธิ์ตลอดชีพ: ไม่มี expiryDate คือสภาพที่ถูกต้อง — ห้ามซ่อม
+                        if (data.productType === 'examPaper' || data.accessType === 'lifetime') continue;
                         if (!data.expiryDate || !data.approvedAt) {
                             const upd: any = {};
                             let startDate = data.approvedAt ? data.approvedAt.toDate() : (data.createdAt ? data.createdAt.toDate() : new Date());

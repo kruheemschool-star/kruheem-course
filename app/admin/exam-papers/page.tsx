@@ -22,8 +22,8 @@ function filesOf(p: ExamPaper): EditFile[] {
     return [];
 }
 
-const LEVELS = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6", "อื่นๆ"];
-const CATEGORIES = ["O-NET", "A-Level", "สอบกลางภาค", "สอบปลายภาค", "สอบเข้า", "แนวข้อสอบ", "อื่นๆ"];
+const LEVELS = ["ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6", "อื่นๆ"];
+const CATEGORIES = ["O-NET", "A-Level", "สอบกลางภาค", "สอบปลายภาค", "สอบเข้า", "สอบเข้า ม.1", "สอบเข้า ม.4", "แนวข้อสอบ", "อื่นๆ"];
 // The 3 standard parts of an exam set (+ extras). Used as the file-label
 // presets so ครูฮีม picks a type instead of typing it. First 3 files default
 // to ตัวข้อสอบ / กระดาษคำตอบ / เฉลย in order.

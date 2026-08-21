@@ -9,6 +9,10 @@ export const metadata: Metadata = {
     title: "คลังข้อสอบ PDF พร้อมเฉลย โหลดได้เลย | KruHeem Course",
     description: "ดาวน์โหลดข้อสอบคณิตศาสตร์ ม.1–ม.6 พร้อมเฉลยละเอียด เป็นไฟล์ PDF ซื้อครั้งเดียว โหลดเก็บไว้ได้ตลอด O-NET, A-Level, สอบเข้า",
     keywords: ["ข้อสอบ PDF", "ดาวน์โหลดข้อสอบ", "ข้อสอบพร้อมเฉลย", "ข้อสอบคณิต", "O-NET", "A-Level"],
+    openGraph: {
+        title: "คลังข้อสอบ PDF พร้อมเฉลย โหลดได้เลย | KruHeem Course",
+        description: "ดาวน์โหลดข้อสอบคณิตศาสตร์ ม.1–ม.6 พร้อมเฉลยละเอียด เป็นไฟล์ PDF ซื้อครั้งเดียว โหลดเก็บไว้ได้ตลอด O-NET, A-Level, สอบเข้า",
+    },
 };
 
 // ISR — admin changes reflect within 5 minutes.

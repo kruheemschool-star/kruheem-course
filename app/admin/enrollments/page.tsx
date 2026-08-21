@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, getDoc, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp, onSnapshot, deleteField } from "firebase/firestore";
 import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
@@ -74,6 +74,9 @@ export default function AdminEnrollmentsPage() {
 
     const amountOf = (e?: { price?: number; finalPrice?: number; discountAmount?: number }) =>
         (Number(e?.discountAmount) || 0) > 0 ? e?.finalPrice : e?.price;
+
+    /** ข้อสอบ PDF ซื้อขาด — หน้าขายสัญญาว่า "ซื้อครั้งเดียว โหลดเก็บไว้ได้ตลอด" ห้ามติดวันหมดอายุ */
+    const isExamPaper = (e?: { productType?: string }) => e?.productType === "examPaper";
 
     /* ---------- สัญญาณที่ "คำนวณได้จริง" จากข้อมูล (ไม่เดา) ---------- */
     // 1) สลิปใบเดียวแนบมาหลายคอร์ส — ผู้ปกครองซื้อทีเดียวหลายคอร์ส ระบบแตกเป็นหลายใบ
@@ -293,23 +296,47 @@ export default function AdminEnrollmentsPage() {
         }, 5000);
     };
 
-    /** อนุมัติ 1 ใบ (ระยะเวลาเรียน 5 ปี) — ใช้ทั้งปุ่มเดี่ยวและปุ่มอนุมัติรวม */
+    /** อนุมัติ 1 ใบ — ใช้ทั้งปุ่มเดี่ยวและปุ่มอนุมัติรวม
+     *  - คอร์สเรียน: สิทธิ์แบบมีกำหนด 5 ปี (พฤติกรรมเดิมทุกประการ)
+     *  - ข้อสอบ PDF (productType "examPaper"): สิทธิ์ตลอดชีพตามที่หน้าขายสัญญาไว้
+     *    ห้ามใส่ expiryDate — /api/download-pdf เคารพวันหมดอายุ ถ้าเผลอใส่ 5 ปีผ่านไปผู้ซื้อจะโหลดไม่ได้ */
     const approveOne = async (id: string) => {
+        let enrollment = enrollments.find(e => e.id === id);
+        if (!enrollment) {
+            // ใบนี้หลุดจากลิสต์ pending ไปแล้ว (เช่น อีกแท็บ/อีกเครื่องอนุมัติตัดหน้า)
+            // ต้องอ่าน doc จริงเพื่อรู้ประเภทสินค้า — ห้ามเดาว่าเป็นคอร์ส
+            // ไม่งั้นใบข้อสอบ PDF จะโดนประทับวันหมดอายุ 5 ปีทับสิทธิ์ตลอดชีพ
+            const snap = await withTimeout(getDoc(doc(db, "enrollments", id)), 15000, "อ่านใบแจ้งโอน");
+            if (!snap.exists()) throw new Error(`ไม่พบใบแจ้งโอน ${id} แล้ว`);
+            enrollment = { id, ...snap.data() };
+        }
         const now = new Date();
-        const expiryDate = new Date(now);
-        expiryDate.setFullYear(expiryDate.getFullYear() + 5);
+
+        let patch: Record<string, unknown>;
+        if (isExamPaper(enrollment)) {
+            patch = {
+                status: "approved",
+                approvedAt: now,
+                accessType: "lifetime",
+                // เผื่อใบนี้เคยถูกอนุมัติแบบติดวันหมดอายุมาก่อน — ล้างทิ้งให้สิทธิ์กลับเป็นตลอดชีพจริง
+                expiryDate: deleteField(),
+            };
+        } else {
+            const expiryDate = new Date(now);
+            expiryDate.setFullYear(expiryDate.getFullYear() + 5);
+            patch = {
+                status: "approved",
+                approvedAt: now,
+                expiryDate: expiryDate,
+                accessType: "limited",
+            };
+        }
 
         // เพดานเวลา: ถ้าช่องสัญญาณ Firestore ตายเงียบ (เครื่องเพิ่งตื่นจากหลับ)
         // updateDoc จะไม่ resolve และไม่ reject — ปุ่มจะค้าง disabled ตลอดกาล
-        await withTimeout(updateDoc(doc(db, "enrollments", id), {
-            status: "approved",
-            approvedAt: now,
-            expiryDate: expiryDate,
-            accessType: "limited",
-        }), 20000, "อนุมัติใบแจ้งโอน");
+        await withTimeout(updateDoc(doc(db, "enrollments", id), patch), 20000, "อนุมัติใบแจ้งโอน");
 
         // ✅ Update Coupon Usage Logic
-        const enrollment = enrollments.find(e => e.id === id);
         if (enrollment && enrollment.couponCode) {
             try {
                 const qCoupon = query(collection(db, "coupons"), where("code", "==", enrollment.couponCode));
@@ -326,6 +353,10 @@ export default function AdminEnrollmentsPage() {
                 // Don't block approval if coupon update fails, just log it
             }
         }
+
+        // บอกผู้เรียกว่าใบนี้เป็นสินค้าประเภทไหน — ข้อความสรุปหลังอนุมัติ
+        // ต้องนับจากใบที่ "สำเร็จจริง" เท่านั้น ไม่ใช่ทั้งชุดที่เลือกไว้
+        return isExamPaper(enrollment) ? ("paper" as const) : ("course" as const);
     };
 
     const handleConfirmApprove = async () => {
@@ -334,10 +365,11 @@ export default function AdminEnrollmentsPage() {
         let ok = 0;
         let timedOut = false;
         const failed: string[] = [];
+        const okKinds: ("paper" | "course")[] = [];
         try {
             for (const id of confirmApproveIds) {
                 try {
-                    await approveOne(id);
+                    okKinds.push(await approveOne(id));
                     ok++;
                 } catch (error) {
                     console.error("Error approving", id, error);
@@ -349,7 +381,17 @@ export default function AdminEnrollmentsPage() {
             // ✅ Recalculate public_stats — debounced (one scan per burst of approvals)
             schedulePublicStatsRecalc();
 
-            if (ok > 0) toast.success(`อนุมัติ ${ok} รายการเรียบร้อย (กำหนดเวลาเรียน 5 ปี)`);
+            // ข้อความสรุปต้องตรงกับสิทธิ์ที่ให้จริง — ข้อสอบ PDF เป็นตลอดชีพ ไม่ใช่ 5 ปี
+            // และนับเฉพาะใบที่อนุมัติสำเร็จ (ใบที่ fail มี toast.error แจ้งแยกอยู่แล้ว)
+            const hasPaper = okKinds.includes("paper");
+            const hasCourse = okKinds.includes("course");
+            if (ok > 0) toast.success(
+                hasPaper && !hasCourse
+                    ? `อนุมัติ ${ok} รายการเรียบร้อย (ข้อสอบ PDF สิทธิ์ตลอดชีพ)`
+                    : hasPaper
+                        ? `อนุมัติ ${ok} รายการเรียบร้อย (คอร์สเรียนได้ 5 ปี · ข้อสอบ PDF ตลอดชีพ)`
+                        : `อนุมัติ ${ok} รายการเรียบร้อย (กำหนดเวลาเรียน 5 ปี)`
+            );
             if (timedOut) toast.error(NET_TIMEOUT_MESSAGE);
             else if (failed.length > 0) toast.error(`ไม่สำเร็จ ${failed.length} รายการ: ${failed.join(", ")}`);
 
@@ -385,6 +427,9 @@ export default function AdminEnrollmentsPage() {
     const confirmTargets = confirmApproveIds
         ? confirmApproveIds.map((id) => enrollments.find((e) => e.id === id)).filter(Boolean)
         : [];
+    // ใน modal ยืนยัน: สิทธิ์ที่จะให้ต่างกันตามประเภทสินค้า (คอร์ส 5 ปี / ข้อสอบ PDF ตลอดชีพ)
+    const confirmHasPaper = confirmTargets.some((t) => isExamPaper(t));
+    const confirmHasCourse = confirmTargets.some((t) => !isExamPaper(t));
 
     return (
         <div className="khen khen-page">
@@ -710,7 +755,7 @@ export default function AdminEnrollmentsPage() {
                                                 {item.courseTitle || "ไม่ระบุคอร์ส"}
                                             </div>
                                             <div className="text-[12.5px] mt-1 truncate" style={{ color: "var(--en-ink-2)" }}>
-                                                {item.userName || "ไม่ระบุชื่อ"} · <span className="khen-num">{baht(amount)}</span> · เรียนได้ 5 ปี
+                                                {item.userName || "ไม่ระบุชื่อ"} · <span className="khen-num">{baht(amount)}</span> · {isExamPaper(item) ? "ดาวน์โหลดได้ตลอดชีพ" : "เรียนได้ 5 ปี"}
                                             </div>
                                         </div>
                                       </div>
@@ -719,7 +764,7 @@ export default function AdminEnrollmentsPage() {
                                           className="khen-btn w-full"
                                           style={{ minHeight: "52px", fontSize: "15px" }}
                                       >
-                                          <Check size={18} /> อนุมัติ (5 ปี)
+                                          <Check size={18} /> อนุมัติ ({isExamPaper(item) ? "ตลอดชีพ" : "5 ปี"})
                                       </button>
                                     </div>
 
@@ -879,7 +924,11 @@ export default function AdminEnrollmentsPage() {
                         </div>
 
                         <p className="text-[13px] mb-6 leading-relaxed" style={{ color: "var(--en-ink-2)" }}>
-                            ผู้เรียนจะเข้าเรียนได้ทันทีหลังกดยืนยัน (ระยะเวลาเรียน 5 ปี)
+                            {confirmHasPaper && !confirmHasCourse
+                                ? "ผู้ซื้อจะดาวน์โหลดไฟล์ข้อสอบได้ทันทีหลังกดยืนยัน (สิทธิ์ตลอดชีพ ไม่มีวันหมดอายุ)"
+                                : confirmHasPaper
+                                    ? "เปิดสิทธิ์ให้ทันทีหลังกดยืนยัน (คอร์สเรียนได้ 5 ปี · ข้อสอบ PDF ตลอดชีพ)"
+                                    : "ผู้เรียนจะเข้าเรียนได้ทันทีหลังกดยืนยัน (ระยะเวลาเรียน 5 ปี)"}
                         </p>
 
                         <div className="flex w-full gap-3">

@@ -10,7 +10,8 @@ import { useUserAuth } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Link from "next/link";
-import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3, SlidersHorizontal, Sparkles, RotateCcw, Check, Clock, Lock, Sun, Moon, FileText, Download, Loader2 } from "lucide-react";
+import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3, SlidersHorizontal, Sparkles, RotateCcw, Check, Clock, Lock, Sun, Moon, FileText, Download, Loader2, AlertTriangle } from "lucide-react";
+import { useInAppBrowser } from "@/lib/inAppBrowser";
 import ReviewForm from "@/app/reviews/ReviewForm";
 
 /* ============================================================
@@ -679,6 +680,9 @@ interface MyPaper {
 
 function MyPapersSection({ c, isDark }: { c: Pal; isDark: boolean }) {
     const { user } = useUserAuth();
+    // FB/LINE in-app webviews often swallow attachment downloads silently, so we
+    // warn (but never block) when the page is opened inside one.
+    const { isInApp, platform, appName } = useInAppBrowser();
     const [items, setItems] = useState<MyPaper[]>([]);
     const [loading, setLoading] = useState(true);
     const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -741,6 +745,9 @@ function MyPapersSection({ c, isDark }: { c: Pal; isDark: boolean }) {
     const tealTile = isDark ? "#0F2D2A" : "#E1F5EE";
     const amberBg = isDark ? "#2A2011" : "#FBEFE0";
     const amberFg = isDark ? "#FBBF24" : "#B45309";
+    const amberLine = isDark ? "#4A3512" : "#F1D9B8";
+    const escBrowser = platform === "ios" ? "Safari" : platform === "android" ? "Chrome" : "Safari/Chrome";
+    const menuGlyph = platform === "android" ? "⋮" : "⋯";
 
     return (
         <section className="mb-10 mc-rise" style={{ marginTop: "2.25rem" }}>
@@ -748,6 +755,15 @@ function MyPapersSection({ c, isDark }: { c: Pal; isDark: boolean }) {
                 <FileText size={18} style={{ color: "#0D9488" }} />
                 <h2 className="text-lg sm:text-xl font-bold mc-kanit" style={{ color: c.ink }}>ข้อสอบ PDF ของฉัน</h2>
             </div>
+            {isInApp && (
+                <div className="flex items-start gap-2.5 rounded-2xl border px-4 py-3 mb-4" style={{ background: amberBg, borderColor: amberLine }}>
+                    <AlertTriangle size={16} className="shrink-0 mt-0.5" style={{ color: amberFg }} />
+                    <p className="text-[13px] leading-relaxed" style={{ color: amberFg }}>
+                        ตอนนี้เปิดผ่านแอป <strong>{appName}</strong> อยู่นะครับ ถ้ากดดาวน์โหลดแล้วไฟล์เงียบหายไม่ต้องตกใจ
+                        — กดเมนู <strong>{menuGlyph}</strong> มุมขวาบน เลือก <strong>&ldquo;เปิดในเบราว์เซอร์&rdquo;</strong> ({escBrowser}) ก่อน แล้วค่อยกดดาวน์โหลดอีกครั้งครับ
+                    </p>
+                </div>
+            )}
             <div className="grid sm:grid-cols-2 gap-4">
                 {items.map((it) => (
                     <div key={it.paperId} className="rounded-2xl border p-4 flex gap-3.5" style={{ background: c.card, borderColor: c.line, boxShadow: c.shadowSm }}>

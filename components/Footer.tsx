@@ -66,6 +66,12 @@ export default function Footer() {
                                 </Link>
                             </li>
                             <li>
+                                <Link href="/exam-papers" className="text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-2 group font-medium">
+                                    <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-amber-500 transition-colors"></span>
+                                    ข้อสอบ PDF
+                                </Link>
+                            </li>
+                            <li>
                                 <Link href="/payment" className="text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-2 group font-medium">
                                     <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-amber-500 transition-colors"></span>
                                     แจ้งชำระเงิน

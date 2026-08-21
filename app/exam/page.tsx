@@ -3,7 +3,7 @@ import Link from "next/link";
 import { listCollection, getDocument } from "@/lib/firestoreRest";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Target, Award, ArrowRight } from "lucide-react";
+import { Target, Award, ArrowRight, FileText } from "lucide-react";
 import ExamListClient from "@/components/exam/ExamListClient";
 
 // SEO Metadata
@@ -142,6 +142,35 @@ export default async function ExamHubPage() {
                             <Award size={18} />
                             ดูสถิติของฉัน
                         </button>
+                    </div>
+                </div>
+
+                {/* PDF exam-paper shop banner — same minimal card structure as the
+                    Practice Mode banner above, teal accent to set it apart */}
+                <div className="relative w-full max-w-5xl mx-auto mt-8 rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 py-14 md:px-16 md:py-20 text-center shadow-[0_10px_50px_-20px_rgba(15,23,42,0.15)]">
+                    <div className="inline-flex items-center gap-2 mb-6 text-[11px] font-bold uppercase tracking-[0.22em] text-teal-600 dark:text-teal-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
+                        PDF Download
+                    </div>
+
+                    <h2 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.15]">
+                        อยากได้ข้อสอบเป็นไฟล์ PDF
+                        <span className="block mt-1.5 text-teal-500">ไว้ปริ้นท์ทำที่บ้าน?</span>
+                    </h2>
+
+                    <p className="mt-5 mx-auto max-w-xl text-base md:text-lg text-slate-500 dark:text-slate-400 leading-relaxed">
+                        ชุดแนวข้อสอบพร้อมเฉลยละเอียด ดาวน์โหลดเก็บไว้ได้เลย
+                    </p>
+
+                    <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
+                        <Link
+                            href="/exam-papers"
+                            className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-base shadow-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+                        >
+                            <FileText size={18} />
+                            ดูชุดข้อสอบ PDF
+                            <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+                        </Link>
                     </div>
                 </div>
             </div>

@@ -66,6 +66,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             priority: 0.8,
         },
         {
+            url: `${baseUrl}/exam-papers`,
+            lastModified: new Date(),
+            changeFrequency: 'weekly',
+            priority: 0.8,
+        },
+        {
             url: `${baseUrl}/practice`,
             lastModified: new Date(),
             changeFrequency: 'weekly',
@@ -146,6 +152,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         console.error('Error generating sitemap for courses:', error)
     }
 
+    // Dynamic Exam Paper (PDF shop) Routes
+    let examPaperRoutes: MetadataRoute.Sitemap = []
+
+    try {
+        const docs = await listCollection('examPapers', ['hidden', 'createdAt', 'updatedAt'], { revalidate: 86400 })
+
+        examPaperRoutes = docs
+            .filter((d: FsDoc) => d.createdAt != null)
+            .filter((d: FsDoc) => !d.hidden)
+            .map((d: FsDoc) => ({
+                url: `${baseUrl}/exam-papers/${d.id}`,
+                lastModified: toDate(d.updatedAt ?? d.createdAt),
+                changeFrequency: 'weekly' as const,
+                priority: 0.7,
+            }))
+    } catch (error) {
+        console.error('Error generating sitemap for exam papers:', error)
+    }
+
     // Dynamic Summary Routes
     let summaryRoutes: MetadataRoute.Sitemap = []
 
@@ -164,5 +189,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         console.error('Error generating sitemap for summaries:', error)
     }
 
-    return [...staticRoutes, ...courseRoutes, ...blogRoutes, ...summaryRoutes, ...examRoutes]
+    return [...staticRoutes, ...courseRoutes, ...blogRoutes, ...summaryRoutes, ...examRoutes, ...examPaperRoutes]
 }

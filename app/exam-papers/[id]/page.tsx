@@ -34,9 +34,23 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     const { id } = await params;
     const paper = await getPaper(id);
     if (!paper) return { title: "ไม่พบข้อสอบ | KruHeem Course" };
+    const title = `${paper.title} | คลังข้อสอบ PDF ครูฮีม`;
+    const description = paper.description || `ดาวน์โหลด ${paper.title} เป็นไฟล์ PDF พร้อมเฉลย`;
     return {
-        title: `${paper.title} | คลังข้อสอบ PDF ครูฮีม`,
-        description: paper.description || `ดาวน์โหลด ${paper.title} เป็นไฟล์ PDF พร้อมเฉลย`,
+        title,
+        description,
+        openGraph: {
+            title,
+            description,
+            // ปกชุดข้อสอบเป็นแนวตั้ง — ถ้าไม่มีปกให้ปล่อยตกไปใช้รูปกลางของ layout
+            ...(paper.coverUrl ? { images: [{ url: paper.coverUrl }] } : {}),
+        },
+        twitter: {
+            card: "summary_large_image",
+            title,
+            description,
+            ...(paper.coverUrl ? { images: [paper.coverUrl] } : {}),
+        },
     };
 }
 

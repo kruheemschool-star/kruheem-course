@@ -19,6 +19,7 @@ import {
     Target,
     Menu,
     Newspaper,
+    FileText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -97,6 +98,11 @@ export default function Navbar() {
                     <ModeToggle />
                     <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden lg:block mx-1"></div>
                     <div className="hidden lg:flex items-center gap-1">
+                        <Link href="/exam-papers" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
+                            <FileText size={16} />
+                            <span>ข้อสอบ PDF</span>
+                        </Link>
+
                         <Link href="/reviews" className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-teal-50 dark:hover:bg-teal-900/20">
                             <Sparkles size={16} />
                             <span>รีวิว</span>
@@ -201,6 +207,15 @@ export default function Navbar() {
 
                     {/* Menu Items */}
                     <nav className="p-4 flex flex-col gap-1">
+                        <Link
+                            href="/exam-papers"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-xl text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 transition-colors font-medium"
+                        >
+                            <FileText size={20} />
+                            <span>ข้อสอบ PDF</span>
+                        </Link>
+
                         <Link
                             href="/reviews"
                             onClick={() => setMobileMenuOpen(false)}
