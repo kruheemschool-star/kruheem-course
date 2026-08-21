@@ -1,13 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FileText, Download, Eye, ShoppingBag } from "lucide-react";
+import { FileText, Download, Eye, ShoppingBag, BadgeCheck } from "lucide-react";
 import type { ExamPaper } from "@/types";
 
 export default function ExamPapersShop({ papers }: { papers: ExamPaper[] }) {
-    const [level, setLevel] = useState<string>("ทั้งหมด");
-    const [category, setCategory] = useState<string>("ทั้งหมด");
+    // ชิปกรองผูกกับ URL (?level= / ?category=) — แชร์ลิงก์หมวดแล้วชิปถูกเลือกให้เอง
+    // จงใจไม่ใช้ useSearchParams: บน route static มันบังคับทั้งหน้าร้านเป็น
+    // client-side render (การ์ดสินค้าหายจาก HTML ที่ Google เห็น) — SSR เป็น
+    // "ทั้งหมด" เสมอ แล้วค่อย sync ค่าจริงจาก URL หลัง mount แทน
+    const [level, setLevel] = useState("ทั้งหมด");
+    const [category, setCategory] = useState("ทั้งหมด");
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const l = params.get("level");
+        const c = params.get("category");
+        if (l) setLevel(l);
+        if (c) setCategory(c);
+    }, []);
+
+    const setFilter = (key: "level" | "category", value: string) => {
+        (key === "level" ? setLevel : setCategory)(value);
+        const params = new URLSearchParams(window.location.search);
+        if (value === "ทั้งหมด") params.delete(key);
+        else params.set(key, value);
+        const qs = params.toString();
+        window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+    };
 
     const levels = useMemo(
         () => ["ทั้งหมด", ...Array.from(new Set(papers.map((p) => p.level).filter(Boolean) as string[]))],
@@ -46,7 +67,7 @@ export default function ExamPapersShop({ papers }: { papers: ExamPaper[] }) {
                     {levels.map((l) => (
                         <button
                             key={l}
-                            onClick={() => setLevel(l)}
+                            onClick={() => setFilter("level", l)}
                             className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition ${
                                 level === l
                                     ? "bg-teal-600 text-white"
@@ -60,7 +81,7 @@ export default function ExamPapersShop({ papers }: { papers: ExamPaper[] }) {
                     {categories.map((c) => (
                         <button
                             key={c}
-                            onClick={() => setCategory(c)}
+                            onClick={() => setFilter("category", c)}
                             className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition ${
                                 category === c
                                     ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900"
@@ -103,15 +124,29 @@ export default function ExamPapersShop({ papers }: { papers: ExamPaper[] }) {
                                 )}
                             </div>
                             <div className="p-4">
-                                <div className="flex items-center gap-1.5 mb-2">
+                                <div className="flex flex-wrap items-center gap-1.5 mb-2">
                                     {p.level && <span className="rounded-full bg-teal-50 dark:bg-teal-950 px-2 py-0.5 text-[11px] font-bold text-teal-700 dark:text-teal-300">{p.level}</span>}
                                     {p.category && <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-600 dark:text-slate-300">{p.category}</span>}
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950 px-2 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                                        <BadgeCheck size={12} /> พร้อมเฉลยละเอียด
+                                    </span>
                                 </div>
                                 <h3 className="font-bold text-slate-900 dark:text-white leading-snug line-clamp-2">{p.title}</h3>
                                 {p.description && <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{p.description}</p>}
                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                                    <span className="text-lg font-black text-teal-600 dark:text-teal-400">฿{Number(p.price || 0).toLocaleString()}</span>
-                                    {p.pageCount ? <span className="text-xs text-slate-400">{p.pageCount} หน้า</span> : null}
+                                    <span className="flex items-baseline gap-1.5">
+                                        {p.fullPrice && p.fullPrice > p.price ? (
+                                            <span className="text-xs text-slate-400 dark:text-slate-500 line-through">฿{Number(p.fullPrice).toLocaleString()}</span>
+                                        ) : null}
+                                        <span className="text-lg font-black text-teal-600 dark:text-teal-400">฿{Number(p.price || 0).toLocaleString()}</span>
+                                    </span>
+                                    {p.questionCount || p.pageCount ? (
+                                        <span className="text-xs text-slate-400">
+                                            {[p.questionCount ? `${p.questionCount} ข้อ` : null, p.pageCount ? `${p.pageCount} หน้า` : null]
+                                                .filter(Boolean)
+                                                .join(" · ")}
+                                        </span>
+                                    ) : null}
                                 </div>
                             </div>
                         </Link>

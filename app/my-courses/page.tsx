@@ -12,6 +12,7 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarChart3, SlidersHorizontal, Sparkles, RotateCcw, Check, Clock, Lock, Sun, Moon, FileText, Download, Loader2, AlertTriangle } from "lucide-react";
 import { useInAppBrowser } from "@/lib/inAppBrowser";
+import { withTimeout } from "@/lib/netGuard";
 import ReviewForm from "@/app/reviews/ReviewForm";
 
 /* ============================================================
@@ -599,20 +600,38 @@ export default function MyCoursesPage() {
 
                 <div className="h-9" />
 
-                {/* §7.5 — Courses by grade level */}
-                <CourseList
-                    courses={courses}
-                    progressMap={progressMap}
-                    reviewedCourseIds={reviewedCourseIds}
-                    onReview={(courseId, courseName) => setReviewModal({ courseId, courseName })}
-                    vivid={vivid}
-                    cardful={cardful}
-                    c={c}
-                    isDark={isDark}
-                />
-
-                {/* §7.6 — Downloadable PDF exams the student has bought */}
-                <MyPapersSection c={c} isDark={isDark} />
+                {/* §7.5 + §7.6 — courses & purchased PDF exams.
+                    ผู้ใช้ที่ซื้อเฉพาะข้อสอบ PDF (ไม่มีคอร์ส) ต้องเห็นไฟล์ของตัวเองก่อน
+                    ไม่ใช่เจอกล่อง "ยังไม่ได้ลงทะเบียนคอร์สเรียน" นำหน้า */}
+                {courses.length === 0 ? (
+                    <>
+                        <MyPapersSection c={c} isDark={isDark} />
+                        <CourseList
+                            courses={courses}
+                            progressMap={progressMap}
+                            reviewedCourseIds={reviewedCourseIds}
+                            onReview={(courseId, courseName) => setReviewModal({ courseId, courseName })}
+                            vivid={vivid}
+                            cardful={cardful}
+                            c={c}
+                            isDark={isDark}
+                        />
+                    </>
+                ) : (
+                    <>
+                        <CourseList
+                            courses={courses}
+                            progressMap={progressMap}
+                            reviewedCourseIds={reviewedCourseIds}
+                            onReview={(courseId, courseName) => setReviewModal({ courseId, courseName })}
+                            vivid={vivid}
+                            cardful={cardful}
+                            c={c}
+                            isDark={isDark}
+                        />
+                        <MyPapersSection c={c} isDark={isDark} />
+                    </>
+                )}
             </main>
 
             <div className="mc-content">
@@ -686,6 +705,8 @@ function MyPapersSection({ c, isDark }: { c: Pal; isDark: boolean }) {
     const [items, setItems] = useState<MyPaper[]>([]);
     const [loading, setLoading] = useState(true);
     const [busyKey, setBusyKey] = useState<string | null>(null);
+    // ดาวน์โหลดพลาดต้องบอก — เก็บข้อความรายการ์ด (ไฟล์นี้ไม่มีระบบ toast)
+    const [downloadError, setDownloadError] = useState<{ paperId: string; msg: string } | null>(null);
 
     useEffect(() => {
         if (!user) { setLoading(false); return; }
@@ -726,16 +747,31 @@ function MyPapersSection({ c, isDark }: { c: Pal; isDark: boolean }) {
     const download = async (paperId: string, fileId: string) => {
         if (!auth.currentUser) return;
         setBusyKey(`${paperId}:${fileId}`);
+        setDownloadError(null);
         try {
-            const idToken = await auth.currentUser.getIdToken();
-            const res = await fetch("/api/download-pdf", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-                body: JSON.stringify({ paperId, fileId }),
-            });
-            const data = await res.json();
-            if (res.ok && data.url) window.location.href = data.url;
-        } catch { /* non-fatal */ }
+            const idToken = await withTimeout(auth.currentUser.getIdToken(), undefined, "ต่ออายุสิทธิ์ผู้ใช้");
+            const res = await withTimeout(
+                fetch("/api/download-pdf", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+                    body: JSON.stringify({ paperId, fileId }),
+                }),
+                undefined,
+                "ขอลิงก์ดาวน์โหลด"
+            );
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.url) {
+                window.location.href = data.url;
+            } else if (res.status === 403) {
+                setDownloadError({ paperId, msg: "สิทธิ์ยังไม่พร้อมใช้งาน ลองรีเฟรชหรือทัก LINE ครูฮีม" });
+            } else if (res.status === 404 || res.status === 409) {
+                setDownloadError({ paperId, msg: "ไฟล์กำลังอัปเดต ลองใหม่อีกครั้ง หรือรีเฟรชหน้า" });
+            } else {
+                setDownloadError({ paperId, msg: "เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" });
+            }
+        } catch {
+            setDownloadError({ paperId, msg: "เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้งนะครับ" });
+        }
         finally { setBusyKey(null); }
     };
 
@@ -779,25 +815,46 @@ function MyPapersSection({ c, isDark }: { c: Pal; isDark: boolean }) {
                             <div className="mt-2.5">
                                 {it.status === "approved" ? (
                                     it.files.length ? (
-                                        <div className="flex flex-wrap gap-2">
-                                            {it.files.map((f) => {
-                                                const busy = busyKey === `${it.paperId}:${f.id}`;
-                                                return (
-                                                    <button
-                                                        key={f.id}
-                                                        onClick={() => download(it.paperId, f.id)}
-                                                        disabled={busy}
-                                                        className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-semibold transition-colors disabled:opacity-60"
-                                                        style={{ borderColor: c.line, color: c.ink, background: c.card }}
-                                                    >
-                                                        {busy ? <><Loader2 className="animate-spin" size={14} /> กำลังเตรียม...</> : <><Download size={14} style={{ color: "#0D9488" }} /> {f.label}</>}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
+                                        <>
+                                            <div className="flex flex-wrap gap-2">
+                                                {it.files.map((f) => {
+                                                    const busy = busyKey === `${it.paperId}:${f.id}`;
+                                                    return (
+                                                        <button
+                                                            key={f.id}
+                                                            onClick={() => download(it.paperId, f.id)}
+                                                            disabled={busy}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-semibold transition-colors disabled:opacity-60"
+                                                            style={{ borderColor: c.line, color: c.ink, background: c.card }}
+                                                        >
+                                                            {busy ? <><Loader2 className="animate-spin" size={14} /> กำลังเตรียม...</> : <><Download size={14} style={{ color: "#0D9488" }} /> {f.label}</>}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            {downloadError?.paperId === it.paperId && (
+                                                <p className="mt-2 text-[12px] leading-relaxed" style={{ color: isDark ? "#F8A4A4" : "#B4533F" }}>
+                                                    {downloadError.msg}
+                                                </p>
+                                            )}
+                                        </>
                                     ) : <span className="text-[13px]" style={{ color: c.ink3 }}>ไฟล์ยังไม่พร้อม</span>
                                 ) : it.status === "rejected" ? (
-                                    <span className="text-[13px] font-semibold" style={{ color: c.ink3 }}>ไม่อนุมัติ</span>
+                                    <div>
+                                        <span className="text-[13px] font-semibold" style={{ color: c.ink3 }}>ไม่อนุมัติ</span>
+                                        <p className="mt-1.5 text-[12px] leading-relaxed" style={{ color: c.ink2 }}>
+                                            สลิปอาจไม่ชัดหรือข้อมูลไม่ครบ — ทักไลน์ครูฮีมได้เลย เดี๋ยวช่วยตรวจให้ครับ
+                                        </p>
+                                        <a
+                                            href="https://line.me/ti/p/~kruheemschool"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="mt-1.5 inline-flex items-center gap-1.5 text-[13px] font-semibold underline underline-offset-2"
+                                            style={{ color: "#0D9488" }}
+                                        >
+                                            ทัก LINE ครูฮีม
+                                        </a>
+                                    </div>
                                 ) : (
                                     <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-lg" style={{ background: amberBg, color: amberFg }}>
                                         <Clock size={14} /> รอครูอนุมัติ

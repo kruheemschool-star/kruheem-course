@@ -12,9 +12,13 @@ function LoginContent() {
     const searchParams = useSearchParams();
     // Only allow same-site relative paths — block open-redirect (//evil.com, https://…).
     const rawReturn = searchParams.get('returnUrl') || '/';
-    const returnUrl = rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : '/';
+    // กัน open-redirect: '//evil.com' และ '/\evil.com' ต่างก็ resolve ออกนอกโดเมนได้
+    const returnUrl = rawReturn.startsWith('/') && !rawReturn.startsWith('//') && !rawReturn.startsWith('/\\') ? rawReturn : '/';
     // Arrived here from a "buy course" click? Show why an account is needed.
     const fromBuy = returnUrl.startsWith('/payment');
+    // Same story from the PDF exam-paper shop's "ซื้อ" button — after login the
+    // returnUrl (with its ?buy=1) re-opens the order form on the paper page.
+    const fromPaperBuy = returnUrl.startsWith('/exam-papers');
     const registerHref = `/register?returnUrl=${encodeURIComponent(returnUrl)}`;
 
     const [email, setEmail] = useState("");
@@ -94,10 +98,12 @@ function LoginContent() {
 
             <div className="w-full max-w-md bg-white/80 dark:bg-slate-900/90 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white/50 dark:border-slate-700 p-8 md:p-12 relative z-10 animate-in fade-in zoom-in duration-500">
 
-                {fromBuy && (
+                {(fromBuy || fromPaperBuy) && (
                     <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl text-center animate-in fade-in slide-in-from-top-2">
-                        <p className="font-bold text-amber-800 dark:text-amber-300">🛒 ก่อนซื้อคอร์ส ต้องมีบัญชีก่อนนะครับ</p>
-                        <p className="text-sm text-amber-700/80 dark:text-amber-400/90 mt-1">เข้าสู่ระบบ หรือสมัครสมาชิก แล้วเราจะพากลับมาซื้อต่อให้ทันที</p>
+                        <p className="font-bold text-amber-800 dark:text-amber-300">🛒 ก่อนซื้อ{fromPaperBuy ? 'ข้อสอบ' : 'คอร์ส'} ต้องมีบัญชีก่อนนะครับ</p>
+                        <p className="text-sm text-amber-700/80 dark:text-amber-400/90 mt-1">
+                            {fromPaperBuy ? 'เข้าสู่ระบบ หรือสมัครสมาชิก แล้วเราจะพากลับไปสั่งซื้อข้อสอบต่อให้ทันที' : 'เข้าสู่ระบบ หรือสมัครสมาชิก แล้วเราจะพากลับมาซื้อต่อให้ทันที'}
+                        </p>
                     </div>
                 )}
 

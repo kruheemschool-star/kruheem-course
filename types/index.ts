@@ -107,6 +107,7 @@ export interface ExamPaper {
     title: string;
     description?: string;
     price: number;
+    fullPrice?: number;      // "ราคาเต็ม" ขีดฆ่า — shown struck-through when > price (same pattern as Course)
     level?: string;          // e.g. "ม.6", "ม.3" — free-form to match exam bank
     category?: string;       // e.g. "O-NET", "A-Level", "กลางภาค"
     tags?: string[];

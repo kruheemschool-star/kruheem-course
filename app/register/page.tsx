@@ -13,8 +13,12 @@ function RegisterContent() {
     // /payment target; otherwise still nudge to /payment (the แจ้งโอน hand-off).
     const rawReturn = searchParams.get('returnUrl') || '/';
     // Only allow same-site relative paths — block open-redirect (//evil.com, https://…).
-    const returnUrl = rawReturn.startsWith('/') && !rawReturn.startsWith('//') ? rawReturn : '/';
+    // กัน open-redirect: '//evil.com' และ '/\evil.com' ต่างก็ resolve ออกนอกโดเมนได้
+    const returnUrl = rawReturn.startsWith('/') && !rawReturn.startsWith('//') && !rawReturn.startsWith('/\\') ? rawReturn : '/';
     const fromBuy = returnUrl.startsWith('/payment');
+    // Came from the PDF exam-paper shop's "ซื้อ" button — after sign-up, send them
+    // straight back to the paper page (its ?buy=1 re-opens the order form for them).
+    const fromPaperBuy = returnUrl.startsWith('/exam-papers');
     const payDest = fromBuy ? returnUrl : '/payment';
     const loginHref = `/login?returnUrl=${encodeURIComponent(returnUrl)}`;
 
@@ -102,16 +106,29 @@ function RegisterContent() {
                     <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl p-3 mb-6 text-left">
                         <span className="text-base leading-none mt-0.5">📌</span>
                         <p className="text-xs text-amber-700 leading-relaxed">
-                            ขั้นต่อไป: <strong>แจ้งโอนเงินค่าคอร์ส</strong> เพื่อให้ครูเปิดสิทธิ์เข้าเรียนให้นะครับ
+                            {fromPaperBuy ? (
+                                <>สมัครเรียบร้อย! <strong>กลับไปสั่งซื้อข้อสอบต่อได้เลย</strong> ระบบจะเปิดฟอร์มสั่งซื้อรอไว้ให้ครับ</>
+                            ) : (
+                                <>ขั้นต่อไป: <strong>แจ้งโอนเงินค่าคอร์ส</strong> เพื่อให้ครูเปิดสิทธิ์เข้าเรียนให้นะครับ</>
+                            )}
                         </p>
                     </div>
 
-                    <Link
-                        href={payDest}
-                        className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
-                    >
-                        ไปแจ้งโอนเงิน <ArrowRight className="w-5 h-5" />
-                    </Link>
+                    {fromPaperBuy ? (
+                        <Link
+                            href={returnUrl}
+                            className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
+                        >
+                            กลับไปสั่งซื้อข้อสอบต่อ <ArrowRight className="w-5 h-5" />
+                        </Link>
+                    ) : (
+                        <Link
+                            href={payDest}
+                            className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
+                        >
+                            ไปแจ้งโอนเงิน <ArrowRight className="w-5 h-5" />
+                        </Link>
+                    )}
                     <Link href="/my-courses" className="inline-block mt-4 text-sm font-bold text-slate-400 hover:text-indigo-600 transition-colors">
                         ไว้ทีหลัง — เข้าหน้าเรียนของฉัน
                     </Link>
@@ -135,10 +152,12 @@ function RegisterContent() {
                         กลับเข้าสู่ระบบ
                     </Link>
                 </div>
-                {fromBuy && (
+                {(fromBuy || fromPaperBuy) && (
                     <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-center animate-in fade-in slide-in-from-top-2">
-                        <p className="font-bold text-amber-800">🛒 ก่อนซื้อคอร์ส ต้องมีบัญชีก่อนนะครับ</p>
-                        <p className="text-sm text-amber-700/80 mt-1">สมัครเสร็จ เราจะพากลับไปหน้าชำระเงินให้ทันที</p>
+                        <p className="font-bold text-amber-800">🛒 ก่อนซื้อ{fromPaperBuy ? 'ข้อสอบ' : 'คอร์ส'} ต้องมีบัญชีก่อนนะครับ</p>
+                        <p className="text-sm text-amber-700/80 mt-1">
+                            {fromPaperBuy ? 'สมัครเสร็จ เราจะพากลับไปหน้าข้อสอบให้สั่งซื้อต่อทันที' : 'สมัครเสร็จ เราจะพากลับไปหน้าชำระเงินให้ทันที'}
+                        </p>
                     </div>
                 )}
                 <div className="text-center mb-10">

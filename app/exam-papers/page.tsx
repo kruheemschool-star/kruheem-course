@@ -22,7 +22,7 @@ async function getPapers(): Promise<ExamPaper[]> {
     try {
         const docs = await listCollection(
             "examPapers",
-            ["title", "description", "price", "level", "category", "tags", "coverUrl", "previewUrl", "pageCount", "hidden", "order", "createdAt"],
+            ["title", "description", "price", "fullPrice", "level", "category", "tags", "coverUrl", "previewUrl", "pageCount", "questionCount", "hidden", "order", "createdAt"],
             { revalidate: 300 },
         );
         return docs
@@ -32,12 +32,14 @@ async function getPapers(): Promise<ExamPaper[]> {
                 title: (d.title as string) || "",
                 description: (d.description as string) || "",
                 price: Number(d.price ?? 0),
+                fullPrice: d.fullPrice != null ? Number(d.fullPrice) : undefined,
                 level: (d.level as string) || "",
                 category: (d.category as string) || "",
                 tags: (d.tags as string[]) || [],
                 coverUrl: (d.coverUrl as string) || "",
                 previewUrl: (d.previewUrl as string) || "",
                 pageCount: Number(d.pageCount ?? 0),
+                questionCount: Number(d.questionCount ?? 0),
                 order: (d.order as number | undefined) ?? Number.MAX_SAFE_INTEGER,
             }))
             .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));

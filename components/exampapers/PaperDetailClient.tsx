@@ -4,26 +4,47 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { withTimeout } from "@/lib/netGuard";
+import { useInAppBrowser, openInExternalBrowser } from "@/lib/inAppBrowser";
 import { uploadPublicFile } from "@/lib/pdfUpload";
 import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slipFile";
 import { useUserAuth } from "@/context/AuthContext";
 import type { ExamPaper } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
-import { FileText, Eye, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, X, UploadCloud, Loader2 } from "lucide-react";
+import { FileText, Eye, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, X, UploadCloud, Loader2, Clock } from "lucide-react";
 import ExamAnalysisSection from "@/components/exampapers/ExamAnalysisSection";
 import ExamAnalysisArticle from "@/components/exampapers/ExamAnalysisArticle";
 import PaymentTransferInfo from "@/components/payment/PaymentTransferInfo";
 
 const PHONE_RE = /^[0-9]{9,10}$/;
 
-export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
+// สถานะการซื้อชุดนี้ของบัญชีที่ล็อกอินอยู่ (เช็คจาก enrollments ฝั่ง client)
+type OwnStatus = "none" | "pending" | "approved";
+
+export default function PaperDetailClient({
+    paper,
+    fileLabels = [],
+    related = [],
+}: {
+    paper: ExamPaper;
+    fileLabels?: string[];
+    related?: ExamPaper[];
+}) {
     const { user } = useUserAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
+    // FB/LINE in-app webview เปิดลิงก์ PDF แบบ target="_blank" มักเงียบ →
+    // ต้องเด้งออกไปเบราว์เซอร์จริงแทน (pattern เดียวกับ MyPapersSection)
+    const { isInApp, platform } = useInAppBrowser();
 
     const [checkoutOpen, setCheckoutOpen] = useState(false);
     const [done, setDone] = useState(false);
+    const [ownStatus, setOwnStatus] = useState<OwnStatus>("none");
+    // true เมื่อเช็คสถานะการซื้อจบแล้ว (สำเร็จหรือพังก็ตาม) — ?buy=1 ต้องรอค่านี้
+    // ก่อนเปิดฟอร์ม ไม่งั้นคนที่ซื้อไปแล้วเปิดลิงก์เดิมจะถูกพาไปจ่ายซ้ำ
+    const [statusChecked, setStatusChecked] = useState(false);
+    const [previewHint, setPreviewHint] = useState(false);
 
     const [fullName, setFullName] = useState("");
     const [phone, setPhone] = useState("");
@@ -34,6 +55,42 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
     const [submitting, setSubmitting] = useState(false);
     const [progress, setProgress] = useState(0);
 
+    const price = Number(paper.price || 0);
+    const fullPrice = Number(paper.fullPrice || 0);
+    const hasDiscount = fullPrice > price;
+
+    // เช็คว่าบัญชีนี้เคยสั่งซื้อชุดนี้ไปแล้วหรือยัง — ถ้าเช็คไม่สำเร็จให้ถือว่า
+    // "ยังไม่ซื้อ" เสมอ (แสดงปุ่มซื้อปกติ) เพื่อไม่ให้การเช็คนี้บล็อกการขาย
+    useEffect(() => {
+        if (!user) {
+            setOwnStatus("none");
+            setStatusChecked(true);
+            return;
+        }
+        let cancelled = false;
+        setStatusChecked(false);
+        (async () => {
+            try {
+                const snap = await withTimeout(
+                    getDocs(query(collection(db, "enrollments"), where("userId", "==", user.uid), where("paperId", "==", paper.id))),
+                    10_000,
+                    "เช็คสถานะการซื้อ",
+                );
+                const mine = snap.docs
+                    .map((d) => d.data() as Record<string, unknown>)
+                    .filter((r) => r.productType === "examPaper");
+                const next: OwnStatus = mine.some((r) => r.status === "approved")
+                    ? "approved"
+                    : mine.some((r) => r.status === "pending")
+                        ? "pending"
+                        : "none";
+                if (!cancelled) setOwnStatus(next);
+            } catch { /* เช็คพัง → ปุ่มซื้อปกติ ไม่ต้องรบกวนผู้ใช้ */ }
+            finally { if (!cancelled) setStatusChecked(true); }
+        })();
+        return () => { cancelled = true; };
+    }, [user, paper.id]);
+
     const openCheckout = () => {
         if (!user) {
             // Not signed in: send to login/register (the file must land in an
@@ -43,17 +100,31 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
             router.push(`/login?returnUrl=${encodeURIComponent(`/exam-papers/${paper.id}?buy=1`)}`);
             return;
         }
+        // ปุ่มซื้อโชว์เฉพาะตอน ownStatus === "none" อยู่แล้ว — กันซ้ำอีกชั้นเผื่อ
+        // ถูกเรียกจากทางอื่นระหว่างสถานะกำลังเปลี่ยน
+        if (ownStatus !== "none") return;
         setFullName(user.displayName || "");
         setCheckoutOpen(true);
     };
 
     // Returning from login/register with ?buy=1 → open the checkout for them.
+    // รอผลเช็คสถานะการซื้อก่อนเสมอ — คนที่ pending/approved อยู่แล้วที่เปิดลิงก์
+    // ?buy=1 เดิม (จาก history/แชท) ต้องไม่ถูกพาไปกรอกจ่ายซ้ำ
     useEffect(() => {
-        if (searchParams.get("buy") === "1" && user) {
+        if (searchParams.get("buy") === "1" && user && statusChecked && ownStatus === "none" && !done) {
             setFullName(user.displayName || "");
             setCheckoutOpen(true);
         }
-    }, [user, searchParams]);
+    }, [user, searchParams, statusChecked, ownStatus, done]);
+
+    // ปุ่มดูตัวอย่างตอนอยู่ใน FB/LINE: เด้งออกไปเปิดในเบราว์เซอร์จริง
+    // (target="_blank" ใน webview มักเงียบ) + โชว์คำใบ้เผื่อระบบเด้งไม่สำเร็จ
+    const openPreview = () => {
+        if (!paper.previewUrl) return;
+        const escaped = openInExternalBrowser(paper.previewUrl, platform);
+        if (!escaped) window.open(paper.previewUrl, "_blank", "noopener,noreferrer");
+        setPreviewHint(true);
+    };
 
     // Shared slip helper: tolerant validation (empty file.type from
     // Android/in-app pickers), compression, HEIC→JPEG, storage.rules 5MB cap.
@@ -71,6 +142,10 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
         }
     };
 
+    // กรอกอะไรไปแล้ว (แก้ชื่อเอง/เบอร์/LINE/แนบสลิป) → แตะฉากหลังไม่ปิด modal
+    // กันข้อมูลหาย ปิดได้ที่ปุ่ม X เท่านั้น (ชื่อที่ระบบเติมให้เองไม่นับว่า "กรอกแล้ว")
+    const formDirty = !!(phone || lineId || slip || fullName.trim() !== (user?.displayName || "").trim());
+
     const submit = async () => {
         if (!user) return;
         if (!fullName.trim()) return toast.error("กรุณากรอกชื่อ-นามสกุล");
@@ -80,7 +155,6 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
         setSubmitting(true);
         try {
             const slipUrl = await uploadPublicFile(slip, `slips/${user.uid}_${Date.now()}`, (p) => setProgress(p), slipContentType(slip));
-            const price = Number(paper.price || 0);
             await addDoc(collection(db, "enrollments"), {
                 userId: user.uid,
                 userEmail: user.email,
@@ -103,6 +177,7 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
             });
             if (slipPreview) URL.revokeObjectURL(slipPreview);
             setCheckoutOpen(false);
+            setOwnStatus("pending");
             setDone(true);
             window.scrollTo({ top: 0, behavior: "smooth" });
         } catch (e) {
@@ -116,22 +191,25 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
 
     if (done) {
         return (
-            <div className="max-w-lg mx-auto px-4 py-16 text-center">
-                <div className="mx-auto w-16 h-16 rounded-full bg-teal-100 dark:bg-teal-900 flex items-center justify-center mb-5">
-                    <Check size={32} className="text-teal-600 dark:text-teal-300" />
+            <div className="max-w-5xl mx-auto px-4 md:px-8 pb-16">
+                <div className="max-w-lg mx-auto py-16 text-center">
+                    <div className="mx-auto w-16 h-16 rounded-full bg-teal-100 dark:bg-teal-900 flex items-center justify-center mb-5">
+                        <Check size={32} className="text-teal-600 dark:text-teal-300" />
+                    </div>
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-white">ส่งคำสั่งซื้อแล้ว!</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-3">
+                        ครูฮีมกำลังตรวจสอบสลิปของคุณ เมื่ออนุมัติแล้วคุณจะดาวน์โหลดไฟล์ได้ที่หน้า “คอร์สเรียนของฉัน” ทันที
+                    </p>
+                    <div className="flex items-center justify-center gap-3 mt-7">
+                        <Link href="/my-courses" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 transition">
+                            <Download size={17} /> ไปหน้าคอร์สเรียนของฉัน
+                        </Link>
+                        <Link href="/exam-papers" className="inline-flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold px-5 py-2.5 transition hover:bg-slate-200 dark:hover:bg-slate-700">
+                            เลือกซื้อชุดอื่น
+                        </Link>
+                    </div>
                 </div>
-                <h1 className="text-2xl font-black text-slate-900 dark:text-white">ส่งคำสั่งซื้อแล้ว!</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-3">
-                    ครูฮีมกำลังตรวจสอบสลิปของคุณ เมื่ออนุมัติแล้วคุณจะดาวน์โหลดไฟล์ได้ที่หน้า “คอร์สเรียนของฉัน” ทันที
-                </p>
-                <div className="flex items-center justify-center gap-3 mt-7">
-                    <Link href="/my-courses" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 transition">
-                        <Download size={17} /> ไปหน้าคอร์สเรียนของฉัน
-                    </Link>
-                    <Link href="/exam-papers" className="inline-flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold px-5 py-2.5 transition hover:bg-slate-200 dark:hover:bg-slate-700">
-                        เลือกซื้อชุดอื่น
-                    </Link>
-                </div>
+                <RelatedPapers items={related} />
             </div>
         );
     }
@@ -163,20 +241,62 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
                     <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight">{paper.title}</h1>
                     {paper.description && <p className="text-slate-600 dark:text-slate-300 mt-3 leading-relaxed">{paper.description}</p>}
 
-                    <div className="flex items-baseline gap-2 mt-6">
-                        <span className="text-3xl font-black text-teal-600 dark:text-teal-400">฿{Number(paper.price || 0).toLocaleString()}</span>
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-6">
+                        <span className="text-3xl font-black text-teal-600 dark:text-teal-400">฿{price.toLocaleString()}</span>
+                        {hasDiscount && (
+                            <>
+                                <span className="text-lg font-bold text-slate-400 line-through">฿{fullPrice.toLocaleString()}</span>
+                                <span className="rounded-full bg-rose-50 dark:bg-rose-950 px-2 py-0.5 text-xs font-bold text-rose-600 dark:text-rose-300">
+                                    ประหยัด ฿{(fullPrice - price).toLocaleString()}
+                                </span>
+                            </>
+                        )}
+                        {paper.questionCount ? <span className="text-sm text-slate-400">· {paper.questionCount} ข้อ</span> : null}
                         {paper.pageCount ? <span className="text-sm text-slate-400">· {paper.pageCount} หน้า</span> : null}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 mt-6">
-                        <button onClick={openCheckout} className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 transition shadow-sm">
-                            <ShoppingCart size={19} /> ซื้อและดาวน์โหลด
-                        </button>
-                        {paper.previewUrl && (
+                        {ownStatus === "approved" ? (
+                            <Link href="/my-courses" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 transition shadow-sm">
+                                <Download size={19} /> ซื้อแล้ว — ไปหน้าดาวน์โหลด
+                            </Link>
+                        ) : ownStatus === "pending" ? (
+                            <button disabled className="inline-flex items-center gap-2 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-bold px-6 py-3 cursor-not-allowed">
+                                <Clock size={19} /> ส่งสลิปแล้ว รอครูตรวจ
+                            </button>
+                        ) : (
+                            <button onClick={openCheckout} className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 transition shadow-sm">
+                                <ShoppingCart size={19} /> ซื้อและดาวน์โหลด
+                            </button>
+                        )}
+                        {paper.previewUrl && (isInApp ? (
+                            <button onClick={openPreview} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold px-5 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800">
+                                <Eye size={18} /> ดูตัวอย่างฟรี
+                            </button>
+                        ) : (
                             <a href={paper.previewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold px-5 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800">
                                 <Eye size={18} /> ดูตัวอย่างฟรี
                             </a>
-                        )}
+                        ))}
+                    </div>
+                    {ownStatus === "pending" && (
+                        <p className="mt-2.5 text-xs text-slate-500 dark:text-slate-400">
+                            ครูฮีมกำลังตรวจสลิปให้อยู่ครับ — <Link href="/my-courses" className="font-semibold text-teal-600 dark:text-teal-400 underline">ดูสถานะได้ที่หน้าคอร์สเรียนของฉัน</Link>
+                        </p>
+                    )}
+                    {isInApp && previewHint && (
+                        <p className="mt-2.5 text-xs text-slate-500 dark:text-slate-400">
+                            ถ้าไฟล์ตัวอย่างไม่เด้งขึ้นมา ลองกดเมนู ⋯ มุมขวาบน แล้วเลือก “เปิดในเบราว์เซอร์” นะครับ
+                        </p>
+                    )}
+
+                    {/* ในแพ็กนี้ได้อะไรบ้าง — รายชื่อไฟล์จากฝั่งเซิร์ฟเวอร์ (เฉพาะ label ไม่มี path) */}
+                    <div className="mt-6 rounded-xl border border-teal-100 dark:border-teal-900/60 bg-teal-50/70 dark:bg-teal-950/30 p-4">
+                        <div className="text-sm font-bold text-teal-800 dark:text-teal-200 mb-1">📦 ในชุดนี้ได้รับ</div>
+                        <div className="text-sm text-teal-900/80 dark:text-teal-100/80 leading-relaxed">
+                            {fileLabels.length > 0 ? fileLabels.join(" · ") : "ตัวข้อสอบ · เฉลย"}
+                            <span className="text-teal-700/70 dark:text-teal-300/70"> (ไฟล์ PDF ดาวน์โหลดเก็บได้ตลอด)</span>
+                        </div>
                     </div>
 
                     <div className="mt-7 space-y-2.5 text-sm text-slate-600 dark:text-slate-300">
@@ -193,9 +313,37 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
             {/* บทวิเคราะห์ฉบับเต็ม — long-form Markdown write-up (optional) */}
             <ExamAnalysisArticle article={paper.analysis?.article} />
 
+            {/* ชุดอื่นที่น่าสนใจ — cross-sell */}
+            <RelatedPapers items={related} />
+
+            {/* คำถามที่พบบ่อย */}
+            <div className="mt-14 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-6 md:p-8">
+                <h2 className="text-lg font-black text-slate-900 dark:text-white mb-5">คำถามที่คุณพ่อคุณแม่ถามบ่อย</h2>
+                <div className="space-y-5 text-sm leading-relaxed">
+                    <div>
+                        <div className="font-bold text-slate-800 dark:text-slate-100">ซื้อแล้วได้ไฟล์เมื่อไร?</div>
+                        <p className="text-slate-600 dark:text-slate-300 mt-1">หลังครูฮีมตรวจสลิปและอนุมัติ ปกติไม่เกินไม่กี่ชั่วโมง ไฟล์จะไปรออยู่ที่หน้า “คอร์สเรียนของฉัน” ให้ดาวน์โหลดได้เลยครับ</p>
+                    </div>
+                    <div>
+                        <div className="font-bold text-slate-800 dark:text-slate-100">ดาวน์โหลดซ้ำได้ไหม?</div>
+                        <p className="text-slate-600 dark:text-slate-300 mt-1">ได้ตลอดชีพครับ ซื้อครั้งเดียว กลับมาโหลดใหม่เมื่อไรก็ได้</p>
+                    </div>
+                    <div>
+                        <div className="font-bold text-slate-800 dark:text-slate-100">พิมพ์ออกมาให้ลูกทำได้ไหม?</div>
+                        <p className="text-slate-600 dark:text-slate-300 mt-1">ได้เลยครับ ไฟล์ทำไว้สำหรับปริ้นท์ให้ลูกฝึกทำบนกระดาษจริงเหมือนสอบจริง</p>
+                    </div>
+                    <div>
+                        <div className="font-bold text-slate-800 dark:text-slate-100">ติดปัญหาติดต่อที่ไหน?</div>
+                        <p className="text-slate-600 dark:text-slate-300 mt-1">
+                            ทัก <a href="https://line.me/ti/p/~kruheemschool" target="_blank" rel="noopener noreferrer" className="font-semibold text-teal-600 dark:text-teal-400 underline">LINE ครูฮีม</a> ได้เลยครับ ครูตอบเองทุกข้อความ
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {/* checkout modal */}
             {checkoutOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)" }} onClick={() => !submitting && setCheckoutOpen(false)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)" }} onClick={() => !submitting && !formDirty && setCheckoutOpen(false)}>
                     <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-black text-slate-900 dark:text-white">สั่งซื้อข้อสอบ</h2>
@@ -204,7 +352,10 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
 
                         <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 mb-4 flex items-center justify-between">
                             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 line-clamp-1 pr-2">{paper.title}</span>
-                            <span className="font-black text-teal-600 dark:text-teal-400 shrink-0">฿{Number(paper.price || 0).toLocaleString()}</span>
+                            <span className="flex items-baseline gap-1.5 shrink-0">
+                                {hasDiscount && <span className="text-xs text-slate-400 line-through">฿{fullPrice.toLocaleString()}</span>}
+                                <span className="font-black text-teal-600 dark:text-teal-400">฿{price.toLocaleString()}</span>
+                            </span>
                         </div>
 
                         {/* transfer details — same block as the main checkout */}
@@ -245,6 +396,49 @@ export default function PaperDetailClient({ paper }: { paper: ExamPaper }) {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+// การ์ดเล็ก "ชุดอื่นที่น่าสนใจ" — ใช้ทั้งท้ายหน้าขายและใต้หน้า "สั่งซื้อสำเร็จ"
+function RelatedPapers({ items }: { items: ExamPaper[] }) {
+    if (!items.length) return null;
+    return (
+        <div className="mt-14">
+            <h2 className="text-lg font-black text-slate-900 dark:text-white mb-4">ชุดอื่นที่น่าสนใจ</h2>
+            <div className="grid gap-4 sm:grid-cols-3">
+                {items.map((p) => {
+                    const pr = Number(p.price || 0);
+                    const full = Number(p.fullPrice || 0);
+                    return (
+                        <Link
+                            key={p.id}
+                            href={`/exam-papers/${p.id}`}
+                            className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:shadow-[0_16px_40px_-24px_rgba(15,23,42,0.35)] hover:-translate-y-0.5 transition"
+                        >
+                            <div className="aspect-[4/3] bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                                {p.coverUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={p.coverUrl} alt={p.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition" />
+                                ) : (
+                                    <FileText size={36} className="text-slate-300 dark:text-slate-600" />
+                                )}
+                            </div>
+                            <div className="p-3.5">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                    {p.level && <span className="rounded-full bg-teal-50 dark:bg-teal-950 px-2 py-0.5 text-[11px] font-bold text-teal-700 dark:text-teal-300">{p.level}</span>}
+                                    {p.category && <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-600 dark:text-slate-300">{p.category}</span>}
+                                </div>
+                                <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug line-clamp-2">{p.title}</h3>
+                                <div className="flex items-baseline gap-1.5 mt-2">
+                                    <span className="font-black text-teal-600 dark:text-teal-400">฿{pr.toLocaleString()}</span>
+                                    {full > pr && <span className="text-xs text-slate-400 line-through">฿{full.toLocaleString()}</span>}
+                                </div>
+                            </div>
+                        </Link>
+                    );
+                })}
+            </div>
         </div>
     );
 }

@@ -63,10 +63,20 @@ export async function POST(req: NextRequest) {
         if (!files.length) {
             return NextResponse.json({ error: "file not ready" }, { status: 409 });
         }
-        const target = fileId ? files.find((f) => f.id === fileId) : files[0];
+        // A stale tab can ask for an OLD fileId after ครูฮีม replaces a file
+        // (each upload mints a new id). With a single-file product there is no
+        // wrong pick, so quietly serve the one file instead of failing the
+        // buyer; with several files we can't guess which set they meant.
+        let target = fileId ? files.find((f) => f.id === fileId) : files[0];
+        if (fileId && !target && files.length === 1) {
+            target = files[0];
+        }
         const pdfPath = target?.path;
         if (!pdfPath) {
-            return NextResponse.json({ error: "file not found" }, { status: 404 });
+            return NextResponse.json(
+                { error: "ไม่พบไฟล์นี้แล้ว ครูอาจเพิ่งอัปเดตไฟล์เวอร์ชันใหม่ กรุณารีเฟรชหน้านี้แล้วกดดาวน์โหลดอีกครั้งนะครับ" },
+                { status: 404 },
+            );
         }
 
         // --- 3. Entitlement check ------------------------------------------

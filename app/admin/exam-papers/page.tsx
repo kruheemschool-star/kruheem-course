@@ -35,6 +35,7 @@ const emptyForm = {
     title: "",
     description: "",
     price: 0,
+    fullPrice: 0,
     level: "ม.6",
     category: "O-NET",
     pageCount: 0,
@@ -114,6 +115,7 @@ export default function AdminExamPapersPage() {
             title: p.title || "",
             description: p.description || "",
             price: Number(p.price || 0),
+            fullPrice: Number(p.fullPrice || 0),
             level: p.level || "ม.6",
             category: p.category || "O-NET",
             pageCount: Number(p.pageCount || 0),
@@ -230,6 +232,8 @@ export default function AdminExamPapersPage() {
                 title: form.title.trim(),
                 description: form.description.trim(),
                 price: Number(form.price),
+                // ราคาเต็มขีดฆ่า — เก็บเฉพาะเมื่อกรอกค่า ช่องว่าง/0 = ลบ field ทิ้ง
+                fullPrice: Number(form.fullPrice) > 0 ? Number(form.fullPrice) : deleteField(),
                 level: form.level,
                 category: form.category,
                 pageCount: Number(form.pageCount) || 0,
@@ -448,6 +452,11 @@ export default function AdminExamPapersPage() {
                                 <div>
                                     <label className="block text-sm font-medium kh-ink mb-1">ราคา (บาท) *</label>
                                     <input type="number" min={0} className="kh-input w-full" placeholder="0" value={form.price || ""} onChange={(e) => setForm({ ...form, price: Number(e.target.value) || 0 })} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium kh-ink mb-1">ราคาเต็ม (ขีดฆ่า)</label>
+                                    <input type="number" min={0} className="kh-input w-full" placeholder="0" value={form.fullPrice || ""} onChange={(e) => setForm({ ...form, fullPrice: Number(e.target.value) || 0 })} />
+                                    <p className="text-xs kh-ink3 mt-1">แสดงขีดฆ่าเมื่อสูงกว่าราคาขาย</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium kh-ink mb-1">ระดับชั้น</label>
