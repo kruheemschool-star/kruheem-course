@@ -13,7 +13,9 @@ module.exports = {
         card: 'var(--bg-card)',
       },
       fontFamily: {
-        sans: ['var(--font-ibm-loop)', 'sans-serif'],
+        // Sarabun เป็นตัวสำรอง: รับอักขระที่ IBM Plex Sans Thai Looped ไม่มี
+        // (ตัวหลักยังเป็น IBM Loop เหมือนเดิมทุกจุด)
+        sans: ['var(--font-ibm-loop)', 'var(--font-sarabun)', 'sans-serif'],
         mero: ['var(--font-mitr)', 'sans-serif'],
       },
       animation: {

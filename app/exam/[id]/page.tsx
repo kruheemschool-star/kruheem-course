@@ -128,12 +128,12 @@ export default async function ExamRoomPage(props: Props) {
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col transition-colors" suppressHydrationWarning>
-            <div className="bg-white border-b border-slate-100 py-4 px-6 fixed top-0 w-full z-10 shadow-sm flex items-center justify-between">
-                <Link href="/exam" className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold transition-colors">
+            <div className="exs-topbar py-4 px-6 fixed top-0 w-full z-10 flex items-center justify-between">
+                <Link href="/exam" className="exs-topbar-link flex items-center gap-2">
                     <ArrowLeft size={20} />
                     <span className="hidden md:inline">ออกจากห้องสอบ</span>
                 </Link>
-                <div className="font-bold text-slate-800 truncate max-w-xs md:max-w-md">
+                <div className="exs-topbar-title truncate max-w-xs md:max-w-md">
                     {exam.title}
                 </div>
                 <div className="flex items-center gap-1">
@@ -160,7 +160,9 @@ export default async function ExamRoomPage(props: Props) {
             </main>
 
             {/* SEO Text Content (Visible but unobtrusive) - Helps search engines understand context better */}
-            <div className="container mx-auto px-6 pb-8 text-slate-400 text-sm">
+            {/* relative z-10: หน้าเริ่มทำข้อสอบวาง canvas ลายจุดแบบ fixed z-0 ทับทั้งจอ
+                ถ้าท้ายหน้าไม่ยกชั้น จะถูก canvas บังหายไป */}
+            <div className="container mx-auto px-6 pb-8 text-slate-400 text-sm relative z-10">
                 <div className="border-t border-slate-100 pt-6 mt-6">
                     <h2 className="font-bold text-slate-500 flex items-center gap-2 mb-2">
                         <ArrowUpRight size={16} />

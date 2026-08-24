@@ -15,7 +15,8 @@ import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { useExamBankMembership } from '@/hooks/useExamBankMembership';
 import { bumpExamStat, examUserType } from '@/lib/examStats';
 import { History, TrendingUp, TrendingDown } from 'lucide-react';
-import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee, Printer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee, Printer, Zap, SquarePen, Timer, ClipboardCheck, NotebookPen } from 'lucide-react';
+import ExamStartBackdrop from './ExamStartBackdrop';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, getDoc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -222,6 +223,34 @@ class QuestionErrorBoundary extends React.Component<
         return this.props.children;
     }
 }
+
+// ════════════════ จานสีการ์ดหน้าเริ่มทำข้อสอบ (สเปกข้อ 6) ════════════════
+// ทุกใบใช้สูตรการ์ดเดียวกันใน .exs-card เปลี่ยนแค่ชุดตัวแปรนี้
+// (amber ไม่ได้อยู่ในตารางสเปก — ไล่ตามสูตรเดียวกันให้การ์ด "สมุดข้อผิด")
+const EXS_THEME = {
+    violet: { '--exs-g1': '#a78bfa', '--exs-g2': '#6366f1', '--exs-g3': '#4f46e5', '--exs-border': '#e2ddfd', '--exs-glow': 'rgba(139,92,246,.15)', '--exs-shadow': 'rgba(99,102,241,.6)', '--exs-hover': '#a78bfa', '--exs-ring': 'rgba(79,70,229,.16)', '--exs-ishadow': 'rgba(99,102,241,.65)', '--exs-accent': '#6366f1' },
+    emerald: { '--exs-g1': '#34d399', '--exs-g2': '#10b981', '--exs-g3': '#0d9488', '--exs-border': '#d9efe6', '--exs-glow': 'rgba(16,185,129,.14)', '--exs-shadow': 'rgba(13,148,136,.55)', '--exs-hover': '#34d399', '--exs-ring': 'rgba(13,148,136,.16)', '--exs-ishadow': 'rgba(16,185,129,.65)', '--exs-accent': '#10b981' },
+    indigo: { '--exs-g1': '#818cf8', '--exs-g2': '#6366f1', '--exs-g3': '#2563eb', '--exs-border': '#dee2fb', '--exs-glow': 'rgba(99,102,241,.14)', '--exs-shadow': 'rgba(37,99,235,.55)', '--exs-hover': '#818cf8', '--exs-ring': 'rgba(37,99,235,.16)', '--exs-ishadow': 'rgba(99,102,241,.65)', '--exs-accent': '#6366f1' },
+    sky: { '--exs-g1': '#38bdf8', '--exs-g2': '#0ea5e9', '--exs-g3': '#06b6d4', '--exs-border': '#d5ebfa', '--exs-glow': 'rgba(14,165,233,.14)', '--exs-shadow': 'rgba(6,182,212,.55)', '--exs-hover': '#38bdf8', '--exs-ring': 'rgba(6,182,212,.16)', '--exs-ishadow': 'rgba(14,165,233,.65)', '--exs-accent': '#0ea5e9' },
+    teal: { '--exs-g1': '#2dd4bf', '--exs-g2': '#14b8a6', '--exs-g3': '#10b981', '--exs-border': '#d2efe8', '--exs-glow': 'rgba(20,184,166,.14)', '--exs-shadow': 'rgba(16,185,129,.55)', '--exs-hover': '#2dd4bf', '--exs-ring': 'rgba(16,185,129,.16)', '--exs-ishadow': 'rgba(20,184,166,.65)', '--exs-accent': '#14b8a6' },
+    amber: { '--exs-g1': '#fbbf24', '--exs-g2': '#f59e0b', '--exs-g3': '#ea580c', '--exs-border': '#fae7cd', '--exs-glow': 'rgba(245,158,11,.14)', '--exs-shadow': 'rgba(234,88,12,.55)', '--exs-hover': '#fbbf24', '--exs-ring': 'rgba(234,88,12,.16)', '--exs-ishadow': 'rgba(245,158,11,.65)', '--exs-accent': '#f59e0b' },
+} as const satisfies Record<string, Record<string, string>>;
+
+type ExsThemeName = keyof typeof EXS_THEME;
+const exsVars = (name: ExsThemeName) => EXS_THEME[name] as unknown as React.CSSProperties;
+
+/** ไอคอน 56px ไล่เฉด 3 สเต็ป + ไฮไลต์แสงด้านบน (สเปกข้อ 5) */
+const ExsIcon: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <span className="exs-icon">
+        <span className="exs-icon-gloss" />
+        {children}
+    </span>
+);
+
+/** วงลูกศรปลายแถวยาว */
+const ExsArrow: React.FC = () => (
+    <span className="exs-arrow"><ChevronRight size={18} strokeWidth={2.4} /></span>
+);
 
 export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, examId, category, level, initialQuestionIndex = 0, onComplete, isTrial = false, showAnswerChecking = false, enableResultTracking = false, recommendedSecondsPerQuestion, timedMode = false, timeLimitMinutes }) => {
     const { user } = useUserAuth();
@@ -1649,15 +1678,16 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const startIsDiagnostic = isDiagnosticExam(sanitizedExamData);
         const canMini = !isTrial && sanitizedExamData.length > MINI_QUIZ_SIZE + 5;
         return (
-            <div className="max-w-3xl mx-auto px-4 md:px-6 py-10 font-sans">
+            <div className="max-w-3xl mx-auto px-4 md:px-6 py-10 font-sans exs-shell">
+                <ExamStartBackdrop isDark={isDark} />
                 <SampleAnalysisModal open={showSample} onClose={() => setShowSample(false)} variant="bank" isDark={isDark} />
-                <div className="text-center mb-7">
-                    <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-black">
-                        <Award size={14} /> คลังข้อสอบครูฮีม
+                <div className="text-center" style={{ marginBottom: 30 }}>
+                    <div className="exs-chip" style={{ marginBottom: 12 }}>
+                        <span className="exs-chip-coin"><Award size={12} /></span> คลังข้อสอบครูฮีม
                     </div>
-                    <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100">{examTitle}</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">
-                        ทั้งหมด {sanitizedExamData.length} ข้อ — เลือกแบบที่เหมาะกับตอนนี้
+                    <h1 className="exs-h1">{examTitle}</h1>
+                    <p className="exs-sub" style={{ marginTop: 6 }}>
+                        ทั้งหมด <span className="exs-accent-num">{sanitizedExamData.length}</span> ข้อ — เลือกแบบที่เหมาะกับตอนนี้
                         {isTrial && <span className="ml-2 bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 px-2 py-0.5 rounded text-xs font-bold">ทดลองฟรี 5 ข้อ</span>}
                     </p>
                 </div>
@@ -1666,34 +1696,38 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 {canMini && (
                     <button
                         onClick={startMiniQuiz}
-                        className="group mb-4 w-full text-left bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 rounded-3xl p-5 border-2 border-violet-200 dark:border-violet-700/50 hover:border-violet-400 dark:hover:border-violet-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                        className="exs-card exs-card--row"
+                        style={{ ...exsVars('violet'), marginBottom: 14 }}
                     >
-                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-violet-500/20">⚡</div>
-                        <div>
-                            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">ควิซย่อยวินิจฉัย — {MINI_QUIZ_SIZE} ข้อ รู้จุดอ่อนเร็ว</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">สุ่มให้ครอบทุกหัวข้อจากทั้ง {sanitizedExamData.length} ข้อ · ไม่ต้องทำครบก็เห็นจุดอ่อนครบ</p>
-                        </div>
+                        <ExsIcon><Zap size={26} strokeWidth={1.9} /></ExsIcon>
+                        <span className="exs-row-body">
+                            <h3 className="exs-title">ควิซย่อยวินิจฉัย — {MINI_QUIZ_SIZE} ข้อ รู้จุดอ่อนเร็ว</h3>
+                            <p className="exs-desc">สุ่มให้ครอบทุกหัวข้อจากทั้ง {sanitizedExamData.length} ข้อ · ไม่ต้องทำครบก็เห็นจุดอ่อนครบ</p>
+                        </span>
+                        <ExsArrow />
                     </button>
                 )}
 
-                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                <div className="exs-grid">
                     {/* โหมดฝึก */}
                     <button
                         onClick={() => startExam('practice')}
-                        className="group text-left bg-white dark:bg-slate-800 rounded-3xl p-6 border-2 border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-xl hover:-translate-y-1 transition-all"
+                        className="exs-card exs-card--tile"
+                        style={exsVars('emerald')}
                     >
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-3xl shadow-lg shadow-emerald-500/20 mb-4">📝</div>
-                        <h3 className="text-lg font-black text-slate-800 dark:text-white mb-1">โหมดฝึก</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">จับเวลาแบบนับขึ้น ไม่กดดัน · เปิดดูเฉลยรายข้อได้ · เหมาะกับการทำความเข้าใจ</p>
+                        <ExsIcon><SquarePen size={26} strokeWidth={1.9} /></ExsIcon>
+                        <h3 className="exs-title">โหมดฝึก</h3>
+                        <p className="exs-desc">จับเวลาแบบนับขึ้น ไม่กดดัน · เปิดดูเฉลยรายข้อได้ · เหมาะกับการทำความเข้าใจ</p>
                     </button>
                     {/* โหมดจำลองสอบ */}
                     <button
                         onClick={() => startExam('exam')}
-                        className="group text-left bg-white dark:bg-slate-800 rounded-3xl p-6 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-xl hover:-translate-y-1 transition-all"
+                        className="exs-card exs-card--tile"
+                        style={exsVars('indigo')}
                     >
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center text-3xl shadow-lg shadow-indigo-500/20 mb-4">⏱️</div>
-                        <h3 className="text-lg font-black text-slate-800 dark:text-white mb-1">โหมดจำลองสอบ</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">นับถอยหลัง <b className="text-indigo-600 dark:text-indigo-400">{effectiveTimeLimitMinutes} นาที</b> · หยุดพักได้ · ส่งอัตโนมัติเมื่อหมดเวลา</p>
+                        <ExsIcon><Timer size={26} strokeWidth={1.9} /></ExsIcon>
+                        <h3 className="exs-title">โหมดจำลองสอบ</h3>
+                        <p className="exs-desc">นับถอยหลัง <b className="exs-accent-num">{effectiveTimeLimitMinutes} นาที</b> · หยุดพักได้ · ส่งอัตโนมัติเมื่อหมดเวลา</p>
                     </button>
                 </div>
 
@@ -1701,14 +1735,15 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 {examId && isMember && (
                     <Link
                         href={`/exam/${examId}/print`}
-                        className="group mb-4 w-full text-left bg-gradient-to-r from-sky-50 to-cyan-50 dark:from-sky-900/20 dark:to-cyan-900/20 rounded-3xl p-5 border-2 border-sky-200 dark:border-sky-700/50 hover:border-sky-400 dark:hover:border-sky-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                        className="exs-card exs-card--row"
+                        style={{ ...exsVars('sky'), marginBottom: 14 }}
                     >
-                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-sky-500/20"><Printer size={26} /></div>
-                        <div className="min-w-0 flex-1">
-                            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">ดาวน์โหลด / พิมพ์เป็น PDF</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">พิมพ์ชุดนี้ลงกระดาษ หรือบันทึกเป็นไฟล์ PDF พร้อมเฉลย — จัดหน้าให้ข้อไม่ขาดกลางหน้า</p>
-                        </div>
-                        <ChevronRight className="flex-shrink-0 text-sky-400 group-hover:translate-x-1 transition-transform" size={22} />
+                        <ExsIcon><Printer size={26} strokeWidth={1.9} /></ExsIcon>
+                        <span className="exs-row-body">
+                            <h3 className="exs-title">ดาวน์โหลด / พิมพ์เป็น PDF</h3>
+                            <p className="exs-desc">พิมพ์ชุดนี้ลงกระดาษ หรือบันทึกเป็นไฟล์ PDF พร้อมเฉลย — จัดหน้าให้ข้อไม่ขาดกลางหน้า</p>
+                        </span>
+                        <ExsArrow />
                     </Link>
                 )}
 
@@ -1716,14 +1751,15 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 {examId && isMember && (
                     <button
                         onClick={startPaperEntry}
-                        className="group mb-4 w-full text-left bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20 rounded-3xl p-5 border-2 border-teal-200 dark:border-teal-700/50 hover:border-teal-400 dark:hover:border-teal-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                        className="exs-card exs-card--row"
+                        style={{ ...exsVars('teal'), marginBottom: 14 }}
                     >
-                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-teal-500/20">📝</div>
-                        <div className="min-w-0 flex-1">
-                            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">กรอกคำตอบจากกระดาษ</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">ทำบนกระดาษเสร็จแล้ว? กรอกคำตอบตามกระดาษคำตอบที่นี่ ระบบจะตรวจและวิเคราะห์จุดอ่อนให้ครบ</p>
-                        </div>
-                        <ChevronRight className="flex-shrink-0 text-teal-400 group-hover:translate-x-1 transition-transform" size={22} />
+                        <ExsIcon><ClipboardCheck size={26} strokeWidth={1.9} /></ExsIcon>
+                        <span className="exs-row-body">
+                            <h3 className="exs-title">กรอกคำตอบจากกระดาษ</h3>
+                            <p className="exs-desc">ทำบนกระดาษเสร็จแล้ว? กรอกคำตอบตามกระดาษคำตอบที่นี่ ระบบจะตรวจและวิเคราะห์จุดอ่อนให้ครบ</p>
+                        </span>
+                        <ExsArrow />
                     </button>
                 )}
 
@@ -1731,13 +1767,15 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 {wrongBook && wrongBook.length > 0 && (
                     <button
                         onClick={() => startSubset(wrongBook, 'wrong')}
-                        className="group mb-4 w-full text-left bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-3xl p-5 border-2 border-amber-200 dark:border-amber-700/50 hover:border-amber-400 dark:hover:border-amber-500 hover:shadow-xl hover:-translate-y-1 transition-all flex items-center gap-4"
+                        className="exs-card exs-card--row"
+                        style={{ ...exsVars('amber'), marginBottom: 14 }}
                     >
-                        <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20">✍️</div>
-                        <div>
-                            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">สมุดข้อผิด — ทำข้อที่เคยผิด ({wrongBook.length} ข้อ)</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">ข้อที่ยังตอบผิดค้างจากรอบก่อนๆ · ทำถูกเมื่อไหร่ ข้อจะหลุดจากสมุดอัตโนมัติ</p>
-                        </div>
+                        <ExsIcon><NotebookPen size={26} strokeWidth={1.9} /></ExsIcon>
+                        <span className="exs-row-body">
+                            <h3 className="exs-title">สมุดข้อผิด — ทำข้อที่เคยผิด ({wrongBook.length} ข้อ)</h3>
+                            <p className="exs-desc">ข้อที่ยังตอบผิดค้างจากรอบก่อนๆ · ทำถูกเมื่อไหร่ ข้อจะหลุดจากสมุดอัตโนมัติ</p>
+                        </span>
+                        <ExsArrow />
                     </button>
                 )}
 
@@ -1756,7 +1794,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         {/* ปุ่มเปิดตัวอย่างผลวิเคราะห์แบบเต็มหน้า */}
                         <button
                             onClick={() => setShowSample(true)}
-                            className="mt-4 w-full rounded-3xl border-2 border-indigo-200 dark:border-indigo-700/60 bg-white dark:bg-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg transition-all px-6 py-4 flex items-center justify-center gap-2.5 text-indigo-700 dark:text-indigo-300 font-black"
+                            className="exs-ghost mt-4"
                         >
                             🔍 ดูตัวอย่างผลวิเคราะห์แบบเต็ม (ก่อนตัดสินใจทำ)
                         </button>

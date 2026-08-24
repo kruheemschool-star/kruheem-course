@@ -2333,3 +2333,198 @@ mark.khb-mark {
     .khen-sticky { position: static; }
     .khen-scroll-list, .khen-scroll-slip { max-height: none; overflow-y: visible; }
 }
+
+/* ============================================================
+   .exs-*  —  หน้าเริ่มทำข้อสอบ (Exam Start Screen)
+   สเปก: exam-start-screen-design-spec.md
+   การ์ดทุกใบใช้สูตรเดียวกัน เปลี่ยนแค่ตัวแปรสีธีมที่ส่งมาทาง inline style:
+     --exs-g1/g2/g3  ไล่เฉดไอคอน   --exs-border  ขอบ
+     --exs-glow      แสงพื้นการ์ด    --exs-shadow  เงา
+     --exs-hover     ขอบตอน hover   --exs-ring    เส้นรอบไอคอน
+     --exs-ishadow   เงาไอคอน        --exs-accent  สีลูกศร/แอคเซนต์
+   การ์ดโปร่งแสงโดยตั้งใจ เพื่อให้ลายจุดเรืองผ่านช่องไฟ (ดู ExamStartBackdrop)
+   ============================================================ */
+.exs-shell { position: relative; z-index: 1; }
+
+/* --- ป้าย "คลังข้อสอบครูฮีม" (ชิปกระจก) --- */
+.exs-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 13px 5px 9px; border-radius: 999px;
+    background: rgba(255, 255, 255, .75);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    border: 1px solid #e0e2fb;
+    box-shadow: 0 6px 16px -12px rgba(79, 70, 229, .55), inset 0 1px 0 rgba(255, 255, 255, .9);
+    font-size: 12px; font-weight: 700; color: #4f46e5; line-height: 1;
+}
+.exs-chip-coin {
+    width: 20px; height: 20px; border-radius: 999px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: linear-gradient(150deg, #a78bfa, #4f46e5); color: #fff;
+}
+
+/* --- หัวหน้า --- */
+.exs-h1 {
+    font-size: 31px; line-height: 1.35; font-weight: 700;
+    letter-spacing: -0.015em; color: #0f172a;
+}
+.exs-sub { font-size: 16px; color: #64748b; line-height: 1.6; }
+.exs-accent-num { color: #4f46e5; font-weight: 700; }
+
+/* --- การ์ด (สูตรกลาง) --- */
+.exs-card {
+    display: block; width: 100%; text-align: left;
+    border-radius: 22px;
+    border: 1px solid var(--exs-border);
+    background:
+        radial-gradient(135% 170% at 2% 0%, var(--exs-glow), rgba(255, 255, 255, 0) 58%),
+        rgba(255, 255, 255, .86);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, .04),
+        0 20px 36px -26px var(--exs-shadow),
+        inset 0 1px 0 rgba(255, 255, 255, .95);
+    transition: transform .22s cubic-bezier(.2, .7, .3, 1), box-shadow .22s, border-color .22s;
+}
+.exs-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--exs-hover);
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, .04),
+        0 32px 52px -26px var(--exs-shadow),
+        inset 0 1px 0 rgba(255, 255, 255, .95);
+}
+.exs-card:focus-visible { outline: 2px solid var(--exs-accent); outline-offset: 3px; }
+
+.exs-card--row { padding: 20px 22px; display: flex; align-items: center; gap: 18px; }
+.exs-card--tile { padding: 24px; }
+
+.exs-row-body { flex: 1; min-width: 0; }
+.exs-title {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.01em;
+    color: #0f172a; line-height: 1.4;
+}
+.exs-desc { font-size: 14px; line-height: 1.62; color: #64748b; }
+.exs-card--tile .exs-title { margin-bottom: 4px; }
+.exs-card--row .exs-title { margin-bottom: 2px; }
+
+/* --- ไอคอน 56px --- */
+.exs-icon {
+    position: relative; flex-shrink: 0;
+    width: 56px; height: 56px; border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(150deg, var(--exs-g1), var(--exs-g2) 59%, var(--exs-g3));
+    box-shadow:
+        0 12px 22px -10px var(--exs-ishadow),
+        inset 0 1px 0 rgba(255, 255, 255, .5),
+        0 0 0 1px var(--exs-ring);
+    color: #fff;
+}
+.exs-card--tile .exs-icon { margin-bottom: 16px; }
+.exs-icon-gloss {
+    position: absolute; left: 1px; right: 1px; top: 1px; height: 48%;
+    border-radius: 17px 17px 60% 60%;
+    background: linear-gradient(rgba(255, 255, 255, .32), transparent);
+    pointer-events: none;
+}
+.exs-icon svg { position: relative; }
+
+/* --- วงลูกศรปลายแถว --- */
+.exs-arrow {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    /* บรรทัดแรกเป็นค่าสำรองให้ iOS Safari รุ่นก่อน 16.2 ที่ยังไม่รู้จัก color-mix */
+    background: rgba(148, 163, 184, .12);
+    background: color-mix(in srgb, var(--exs-accent) 10%, transparent);
+    color: var(--exs-accent);
+    transition: transform .22s cubic-bezier(.2, .7, .3, 1);
+}
+.exs-card:hover .exs-arrow { transform: translateX(3px); }
+
+/* --- กริดสองคอลัมน์ (ยุบเองเมื่อจอแคบ) --- */
+.exs-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px; margin-bottom: 22px;
+}
+
+/* --- ปุ่มรองท้ายหน้า (ดูตัวอย่างผลวิเคราะห์) --- */
+.exs-ghost {
+    width: 100%; border-radius: 22px; padding: 16px 24px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    border: 1px solid #e2ddfd;
+    background: rgba(255, 255, 255, .82);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04), inset 0 1px 0 rgba(255, 255, 255, .95);
+    font-size: 15px; font-weight: 700; color: #4f46e5;
+    transition: transform .22s cubic-bezier(.2, .7, .3, 1), box-shadow .22s, border-color .22s;
+}
+.exs-ghost:hover {
+    transform: translateY(-2px); border-color: #a78bfa;
+    box-shadow: 0 24px 40px -28px rgba(99, 102, 241, .6), inset 0 1px 0 rgba(255, 255, 255, .95);
+}
+
+/* --- แถบหัวห้องสอบ (กระจก) --- */
+.exs-topbar {
+    background: rgba(255, 255, 255, .82);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border-bottom: 1px solid #f1f5f9;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+}
+.exs-topbar-title { font-size: 16px; font-weight: 700; color: #1e293b; }
+.exs-topbar-link { font-size: 14px; font-weight: 700; color: #94a3b8; transition: color .18s; }
+.exs-topbar-link:hover { color: #1e293b; }
+
+/* ---------- โหมดมืด (สเปกไม่ได้ระบุ — คงภาษาดีไซน์เดิมบนพื้นเข้ม) ---------- */
+.dark .exs-chip {
+    background: rgba(30, 41, 59, .7); border-color: rgba(129, 140, 248, .32); color: #c7d2fe;
+    box-shadow: 0 6px 16px -12px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.dark .exs-h1 { color: #f1f5f9; }
+.dark .exs-sub, .dark .exs-desc { color: #94a3b8; }
+.dark .exs-title { color: #f8fafc; }
+.dark .exs-accent-num { color: #a5b4fc; }
+.dark .exs-card {
+    border-color: rgba(148, 163, 184, .18);
+    background:
+        radial-gradient(135% 170% at 2% 0%, var(--exs-glow), rgba(15, 23, 42, 0) 58%),
+        rgba(15, 23, 42, .72);
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, .3),
+        0 20px 36px -26px rgba(0, 0, 0, .9),
+        inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.dark .exs-card:hover {
+    border-color: var(--exs-hover);
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, .3),
+        0 32px 52px -26px rgba(0, 0, 0, .95),
+        inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.dark .exs-icon { box-shadow: 0 12px 22px -10px var(--exs-ishadow), inset 0 1px 0 rgba(255, 255, 255, .28), 0 0 0 1px var(--exs-ring); }
+.dark .exs-ghost {
+    border-color: rgba(129, 140, 248, .32); background: rgba(15, 23, 42, .72); color: #c7d2fe;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.dark .exs-ghost:hover { border-color: #818cf8; }
+.dark .exs-topbar {
+    background: rgba(2, 6, 23, .82); border-bottom-color: rgba(148, 163, 184, .16);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .5);
+}
+.dark .exs-topbar-title { color: #e2e8f0; }
+.dark .exs-topbar-link { color: #64748b; }
+.dark .exs-topbar-link:hover { color: #e2e8f0; }
+
+/* ---------- จอเล็ก ---------- */
+@media (max-width: 520px) {
+    .exs-h1 { font-size: 26px; }
+    .exs-card--row { padding: 16px 16px; gap: 14px; }
+    .exs-card--tile { padding: 20px; }
+    .exs-icon { width: 48px; height: 48px; border-radius: 16px; }
+    .exs-icon svg { width: 22px; height: 22px; }
+}
+
+/* ---------- ผู้ใช้ที่ขอลดการเคลื่อนไหว ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .exs-card, .exs-arrow, .exs-ghost { transition: none; }
+    .exs-card:hover, .exs-ghost:hover { transform: none; }
+    .exs-card:hover .exs-arrow { transform: none; }
+}
