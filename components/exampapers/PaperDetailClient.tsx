@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { collection, addDoc, doc, setDoc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { withTimeout } from "@/lib/netGuard";
@@ -18,6 +18,22 @@ import ExamAnalysisArticle from "@/components/exampapers/ExamAnalysisArticle";
 import PaymentTransferInfo from "@/components/payment/PaymentTransferInfo";
 
 const PHONE_RE = /^[0-9]{9,10}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// โดเมนที่ผู้ปกครองพิมพ์ตกบ่อย — พิมพ์ผิดตัวเดียวแปลว่าไฟล์ที่จ่ายเงินแล้วไปอยู่
+// บัญชีที่เจ้าตัวเข้าไม่ได้ (เมลรีเซ็ตรหัสก็ไม่มีวันถึง) จึงต้องทักท้วงก่อนสมัคร
+const DOMAIN_TYPOS: Record<string, string> = {
+    "gmial.com": "gmail.com", "gmai.com": "gmail.com", "gmail.co": "gmail.com",
+    "gmail.cm": "gmail.com", "gmaill.com": "gmail.com", "gnail.com": "gmail.com",
+    "gmail.con": "gmail.com", "hotmial.com": "hotmail.com", "hotmai.com": "hotmail.com",
+    "yahoo.co": "yahoo.com", "outlook.co": "outlook.com", "icloud.co": "icloud.com",
+};
+const domainSuggestion = (mail: string): string | null => {
+    const at = mail.lastIndexOf("@");
+    if (at < 0) return null;
+    const fixed = DOMAIN_TYPOS[mail.slice(at + 1).toLowerCase()];
+    return fixed ? mail.slice(0, at + 1) + fixed : null;
+};
 
 // สถานะการซื้อชุดนี้ของบัญชีที่ล็อกอินอยู่ (เช็คจาก enrollments ฝั่ง client)
 type OwnStatus = "none" | "pending" | "approved";
@@ -34,8 +50,7 @@ export default function PaperDetailClient({
     // authLoading สำคัญมาก: ตอนหน้าเพิ่งโหลด Firebase ยังกู้เซสชันไม่เสร็จ user
     // จะเป็น null ชั่วขณะ — ถ้าไม่รอ สมาชิกเดิมจะเห็นช่องสมัครวูบขึ้นมา และ
     // คนที่ซื้อไปแล้วอาจถูกเปิดฟอร์มให้จ่ายซ้ำ
-    const { user, userProfile, loading: authLoading, emailSignUp, emailSignIn, resetPassword } = useUserAuth();
-    const router = useRouter();
+    const { user, userProfile, loading: authLoading, emailSignUp, emailSignIn, resetPassword, logOut } = useUserAuth();
     const searchParams = useSearchParams();
     // FB/LINE in-app webview เปิดลิงก์ PDF แบบ target="_blank" มักเงียบ →
     // ต้องเด้งออกไปเบราว์เซอร์จริงแทน (pattern เดียวกับ MyPapersSection)
@@ -48,6 +63,8 @@ export default function PaperDetailClient({
     // ก่อนเปิดฟอร์ม ไม่งั้นคนที่ซื้อไปแล้วเปิดลิงก์เดิมจะถูกพาไปจ่ายซ้ำ
     const [statusChecked, setStatusChecked] = useState(false);
     const [previewHint, setPreviewHint] = useState(false);
+    // อีเมลที่เพิ่งเตือนเรื่องโดเมนไปแล้ว — กดยืนยันซ้ำแปลว่าผู้ใช้ยืนยันว่าพิมพ์ถูก
+    const lastConfirmedEmail = useRef("");
 
     const [fullName, setFullName] = useState("");
     const [phone, setPhone] = useState("");
@@ -58,6 +75,9 @@ export default function PaperDetailClient({
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [authNotice, setAuthNotice] = useState(""); // ข้อความช่วยเหลือเรื่องบัญชี (ไม่ใช่ error ร้ายแรง)
+    const [needsResetLink, setNeedsResetLink] = useState(false); // โชว์ปุ่มลืมรหัสผ่านเฉพาะตอนที่เกี่ยวกับรหัสจริงๆ
+    const [doneEmail, setDoneEmail] = useState(""); // อีเมลบัญชีที่ใบสั่งซื้อไปผูก — ต้องบอกให้ผู้ซื้อทวนได้
+    const [dupNotice, setDupNotice] = useState(false); // เจอว่าเคยสั่งชุดนี้แล้ว (แสดงในหน้า ไม่ใช่ toast ที่หายไปพร้อมหน้า)
     const [slip, setSlip] = useState<File | null>(null);
     const [slipPreview, setSlipPreview] = useState<string>("");
     const [slipBusy, setSlipBusy] = useState(false); // validating/compressing the picked file
@@ -129,7 +149,11 @@ export default function PaperDetailClient({
     // ถ้ารู้ทีหลังว่าบัญชีนี้สั่งชุดนี้ไปแล้ว (เซสชันเพิ่งกู้เสร็จ / เช็คสถานะเพิ่งกลับมา)
     // ให้ปิดฟอร์มที่เปิดค้างอยู่ทิ้ง — กันลูกค้าโอนซ้ำเพราะเห็นฟอร์มค้างหน้าจอ
     useEffect(() => {
-        if (checkoutOpen && !submitting && user && ownStatus !== "none") setCheckoutOpen(false);
+        if (checkoutOpen && !submitting && user && ownStatus !== "none") {
+            setCheckoutOpen(false);
+            // อย่าปิดเงียบ — ผู้ใช้ที่กรอกค้างอยู่ต้องรู้ว่าทำไมฟอร์มหายไป
+            setDupNotice(true);
+        }
     }, [checkoutOpen, submitting, user, ownStatus]);
 
     // ปุ่มดูตัวอย่างตอนอยู่ใน FB/LINE: เด้งออกไปเปิดในเบราว์เซอร์จริง
@@ -159,7 +183,13 @@ export default function PaperDetailClient({
 
     // กรอกอะไรไปแล้ว (แก้ชื่อเอง/เบอร์/LINE/แนบสลิป) → แตะฉากหลังไม่ปิด modal
     // กันข้อมูลหาย ปิดได้ที่ปุ่ม X เท่านั้น (ชื่อที่ระบบเติมให้เองไม่นับว่า "กรอกแล้ว")
-    const formDirty = !!(phone || lineId || slip || email || password || fullName.trim() !== (userProfile?.displayName || "").trim());
+    // ค่าที่ระบบเติมให้เอง (ชื่อ/เบอร์จากโปรไฟล์) ไม่นับว่า "กรอกแล้ว" — ไม่งั้น
+    // สมาชิกเดิมที่แค่เปิดดูราคาจะปิดด้วยการแตะฉากหลังไม่ได้เลย
+    const formDirty = !!(
+        lineId || slip || email || password
+        || fullName.trim() !== (userProfile?.displayName || "").trim()
+        || phone.trim() !== (userProfile?.phoneNumber || "").trim()
+    );
 
     // สมัครให้เองเมื่อยังไม่มีบัญชี — คืน uid ที่พร้อมใช้ต่อ หรือ null ถ้าไปต่อไม่ได้
     // (แจ้งเหตุผลผ่าน authNotice/toast แล้ว) ใช้ auth.currentUser เพราะ context
@@ -168,8 +198,17 @@ export default function PaperDetailClient({
         if (user) return { uid: user.uid, email: user.email };
 
         const mail = email.trim().toLowerCase();
-        if (!mail) { toast.error("กรุณากรอกอีเมล"); return null; }
-        if (password.length < 6) { toast.error("รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร"); return null; }
+        setNeedsResetLink(false);
+        if (!mail) { setAuthNotice("กรุณากรอกอีเมลครับ"); return null; }
+        if (!EMAIL_RE.test(mail)) { setAuthNotice("รูปแบบอีเมลยังไม่ถูกต้อง ลองตรวจอีกครั้งนะครับ"); return null; }
+        // ทักท้วงโดเมนที่พิมพ์ตกก่อนสมัคร — ยอมให้ผ่านถ้ายืนยันซ้ำ (กดยืนยันอีกครั้ง)
+        const suggestion = domainSuggestion(mail);
+        if (suggestion && suggestion !== lastConfirmedEmail.current) {
+            lastConfirmedEmail.current = mail;
+            setAuthNotice(`ตรวจอีเมลอีกครั้งนะครับ — หมายถึง ${suggestion} หรือเปล่า? ถ้าถูกแล้วกดยืนยันสั่งซื้ออีกครั้งได้เลย`);
+            return null;
+        }
+        if (password.length < 6) { setAuthNotice("รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษรครับ"); return null; }
 
         const finish = () => {
             const u = auth.currentUser;
@@ -191,13 +230,14 @@ export default function PaperDetailClient({
                     setAuthNotice("");
                     return finish();
                 } catch {
-                    setAuthNotice('อีเมลนี้เคยสมัครไว้แล้ว — ใส่รหัสผ่านเดิมของอีเมลนี้ หรือกด "ลืมรหัสผ่าน" ด้านล่างครับ');
+                    setNeedsResetLink(true);
+                    setAuthNotice("อีเมลนี้เคยสมัครไว้แล้ว — ใส่รหัสผ่านเดิมของอีเมลนี้ ถ้าจำไม่ได้กดปุ่มด้านล่างได้เลยครับ");
                     return null;
                 }
             }
             if (code === "auth/invalid-email") { setAuthNotice("รูปแบบอีเมลไม่ถูกต้อง"); return null; }
             if (code === "auth/weak-password") { setAuthNotice("รหัสผ่านง่ายเกินไป ลองยาวขึ้นอีกนิดครับ"); return null; }
-            if (code === "auth/too-many-requests") { setAuthNotice("ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่"); return null; }
+            if (code === "auth/too-many-requests") { setNeedsResetLink(true); setAuthNotice("ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่"); return null; }
             console.error("signup during checkout failed:", err);
             setAuthNotice("สร้างบัญชีไม่สำเร็จ ลองใหม่อีกครั้งนะครับ");
             return null;
@@ -206,17 +246,41 @@ export default function PaperDetailClient({
 
     const sendReset = async () => {
         const mail = email.trim().toLowerCase();
-        if (!mail) return toast.error("กรอกอีเมลก่อนนะครับ");
+        if (!EMAIL_RE.test(mail)) return toast.error("กรอกอีเมลให้ถูกต้องก่อนนะครับ");
         try {
             await resetPassword(mail);
+            setNeedsResetLink(false);
             setAuthNotice("ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่อีเมลแล้ว ✉️ ตั้งรหัสใหม่แล้วกลับมากรอกที่นี่ได้เลย");
         } catch {
             toast.error("ส่งลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง");
         }
     };
 
+    // ทักท้วงอีเมลตั้งแต่ตอนพิมพ์เสร็จ — ไม่ใช่รอจนแนบสลิป (ตอนนั้นโอนเงินไปแล้ว)
+    const checkEmailOnBlur = () => {
+        const mail = email.trim().toLowerCase();
+        if (!mail) return;
+        if (!EMAIL_RE.test(mail)) { setAuthNotice("รูปแบบอีเมลยังไม่ถูกต้อง ลองตรวจอีกครั้งนะครับ"); return; }
+        const suggestion = domainSuggestion(mail);
+        if (suggestion) setAuthNotice(`ตรวจอีเมลอีกครั้งนะครับ — หมายถึง ${suggestion} หรือเปล่า? ไฟล์จะไปเก็บไว้ในบัญชีอีเมลนี้`);
+    };
+
     const submit = async () => {
         if (authLoading) return toast("กำลังตรวจสอบบัญชี รอสักครู่นะครับ");
+        // คนที่ยังไม่มีบัญชี: ตรวจอีเมล/รหัสก่อนเรื่องอื่น เพราะเป็นจุดที่ผิดแล้วแก้ยากที่สุด
+        // (ไฟล์ไปผูกบัญชีที่พิมพ์ผิด = เจ้าตัวเข้าไม่ได้เลย) และช่องอยู่บนสุดของฟอร์มอยู่แล้ว
+        if (!user) {
+            const mail = email.trim().toLowerCase();
+            if (!mail) { setAuthNotice("กรุณากรอกอีเมลครับ"); return; }
+            if (!EMAIL_RE.test(mail)) { setAuthNotice("รูปแบบอีเมลยังไม่ถูกต้อง ลองตรวจอีกครั้งนะครับ"); return; }
+            const suggestion = domainSuggestion(mail);
+            if (suggestion && lastConfirmedEmail.current !== mail) {
+                lastConfirmedEmail.current = mail;
+                setAuthNotice(`ตรวจอีเมลอีกครั้งนะครับ — หมายถึง ${suggestion} หรือเปล่า? ถ้าถูกแล้วกดยืนยันสั่งซื้ออีกครั้งได้เลย`);
+                return;
+            }
+            if (password.length < 6) { setAuthNotice("รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษรครับ"); return; }
+        }
         if (!fullName.trim()) return toast.error("กรุณากรอกชื่อ-นามสกุล");
         if (!PHONE_RE.test(phone)) return toast.error("กรุณากรอกเบอร์โทร 9–10 หลัก");
         if (!slip) return toast.error("กรุณาแนบสลิปโอนเงิน");
@@ -239,10 +303,10 @@ export default function PaperDetailClient({
                 if (existing.some((r) => r.status === "approved" || r.status === "pending")) {
                     setCheckoutOpen(false);
                     setOwnStatus(existing.some((r) => r.status === "approved") ? "approved" : "pending");
-                    // ลูกค้าอาจเพิ่งโอนเงินมารอบสอง — ต้องบอกช่องทางขอคืน ไม่ใช่แค่พาไปโหลด
-                    toast.success("บัญชีนี้เคยสั่งซื้อชุดนี้ไว้แล้ว พาไปหน้าดาวน์โหลดให้เลยครับ", { duration: 6000 });
-                    toast("ถ้าเพิ่งโอนเงินซ้ำ ทักไลน์ครูฮีมได้เลย เดี๋ยวคืนให้ครับ", { duration: 9000, icon: "💬" });
-                    router.push("/my-courses");
+                    // ลูกค้าอาจเพิ่งโอนเงินมารอบสอง — ต้องบอกช่องทางขอคืนแบบค้างอยู่บนหน้า
+                    // (toast หายไปพร้อมหน้าถ้าเด้งออกทันที เพราะ Toaster อยู่ในคอมโพเนนต์นี้)
+                    setDupNotice(true);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
                     return;
                 }
             } catch { /* เช็คไม่ได้ → ปล่อยให้สั่งซื้อตามปกติ ดีกว่าบล็อกการขาย */ }
@@ -289,6 +353,7 @@ export default function PaperDetailClient({
 
             if (slipPreview) URL.revokeObjectURL(slipPreview);
             setPassword("");
+            setDoneEmail(accountEmail || "");
             setCheckoutOpen(false);
             setOwnStatus("pending");
             setDone(true);
@@ -313,6 +378,13 @@ export default function PaperDetailClient({
                     <p className="text-slate-500 dark:text-slate-400 mt-3">
                         ครูฮีมกำลังตรวจสอบสลิปของคุณ เมื่ออนุมัติแล้วคุณจะดาวน์โหลดไฟล์ได้ที่หน้า “คอร์สเรียนของฉัน” ทันที
                     </p>
+                    {doneEmail && (
+                        // บอกบัญชีปลายทางให้ทวนตั้งแต่ตอนนี้ — ถ้าอีเมลพิมพ์ผิดจะได้ทักครูฮีมแก้ได้ทัน
+                        <p className="mt-4 rounded-xl bg-slate-50 dark:bg-slate-800/70 px-4 py-3 text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                            ไฟล์จะเก็บไว้ในบัญชี <span className="font-bold text-slate-800 dark:text-white">{doneEmail}</span>
+                            <br />ถ้าอีเมลนี้ไม่ถูกต้อง ทักไลน์ครูฮีมได้เลยครับ เดี๋ยวย้ายให้
+                        </p>
+                    )}
                     <div className="flex items-center justify-center gap-3 mt-7">
                         <Link href="/my-courses" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 transition">
                             <Download size={17} /> ไปหน้าคอร์สเรียนของฉัน
@@ -367,6 +439,24 @@ export default function PaperDetailClient({
                         {paper.questionCount ? <span className="text-sm text-slate-400">· {paper.questionCount} ข้อ</span> : null}
                         {paper.pageCount ? <span className="text-sm text-slate-400">· {paper.pageCount} หน้า</span> : null}
                     </div>
+
+                    {dupNotice && (
+                        <div className="mt-5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3.5">
+                            <p className="text-[13px] text-amber-800 dark:text-amber-200 leading-relaxed">
+                                <span className="font-bold">บัญชีนี้เคยสั่งซื้อชุดนี้ไว้แล้วครับ</span> จึงไม่ได้สร้างรายการใหม่ให้
+                                — ไปดาวน์โหลดได้ที่หน้า “คอร์สเรียนของฉัน” ได้เลย
+                                <br />ถ้าเพิ่งโอนเงินซ้ำ ทักไลน์ครูฮีมได้เลยครับ เดี๋ยวคืนให้
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-3">
+                                <Link href="/my-courses" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[13px] font-bold px-3.5 py-2 transition">
+                                    <Download size={15} /> ไปหน้าดาวน์โหลด
+                                </Link>
+                                <a href="https://line.me/ti/p/~kruheemschool" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200 text-[13px] font-bold px-3.5 py-2 transition hover:bg-amber-100 dark:hover:bg-slate-700">
+                                    ทัก LINE ครูฮีม
+                                </a>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="flex flex-wrap items-center gap-3 mt-6">
                         {ownStatus === "approved" ? (
@@ -457,9 +547,9 @@ export default function PaperDetailClient({
             {/* checkout modal */}
             {checkoutOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)" }} onClick={() => !submitting && !formDirty && setCheckoutOpen(false)}>
-                    <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                    <div role="dialog" aria-modal="true" aria-labelledby="checkout-title" className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-black text-slate-900 dark:text-white">สั่งซื้อข้อสอบ</h2>
+                            <h2 id="checkout-title" className="text-lg font-black text-slate-900 dark:text-white">สั่งซื้อข้อสอบ</h2>
                             <button onClick={() => !submitting && setCheckoutOpen(false)} aria-label="ปิด" className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><X size={20} /></button>
                         </div>
 
@@ -476,7 +566,7 @@ export default function PaperDetailClient({
                         <div className="mb-4"><PaymentTransferInfo compact /></div>
                         <div className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">2. กรอกข้อมูล แล้วแนบสลิป</div>
 
-                        <div className="space-y-3">
+                        <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-3">
                             {authLoading ? (
                                 // ระหว่างกู้เซสชันยังไม่รู้ว่าเป็นสมาชิกเดิมหรือคนใหม่ —
                                 // ห้ามเดา ไม่งั้นสมาชิกเดิมจะเห็นช่องสมัครวูบขึ้นมา
@@ -484,32 +574,43 @@ export default function PaperDetailClient({
                                     <Loader2 size={14} className="animate-spin" /> กำลังตรวจสอบบัญชี...
                                 </p>
                             ) : user ? (
-                                <p className="text-[12.5px] text-slate-500 dark:text-slate-400 -mt-1">
-                                    สั่งซื้อในบัญชี <span className="font-semibold text-slate-700 dark:text-slate-200">{user.email}</span>
-                                </p>
+                                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-xl bg-slate-50 dark:bg-slate-800/70 px-3 py-2 -mt-1">
+                                    <p className="text-[12.5px] text-slate-600 dark:text-slate-300">
+                                        สั่งซื้อในบัญชี <span className="font-bold text-slate-800 dark:text-white">{user.email}</span>
+                                    </p>
+                                    {/* มือถือเครื่องเดียวใช้กันทั้งบ้าน — ต้องเปลี่ยนบัญชีได้จากตรงนี้ */}
+                                    <button type="button" onClick={() => logOut()} className="text-[12px] font-semibold text-teal-600 dark:text-teal-400 underline hover:no-underline">
+                                        ไม่ใช่บัญชีคุณ? ใช้บัญชีอื่น
+                                    </button>
+                                </div>
                             ) : (
                                 <div className="rounded-xl bg-teal-50/70 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900 p-3 space-y-2.5">
                                     <p className="flex items-start gap-1.5 text-[12.5px] text-teal-800 dark:text-teal-200 leading-relaxed">
                                         <UserPlus size={15} className="shrink-0 mt-0.5" />
-                                        <span>ตั้งอีเมลกับรหัสผ่านไว้ด้วยนะครับ ระบบจะเก็บไฟล์ไว้ในบัญชีนี้ให้ กลับมาโหลดซ้ำได้ตลอด</span>
+                                        <span>ตั้งอีเมลกับรหัสผ่านไว้ด้วยนะครับ ระบบจะเก็บไฟล์ไว้ในบัญชีนี้ให้ กลับมาโหลดซ้ำได้ตลอด <strong>ถ้ามีบัญชีอยู่แล้วกรอกอีเมลกับรหัสเดิมได้เลย</strong></span>
                                     </p>
                                     <input
                                         className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500"
                                         placeholder="อีเมล *"
+                                        aria-label="อีเมลสำหรับเก็บไฟล์ข้อสอบ"
                                         type="email"
                                         inputMode="email"
                                         autoComplete="email"
                                         value={email}
-                                        onChange={(e) => { setEmail(e.target.value); setAuthNotice(""); }}
+                                        onChange={(e) => { setEmail(e.target.value); setAuthNotice(""); setNeedsResetLink(false); }}
+                                        onBlur={checkEmailOnBlur}
                                     />
                                     <div className="relative">
                                         <input
                                             className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 pr-11 text-slate-900 dark:text-white outline-none focus:border-teal-500"
-                                            placeholder="ตั้งรหัสผ่าน (อย่างน้อย 6 ตัว) *"
+                                            placeholder="รหัสผ่าน (บัญชีใหม่ตั้งอย่างน้อย 6 ตัว) *"
+                                            aria-label="รหัสผ่านของบัญชี"
                                             type={showPassword ? "text" : "password"}
-                                            autoComplete="new-password"
+                                            // current-password เพื่อให้ตัวจำรหัสผ่านของเครื่องเติมรหัสเดิมให้ลูกค้าเก่าได้
+                                            // (ช่องนี้ใช้ทั้งสมัครใหม่และเข้าสู่ระบบ) — new-password จะบล็อกการเติม
+                                            autoComplete="current-password"
                                             value={password}
-                                            onChange={(e) => { setPassword(e.target.value); setAuthNotice(""); }}
+                                            onChange={(e) => { setPassword(e.target.value); setAuthNotice(""); setNeedsResetLink(false); }}
                                         />
                                         <button
                                             type="button"
@@ -521,9 +622,11 @@ export default function PaperDetailClient({
                                         </button>
                                     </div>
                                     {authNotice && (
-                                        <div className="text-[12.5px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                                        <div aria-live="polite" className="text-[12.5px] text-amber-700 dark:text-amber-300 leading-relaxed">
                                             {authNotice}
-                                            <button type="button" onClick={sendReset} className="ml-1.5 font-semibold underline hover:no-underline">ลืมรหัสผ่าน</button>
+                                            {needsResetLink && (
+                                                <button type="button" onClick={sendReset} className="ml-1.5 font-semibold underline hover:no-underline">ส่งลิงก์ตั้งรหัสใหม่</button>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -552,16 +655,17 @@ export default function PaperDetailClient({
                                     <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ""; pickSlip(f); }} />
                                 </div>
                             </label>
-                        </div>
 
-                        <button onClick={submit} disabled={submitting || slipBusy || authLoading} className="w-full mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold px-5 py-3 transition">
-                            {submitting ? <><Loader2 className="animate-spin" size={18} /> {progress > 0 ? `กำลังอัปโหลด ${progress}%` : "กำลังส่ง..."}</> : <><Check size={18} /> ยืนยันสั่งซื้อ</>}
-                        </button>
-                        {!user && !authLoading && (
-                            <p className="mt-2.5 text-center text-[12px] text-slate-400 dark:text-slate-500">
-                                มีบัญชีอยู่แล้ว? กรอกอีเมลกับรหัสผ่านเดิมได้เลย ระบบจะเข้าสู่ระบบให้อัตโนมัติ
-                            </p>
-                        )}
+                            <button type="submit" disabled={submitting || slipBusy || authLoading} className="w-full !mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold px-5 py-3 transition">
+                                {submitting
+                                    ? <><Loader2 className="animate-spin" size={18} /> {progress > 0 ? `กำลังอัปโหลด ${progress}%` : "กำลังส่ง..."}</>
+                                    // ปุ่มต้องบอกเองว่าทำไมกดไม่ได้ — ข้อความ "กำลังตรวจสอบบัญชี"
+                                    // ด้านบนอยู่ไกลเกินกว่าจะเห็นตอนเลื่อนมาถึงปุ่มบนมือถือ
+                                    : authLoading
+                                        ? <><Loader2 className="animate-spin" size={18} /> กำลังตรวจสอบบัญชี...</>
+                                        : <><Check size={18} /> ยืนยันสั่งซื้อ</>}
+                            </button>
+                        </form>
                     </div>
                 </div>
             )}
