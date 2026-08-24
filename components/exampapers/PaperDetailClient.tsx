@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { collection, addDoc, doc, setDoc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { withTimeout } from "@/lib/netGuard";
 import { useInAppBrowser, openInExternalBrowser } from "@/lib/inAppBrowser";
 import { uploadPublicFile } from "@/lib/pdfUpload";
@@ -12,7 +12,7 @@ import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slip
 import { useUserAuth } from "@/context/AuthContext";
 import type { ExamPaper } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
-import { FileText, Eye, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, X, UploadCloud, Loader2, Clock } from "lucide-react";
+import { FileText, Eye, EyeOff, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, X, UploadCloud, Loader2, Clock, UserPlus } from "lucide-react";
 import ExamAnalysisSection from "@/components/exampapers/ExamAnalysisSection";
 import ExamAnalysisArticle from "@/components/exampapers/ExamAnalysisArticle";
 import PaymentTransferInfo from "@/components/payment/PaymentTransferInfo";
@@ -31,7 +31,10 @@ export default function PaperDetailClient({
     fileLabels?: string[];
     related?: ExamPaper[];
 }) {
-    const { user } = useUserAuth();
+    // authLoading สำคัญมาก: ตอนหน้าเพิ่งโหลด Firebase ยังกู้เซสชันไม่เสร็จ user
+    // จะเป็น null ชั่วขณะ — ถ้าไม่รอ สมาชิกเดิมจะเห็นช่องสมัครวูบขึ้นมา และ
+    // คนที่ซื้อไปแล้วอาจถูกเปิดฟอร์มให้จ่ายซ้ำ
+    const { user, userProfile, loading: authLoading, emailSignUp, emailSignIn, resetPassword } = useUserAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     // FB/LINE in-app webview เปิดลิงก์ PDF แบบ target="_blank" มักเงียบ →
@@ -49,6 +52,12 @@ export default function PaperDetailClient({
     const [fullName, setFullName] = useState("");
     const [phone, setPhone] = useState("");
     const [lineId, setLineId] = useState("");
+    // สมัคร+ซื้อในฟอร์มเดียว: คนยังไม่มีบัญชีกรอก 2 ช่องนี้เพิ่ม ระบบเปิดบัญชีให้
+    // ตอนกดยืนยัน (ไฟล์ต้องผูกบัญชีถึงจะโหลดซ้ำได้ตลอดชีพตามที่หน้าขายสัญญา)
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [authNotice, setAuthNotice] = useState(""); // ข้อความช่วยเหลือเรื่องบัญชี (ไม่ใช่ error ร้ายแรง)
     const [slip, setSlip] = useState<File | null>(null);
     const [slipPreview, setSlipPreview] = useState<string>("");
     const [slipBusy, setSlipBusy] = useState(false); // validating/compressing the picked file
@@ -62,6 +71,7 @@ export default function PaperDetailClient({
     // เช็คว่าบัญชีนี้เคยสั่งซื้อชุดนี้ไปแล้วหรือยัง — ถ้าเช็คไม่สำเร็จให้ถือว่า
     // "ยังไม่ซื้อ" เสมอ (แสดงปุ่มซื้อปกติ) เพื่อไม่ให้การเช็คนี้บล็อกการขาย
     useEffect(() => {
+        if (authLoading) { setStatusChecked(false); return; }
         if (!user) {
             setOwnStatus("none");
             setStatusChecked(true);
@@ -89,33 +99,38 @@ export default function PaperDetailClient({
             finally { if (!cancelled) setStatusChecked(true); }
         })();
         return () => { cancelled = true; };
-    }, [user, paper.id]);
+    }, [user, authLoading, paper.id]);
+
+    // เติมชื่อ/เบอร์จากโปรไฟล์ให้สมาชิกเดิม (บัญชีที่สมัครทางเว็บมักไม่มี
+    // displayName ใน Auth — ของจริงอยู่ใน users doc เหมือนหน้าแจ้งโอน)
+    useEffect(() => {
+        if (!userProfile) return;
+        if (userProfile.displayName) setFullName((prev) => prev || userProfile.displayName || "");
+        if (userProfile.phoneNumber) setPhone((prev) => prev || userProfile.phoneNumber || "");
+    }, [userProfile]);
 
     const openCheckout = () => {
-        if (!user) {
-            // Not signed in: send to login/register (the file must land in an
-            // account to download). `returnUrl` is the param the login page reads;
-            // `buy=1` re-opens this checkout automatically when they come back.
-            toast("สมัคร/เข้าสู่ระบบก่อนสั่งซื้อ เพื่อเก็บไฟล์ไว้ในบัญชี");
-            router.push(`/login?returnUrl=${encodeURIComponent(`/exam-papers/${paper.id}?buy=1`)}`);
-            return;
-        }
+        // ไม่ล็อกอินก็เปิดฟอร์มได้เลย — ฟอร์มมีช่องสมัครในตัว (สมัคร+ซื้อจบทีเดียว)
         // ปุ่มซื้อโชว์เฉพาะตอน ownStatus === "none" อยู่แล้ว — กันซ้ำอีกชั้นเผื่อ
         // ถูกเรียกจากทางอื่นระหว่างสถานะกำลังเปลี่ยน
-        if (ownStatus !== "none") return;
-        setFullName(user.displayName || "");
+        if (user && ownStatus !== "none") return;
         setCheckoutOpen(true);
     };
 
-    // Returning from login/register with ?buy=1 → open the checkout for them.
-    // รอผลเช็คสถานะการซื้อก่อนเสมอ — คนที่ pending/approved อยู่แล้วที่เปิดลิงก์
-    // ?buy=1 เดิม (จาก history/แชท) ต้องไม่ถูกพาไปกรอกจ่ายซ้ำ
+    // ลิงก์ ?buy=1 (จากหน้าล็อกอินรุ่นก่อน หรือที่แชร์กันมา) → เปิดฟอร์มให้เลย
+    // ต้องรอ Firebase กู้เซสชันจบก่อนเสมอ ไม่งั้นคนที่ซื้อแล้วจะถูกเปิดฟอร์มจ่ายซ้ำ
+    // (ช่วงกู้เซสชัน user เป็น null เหมือนคนไม่เคยล็อกอิน แยกกันไม่ออก)
     useEffect(() => {
-        if (searchParams.get("buy") === "1" && user && statusChecked && ownStatus === "none" && !done) {
-            setFullName(user.displayName || "");
-            setCheckoutOpen(true);
-        }
-    }, [user, searchParams, statusChecked, ownStatus, done]);
+        if (searchParams.get("buy") !== "1" || done || authLoading) return;
+        if (!user) { setCheckoutOpen(true); return; }
+        if (statusChecked && ownStatus === "none") setCheckoutOpen(true);
+    }, [user, authLoading, searchParams, statusChecked, ownStatus, done]);
+
+    // ถ้ารู้ทีหลังว่าบัญชีนี้สั่งชุดนี้ไปแล้ว (เซสชันเพิ่งกู้เสร็จ / เช็คสถานะเพิ่งกลับมา)
+    // ให้ปิดฟอร์มที่เปิดค้างอยู่ทิ้ง — กันลูกค้าโอนซ้ำเพราะเห็นฟอร์มค้างหน้าจอ
+    useEffect(() => {
+        if (checkoutOpen && !submitting && user && ownStatus !== "none") setCheckoutOpen(false);
+    }, [checkoutOpen, submitting, user, ownStatus]);
 
     // ปุ่มดูตัวอย่างตอนอยู่ใน FB/LINE: เด้งออกไปเปิดในเบราว์เซอร์จริง
     // (target="_blank" ใน webview มักเงียบ) + โชว์คำใบ้เผื่อระบบเด้งไม่สำเร็จ
@@ -144,20 +159,101 @@ export default function PaperDetailClient({
 
     // กรอกอะไรไปแล้ว (แก้ชื่อเอง/เบอร์/LINE/แนบสลิป) → แตะฉากหลังไม่ปิด modal
     // กันข้อมูลหาย ปิดได้ที่ปุ่ม X เท่านั้น (ชื่อที่ระบบเติมให้เองไม่นับว่า "กรอกแล้ว")
-    const formDirty = !!(phone || lineId || slip || fullName.trim() !== (user?.displayName || "").trim());
+    const formDirty = !!(phone || lineId || slip || email || password || fullName.trim() !== (userProfile?.displayName || "").trim());
+
+    // สมัครให้เองเมื่อยังไม่มีบัญชี — คืน uid ที่พร้อมใช้ต่อ หรือ null ถ้าไปต่อไม่ได้
+    // (แจ้งเหตุผลผ่าน authNotice/toast แล้ว) ใช้ auth.currentUser เพราะ context
+    // ยังไม่ทันอัปเดตในจังหวะเดียวกับที่สมัครเสร็จ
+    const ensureAccount = async (): Promise<{ uid: string; email: string | null } | null> => {
+        if (user) return { uid: user.uid, email: user.email };
+
+        const mail = email.trim().toLowerCase();
+        if (!mail) { toast.error("กรุณากรอกอีเมล"); return null; }
+        if (password.length < 6) { toast.error("รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร"); return null; }
+
+        const finish = () => {
+            const u = auth.currentUser;
+            if (u) return { uid: u.uid, email: u.email };
+            // เกิดได้เมื่อเบราว์เซอร์เก็บสถานะล็อกอินไม่ได้ (โหมดส่วนตัว / webview บางตัว)
+            setAuthNotice("เบราว์เซอร์นี้เก็บสถานะเข้าสู่ระบบไม่ได้ ลองเปิดในเบราว์เซอร์ปกติ (Safari/Chrome) แล้วสั่งซื้ออีกครั้งนะครับ");
+            return null;
+        };
+
+        try {
+            await emailSignUp(mail, password, { displayName: fullName.trim(), phoneNumber: phone });
+            return finish();
+        } catch (err: unknown) {
+            const code = (err as { code?: string })?.code;
+            if (code === "auth/email-already-in-use") {
+                // เคยสมัครไว้แล้ว — ลองใช้รหัสที่กรอกเข้าสู่ระบบให้เลย ถ้าตรงก็ซื้อต่อได้ทันที
+                try {
+                    await emailSignIn(mail, password);
+                    setAuthNotice("");
+                    return finish();
+                } catch {
+                    setAuthNotice('อีเมลนี้เคยสมัครไว้แล้ว — ใส่รหัสผ่านเดิมของอีเมลนี้ หรือกด "ลืมรหัสผ่าน" ด้านล่างครับ');
+                    return null;
+                }
+            }
+            if (code === "auth/invalid-email") { setAuthNotice("รูปแบบอีเมลไม่ถูกต้อง"); return null; }
+            if (code === "auth/weak-password") { setAuthNotice("รหัสผ่านง่ายเกินไป ลองยาวขึ้นอีกนิดครับ"); return null; }
+            if (code === "auth/too-many-requests") { setAuthNotice("ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่"); return null; }
+            console.error("signup during checkout failed:", err);
+            setAuthNotice("สร้างบัญชีไม่สำเร็จ ลองใหม่อีกครั้งนะครับ");
+            return null;
+        }
+    };
+
+    const sendReset = async () => {
+        const mail = email.trim().toLowerCase();
+        if (!mail) return toast.error("กรอกอีเมลก่อนนะครับ");
+        try {
+            await resetPassword(mail);
+            setAuthNotice("ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่อีเมลแล้ว ✉️ ตั้งรหัสใหม่แล้วกลับมากรอกที่นี่ได้เลย");
+        } catch {
+            toast.error("ส่งลิงก์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+        }
+    };
 
     const submit = async () => {
-        if (!user) return;
+        if (authLoading) return toast("กำลังตรวจสอบบัญชี รอสักครู่นะครับ");
         if (!fullName.trim()) return toast.error("กรุณากรอกชื่อ-นามสกุล");
         if (!PHONE_RE.test(phone)) return toast.error("กรุณากรอกเบอร์โทร 9–10 หลัก");
         if (!slip) return toast.error("กรุณาแนบสลิปโอนเงิน");
 
         setSubmitting(true);
         try {
-            const slipUrl = await uploadPublicFile(slip, `slips/${user.uid}_${Date.now()}`, (p) => setProgress(p), slipContentType(slip));
-            await addDoc(collection(db, "enrollments"), {
-                userId: user.uid,
-                userEmail: user.email,
+            const account = await ensureAccount();
+            if (!account) return; // ปัญหาเรื่องบัญชี — แจ้งผู้ใช้ไปแล้ว
+            const { uid, email: accountEmail } = account;
+
+            // ด่านสุดท้ายกันจ่ายซ้ำ — เช็คทุกครั้งก่อนสร้างใบ ไม่ใช่เฉพาะคนที่เพิ่งสมัคร
+            // (สถานะที่เช็คไว้ตอนเปิดหน้าอาจเก่าไปแล้ว หรือเซสชันเพิ่งกู้เสร็จกลางคัน)
+            try {
+                const snap = await withTimeout(
+                    getDocs(query(collection(db, "enrollments"), where("userId", "==", uid), where("paperId", "==", paper.id))),
+                    10_000,
+                    "เช็คสถานะการซื้อ",
+                );
+                const existing = snap.docs.map((d) => d.data() as Record<string, unknown>);
+                if (existing.some((r) => r.status === "approved" || r.status === "pending")) {
+                    setCheckoutOpen(false);
+                    setOwnStatus(existing.some((r) => r.status === "approved") ? "approved" : "pending");
+                    // ลูกค้าอาจเพิ่งโอนเงินมารอบสอง — ต้องบอกช่องทางขอคืน ไม่ใช่แค่พาไปโหลด
+                    toast.success("บัญชีนี้เคยสั่งซื้อชุดนี้ไว้แล้ว พาไปหน้าดาวน์โหลดให้เลยครับ", { duration: 6000 });
+                    toast("ถ้าเพิ่งโอนเงินซ้ำ ทักไลน์ครูฮีมได้เลย เดี๋ยวคืนให้ครับ", { duration: 9000, icon: "💬" });
+                    router.push("/my-courses");
+                    return;
+                }
+            } catch { /* เช็คไม่ได้ → ปล่อยให้สั่งซื้อตามปกติ ดีกว่าบล็อกการขาย */ }
+
+            const slipUrl = await uploadPublicFile(slip, `slips/${uid}_${Date.now()}`, (p) => setProgress(p), slipContentType(slip));
+            // ครอบ withTimeout ตามกติกาโปรเจกต์ — ถ้าช่องสัญญาณ Firestore ตายเงียบ
+            // (เครื่องเพิ่งตื่น/เน็ตสลับเสา) promise จะไม่ settle แล้วปุ่มค้างถาวร
+            // ทั้งที่ลูกค้าโอนเงินไปแล้ว
+            await withTimeout(addDoc(collection(db, "enrollments"), {
+                userId: uid,
+                userEmail: accountEmail,
                 userName: fullName.trim(),
                 userTel: phone,
                 lineId: lineId,
@@ -174,8 +270,25 @@ export default function PaperDetailClient({
                 slipUrls: [slipUrl],
                 status: "pending",
                 createdAt: new Date(),
-            });
+            }), 20_000, "ส่งคำสั่งซื้อ");
+
+            // เก็บชื่อ/เบอร์เข้าโปรไฟล์ (เฉพาะช่องที่ยังว่างจริงใน users doc) — หลังบ้าน
+            // จะได้ข้อมูลติดต่อครบ ทำหลังสั่งซื้อสำเร็จและห้าม throw ต่อ
+            // อ่าน doc จริงแทน userProfile: สมาชิกเดิมที่เพิ่งล็อกอินในฟอร์มนี้ยังมี
+            // userProfile เป็น null อยู่ ถ้าเชื่อค่านั้นจะเขียนทับชื่อ/เบอร์เดิมของเขา
+            try {
+                const profileRef = doc(db, "users", uid);
+                const current = (await withTimeout(getDoc(profileRef), 10_000, "อ่านโปรไฟล์")).data() || {};
+                const patch: Record<string, string> = {};
+                if (!current.displayName && fullName.trim()) patch.displayName = fullName.trim();
+                if (!current.phoneNumber && phone.trim()) patch.phoneNumber = phone.trim();
+                if (Object.keys(patch).length > 0) await withTimeout(setDoc(profileRef, patch, { merge: true }), 10_000, "บันทึกโปรไฟล์");
+            } catch (profileError) {
+                console.error("Profile writeback failed (order already submitted):", profileError);
+            }
+
             if (slipPreview) URL.revokeObjectURL(slipPreview);
+            setPassword("");
             setCheckoutOpen(false);
             setOwnStatus("pending");
             setDone(true);
@@ -364,6 +477,57 @@ export default function PaperDetailClient({
                         <div className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">2. กรอกข้อมูล แล้วแนบสลิป</div>
 
                         <div className="space-y-3">
+                            {authLoading ? (
+                                // ระหว่างกู้เซสชันยังไม่รู้ว่าเป็นสมาชิกเดิมหรือคนใหม่ —
+                                // ห้ามเดา ไม่งั้นสมาชิกเดิมจะเห็นช่องสมัครวูบขึ้นมา
+                                <p className="flex items-center gap-2 text-[12.5px] text-slate-400 dark:text-slate-500 -mt-1">
+                                    <Loader2 size={14} className="animate-spin" /> กำลังตรวจสอบบัญชี...
+                                </p>
+                            ) : user ? (
+                                <p className="text-[12.5px] text-slate-500 dark:text-slate-400 -mt-1">
+                                    สั่งซื้อในบัญชี <span className="font-semibold text-slate-700 dark:text-slate-200">{user.email}</span>
+                                </p>
+                            ) : (
+                                <div className="rounded-xl bg-teal-50/70 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900 p-3 space-y-2.5">
+                                    <p className="flex items-start gap-1.5 text-[12.5px] text-teal-800 dark:text-teal-200 leading-relaxed">
+                                        <UserPlus size={15} className="shrink-0 mt-0.5" />
+                                        <span>ตั้งอีเมลกับรหัสผ่านไว้ด้วยนะครับ ระบบจะเก็บไฟล์ไว้ในบัญชีนี้ให้ กลับมาโหลดซ้ำได้ตลอด</span>
+                                    </p>
+                                    <input
+                                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500"
+                                        placeholder="อีเมล *"
+                                        type="email"
+                                        inputMode="email"
+                                        autoComplete="email"
+                                        value={email}
+                                        onChange={(e) => { setEmail(e.target.value); setAuthNotice(""); }}
+                                    />
+                                    <div className="relative">
+                                        <input
+                                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 pr-11 text-slate-900 dark:text-white outline-none focus:border-teal-500"
+                                            placeholder="ตั้งรหัสผ่าน (อย่างน้อย 6 ตัว) *"
+                                            type={showPassword ? "text" : "password"}
+                                            autoComplete="new-password"
+                                            value={password}
+                                            onChange={(e) => { setPassword(e.target.value); setAuthNotice(""); }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword((v) => !v)}
+                                            aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "ดูรหัสผ่าน"}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                        >
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                    {authNotice && (
+                                        <div className="text-[12.5px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                                            {authNotice}
+                                            <button type="button" onClick={sendReset} className="ml-1.5 font-semibold underline hover:no-underline">ลืมรหัสผ่าน</button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <input className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500" placeholder="ชื่อ-นามสกุล *" value={fullName} onChange={(e) => setFullName(e.target.value)} />
                             <input className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500" placeholder="เบอร์โทรศัพท์ *" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ""))} />
                             <input className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500" placeholder="LINE ID (ถ้ามี)" value={lineId} onChange={(e) => setLineId(e.target.value)} />
@@ -390,9 +554,14 @@ export default function PaperDetailClient({
                             </label>
                         </div>
 
-                        <button onClick={submit} disabled={submitting || slipBusy} className="w-full mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold px-5 py-3 transition">
+                        <button onClick={submit} disabled={submitting || slipBusy || authLoading} className="w-full mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold px-5 py-3 transition">
                             {submitting ? <><Loader2 className="animate-spin" size={18} /> {progress > 0 ? `กำลังอัปโหลด ${progress}%` : "กำลังส่ง..."}</> : <><Check size={18} /> ยืนยันสั่งซื้อ</>}
                         </button>
+                        {!user && !authLoading && (
+                            <p className="mt-2.5 text-center text-[12px] text-slate-400 dark:text-slate-500">
+                                มีบัญชีอยู่แล้ว? กรอกอีเมลกับรหัสผ่านเดิมได้เลย ระบบจะเข้าสู่ระบบให้อัตโนมัติ
+                            </p>
+                        )}
                     </div>
                 </div>
             )}
