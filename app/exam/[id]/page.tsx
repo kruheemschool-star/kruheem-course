@@ -160,9 +160,7 @@ export default async function ExamRoomPage(props: Props) {
             </main>
 
             {/* SEO Text Content (Visible but unobtrusive) - Helps search engines understand context better */}
-            {/* relative z-10: หน้าเริ่มทำข้อสอบวาง canvas ลายจุดแบบ fixed z-0 ทับทั้งจอ
-                ถ้าท้ายหน้าไม่ยกชั้น จะถูก canvas บังหายไป */}
-            <div className="container mx-auto px-6 pb-8 text-slate-400 text-sm relative z-10">
+            <div className="container mx-auto px-6 pb-8 text-slate-400 text-sm">
                 <div className="border-t border-slate-100 pt-6 mt-6">
                     <h2 className="font-bold text-slate-500 flex items-center gap-2 mb-2">
                         <ArrowUpRight size={16} />

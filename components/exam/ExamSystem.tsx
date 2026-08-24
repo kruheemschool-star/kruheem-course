@@ -16,7 +16,6 @@ import { useExamBankMembership } from '@/hooks/useExamBankMembership';
 import { bumpExamStat, examUserType } from '@/lib/examStats';
 import { History, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee, Printer, Zap, SquarePen, Timer, ClipboardCheck, NotebookPen } from 'lucide-react';
-import ExamStartBackdrop from './ExamStartBackdrop';
 import { useUserAuth } from '@/context/AuthContext';
 import { doc, setDoc, getDoc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -1679,7 +1678,6 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         const canMini = !isTrial && sanitizedExamData.length > MINI_QUIZ_SIZE + 5;
         return (
             <div className="max-w-3xl mx-auto px-4 md:px-6 py-10 font-sans exs-shell">
-                <ExamStartBackdrop isDark={isDark} />
                 <SampleAnalysisModal open={showSample} onClose={() => setShowSample(false)} variant="bank" isDark={isDark} />
                 <div className="text-center" style={{ marginBottom: 30 }}>
                     <div className="exs-chip" style={{ marginBottom: 12 }}>
