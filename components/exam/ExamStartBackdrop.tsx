@@ -38,11 +38,37 @@ const MAX_DPR = 2;
  */
 const WAVE = {
     len1: 340,      // ความยาวคลื่นชุดที่ 1 (เดิม 190)
-    speed1: 0.30,   // ความเร็วชุดที่ 1 (เดิม 0.85)
+    speed1: 0.72,   // ความเร็วชุดที่ 1 — เร่งจาก .30 ตามที่ครูขอ (รอบละ ~8.7 วิ)
     len2: 430,      // ความยาวคลื่นชุดที่ 2 (เดิม 250)
-    speed2: 0.18,   // ความเร็วชุดที่ 2 (เดิม 0.50)
+    speed2: 0.44,   // ความเร็วชุดที่ 2 — เร่งจาก .18
     mix: 0.62,      // น้ำหนักคลื่นชุดแรก ทำให้ลายไม่ซ้ำรอบเป๊ะ
     hueDrift: 0.12, // สีค่อยๆ เปลี่ยน (เดิม 0.3 — ไวจนเห็นเป็นวูบ)
+    hueSwing: 88,   // ช่วงสีตามคลื่น: เขียวน้ำทะเล ↔ คราม ↔ ชมพู (เดิม 68)
+};
+
+/**
+ * รูปทรงของผืนจุด (โหมด waveColor)
+ *
+ * กุญแจที่ทำให้ "สวย" คือ **ปล่อยให้ท้องคลื่นจางจนเกือบหาย** เหลือเห็นเฉพาะ
+ * ส่วนที่ยกตัว ตาจึงอ่านเป็นก้อนแสงเรืองลอยเคลื่อน แทนที่จะเป็นตารางจุดทั้งผืน
+ * (เวอร์ชันก่อนจุดเข้มเท่ากันหมด เลยดูเป็นลายจุดโปลก้าดอท)
+ */
+const FIELD = {
+    rMin: 0.25,     // รัศมีที่ท้องคลื่น (เท่าของ BASE_RADIUS) — เล็กมาก
+    rSpan: 1.05,    // ช่วงรัศมีถึงยอดคลื่น
+    aBase: 0.03,    // ความทึบที่ท้องคลื่น — เกือบมองไม่เห็น
+    aSpan: 0.52,    // ช่วงความทึบถึงยอดคลื่น
+    swayX: 4.5,     // จุดแกว่งแนวนอน
+    swayY: 10,      // จุดแกว่งแนวตั้ง (มากกว่า = อ่านเป็นผืนคลื่น)
+    rowStep: 0.88,  // แถวถี่กว่าคอลัมน์ + เยื้องสลับ = จัดแบบรังผึ้ง ดูออร์แกนิก
+    bloomR: 3.4,    // รัศมีเรืองรอบจุดสว่าง (เท่าของรัศมีจุด)
+    bloomA: 0.13,   // ความทึบของรัศมีเรือง
+    // ไล่เฉดจางที่ขอบบน-ล่างของจอ (วิกเน็ตต์) แสงจึงรวมอยู่กลางจอตรงที่วางการ์ด
+    // บน = กันลายสู้กับชื่อชุด · ล่าง = กันลายสู้กับข้อความท้ายหน้า
+    fadeTopMin: 0.3,
+    fadeTopTo: 300,
+    fadeBottomMin: 0.35,
+    fadeBottomTo: 220,
 };
 
 /**
@@ -62,15 +88,16 @@ const WAVE = {
  * ไม่เคยท่วม และจุดกึ่งกลางริ้วเคลื่อนตลอดหนึ่งรอบคลื่น
  */
 const CREST = {
-    start: 0.66,      // เริ่มติดไฟเมื่อคลื่นสูงเกินระดับนี้
-    powIntensity: 2.2, // โค้งความเข้ม/ขนาด — แคบ ให้ริ้วคม
-    powTint: 0.75,     // โค้งสี — กว้างกว่า ไปถึงทองไว เลี่ยงโซนแดง
+    start: 0.58,      // เริ่มติดไฟเมื่อคลื่นสูงเกินระดับนี้
+    powIntensity: 1.9, // โค้งความเข้ม/ขนาด — แคบ ให้ริ้วคม
+    powTint: 0.8,      // โค้งสี — กว้างกว่า ไปถึงทองไว เลี่ยงโซนแดง
     hue: 402,          // = 42° ทองอำพัน (ไล่ขึ้นผ่านชมพู→ส้ม→ทอง)
     sat: 16,           // เพิ่มความสด
     ligLight: -11,     // โหมดสว่าง: เข้มลง ถึงจะเห็นบนพื้นขาว
     ligDark: 8,        // โหมดมืด: สว่างขึ้น ถึงจะเด้งบนพื้นเข้ม
-    size: 0.75,        // จุดโตขึ้นที่ยอดคลื่น
+    size: 1.0,         // จุดโตขึ้นที่ยอดคลื่น
     alpha: 0.34,       // และทึบขึ้น
+    bloomFrom: 0.1,    // เริ่มวาดรัศมีเรืองเมื่อ glow เกินนี้ (จุดจางไม่ต้องวาด)
 };
 
 // คลื่นช้าไม่ต้องการ 60fps — จำกัดราว 30fps ประหยัดแบตมือถือครึ่งหนึ่ง
@@ -120,13 +147,25 @@ export default function ExamStartBackdrop({
             const light = dark ? 68 : 63;
             const alphaMul = intensity * (dark ? 1.15 : 1);
 
-            for (let y = 0; y <= height + gap; y += gap) {
-                for (let x = 0; x <= width + gap; x += gap) {
+            let rowIndex = 0;
+            for (let y = -gap; y <= height + gap; y += gap * FIELD.rowStep) {
+                // เยื้องแถวสลับครึ่งช่อง = จัดจุดแบบรังผึ้ง ดูออร์แกนิกกว่าตารางตรง
+                const xOffset = (rowIndex++ % 2) * gap * 0.5;
+                // จางที่ขอบบน-ล่าง ตัวหนังสือหัวเรื่อง/ท้ายหน้าจะได้คมเสมอ
+                const fadeTop = FIELD.fadeTopMin
+                    + (1 - FIELD.fadeTopMin) * Math.min(1, Math.max(0, y) / FIELD.fadeTopTo);
+                const fadeBottom = FIELD.fadeBottomMin
+                    + (1 - FIELD.fadeBottomMin) * Math.min(1, Math.max(0, height - y) / FIELD.fadeBottomTo);
+                const fade = fadeTop * fadeBottom;
+
+                for (let gx = -gap; gx <= width + gap; gx += gap) {
+                    const x = gx + xOffset;
                     let r: number;
                     let a: number;
                     let color: string;
                     let ox = 0;
                     let oy = 0;
+                    let glow = 0;   // >0 เฉพาะยอดคลื่นของโหมด waveColor (ใช้วาดรัศมีเรือง)
 
                     if (mode === 'calm') {
                         const b = Math.sin(0.45 * t + (x + y) / 420) * 0.5 + 0.5;
@@ -149,25 +188,36 @@ export default function ExamStartBackdrop({
                         } else {
                             // ยอดคลื่น (u สูง) ติดไฟทอง — ตัวที่ทำให้ "เห็นว่ามันเคลื่อน"
                             const hl = Math.max(0, (u - CREST.start) / (1 - CREST.start));
-                            const glow = Math.pow(hl, CREST.powIntensity);
+                            glow = Math.pow(hl, CREST.powIntensity);
                             const tint = Math.pow(hl, CREST.powTint);
-                            const baseHue = 252 + 68 * w + 18 * Math.sin(WAVE.hueDrift * t + y / 500);
+                            const baseHue = 252 + WAVE.hueSwing * w + 18 * Math.sin(WAVE.hueDrift * t + y / 500);
                             const hue = (baseHue * (1 - tint) + CREST.hue * tint) % 360;
                             const sat = 78 + tint * CREST.sat;
                             const lig = light + tint * (dark ? CREST.ligDark : CREST.ligLight);
-                            r = BASE_RADIUS * (0.5 + 0.85 * u) * (1 + glow * CREST.size);
-                            a = 0.14 + 0.40 * u + glow * CREST.alpha;
+                            r = BASE_RADIUS * (FIELD.rMin + FIELD.rSpan * u) * (1 + glow * CREST.size);
+                            a = FIELD.aBase + FIELD.aSpan * u + glow * CREST.alpha;
                             color = `hsl(${hue}, ${sat}%, ${lig}%)`;
                             // เอียงน้อยในแนวนอน ยกตัวมากในแนวตั้ง = อ่านเป็นผืนคลื่น
-                            ox = w1 * 3;
-                            oy = w * 7.5;
+                            ox = w1 * FIELD.swayX;
+                            oy = w * FIELD.swayY;
                         }
                     }
 
-                    ctx.globalAlpha = Math.min(1, a * alphaMul);
+                    const alpha = Math.min(1, a * alphaMul * fade);
+                    const cx = x + ox;
+                    const cy = y + oy;
+                    // รัศมีเรืองรอบจุดสว่าง — ทำให้ยอดคลื่น "เรือง" ไม่ใช่แค่จุดโต
+                    if (glow > CREST.bloomFrom) {
+                        ctx.globalAlpha = alpha * FIELD.bloomA;
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, r * FIELD.bloomR, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.globalAlpha = alpha;
                     ctx.fillStyle = color;
                     ctx.beginPath();
-                    ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
