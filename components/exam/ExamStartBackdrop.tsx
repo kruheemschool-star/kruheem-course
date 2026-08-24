@@ -26,6 +26,28 @@ interface Props {
 const BASE_RADIUS = 1.9;
 const MAX_DPR = 2;
 
+/**
+ * ค่าคลื่นของโหมด waveColor / wave
+ *
+ * ครูฮีมขอ "ให้พลิ้วไหวเหมือนคลื่นช้าๆ" — ของเดิม (ตามสเปกตั้งต้น) คลื่นสั้นและ
+ * วิ่งเร็ว ตาจึงอ่านเป็นจุดกะพริบยิบๆ ไม่เป็นระลอก จูนใหม่สามอย่าง:
+ *   1. WAVELENGTH ยาวขึ้นเกือบเท่าตัว → ระลอกกว้างพาดทั้งจอ มองเห็นเป็นคลื่น
+ *   2. SPEED ช้าลงราวหนึ่งในสาม → ระลอกค่อยๆ ไหลผ่าน (รอบละ ~20 วินาที)
+ *   3. SWAY ให้จุดขยับตามคลื่นมากขึ้น โดยเน้นแนวตั้ง → เห็นแถวจุดยกตัวเป็นลอน
+ * ตัวเลขทั้งชุดปรับจากการเรนเดอร์เทียบเฟรมจริงบนหน้าเว็บ
+ */
+const WAVE = {
+    len1: 340,      // ความยาวคลื่นชุดที่ 1 (เดิม 190)
+    speed1: 0.30,   // ความเร็วชุดที่ 1 (เดิม 0.85)
+    len2: 430,      // ความยาวคลื่นชุดที่ 2 (เดิม 250)
+    speed2: 0.18,   // ความเร็วชุดที่ 2 (เดิม 0.50)
+    mix: 0.62,      // น้ำหนักคลื่นชุดแรก ทำให้ลายไม่ซ้ำรอบเป๊ะ
+    hueDrift: 0.12, // สีค่อยๆ เปลี่ยน (เดิม 0.3 — ไวจนเห็นเป็นวูบ)
+};
+
+// คลื่นช้าไม่ต้องการ 60fps — จำกัดราว 30fps ประหยัดแบตมือถือครึ่งหนึ่ง
+const FRAME_MS = 1000 / 30;
+
 export default function ExamStartBackdrop({
     bgMode = 'waveColor',
     dotSpacing = 26,
@@ -85,24 +107,25 @@ export default function ExamStartBackdrop({
                         const hue = 248 + 42 * Math.sin(0.16 * t + (0.6 * x + y) / 720);
                         color = `hsl(${hue}, 72%, ${dark ? light : 62}%)`;
                     } else {
-                        const w1 = Math.sin((x * 0.9 + y * 1.6) / 190 - t * 0.85);
-                        const w2 = Math.sin((y * 0.7 - x * 1.3) / 250 + t * 0.50);
-                        const w = (w1 + w2) / 2;
+                        const w1 = Math.sin((x * 0.9 + y * 1.6) / WAVE.len1 - t * WAVE.speed1);
+                        const w2 = Math.sin((y * 0.7 - x * 1.3) / WAVE.len2 + t * WAVE.speed2);
+                        const w = w1 * WAVE.mix + w2 * (1 - WAVE.mix);
                         const u = w * 0.5 + 0.5;
 
                         if (mode === 'wave') {
                             r = BASE_RADIUS * (0.45 + 0.95 * u);
                             a = 0.12 + 0.40 * u;
                             color = dark ? '#818cf8' : '#6366f1';
-                            ox = w * 3.2;
-                            oy = w * 3.2;
+                            ox = w1 * 3.6;
+                            oy = w * 9;
                         } else {
                             r = BASE_RADIUS * (0.5 + 0.85 * u);
                             a = 0.14 + 0.40 * u;
-                            const hue = 252 + 68 * w + 18 * Math.sin(0.3 * t + y / 500);
+                            const hue = 252 + 68 * w + 18 * Math.sin(WAVE.hueDrift * t + y / 500);
                             color = `hsl(${hue}, 78%, ${light}%)`;
-                            ox = w * 2.6;
-                            oy = w * 2.6;
+                            // เอียงน้อยในแนวนอน ยกตัวมากในแนวตั้ง = อ่านเป็นผืนคลื่น
+                            ox = w1 * 3;
+                            oy = w * 7.5;
                         }
                     }
 
@@ -117,10 +140,13 @@ export default function ExamStartBackdrop({
         };
 
         let lastT = 0;
+        let lastPaint = 0;
         const frame = (now: number) => {
+            raf = requestAnimationFrame(frame);
+            if (now - lastPaint < FRAME_MS) return;   // จำกัดเฟรมเรต
+            lastPaint = now;
             lastT = (now - startedAt) / 1000;
             draw(lastT);
-            raf = requestAnimationFrame(frame);
         };
 
         const stop = () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } };
