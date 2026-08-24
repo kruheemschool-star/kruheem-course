@@ -58,6 +58,12 @@ const nextConfig: NextConfig = {
     // signals in Vercel logs and the browser console.
     removeConsole: { exclude: ['error', 'warn'] },
   },
+  // The PDF watermark route reads the Thai font off disk at runtime — static
+  // tracing can't see a fs.readFileSync(process.cwd() + ...) path, so without
+  // this the font is missing from the serverless bundle on Vercel.
+  outputFileTracingIncludes: {
+    '/api/download-pdf': ['./assets/fonts/*.ttf'],
+  },
 };
 
 export default nextConfig;

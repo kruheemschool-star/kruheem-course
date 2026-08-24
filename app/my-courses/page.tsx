@@ -756,7 +756,9 @@ function MyPapersSection({ c, isDark }: { c: Pal; isDark: boolean }) {
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
                     body: JSON.stringify({ paperId, fileId }),
                 }),
-                undefined,
+                // First download stamps the buyer's name onto every page
+                // server-side — big files can take well past the 20s default.
+                120_000,
                 "ขอลิงก์ดาวน์โหลด"
             );
             const data = await res.json().catch(() => ({}));
