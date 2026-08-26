@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import { withTimeout, isNetTimeout, NET_TIMEOUT_MESSAGE, reviveConnection } from "@/lib/netGuard";
 import { clearAdminCache, ADMIN_STATS_CACHE_KEY } from "@/lib/adminCache";
 import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Mail, Phone, Clock, Inbox, ZoomIn, Users, StickyNote, BookOpen, Pencil, Search, Loader2, ArrowRight, Receipt, Ticket } from "lucide-react";
+import SlipLightbox, { SlipOrigin } from "@/components/admin/SlipLightbox";
 
 type CourseLite = { id: string; title: string; price?: number; allowedExamLevel?: string | null; category?: string; image?: string };
 
@@ -67,6 +68,7 @@ export default function AdminEnrollmentsPage() {
 
     // Presentational only: which slip row is highlighted in the master list
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [slipView, setSlipView] = useState<{ url: string; origin: SlipOrigin } | null>(null);
     // ติ๊กเลือกหลายรายการเพื่ออนุมัติรวด (spec §5)
     const [checkedIds, setCheckedIds] = useState<string[]>([]);
     // ยืนยันด้วยตาว่ายอดในรูปสลิปตรงกับคำสั่งซื้อ (ต่อ 1 ใบ, อยู่ในหน้าจอเท่านั้น)
@@ -824,9 +826,13 @@ export default function AdminEnrollmentsPage() {
                                                 <ArrowDownLeft size={13} /> สลิปที่แนบมา
                                             </span>
                                             {slipUrls.length > 0 && (
-                                                <a href={slipUrls[0]} target="_blank" rel="noreferrer" className="khen-pill">
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => setSlipView({ url: slipUrls[0], origin: { x: e.clientX, y: e.clientY } })}
+                                                    className="khen-pill cursor-pointer"
+                                                >
                                                     <ZoomIn size={12} /> เปิดเต็ม
-                                                </a>
+                                                </button>
                                             )}
                                         </div>
 
@@ -840,12 +846,11 @@ export default function AdminEnrollmentsPage() {
                                         ) : (
                                             <div className="khen-scroll-slip space-y-2.5">
                                                 {slipUrls.map((url: string, i: number) => (
-                                                    <a
+                                                    <button
                                                         key={i}
-                                                        href={url}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="group block relative rounded-[14px] overflow-hidden"
+                                                        type="button"
+                                                        onClick={(e) => setSlipView({ url, origin: { x: e.clientX, y: e.clientY } })}
+                                                        className="group block relative rounded-[14px] overflow-hidden w-full text-left cursor-zoom-in"
                                                         style={{ background: "var(--en-card)", border: "1px solid var(--en-b-mat-l)" }}
                                                     >
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -864,7 +869,7 @@ export default function AdminEnrollmentsPage() {
                                                                 {i + 1}/{slipUrls.length}
                                                             </span>
                                                         )}
-                                                    </a>
+                                                    </button>
                                                 ))}
                                             </div>
                                         )}
@@ -879,6 +884,13 @@ export default function AdminEnrollmentsPage() {
                     </div>
                 )}
             </div>
+
+            {/* ===== ไลท์บ็อกซ์ดูสลิป — เด้งขึ้นจากจุดที่คลิก คลิกพื้นที่ว่างเพื่อปิด ===== */}
+            <SlipLightbox
+                url={slipView?.url ?? null}
+                origin={slipView?.origin ?? null}
+                onClose={() => setSlipView(null)}
+            />
 
             {/* ===== Modal ยืนยันการอนุมัติ (ใบเดียว / หลายใบ) ===== */}
             {confirmApproveIds && confirmApproveIds.length > 0 && (
