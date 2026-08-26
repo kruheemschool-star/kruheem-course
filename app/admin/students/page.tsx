@@ -5,6 +5,7 @@ import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, 
 import { Search, Edit3, Trash2, Eye, Phone, MessageCircle, ChevronLeft, ChevronRight, GraduationCap, X, UserX, Loader2, Users, PauseCircle, CalendarX } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
+import SlipLightbox, { SlipOrigin } from "@/components/admin/SlipLightbox";
 
 // Session-scoped cache of users/{uid} profile reads. Every table refresh
 // (initial load, after each approve/edit/delete, paging) remounts the rows,
@@ -125,7 +126,7 @@ export default function AdminStudentsPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<any>(null);
-    const [slipModalUrl, setSlipModalUrl] = useState<string | null>(null);
+    const [slipView, setSlipView] = useState<{ url: string; origin: SlipOrigin } | null>(null);
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
     const { confirm: confirmModal, ConfirmDialog } = useConfirmModal();
     const [unifying, setUnifying] = useState(false);
@@ -634,7 +635,7 @@ export default function AdminStudentsPage() {
                                     <td>
                                         <div className="flex items-center justify-end gap-1">
                                             {item.slipUrl && (
-                                                <button onClick={() => setSlipModalUrl(item.slipUrl)} className="p-1.5 rounded-lg transition kh-ink3 hover:bg-[var(--card-2)] hover:text-[var(--accent)]" title="ดูสลิป">
+                                                <button onClick={(e) => setSlipView({ url: item.slipUrl, origin: { x: e.clientX, y: e.clientY } })} className="p-1.5 rounded-lg transition kh-ink3 hover:bg-[var(--card-2)] hover:text-[var(--accent)]" title="ดูสลิป">
                                                     <Eye size={16} />
                                                 </button>
                                             )}
@@ -762,21 +763,12 @@ export default function AdminStudentsPage() {
                 </div>
             )}
 
-            {/* Slip Modal */}
-            {slipModalUrl && (
-                <div className="kh-admin fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSlipModalUrl(null)}>
-                    <div className="kh-card !p-0 max-w-md w-full overflow-hidden shadow-xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--line)" }}>
-                            <span className="text-sm font-medium kh-ink">สลิปการโอนเงิน</span>
-                            <button onClick={() => setSlipModalUrl(null)} className="kh-ink3 hover:text-[var(--ink)]">
-                                <X size={18} />
-                            </button>
-                        </div>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={slipModalUrl} alt="Slip" className="w-full" />
-                    </div>
-                </div>
-            )}
+            {/* Slip Lightbox — เด้งขึ้นจากจุดที่คลิก แล้วหดกลับตอนปิด */}
+            <SlipLightbox
+                url={slipView?.url ?? null}
+                origin={slipView?.origin ?? null}
+                onClose={() => setSlipView(null)}
+            />
             <ConfirmDialog />
         </div>
     );

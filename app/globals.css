@@ -2530,3 +2530,84 @@ mark.khb-mark {
     .exs-card:hover, .exs-ghost:hover { transform: none; }
     .exs-card:hover .exs-arrow { transform: none; }
 }
+
+/* ===============================================================
+   SLIP LIGHTBOX — ".khsl-*"
+   ป๊อปอัพดูสลิปในหน้าแอดมิน: โตออกมาจากจุดที่คลิกอย่างนุ่มนวล
+   แล้วหดกลับไปที่เดิมเมื่อคลิกพื้นที่ว่าง/กด Esc
+   =============================================================== */
+.khsl-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(9, 20, 18, .60);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity .30s ease;
+}
+.khsl-backdrop.is-open { opacity: 1; }
+.khsl-backdrop.is-closing { opacity: 0; transition-duration: .22s; }
+
+.khsl-panel {
+    width: 100%;
+    max-width: 30rem;
+    opacity: 0;
+    transform: var(--khsl-from, scale(.84));
+    transition: transform .42s cubic-bezier(.16, 1, .3, 1),
+                opacity .26s ease,
+                max-width .42s cubic-bezier(.16, 1, .3, 1);
+    will-change: transform, opacity;
+}
+.khsl-panel.is-zoom { max-width: 54rem; }
+
+.khsl-backdrop.is-open .khsl-panel {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+}
+.khsl-backdrop.is-closing .khsl-panel {
+    opacity: 0;
+    transform: var(--khsl-from, scale(.84));
+    transition: transform .28s cubic-bezier(.4, 0, .7, .2), opacity .22s ease .04s;
+}
+
+.khsl-stage {
+    position: relative;
+    background: var(--card-2);
+    min-height: 140px;
+    max-height: 74vh;
+    overflow: auto;
+    cursor: zoom-in;
+}
+.khsl-panel.is-zoom .khsl-stage { cursor: zoom-out; }
+
+.khsl-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 74vh;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity .28s ease;
+}
+.khsl-img.is-loaded { opacity: 1; }
+.khsl-panel.is-zoom .khsl-img { max-height: none; }
+
+.khsl-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-3);
+}
+
+/* ---------- ผู้ใช้ที่ขอลดการเคลื่อนไหว ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .khsl-backdrop, .khsl-panel, .khsl-img { transition-duration: .01ms !important; }
+    .khsl-panel { transform: none !important; }
+}
