@@ -1,0 +1,6 @@
+# ไฟล์ที่สร้างใหม่ได้เสมอ ไม่ต้องเก็บใน git
+__pycache__/
+labeled.json
+unlabeled.json
+dedup/out-*.json
+dedup/inventory.json

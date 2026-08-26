@@ -4,7 +4,7 @@
  * ระบบวิเคราะห์จุดอ่อนต้องใช้ tag ครบ 4 มิติถึงจะวาดเรดาร์และแนะนำได้
  * ชุดเก่าจำนวนมากมีแต่ tag สาระแบบหลวมๆ (เช่น "ตัวแปร" "บวก" "ลบ") ซึ่งบอกอะไรไม่ได้
  *
- * ไฟล์กำหนด tag อยู่ที่ scripts/tmp/tagging/sets/<ชื่อ>.py — เขียนด้วยมือหลังอ่านโจทย์ครบทุกข้อ
+ * ไฟล์กำหนด tag อยู่ที่ scripts/exam-maintenance/tagging/sets/<ชื่อ>.py — เขียนด้วยมือหลังอ่านโจทย์ครบทุกข้อ
  * สคริปต์นี้อ่านไฟล์นั้นผ่าน python แล้วเขียนกลับ Firestore
  *
  * รัน: node scripts/apply-exam-tags.js <ชื่อไฟล์>          (dry-run)
@@ -25,7 +25,7 @@ const name = process.argv[2];
 const APPLY = process.argv.includes('--apply');
 if (!name) { console.error('ต้องระบุชื่อไฟล์ เช่น m1-integers'); process.exit(1); }
 
-const SETS = path.resolve(__dirname, 'tmp/tagging/sets');
+const SETS = path.resolve(__dirname, 'exam-maintenance/tagging/sets');
 const BACKUP = path.resolve(__dirname, 'tmp');
 const src = path.join(SETS, name + '.py');
 if (!fs.existsSync(src)) { console.error('ไม่พบไฟล์', src); process.exit(1); }
