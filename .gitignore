@@ -60,3 +60,6 @@ scripts/out/
 # ไฟล์เช็คลิสต์ที่สร้างอัตโนมัติจากโครงคอร์สใน Firestore (สร้างใหม่ได้ด้วย gen-*.js)
 scripts/generated/*-checklist-a4.html
 scripts/generated/*-checklist-lesson.html
+
+# สำรองก้อนใหญ่ตอนแก้รูปแบบตัวเลือกคลังข้อสอบ (เก็บในเครื่อง ไม่ต้องขึ้น git)
+scripts/exam-maintenance/optfmt/backup/
