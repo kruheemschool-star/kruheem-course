@@ -65,3 +65,5 @@ scripts/generated/*-checklist-lesson.html
 scripts/exam-maintenance/optfmt/backup/
 
 scripts/exam-maintenance/answerfix/backup/
+
+scripts/exam-maintenance/rebalance/backup/
