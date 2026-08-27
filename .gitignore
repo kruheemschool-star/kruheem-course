@@ -63,3 +63,5 @@ scripts/generated/*-checklist-lesson.html
 
 # สำรองก้อนใหญ่ตอนแก้รูปแบบตัวเลือกคลังข้อสอบ (เก็บในเครื่อง ไม่ต้องขึ้น git)
 scripts/exam-maintenance/optfmt/backup/
+
+scripts/exam-maintenance/answerfix/backup/
