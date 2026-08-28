@@ -19,6 +19,9 @@ import { doc, setDoc, increment } from "firebase/firestore";
 //  buy_banner ปุ่มสมัครจากป้ายชวนหลังทำเสร็จ (โหมดทดลอง)
 //  buy_paywall ปุ่มสมัครจากการ์ดล็อกข้อ 6 ขึ้นไป
 //  buy_diag   ปุ่มสมัครจากหน้าผลชุดสแกนจุดอ่อน
+//  buy_start  ปุ่มสมัครจากการ์ดบนหน้าเริ่มทำข้อสอบ
+//  buy_rail   ปุ่มสมัครจากแผงในไซด์บาร์ (เดสก์ท็อป)
+//  buy_bar    ปุ่มสมัครจากแถบล่างจอมือถือ
 //  src_*      แหล่งที่มาของคนเปิดดู (facebook/line/google/… นับพร้อม v)
 export type ExamStatPatch = Record<string, number>;
 

@@ -9,11 +9,13 @@ import { QuestionCard } from './QuestionCard';
 import { AnalysisPreview, AnalysisPreviewLastResult } from './AnalysisPreview';
 import { SampleAnalysisModal } from './SampleAnalysisModal';
 import { ExamCapabilities } from './ExamCapabilities';
+import { ExamBuyCta } from './ExamBuyCta';
 import CelebrationModal from '@/components/gamification/CelebrationModal';
 import ConfirmDialog from './ConfirmDialog';
 import { useSavedQuestions } from '@/hooks/useSavedQuestions';
 import { useExamBankMembership } from '@/hooks/useExamBankMembership';
 import { bumpExamStat, examUserType } from '@/lib/examStats';
+import { EXAM_BANK_PRICE, EXAM_BANK_DISCOUNT_PERCENT, EXAM_BANK_BUY_HREF } from '@/lib/constants';
 import { History, TrendingUp, TrendingDown } from 'lucide-react';
 import { ChevronLeft, ChevronRight, CheckCircle, RotateCcw, Trophy, Award, Lock, Trash2, Target, Cloud, CloudCheck, Clock, AlertTriangle, Pause, Play, Coffee, Printer, Zap, SquarePen, Timer, ClipboardCheck, NotebookPen } from 'lucide-react';
 import { useUserAuth } from '@/context/AuthContext';
@@ -258,7 +260,14 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
     const savedQ = useSavedQuestions();
     // ปุ่มพิมพ์ PDF: เฉพาะสมาชิกคลังข้อสอบตัวจริง — ชุดฟรีใครก็ทำบนเว็บได้
     // แต่ดาวน์โหลดทั้งชุดเป็นไฟล์ไม่ได้ (กันโหลดชุดฟรีไปก๊อป/ขายต่อ)
-    const { isMember } = useExamBankMembership();
+    const { isMember, pending: membershipPending, checking: membershipChecking } = useExamBankMembership();
+
+    // 🛒 ใครควรเห็นปุ่มสั่งซื้อคลังข้อสอบในห้องสอบ:
+    //   • ยังไม่ล็อกอิน (isMember=false ตั้งแต่ต้น)
+    //   • ล็อกอินแล้วแต่ยังไม่ได้ซื้อ / ซื้อแล้วหมดอายุ
+    // และห้ามเห็นเมื่อ: เป็นสมาชิกอยู่แล้ว, ยังเช็คสิทธิ์ไม่เสร็จ (กัน CTA กะพริบ
+    // ใส่หน้าสมาชิกตอนโหลด) หรือแจ้งโอนแล้วรอแอดมินอนุมัติ (จ่ายแล้ว ห้ามทวงซ้ำ)
+    const canBuy = !isMember && !membershipChecking && !membershipPending;
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex);
     // MCQ answers are option indices (number); fill-in answers are typed text (string).
     const [answers, setAnswers] = useState<Record<number, number | string>>({});
@@ -1465,8 +1474,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         <p className="text-indigo-600 dark:text-indigo-400 mb-8 font-bold text-center text-lg">ตอบแล้ว {Object.keys(answers).length}/{finalScore.total} ข้อ — กดที่ข้อใดก็ได้เพื่อดูเฉลยละเอียด</p>
                     )}
 
-                    {/* Up-sell Banner (Trial Mode) */}
-                    {isTrial && (
+                    {/* 🛒 ป้ายชวนสมัครหลังทำเสร็จ — จังหวะที่คนอินที่สุด (เพิ่งเห็นคะแนนตัวเอง)
+                        เดิมเช็ค isTrial จึงโผล่เฉพาะชุดที่ต้องจ่าย คนทำ "ชุดฟรี" จนจบ
+                        ไม่เคยเห็นเลย. เปลี่ยนเป็น canBuy = ทุกคนที่ยังไม่ได้ซื้อ
+                        (เว้นชุดสแกนจุดอ่อน ซึ่งมีป้ายชวนของตัวเองอยู่ข้างล่างแล้ว) */}
+                    {canBuy && !isDiagnostic && (
                         <div className="mb-10 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 dark:from-amber-900/40 dark:via-orange-900/20 dark:to-rose-900/10 border border-amber-200 dark:border-amber-700/50 rounded-3xl p-8 text-center shadow-lg animate-in zoom-in relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-200/30 rounded-full blur-3xl -mr-10 -mt-10"></div>
                             <h3 className="text-2xl font-black text-amber-800 dark:text-amber-400 mb-3">ปลดล็อกข้อสอบทั้งหมด แล้วเก่งขึ้นแบบก้าวกระโดด!</h3>
@@ -1476,7 +1488,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <p className="flex items-start gap-2"><span>✅</span><span>อัพเดทข้อสอบใหม่ <strong>ต่อเนื่องตลอด</strong> ไม่มีค่าใช้จ่ายเพิ่มเติม</span></p>
                                 <p className="flex items-start gap-2"><span>✅</span><span>สมัครครั้งเดียว ใช้ได้ <strong>ยาว 5 ปี</strong> คุ้มค่าที่สุด!</span></p>
                             </div>
-                            <Link href="/payment?course=vip" onClick={() => bumpExamStat(examId, { buy_banner: 1 })} className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                            <Link href={EXAM_BANK_BUY_HREF} onClick={() => bumpExamStat(examId, { buy_banner: 1 })} className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
                                 ปลดล็อกคลังข้อสอบทั้งหมดเลย
                             </Link>
                             <p className="text-xs text-amber-500/80 dark:text-amber-600 mt-3 font-medium">จ่ายครั้งเดียว ไม่มีรายเดือน • เริ่มทำได้ทันทีหลังชำระเงิน</p>
@@ -1553,8 +1565,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         </div>
                     )}
 
-                    {/* 🎯 Diagnostic funnel CTA → full paid bank (weakness sets only, non-trial) */}
-                    {isDiagnostic && !isTrial && (
+                    {/* 🎯 Diagnostic funnel CTA → full paid bank (เฉพาะคนที่ยังไม่ได้ซื้อ)
+                        เดิมเช็ค !isTrial — ชุดสแกนจุดอ่อนเป็นชุดฟรี isTrial จึง false
+                        เสมอ สมาชิกที่จ่ายเงินแล้วเลยโดนชวน "สมัครคลังข้อสอบเต็ม" ซ้ำ */}
+                    {isDiagnostic && canBuy && (
                         <div className="mt-6 mb-2 rounded-3xl border-2 border-indigo-200 dark:border-indigo-700/50 bg-gradient-to-br from-indigo-50 via-violet-50 to-white dark:from-indigo-900/30 dark:via-violet-900/20 dark:to-slate-800/40 p-8 text-center shadow-lg relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl -mr-10 -mt-10"></div>
                             <div className="text-4xl mb-3">🎯</div>
@@ -1566,7 +1580,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <p className="flex items-start gap-2"><span>✅</span><span>เฉลยละเอียด<strong>ทุกข้อ</strong> อธิบายวิธีคิดเป็นขั้น สไตล์ครูฮีม</span></p>
                                 <p className="flex items-start gap-2"><span>✅</span><span>ครบ<strong>ทุกชั้น ทุกสนามสอบ</strong> ทั้งสอบเข้า ม.1/ม.4, O-NET, A-Level</span></p>
                             </div>
-                            <Link href="/payment?course=vip" onClick={() => bumpExamStat(examId, { buy_diag: 1 })} className="inline-block bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-indigo-200 dark:shadow-indigo-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
+                            <Link href={EXAM_BANK_BUY_HREF} onClick={() => bumpExamStat(examId, { buy_diag: 1 })} className="inline-block bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-indigo-200 dark:shadow-indigo-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg">
                                 สมัครคลังข้อสอบเต็ม
                             </Link>
                             <p className="text-xs text-indigo-500/80 dark:text-indigo-600 mt-3 font-medium">จ่ายครั้งเดียว ใช้ได้ยาว • เริ่มซ่อมจุดอ่อนได้ทันที</p>
@@ -1728,6 +1742,21 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         <p className="exs-desc">นับถอยหลัง <b className="exs-accent-num">{effectiveTimeLimitMinutes} นาที</b> · หยุดพักได้ · ส่งอัตโนมัติเมื่อหมดเวลา</p>
                     </button>
                 </div>
+
+                {/* 🛒 ปุ่มสั่งซื้อสำหรับคนที่ยังไม่ได้เป็นสมาชิก — วางใต้การ์ดเลือกโหมดพอดี
+                    (จุดที่สายตาไปต่อหลังเลือกโหมด) แต่ไม่ขวางปุ่ม "เริ่มทำ" ด้านบน.
+                    โชว์ทั้งชุดฟรีและชุดทดลอง 5 ข้อ — ชุดฟรีคือประตูหน้าของคลัง
+                    เดิมคนทำชุดฟรีจนจบไม่เคยเห็นปุ่มซื้อเลยสักครั้ง */}
+                {canBuy && (
+                    <ExamBuyCta
+                        variant="start"
+                        examId={examId}
+                        heading={isTrial
+                            ? `ชุดนี้มี ${sanitizedExamData.length} ข้อ — ทดลองฟรี 5 ข้อ สมาชิกทำได้ครบทั้งคลัง`
+                            : 'ชุดนี้เป็นแค่ 1 ชุด — สมาชิกได้ทั้งคลัง'}
+                        className="mb-4"
+                    />
+                )}
 
                 {/* 🖨️ พิมพ์ชุดนี้เป็น PDF — ปุ่มชัดเจน (สมาชิก/ชุดฟรีเท่านั้น; ทดลองฟรีไปเจอหน้าล็อก) */}
                 {examId && isMember && (
@@ -2048,6 +2077,10 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     </button>
                 )}
 
+                {/* 🛒 แผงสั่งซื้อในไซด์บาร์ — ติดหนึบ (sticky top-24 ของไซด์บาร์)
+                    เห็นได้ตลอดขณะเลื่อนทำโจทย์ โดยไม่บังโจทย์เลยสักพิกเซล */}
+                {canBuy && <ExamBuyCta variant="rail" examId={examId} className="mt-4" />}
+
             </div>
 
             {/* Main Content */}
@@ -2288,17 +2321,17 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                                 <div className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl rounded-tr-xl">ลดพิเศษ!</div>
                                 <p className="text-slate-500 dark:text-slate-400 text-sm font-bold mb-1 text-center">สมัครคลังข้อสอบวันนี้</p>
                                 <div className="flex items-center justify-center gap-3">
-                                    <span className="text-slate-400 line-through text-xl font-bold">฿1,900</span>
-                                    <span className="text-4xl font-black bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">฿990</span>
+                                    <span className="text-slate-400 line-through text-xl font-bold">฿{EXAM_BANK_PRICE.full.toLocaleString('en-US')}</span>
+                                    <span className="text-4xl font-black bg-gradient-to-r from-amber-600 to-orange-500 bg-clip-text text-transparent">฿{EXAM_BANK_PRICE.sale.toLocaleString('en-US')}</span>
                                 </div>
-                                <p className="text-amber-600 dark:text-amber-400 text-xs font-bold text-center mt-1">ประหยัดไปถึง 48% 🔥</p>
+                                <p className="text-amber-600 dark:text-amber-400 text-xs font-bold text-center mt-1">ประหยัดไปถึง {EXAM_BANK_DISCOUNT_PERCENT}% 🔥</p>
                             </div>
                             
                             <div className="mb-4 text-rose-500/90 dark:text-rose-400 text-sm font-bold animate-pulse text-balance">
                                 🔥 คู่แข่งกำลังซุ่มฝึกอยู่... อย่ารอช้านะครับ!
                             </div>
 
-                            <Link href="/payment?course=vip" onClick={() => bumpExamStat(examId, { buy_paywall: 1 })} className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200/80 dark:shadow-amber-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg w-full sm:w-auto">
+                            <Link href={EXAM_BANK_BUY_HREF} onClick={() => bumpExamStat(examId, { buy_paywall: 1 })} className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black py-4 px-10 rounded-full shadow-xl shadow-amber-200/80 dark:shadow-amber-900/50 transition-all hover:scale-105 hover:-translate-y-1 active:scale-95 text-lg w-full sm:w-auto">
                                 🔓 ปลดล็อกข้อสอบทั้งหมด
                             </Link>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 font-medium">ข้อสอบอัปเดตใหม่ฟรีตลอดกาล • ไม่มีค่าใช้จ่ายเพิ่ม</p>
@@ -2399,6 +2432,11 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         )}
                     </div>
                 </div>
+
+                {/* 🛒 แถบสั่งซื้อล่างจอมือถือ — sticky ไม่ใช่ fixed: ระหว่างเลื่อนทำโจทย์
+                    มันปักอยู่ก้นจอ พอเลื่อนถึงท้ายหน้าก็ไหลลงไปอยู่ใต้ปุ่ม "ข้อถัดไป"
+                    เอง จึงไม่มีวันทับปุ่มส่งคำตอบ. ปิดได้ (กลับมาใหม่เมื่อรีเฟรช) */}
+                {canBuy && <ExamBuyCta variant="bar" examId={examId} />}
             </div>
         </div>
     );

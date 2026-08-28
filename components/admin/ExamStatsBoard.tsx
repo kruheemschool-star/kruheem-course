@@ -17,7 +17,7 @@ type Counters = Record<string, number>;
 
 const START_KEYS = ["s_member", "s_trial", "s_guest"] as const;
 const SUBMIT_KEYS = ["c_member", "c_trial", "c_guest"] as const;
-const BUY_KEYS = ["buy_banner", "buy_paywall", "buy_diag"] as const;
+const BUY_KEYS = ["buy_start", "buy_rail", "buy_bar", "buy_banner", "buy_paywall", "buy_diag"] as const;
 
 const USER_TYPE_LABEL: Record<string, string> = {
     member: "สมาชิก",
@@ -26,6 +26,9 @@ const USER_TYPE_LABEL: Record<string, string> = {
 };
 
 const BUY_LABEL: Record<string, string> = {
+    buy_start: "การ์ดหน้าเริ่มทำ",
+    buy_rail: "แผงไซด์บาร์ (เดสก์ท็อป)",
+    buy_bar: "แถบล่างจอมือถือ",
     buy_banner: "ป้ายชวนหลังทำเสร็จ",
     buy_paywall: "การ์ดล็อกข้อ 6",
     buy_diag: "หน้าผลสแกนจุดอ่อน",
