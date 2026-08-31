@@ -22,6 +22,7 @@ import {
     computeRepairShop,
     computeTimeSinks,
     computeErrorProfile,
+    extractAnswerFromExplanation,
 } from "@/lib/exam-utils";
 import { Clock, Zap, AlertTriangle, ArrowLeft, History, Target, TrendingUp, TrendingDown, Pause, Play, Coffee } from 'lucide-react';
 import { useUserAuth } from "@/context/AuthContext";
@@ -257,34 +258,12 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
     const examMinutesPerQuestion = Math.round(EXAM_SECONDS_PER_QUESTION / 60);
     const timeLimitMinutes = Math.max(1, Math.ceil((total * EXAM_SECONDS_PER_QUESTION) / 60));
 
-    /* ── Answer-key resolution (explanation wins, then stored fields) ── */
-    const extractAnswerFromExplanation = (explanation: string): number | null => {
-        if (!explanation || typeof explanation !== 'string') return null;
-        const clean = explanation
-            .replace(/\\\[[\s\S]*?\\\]/g, '').replace(/\$\$[\s\S]*?\$\$/g, '')
-            .replace(/\\\([\s\S]*?\\\)/g, '').replace(/\$[^$]+\$/g, '').replace(/\*\*/g, '');
-        const patterns = [
-            /คำตอบ\s*:?\s*ข้อ\s*(\d)/, /คำตอบคือ\s*ข้อ\s*(\d)/,
-            /คำตอบที่ถูกต้อง\s*(?:คือ)?\s*:?\s*ข้อ\s*(\d)/,
-            /เฉลย\s*:?\s*ข้อ\s*(\d)/, /ตอบ\s*ข้อ\s*(\d)/,
-            /ดังนั้น\s*ข้อ\s*(\d)/, /ตอบข้อ\s*(\d)/,
-        ];
-        for (const p of patterns) {
-            const m = clean.match(p);
-            if (m) { const n = parseInt(m[1]); if (n >= 1 && n <= 4) return n - 1; }
-        }
-        const thaiMap: Record<string, number> = { 'ก': 0, 'ข': 1, 'ค': 2, 'ง': 3 };
-        const thaiPats = [
-            /คำตอบ\s*:?\s*ข้อ\s*([กคง])/, /เฉลย\s*:?\s*ข้อ\s*([กคง])/,
-            /คำตอบ\s*:?\s*([กขคง])(?!้)/, /เฉลย\s*:?\s*([กขคง])(?!้)/,
-        ];
-        for (const p of thaiPats) {
-            const m = clean.match(p);
-            if (m && thaiMap[m[1]] !== undefined) return thaiMap[m[1]];
-        }
-        return null;
-    };
-
+    /* ── Answer-key resolution (explanation wins, then stored fields) ──
+       ตัวอ่านเฉลยใช้ตัวกลางจาก lib/exam-utils เท่านั้น — ห้ามก๊อปมาไว้ในนี้อีก
+       เดิมไฟล์นี้มีสำเนาของตัวเอง แล้วสำเนานั้นไม่ได้ถูกแก้ตอน b01c814
+       (รุ่นเก่าอ่าน "คำตอบคือ" เป็นตัวอักษร ค = ข้อ 3) ผลคือชุดในคอร์สตรวจผิด
+       ทั้งที่คลังข้อสอบแก้ไปแล้ว — ชุด "แนวข้อสอบ: จำนวนเต็ม" ม.1 เทอม 1
+       โดนไป 50 ข้อ เด็กตอบถูกแล้วถูกตัดว่าผิด */
     const getCorrectIndex = (q: any) => {
         const optLen = Array.isArray(q.options) ? q.options.length : 4;
         const explAnswer = extractAnswerFromExplanation(q.explanation || q.solution || '');
@@ -1446,6 +1425,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                         onSelectOption={() => { }}
                         onChangeText={() => { }}
                         isSubmitted={true}
+                        showAnswerChecking
                     />
                 </div>
             </div>
@@ -1563,6 +1543,7 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
                         onSelectOption={handleSelect}
                         onChangeText={handleTextChange}
                         isSubmitted={revealed[currentIndex]}
+                        showAnswerChecking
                     />
                 </div>
 
