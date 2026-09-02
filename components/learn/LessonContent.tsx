@@ -7,6 +7,8 @@ import { ExamRunner } from './ExamRunner';
 import { tryParseQuestions } from './utils';
 import LessonSummaryRenderer from './LessonSummaryRenderer';
 import YouTube from 'react-youtube';
+import { useInAppBrowser, openInExternalBrowser } from '@/lib/inAppBrowser';
+import { bumpVideoStat } from '@/lib/videoStats';
 
 interface LessonContentProps {
     activeLesson: Lesson | null;
@@ -56,6 +58,21 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     const videoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const playerRef = useRef<{ getCurrentTime: () => number } | null>(null);
     const hasUsedInitialTime = useRef(false);
+
+    // ── ยามเฝ้าวิดีโอ ──────────────────────────────────────────────────────
+    // ตัวเล่น YouTube ต้องรอสคริปต์ควบคุมจาก www.youtube.com มาก่อนถึงจะสร้าง
+    // จอวิดีโอได้ — ถ้าสคริปต์โหลดล้ม (เน็ตสะดุด / ตัวบล็อกโฆษณา / เบราว์เซอร์
+    // ในแอป FB-LINE / เครือข่ายที่กรอง YouTube) โค้ดจะรอเงียบตลอดไปและผู้เรียน
+    // เห็นแค่จอดำ ตรงนี้จับเวลาไว้ ถ้าเกินกำหนดแล้วยังไม่พร้อมให้เปลี่ยนจอดำ
+    // เป็นทางออกที่ผู้เรียนช่วยตัวเองได้ (เปิดใน YouTube / โหลดใหม่ / หนีไป
+    // เบราว์เซอร์จริง)
+    // 'stuck' = ไม่มี iframe เลย (จอดำแน่นอน — ทับด้วยจอทางออกได้เต็มที่)
+    // 'slow'  = iframe มาแล้วแต่ player ไม่รายงานตัว (วิดีโออาจเล่นได้อยู่ —
+    //           ห้ามทับ แสดงแค่ป้ายช่วยเหลือเล็กๆ พอ)
+    const [playerHealth, setPlayerHealth] = React.useState<'loading' | 'ready' | 'stuck' | 'slow' | 'error'>('loading');
+    const [helperDismissed, setHelperDismissed] = React.useState(false);
+    const videoBoxRef = useRef<HTMLDivElement | null>(null);
+    const { isInApp, platform, appName } = useInAppBrowser();
 
     // Best-effort save when the tab is hidden/closed, so the 60s heartbeat
     // gap can't lose the resume position (fire-and-forget on pagehide).
@@ -107,6 +124,44 @@ export const LessonContent: React.FC<LessonContentProps> = ({
         }
         return 0;
     }, [activeLesson?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ยามเฝ้าวิดีโอทำงานเฉพาะโหมดที่ render ตัวเล่น YouTube จริงเท่านั้น
+    const lessonType = activeLesson?.type || 'video';
+    const isVideoMode = !isHeaderMode && canWatchCurrent && !!safeVideoId &&
+        !['quiz', 'text', 'exercise', 'practice', 'html', 'flashcard'].includes(lessonType);
+    const watchOnYouTubeUrl = `https://www.youtube.com/watch?v=${safeVideoId}${startTime > 0 ? `&t=${Math.floor(startTime)}s` : ''}`;
+
+    // Test aid: ?video_debug=stuck|slow|error บังคับจอทางออกขึ้นโดยไม่ต้องบล็อก
+    // YouTube จริง (แนวเดียวกับ ?preview_warning ของ BrowserWarning) — ตอน debug
+    // ไม่นับสถิติทุกตัว กันตัวเลขปลอม
+    const videoDebug = (typeof window !== 'undefined'
+        ? /[?&]video_debug=(stuck|slow|error)/.exec(window.location.search)?.[1]
+        : undefined) as 'stuck' | 'slow' | 'error' | undefined;
+    const skipVideoStat = isAdmin || !!videoDebug;
+
+    // จับเวลา 12 วิ นับตั้งแต่เริ่มโหลดวิดีโอแต่ละตัว — ครบแล้วยังไม่พร้อมค่อยตัดสิน
+    // ว่าดำสนิท (ไม่มี iframe) หรือแค่ช้า (มี iframe แล้ว) จากสภาพจริงใน DOM
+    useEffect(() => {
+        if (!isVideoMode) return;
+        setPlayerHealth('loading');
+        setHelperDismissed(false);
+        if (videoDebug) {
+            const timer = setTimeout(() => setPlayerHealth(videoDebug), 1500);
+            return () => clearTimeout(timer);
+        }
+        const timer = setTimeout(() => {
+            const hasIframe = !!videoBoxRef.current?.querySelector('iframe');
+            setPlayerHealth(prev => prev === 'loading' ? (hasIframe ? 'slow' : 'stuck') : prev);
+        }, 12000);
+        return () => clearTimeout(timer);
+    }, [isVideoMode, safeVideoId, videoDebug]);
+
+    // เก็บสถิติเงียบๆ ว่ามีคนเจอปัญหาจริงกี่ครั้ง (ใช้ตัดสินใจขยับไประดับถัดไป)
+    useEffect(() => {
+        if (playerHealth === 'stuck' || playerHealth === 'slow' || playerHealth === 'error') {
+            bumpVideoStat(playerHealth, safeVideoId, skipVideoStat);
+        }
+    }, [playerHealth, safeVideoId, skipVideoStat]);
 
     // Handle close with animation
     const handleCloseSummary = () => {
@@ -412,7 +467,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                     <div className="w-full h-full bg-black flex flex-col items-center justify-center relative group">
                         {safeVideoId ? (
                             <>
-                                <div className="w-full aspect-video max-h-full relative flex items-center justify-center bg-black">
+                                <div ref={videoBoxRef} className="w-full aspect-video max-h-full relative flex items-center justify-center bg-black">
                                     <YouTube
                                         key={safeVideoId}
                                         videoId={safeVideoId}
@@ -431,6 +486,13 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                             },
                                         }}
                                         onReady={(event) => {
+                                            if (!videoDebug) {
+                                                // วิดีโอฟื้นหลังจอทางออกขึ้นไปแล้ว — จดไว้ดูว่าตั้งเวลาเฝ้าสั้นไปไหม
+                                                if (playerHealth === 'stuck' || playerHealth === 'slow' || playerHealth === 'error') {
+                                                    bumpVideoStat('recovered', safeVideoId, skipVideoStat);
+                                                }
+                                                setPlayerHealth('ready');
+                                            }
                                             try {
                                                 event.target.setPlaybackQuality('default');
                                                 // ✅ Force unmute + max volume ก่อน เพื่อไม่ให้ YouTube แสดง "tap to unmute" overlay
@@ -439,7 +501,8 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                             } catch (_) { /* ignore */ }
                                         }}
                                         onError={(event) => {
-                                            console.error('YouTube Player Error:', event.data);
+                                            console.error('YouTube Player Error:', event?.data);
+                                            setPlayerHealth('error');
                                         }}
                                         onStateChange={(event) => {
                                             const player = event.target;
@@ -480,12 +543,80 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                                             }
                                         }}
                                     />
+
+                                    {/* 🚑 จอทางออกเมื่อวิดีโอโหลดไม่ขึ้น (แทนที่จอดำเงียบ) —
+                                        ขึ้นเฉพาะตอนมั่นใจว่าผู้เรียนไม่เห็นอะไรอยู่แล้ว
+                                        (ไม่มี iframe หรือ YouTube รายงาน error ตรงๆ) */}
+                                    {(playerHealth === 'stuck' || playerHealth === 'error') && (
+                                        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-slate-950/95 text-center p-6 animate-in fade-in duration-300">
+                                            <div className="text-4xl md:text-5xl">📡</div>
+                                            <div>
+                                                <h3 className="text-white font-bold text-lg md:text-xl mb-1.5">
+                                                    {playerHealth === 'error' ? 'วิดีโอเปิดไม่สำเร็จ' : 'วิดีโอโหลดไม่ขึ้น'}
+                                                </h3>
+                                                <p className="text-slate-300 text-sm md:text-base max-w-md leading-relaxed">
+                                                    {isInApp
+                                                        ? `ตอนนี้เปิดผ่านแอป ${appName} อยู่ ซึ่งมักเปิดวิดีโอไม่ขึ้น ลองกดปุ่มด้านล่างได้เลยครับ`
+                                                        : 'อาจเกิดจากอินเทอร์เน็ตสะดุด หรือแอป/เครือข่ายที่บล็อก YouTube ลองกดปุ่มด้านล่างได้เลยครับ'}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full max-w-md justify-center">
+                                                <a
+                                                    href={watchOnYouTubeUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={() => bumpVideoStat('rescue_youtube', safeVideoId, skipVideoStat)}
+                                                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-base shadow-lg transition"
+                                                >
+                                                    ▶ เปิดดูใน YouTube
+                                                </a>
+                                                <button
+                                                    onClick={() => { bumpVideoStat('rescue_reload', safeVideoId, skipVideoStat); window.location.reload(); }}
+                                                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-base border border-white/20 transition"
+                                                >
+                                                    🔄 โหลดหน้านี้ใหม่
+                                                </button>
+                                            </div>
+                                            {isInApp && (platform === 'android' || platform === 'ios') && (
+                                                <button
+                                                    onClick={() => { bumpVideoStat('rescue_browser', safeVideoId, skipVideoStat); openInExternalBrowser(window.location.href, platform); }}
+                                                    className="text-slate-300 hover:text-white underline underline-offset-4 text-sm transition"
+                                                >
+                                                    หรือเปิดหน้านี้ใน {platform === 'android' ? 'Chrome' : 'Safari'} แทน
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* 🐢 ป้ายช่วยเหลือเล็กๆ เมื่อ iframe มาแล้วแต่ player ไม่รายงานตัว —
+                                        วิดีโออาจเล่นได้อยู่ ห้ามเอาอะไรไปทับ ให้แค่ทางเลือกมุมจอพอ */}
+                                    {playerHealth === 'slow' && !helperDismissed && (
+                                        <div className="absolute top-14 right-3 z-20 flex items-center gap-1 rounded-full bg-slate-900/85 backdrop-blur-md ring-1 ring-white/15 pl-4 pr-1.5 py-1.5 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <a
+                                                href={watchOnYouTubeUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={() => bumpVideoStat('rescue_youtube', safeVideoId, skipVideoStat)}
+                                                className="text-white text-xs md:text-sm font-bold hover:underline underline-offset-4"
+                                            >
+                                                วิดีโอไม่ขึ้น? ▶ เปิดดูใน YouTube
+                                            </a>
+                                            <button
+                                                onClick={() => setHelperDismissed(true)}
+                                                aria-label="ปิด"
+                                                className="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* ✅ Floating Action Buttons — Minimal & Elegant
                                     ย้ายไปมุมบนซ้าย เลื่อนลงใต้ title bar ของ YouTube
-                                    เพื่อไม่บัง volume slider (ขวาบน) และ title (ซ้ายบนสุด) */}
-                                <div className="absolute top-14 left-3 z-20 pointer-events-none flex flex-col gap-2.5 items-start">
+                                    เพื่อไม่บัง volume slider (ขวาบน) และ title (ซ้ายบนสุด)
+                                    z-30 อยู่เหนือจอทางออกตอนวิดีโอพัง — ให้กด "สรุปเนื้อหา" อ่านแทนได้ */}
+                                <div className="absolute top-14 left-3 z-30 pointer-events-none flex flex-col gap-2.5 items-start">
                                     {/* Summary Button */}
                                     <button
                                         onClick={() => setShowSummary(true)}

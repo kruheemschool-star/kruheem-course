@@ -25,6 +25,7 @@ const LearnProgressDashboard = dynamic(() => import("@/components/learn/LearnPro
 });
 import { Lesson } from "@/components/learn/types";
 import { CheckIcon } from "@/components/learn/Icons";
+import { useInAppBrowser, openInExternalBrowser } from "@/lib/inAppBrowser";
 
 
 
@@ -55,6 +56,10 @@ function CoursePlayer() {
     // Where the student left off last time (read once on entry — for the "เรียนต่อ" banner)
     const [resumeState, setResumeState] = useState<{ lessonId: string; lessonTitle?: string; timestamp?: number } | null>(null);
     const [resumeDismissed, setResumeDismissed] = useState(false);
+    // เตือนคนที่เปิดห้องเรียนผ่านเบราว์เซอร์ในแอป (FB/LINE) — ต้นเหตุอันดับหนึ่ง
+    // ของ "วิดีโอจอดำ" + ปุ่มหนีไป Chrome/Safari (ปิดได้ จำไว้ตลอดทั้งการเข้าครั้งนี้)
+    const inApp = useInAppBrowser();
+    const [inAppNoticeDismissed, setInAppNoticeDismissed] = useState(false);
     const [isNotesOpen, setIsNotesOpen] = useState(false);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [isAnswered, setIsAnswered] = useState(false);
@@ -665,6 +670,33 @@ function CoursePlayer() {
                         )}
                     </div>
                 </header>
+
+                {/* ⚠️ เปิดผ่านเบราว์เซอร์ในแอป (FB/LINE/IG) — ชวนออกไปเบราว์เซอร์จริง
+                    ก่อนจะเจอวิดีโอจอดำ/ปุ่มเงียบ (เคสที่ผู้ปกครองแจ้งเข้ามาบ่อยที่สุด) */}
+                {inApp.isInApp && !inAppNoticeDismissed && (
+                    <div className="mx-4 md:mx-10 mt-4 flex items-center gap-3 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <span className="text-xl flex-shrink-0">⚠️</span>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-amber-800 dark:text-amber-200">กำลังเปิดผ่านแอป {inApp.appName}</p>
+                            <p className="text-xs text-amber-700 dark:text-amber-300">ถ้าวิดีโอเป็นจอดำหรือกดปุ่มแล้วเงียบ ให้เปิดในเบราว์เซอร์แทนครับ</p>
+                        </div>
+                        {(inApp.platform === 'android' || inApp.platform === 'ios') && (
+                            <button
+                                onClick={() => openInExternalBrowser(window.location.href, inApp.platform)}
+                                className="flex-shrink-0 inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition shadow-sm"
+                            >
+                                🌐 เปิดใน {inApp.platform === 'android' ? 'Chrome' : 'Safari'}
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setInAppNoticeDismissed(true)}
+                            aria-label="ปิด"
+                            className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
 
                 {/* 📍 "เรียนต่อจากครั้งก่อน" banner — surfaces the last-watched lesson + video position */}
                 {showResume && resumeLesson && (
