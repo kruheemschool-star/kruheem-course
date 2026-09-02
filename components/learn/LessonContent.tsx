@@ -6,7 +6,7 @@ import { FlashcardPlayer } from './FlashcardPlayer';
 import { ExamRunner } from './ExamRunner';
 import { tryParseQuestions } from './utils';
 import LessonSummaryRenderer from './LessonSummaryRenderer';
-import YouTube from 'react-youtube';
+import { DirectYouTubePlayer } from './DirectYouTubePlayer';
 import { useInAppBrowser, openInExternalBrowser } from '@/lib/inAppBrowser';
 import { bumpVideoStat } from '@/lib/videoStats';
 
@@ -60,18 +60,16 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     const hasUsedInitialTime = useRef(false);
 
     // ── ยามเฝ้าวิดีโอ ──────────────────────────────────────────────────────
-    // ตัวเล่น YouTube ต้องรอสคริปต์ควบคุมจาก www.youtube.com มาก่อนถึงจะสร้าง
-    // จอวิดีโอได้ — ถ้าสคริปต์โหลดล้ม (เน็ตสะดุด / ตัวบล็อกโฆษณา / เบราว์เซอร์
-    // ในแอป FB-LINE / เครือข่ายที่กรอง YouTube) โค้ดจะรอเงียบตลอดไปและผู้เรียน
-    // เห็นแค่จอดำ ตรงนี้จับเวลาไว้ ถ้าเกินกำหนดแล้วยังไม่พร้อมให้เปลี่ยนจอดำ
-    // เป็นทางออกที่ผู้เรียนช่วยตัวเองได้ (เปิดใน YouTube / โหลดใหม่ / หนีไป
-    // เบราว์เซอร์จริง)
-    // 'stuck' = ไม่มี iframe เลย (จอดำแน่นอน — ทับด้วยจอทางออกได้เต็มที่)
-    // 'slow'  = iframe มาแล้วแต่ player ไม่รายงานตัว (วิดีโออาจเล่นได้อยู่ —
-    //           ห้ามทับ แสดงแค่ป้ายช่วยเหลือเล็กๆ พอ)
+    // ตัวเล่นเป็น iframe ฝังตรง (DirectYouTubePlayer) — วิดีโอมาก่อนเสมอ ไม่รอ
+    // สคริปต์ควบคุมภายนอกแบบตัวเล่นเดิมที่ทำจอดำค้าง ยามเฝ้าจับเวลาไว้เผื่อ
+    // เคสที่เหลือ: เครื่องผู้ชมเข้า youtube.com ไม่ได้เลย (เน็ตล่ม / เครือข่าย
+    // กรอง YouTube / WebView บล็อก) แล้วเปลี่ยนจอดำเป็นทางออกที่ช่วยตัวเองได้
+    // 'stuck' = iframe โหลดไม่สำเร็จ (จอดำแน่นอน — ทับด้วยจอทางออกได้เต็มที่)
+    // 'slow'  = iframe โหลดแล้วแต่สะพาน postMessage เงียบ (วิดีโอส่วนใหญ่ดูได้
+    //           แค่ระบบจำตำแหน่งไม่เดิน — ห้ามทับ แสดงป้ายช่วยเหลือเล็กๆ พอ)
     const [playerHealth, setPlayerHealth] = React.useState<'loading' | 'ready' | 'stuck' | 'slow' | 'error'>('loading');
     const [helperDismissed, setHelperDismissed] = React.useState(false);
-    const videoBoxRef = useRef<HTMLDivElement | null>(null);
+    const iframeLoadedRef = useRef(false);
     const { isInApp, platform, appName } = useInAppBrowser();
 
     // Best-effort save when the tab is hidden/closed, so the 60s heartbeat
@@ -140,18 +138,19 @@ export const LessonContent: React.FC<LessonContentProps> = ({
     const skipVideoStat = isAdmin || !!videoDebug;
 
     // จับเวลา 12 วิ นับตั้งแต่เริ่มโหลดวิดีโอแต่ละตัว — ครบแล้วยังไม่พร้อมค่อยตัดสิน
-    // ว่าดำสนิท (ไม่มี iframe) หรือแค่ช้า (มี iframe แล้ว) จากสภาพจริงใน DOM
+    // ว่าดำสนิท (iframe โหลดไม่ขึ้น) หรือแค่สะพานเงียบ (iframe โหลดสำเร็จแล้ว)
     useEffect(() => {
         if (!isVideoMode) return;
         setPlayerHealth('loading');
         setHelperDismissed(false);
+        iframeLoadedRef.current = false;
         if (videoDebug) {
             const timer = setTimeout(() => setPlayerHealth(videoDebug), 1500);
             return () => clearTimeout(timer);
         }
         const timer = setTimeout(() => {
-            const hasIframe = !!videoBoxRef.current?.querySelector('iframe');
-            setPlayerHealth(prev => prev === 'loading' ? (hasIframe ? 'slow' : 'stuck') : prev);
+            const loaded = iframeLoadedRef.current;
+            setPlayerHealth(prev => prev === 'loading' ? (loaded ? 'slow' : 'stuck') : prev);
         }, 12000);
         return () => clearTimeout(timer);
     }, [isVideoMode, safeVideoId, videoDebug]);
@@ -467,24 +466,13 @@ export const LessonContent: React.FC<LessonContentProps> = ({
                     <div className="w-full h-full bg-black flex flex-col items-center justify-center relative group">
                         {safeVideoId ? (
                             <>
-                                <div ref={videoBoxRef} className="w-full aspect-video max-h-full relative flex items-center justify-center bg-black">
-                                    <YouTube
+                                <div className="w-full aspect-video max-h-full relative flex items-center justify-center bg-black">
+                                    <DirectYouTubePlayer
                                         key={safeVideoId}
                                         videoId={safeVideoId}
+                                        startTime={startTime}
                                         className="w-full h-full absolute inset-0 z-10"
-                                        iframeClassName="w-full h-full"
-                                        opts={{
-                                            width: '100%',
-                                            height: '100%',
-                                            playerVars: {
-                                                autoplay: 0,
-                                                controls: 1,
-                                                rel: 0,
-                                                modestbranding: 1,
-                                                start: startTime,
-                                                mute: 0,
-                                            },
-                                        }}
+                                        onIframeLoad={() => { iframeLoadedRef.current = true; }}
                                         onReady={(event) => {
                                             if (!videoDebug) {
                                                 // วิดีโอฟื้นหลังจอทางออกขึ้นไปแล้ว — จดไว้ดูว่าตั้งเวลาเฝ้าสั้นไปไหม
