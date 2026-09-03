@@ -8,7 +8,7 @@ import { useUserAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 import { withTimeout, isNetTimeout, NET_TIMEOUT_MESSAGE, reviveConnection } from "@/lib/netGuard";
 import { clearAdminCache, ADMIN_STATS_CACHE_KEY } from "@/lib/adminCache";
-import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Mail, Phone, Clock, Inbox, ZoomIn, Users, StickyNote, BookOpen, Pencil, Search, Loader2, ArrowRight, Receipt, Ticket } from "lucide-react";
+import { UserPlus, Check, X, MessageCircle, ArrowDownLeft, Mail, Phone, Clock, Inbox, ZoomIn, Users, StickyNote, BookOpen, FileText, Pencil, Search, Loader2, ArrowRight, Receipt, Ticket } from "lucide-react";
 import SlipLightbox, { SlipOrigin } from "@/components/admin/SlipLightbox";
 
 type CourseLite = { id: string; title: string; price?: number; allowedExamLevel?: string | null; category?: string; image?: string };
@@ -212,7 +212,14 @@ export default function AdminEnrollmentsPage() {
     /** รูปปกคอร์ส (field `image` ของ courses) — ใบไหนคอร์สถูกลบไปแล้วจะได้ undefined */
     const coverOf = (courseId?: string) => courseOptions.find((c) => c.id === courseId)?.image;
 
-    const openCourseEditor = (item: { id: string; courseId?: string }) => {
+    // ตัวเลือกในหน้าต่างนี้เป็น "คอร์ส" ล้วน — เปิดกับใบข้อสอบ PDF ไม่ได้เด็ดขาด
+    // เพราะการบันทึกจะเขียน courseId/courseTitle ทับตัวสินค้า และเซ็ต
+    // allowedExamLevel ตามคอร์สใหม่ = แจกสิทธิ์คลังข้อสอบให้คนที่ซื้อแค่ไฟล์ PDF
+    const openCourseEditor = (item: { id: string; courseId?: string; productType?: string }) => {
+        if (isExamPaper(item)) {
+            toast.error("ใบนี้เป็นข้อสอบ PDF ไม่ใช่คอร์สเรียน จึงเปลี่ยนคอร์สไม่ได้");
+            return;
+        }
         setEditingId(item.id);
         setPickedCourseId(item.courseId || "");
         setCourseSearch("");
@@ -229,6 +236,12 @@ export default function AdminEnrollmentsPage() {
 
     const handleSaveCourse = async () => {
         if (!editing || !pickedCourse) return;
+        // ชั้นกันสุดท้ายก่อนเขียนจริง — ถ้า state หลุดมาถึงตรงนี้ได้ ห้ามเขียนทับ
+        if (isExamPaper(editing)) {
+            toast.error("ใบข้อสอบ PDF เปลี่ยนเป็นคอร์สไม่ได้");
+            closeCourseEditor();
+            return;
+        }
         setSavingCourse(true);
         try {
             const patch: Record<string, unknown> = {
@@ -661,7 +674,7 @@ export default function AdminEnrollmentsPage() {
                                                 className="khen-box p-4 flex items-start gap-3 flex-wrap"
                                                 style={{ background: "var(--en-b-course)", borderColor: "var(--en-b-course-l)" }}
                                             >
-                                                {coverOf(item.courseId) ? (
+                                                {!isExamPaper(item) && coverOf(item.courseId) ? (
                                                     /* eslint-disable-next-line @next/next/no-img-element */
                                                     <img
                                                         src={coverOf(item.courseId)}
@@ -670,13 +683,15 @@ export default function AdminEnrollmentsPage() {
                                                         className="w-[84px] h-[56px] rounded-[10px] object-cover flex-shrink-0"
                                                         style={{ border: "1px solid var(--en-b-course-l)", background: "var(--en-card)" }}
                                                     />
+                                                ) : isExamPaper(item) ? (
+                                                    <FileText size={22} className="flex-shrink-0 mt-1" style={{ color: "var(--en-accent)" }} />
                                                 ) : (
                                                     <BookOpen size={22} className="flex-shrink-0 mt-1" style={{ color: "var(--en-accent)" }} />
                                                 )}
                                                 <div className="flex-1 min-w-0" style={{ minWidth: "min(100%, 200px)" }}>
-                                                    <div className="khen-eyebrow mb-1">คอร์สที่แจ้งโอน</div>
+                                                    <div className="khen-eyebrow mb-1">{isExamPaper(item) ? "ชุดข้อสอบที่สั่งซื้อ" : "คอร์สที่แจ้งโอน"}</div>
                                                     <div className="khen-t text-[22px] leading-snug break-words" style={{ color: "var(--en-accent-deep)" }}>
-                                                        {item.courseTitle || "ไม่ระบุคอร์ส"}
+                                                        {item.courseTitle || (isExamPaper(item) ? "ไม่ระบุชุดข้อสอบ" : "ไม่ระบุคอร์ส")}
                                                     </div>
                                                     {item.previousCourseTitle && (
                                                         <div className="text-[11.5px] mt-1.5" style={{ color: "var(--en-ink-2)" }}>
@@ -684,9 +699,13 @@ export default function AdminEnrollmentsPage() {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <button type="button" onClick={() => openCourseEditor(item)} className="khen-btn-soft khen-btn-sm flex-shrink-0">
-                                                    <Pencil size={14} /> เปลี่ยนคอร์ส
-                                                </button>
+                                                {/* ใบข้อสอบ PDF ไม่มีปุ่มนี้ — หน้าต่างเปลี่ยนคอร์สเลือกได้แต่คอร์ส
+                                                    กดแล้วจะกลายเป็นเขียนคอร์สทับตัวสินค้าที่ลูกค้าสั่งจริง */}
+                                                {!isExamPaper(item) && (
+                                                    <button type="button" onClick={() => openCourseEditor(item)} className="khen-btn-soft khen-btn-sm flex-shrink-0">
+                                                        <Pencil size={14} /> เปลี่ยนคอร์ส
+                                                    </button>
+                                                )}
                                             </div>
 
                                             {/* ครูฮีมสั่งถอดสามช่อง ชื่อบัญชีผู้โอน / เข้าบัญชี / เลขที่รายการ ออก (2026-08-17)

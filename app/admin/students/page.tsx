@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc, setDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc, where, getDoc, setDoc, serverTimestamp, writeBatch, deleteField } from "firebase/firestore";
 import { Search, Edit3, Trash2, Eye, Phone, MessageCircle, ChevronLeft, ChevronRight, GraduationCap, X, UserX, Loader2, Users, PauseCircle, CalendarX } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
@@ -457,7 +457,14 @@ export default function AdminStudentsPage() {
             // ห้ามนับว่าเป็นข้อมูลพัง ไม่งั้นงานซ่อมนี้จะประทับ 5 ปีทับสัญญาตลอดชีพ
             const isLifetimeProduct = (x: { productType?: string; accessType?: string }) =>
                 x.productType === 'examPaper' || x.accessType === 'lifetime';
-            const needsFix = enrollments.some(item => item.status === 'approved' && !isLifetimeProduct(item) && (!item.expiryDate || !item.approvedAt));
+            // ใบข้อสอบ PDF ที่ "มี" expiryDate คือใบที่พัง (กลับด้านกับคอร์ส) — เกิดได้
+            // เมื่ออนุมัติจากแท็บหลังบ้านที่เปิดค้างข้ามการ deploy จึงยังรันโค้ดชุดเก่า
+            // ที่ตัดสินทุกใบเป็นคอร์ส ตรงนี้ทำให้ระบบซ่อมคืนเองแทนที่จะต้องรันสคริปต์
+            const paperNeedsUnexpire = (x: { productType?: string; status?: string; expiryDate?: unknown }) =>
+                x.productType === 'examPaper' && x.status === 'approved' && !!x.expiryDate;
+            const needsFix = enrollments.some(item =>
+                paperNeedsUnexpire(item) ||
+                (item.status === 'approved' && !isLifetimeProduct(item) && (!item.expiryDate || !item.approvedAt)));
             if (needsFix) {
                 // ตั้งใจคง query ตรงแบบเดิมไว้ — ตาราง in-memory โหลดด้วย
                 // orderBy(createdAt) ซึ่ง "ตัด doc ที่ไม่มี createdAt ทิ้ง" แต่ doc
@@ -470,8 +477,18 @@ export default function AdminStudentsPage() {
                     const updates = [];
                     for (const docSnap of snapshot.docs) {
                         const data = docSnap.data();
-                        // ใบข้อสอบ PDF / สิทธิ์ตลอดชีพ: ไม่มี expiryDate คือสภาพที่ถูกต้อง — ห้ามซ่อม
-                        if (data.productType === 'examPaper' || data.accessType === 'lifetime') continue;
+                        // ใบข้อสอบ PDF: "ไม่มี expiryDate" คือสภาพที่ถูกต้อง ถ้ามีแปลว่าโดน
+                        // ประทับ 5 ปีทับสัญญาตลอดชีพ — ล้างคืนให้ ไม่ใช่แค่ข้ามไป
+                        if (data.productType === 'examPaper') {
+                            if (data.expiryDate) {
+                                updates.push(updateDoc(doc(db, "enrollments", docSnap.id), {
+                                    accessType: "lifetime",
+                                    expiryDate: deleteField(),
+                                }));
+                            }
+                            continue;
+                        }
+                        if (data.accessType === 'lifetime') continue;
                         if (!data.expiryDate || !data.approvedAt) {
                             const upd: any = {};
                             let startDate = data.approvedAt ? data.approvedAt.toDate() : (data.createdAt ? data.createdAt.toDate() : new Date());
