@@ -15,7 +15,13 @@ import toast, { Toaster } from "react-hot-toast";
 import { FileText, Eye, EyeOff, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, X, UploadCloud, Loader2, Clock, UserPlus } from "lucide-react";
 import ExamAnalysisSection from "@/components/exampapers/ExamAnalysisSection";
 import ExamAnalysisArticle from "@/components/exampapers/ExamAnalysisArticle";
+import SamplePages from "@/components/exampapers/SamplePages";
+import KruheemTrustStrip from "@/components/exampapers/KruheemTrustStrip";
+import PaperReviews from "@/components/exampapers/PaperReviews";
+import type { TrustReview } from "@/lib/paperTrust";
 import PaymentTransferInfo from "@/components/payment/PaymentTransferInfo";
+
+const LINE_URL = "https://line.me/ti/p/~kruheemschool";
 
 const PHONE_RE = /^[0-9]{9,10}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -42,10 +48,16 @@ export default function PaperDetailClient({
     paper,
     fileLabels = [],
     related = [],
+    reviews = [],
+    reviewCount,
+    avgRating,
 }: {
     paper: ExamPaper;
     fileLabels?: string[];
     related?: ExamPaper[];
+    reviews?: TrustReview[];
+    reviewCount?: number;
+    avgRating?: number;
 }) {
     // authLoading สำคัญมาก: ตอนหน้าเพิ่งโหลด Firebase ยังกู้เซสชันไม่เสร็จ user
     // จะเป็น null ชั่วขณะ — ถ้าไม่รอ สมาชิกเดิมจะเห็นช่องสมัครวูบขึ้นมา และ
@@ -407,11 +419,12 @@ export default function PaperDetailClient({
             </Link>
 
             <div className="grid md:grid-cols-2 gap-8 items-start">
-                {/* cover */}
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 overflow-hidden aspect-[4/3] flex items-center justify-center">
+                {/* cover — ปกเป็นหน้า A4 แนวตั้ง ถ้า object-cover จะถูกครอบหัวท้ายทิ้ง
+                    ตรงนี้เป็นรูปเดียวที่ผู้ซื้อใช้ตัดสิน "เล่มนี้ทำมาดีไหม" จึงโชว์เต็มหน้า */}
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 overflow-hidden aspect-[4/3] flex items-center justify-center p-3">
                     {paper.coverUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={paper.coverUrl} alt={paper.title} className="w-full h-full object-cover" />
+                        <img src={paper.coverUrl} alt={paper.title} className="max-w-full max-h-full object-contain rounded-lg shadow-[0_8px_24px_-12px_rgba(15,23,42,0.4)]" />
                     ) : (
                         <FileText size={64} className="text-slate-300 dark:text-slate-600" />
                     )}
@@ -419,9 +432,12 @@ export default function PaperDetailClient({
 
                 {/* info */}
                 <div>
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
                         {paper.level && <span className="rounded-full bg-teal-50 dark:bg-teal-950 px-2.5 py-1 text-xs font-bold text-teal-700 dark:text-teal-300">{paper.level}</span>}
                         {paper.category && <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-600 dark:text-slate-300">{paper.category}</span>}
+                        {paper.badge && !paper.comingSoon && (
+                            <span className="rounded-full bg-rose-500 px-2.5 py-1 text-xs font-bold text-white">{paper.badge}</span>
+                        )}
                     </div>
                     <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight">{paper.title}</h1>
                     {paper.description && <p className="text-slate-600 dark:text-slate-300 mt-3 leading-relaxed">{paper.description}</p>}
@@ -459,7 +475,17 @@ export default function PaperDetailClient({
                     )}
 
                     <div className="flex flex-wrap items-center gap-3 mt-6">
-                        {ownStatus === "approved" ? (
+                        {paper.comingSoon ? (
+                            // ชุดที่ยังทำไม่เสร็จ: ไม่มีไฟล์ให้ส่งมอบ จึงต้องไม่มีปุ่มรับเงิน
+                            <a
+                                href={LINE_URL}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold px-6 py-3 transition hover:opacity-90"
+                            >
+                                <Clock size={19} /> ยังไม่เปิดขาย — ทักไลน์จองก่อนได้
+                            </a>
+                        ) : ownStatus === "approved" ? (
                             <Link href="/my-courses" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 transition shadow-sm">
                                 <Download size={19} /> ซื้อแล้ว — ไปหน้าดาวน์โหลด
                             </Link>
@@ -510,11 +536,22 @@ export default function PaperDetailClient({
                 </div>
             </div>
 
+            {/* เปิดดูข้างในเล่ม — หลักฐานชิ้นที่แรงที่สุด วางไว้ก่อนอย่างอื่นเสมอ */}
+            <SamplePages samples={paper.samplePages} />
+
             {/* วิเคราะห์แนวข้อสอบ — the sales section (shows only if data is filled in) */}
             <ExamAnalysisSection analysis={paper.analysis} />
 
             {/* บทวิเคราะห์ฉบับเต็ม — long-form Markdown write-up (optional) */}
             <ExamAnalysisArticle article={paper.analysis?.article} />
+
+            {/* ซื้อจากใคร */}
+            <div className="mt-14">
+                <KruheemTrustStrip reviewCount={reviewCount} avgRating={avgRating} />
+            </div>
+
+            {/* เสียงผู้เรียนจริง */}
+            <PaperReviews reviews={reviews} reviewCount={reviewCount} avgRating={avgRating} />
 
             {/* ชุดอื่นที่น่าสนใจ — cross-sell */}
             <RelatedPapers items={related} />

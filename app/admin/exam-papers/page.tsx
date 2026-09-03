@@ -15,6 +15,13 @@ import { postRevalidate } from "@/lib/bustContentCache";
 // staged (has `file`, not yet uploaded).
 type EditFile = { id: string; label: string; name: string; path?: string; file?: File };
 
+// ภาพหน้ากระดาษตัวอย่างบนหน้าขาย — เหมือน EditFile แต่เป็นรูปและมีคำบรรยาย
+type EditSample = { id: string; caption: string; url?: string; path?: string; file?: File };
+
+// คำบรรยายเริ่มต้นเรียงตามลำดับที่คนดูมักอยากเห็น: ปก → โจทย์ → เฉลย
+const SAMPLE_CAPTIONS = ["หน้าปกและคำชี้แจง", "หน้าโจทย์", "หน้าเฉลยละเอียด", "หน้าสรุปคำตอบ"];
+const captionForIndex = (i: number) => SAMPLE_CAPTIONS[i] || `ตัวอย่างหน้าที่ ${i + 1}`;
+
 // Read a paper's files, falling back to the legacy single-file fields.
 function filesOf(p: ExamPaper): EditFile[] {
     if (p.files?.length) return p.files.map((f) => ({ id: f.id, label: f.label, name: f.name, path: f.path }));
@@ -40,6 +47,8 @@ const emptyForm = {
     category: "O-NET",
     pageCount: 0,
     questionCount: 0,
+    badge: "",
+    comingSoon: false,
     hidden: false,
 };
 
@@ -63,6 +72,10 @@ export default function AdminExamPapersPage() {
     const [files, setFiles] = useState<EditFile[]>([]);
     const [origFilePaths, setOrigFilePaths] = useState<string[]>([]); // to delete removed files on save
 
+    // ภาพหน้ากระดาษตัวอย่างที่โชว์บนหน้าขาย
+    const [samples, setSamples] = useState<EditSample[]>([]);
+    const [origSamplePaths, setOrigSamplePaths] = useState<string[]>([]);
+
     // "วิเคราะห์แนวข้อสอบ" — optional sales section (bar chart of chapter %).
     const [analysis, setAnalysis] = useState<ExamPaperAnalysis>({});
 
@@ -77,6 +90,7 @@ export default function AdminExamPapersPage() {
     const previewInputRef = useRef<HTMLInputElement>(null);
     const filesInputRef = useRef<HTMLInputElement>(null);
     const articleInputRef = useRef<HTMLInputElement>(null);
+    const samplesInputRef = useRef<HTMLInputElement>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -104,6 +118,7 @@ export default function AdminExamPapersPage() {
         setCoverFile(null); setCoverPreview("");
         setPreviewFile(null); setPreviewName("");
         setFiles([]); setOrigFilePaths([]);
+        setSamples([]); setOrigSamplePaths([]);
         setAnalysis({});
         setExistingPaths({});
         setEditorOpen(true);
@@ -120,6 +135,8 @@ export default function AdminExamPapersPage() {
             category: p.category || "O-NET",
             pageCount: Number(p.pageCount || 0),
             questionCount: Number(p.questionCount || 0),
+            badge: p.badge || "",
+            comingSoon: !!p.comingSoon,
             hidden: !!p.hidden,
         });
         setCoverFile(null); setCoverPreview(p.coverUrl || "");
@@ -127,6 +144,14 @@ export default function AdminExamPapersPage() {
         const existing = filesOf(p);
         setFiles(existing);
         setOrigFilePaths(existing.map((f) => f.path).filter(Boolean) as string[]);
+        const existingSamples: EditSample[] = (p.samplePages || []).map((s, i) => ({
+            id: `s${i}-${s.url}`,
+            caption: s.caption || "",
+            url: s.url,
+            path: s.path,
+        }));
+        setSamples(existingSamples);
+        setOrigSamplePaths(existingSamples.map((s) => s.path).filter(Boolean) as string[]);
         setAnalysis(p.analysis || {});
         setExistingPaths({ cover: p.coverPath, preview: p.previewPath });
         setEditorOpen(true);
@@ -171,6 +196,27 @@ export default function AdminExamPapersPage() {
     };
     const setFileLabel = (id: string, label: string) => setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, label } : f)));
     const removeFile = (id: string) => setFiles((prev) => prev.filter((f) => f.id !== id));
+
+    // --- ภาพหน้ากระดาษตัวอย่าง ---
+    const onAddSamples = (list: FileList | null) => {
+        if (!list?.length) return;
+        const picked: EditSample[] = [];
+        Array.from(list).forEach((f) => {
+            if (!f.type.startsWith("image/")) { toast.error(`"${f.name}" ไม่ใช่ไฟล์รูป`); return; }
+            picked.push({ id: crypto.randomUUID(), caption: "", file: f, url: URL.createObjectURL(f) });
+        });
+        if (picked.length) {
+            setSamples((prev) => [...prev, ...picked].map((s, i) => ({ ...s, caption: s.caption || captionForIndex(i) })));
+        }
+    };
+    const setSampleCaption = (id: string, caption: string) =>
+        setSamples((prev) => prev.map((s) => (s.id === id ? { ...s, caption } : s)));
+    const removeSample = (id: string) =>
+        setSamples((prev) => {
+            const gone = prev.find((s) => s.id === id);
+            if (gone?.file && gone.url?.startsWith("blob:")) URL.revokeObjectURL(gone.url);
+            return prev.filter((s) => s.id !== id);
+        });
 
     // --- analysis (วิเคราะห์แนวข้อสอบ) editing ---
     const chapters = analysis.chapters || [];
@@ -238,6 +284,9 @@ export default function AdminExamPapersPage() {
                 category: form.category,
                 pageCount: Number(form.pageCount) || 0,
                 questionCount: Number(form.questionCount) || 0,
+                // ป้ายมุมการ์ด — ช่องว่าง = ไม่มีป้าย (ลบ field ทิ้ง ไม่เก็บสตริงว่าง)
+                badge: form.badge.trim() ? form.badge.trim() : deleteField(),
+                comingSoon: form.comingSoon,
                 hidden: form.hidden,
                 analysis: cleanAnalysis() ?? deleteField(),
                 updatedAt: serverTimestamp(),
@@ -289,6 +338,22 @@ export default function AdminExamPapersPage() {
             patch.pdfPath = deleteField();
             patch.pdfName = deleteField();
 
+            // 4b. ภาพหน้ากระดาษตัวอย่าง (public). อัปโหลดเฉพาะรูปที่เพิ่งเลือกเข้ามา
+            const finalSamples: { url: string; path?: string; caption?: string }[] = [];
+            for (let i = 0; i < samples.length; i++) {
+                const s = samples[i];
+                const caption = s.caption.trim() || captionForIndex(i);
+                if (s.file) {
+                    setProgressLabel(`กำลังอัปโหลดภาพตัวอย่าง ${i + 1}/${samples.length}...`);
+                    const path = `exam-paper-samples/${paperId}_${Date.now()}_${i}.jpg`;
+                    const url = await uploadImageToStorage(s.file, path, { maxSizeMB: 0.4, maxWidthOrHeight: 1000 });
+                    finalSamples.push({ url, path, caption });
+                } else if (s.url) {
+                    finalSamples.push({ url: s.url, ...(s.path ? { path: s.path } : {}), caption });
+                }
+            }
+            patch.samplePages = finalSamples.length ? finalSamples : deleteField();
+
             setProgressLabel("กำลังบันทึก...");
             await updateDoc(doc(db, "examPapers", paperId), patch);
 
@@ -298,10 +363,13 @@ export default function AdminExamPapersPage() {
             //    paths against the ones we just saved.
             const keptPaths = new Set(finalFiles.map((f) => f.path));
             const removedFilePaths = origFilePaths.filter((p) => !keptPaths.has(p));
+            const keptSamplePaths = new Set(finalSamples.map((s) => s.path).filter(Boolean) as string[]);
+            const removedSamplePaths = origSamplePaths.filter((p) => !keptSamplePaths.has(p));
             await Promise.allSettled([
                 newCoverPath && existingPaths.cover ? deleteStorageFile(existingPaths.cover) : Promise.resolve(),
                 newPreviewPath && existingPaths.preview ? deleteStorageFile(existingPaths.preview) : Promise.resolve(),
                 ...removedFilePaths.map((p) => deleteStorageFile(p)),
+                ...removedSamplePaths.map((p) => deleteStorageFile(p)),
             ]);
 
             toast.success(editingId ? "บันทึกการแก้ไขแล้ว" : "เพิ่มชุดข้อสอบแล้ว");
@@ -331,6 +399,7 @@ export default function AdminExamPapersPage() {
                         deleteStorageFile(p.coverPath),
                         deleteStorageFile(p.previewPath),
                         ...filesOf(p).map((f) => deleteStorageFile(f.path)),
+                        ...(p.samplePages || []).map((s) => deleteStorageFile(s.path)),
                     ]);
                     await deleteDoc(doc(db, "examPapers", p.id));
                     toast.success("ลบแล้ว");
@@ -478,7 +547,29 @@ export default function AdminExamPapersPage() {
                                     <label className="block text-sm font-medium kh-ink mb-1">จำนวนหน้า</label>
                                     <input type="number" min={0} className="kh-input w-full" placeholder="0" value={form.pageCount || ""} onChange={(e) => setForm({ ...form, pageCount: Number(e.target.value) || 0 })} />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium kh-ink mb-1">ป้ายมุมการ์ด</label>
+                                    <input className="kh-input w-full" placeholder="เช่น ใหม่ ปี 2570" value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} />
+                                    <p className="text-xs kh-ink3 mt-1">เว้นว่าง = ไม่มีป้าย</p>
+                                </div>
                             </div>
+
+                            {/* ชุดที่ยังทำไม่เสร็จ — โชว์บนชั้นเพื่อวัดความต้องการก่อนลงแรงผลิต */}
+                            <label className="kh-card p-3 flex items-start gap-2.5 cursor-pointer" style={{ background: "var(--card-2)" }}>
+                                <input
+                                    type="checkbox"
+                                    className="mt-0.5"
+                                    checked={form.comingSoon}
+                                    onChange={(e) => setForm({ ...form, comingSoon: e.target.checked })}
+                                />
+                                <span>
+                                    <span className="block text-sm font-medium kh-ink">ยังไม่เปิดขาย (แสดงเป็น “เร็วๆ นี้”)</span>
+                                    <span className="block text-xs kh-ink3 mt-0.5">
+                                        การ์ดจะขึ้นบนชั้นวางแต่กดซื้อไม่ได้ ลูกค้าเห็นปุ่มทักไลน์จองแทน —
+                                        ใช้ดูว่าชุดไหนมีคนถามเยอะ จะได้ทำชุดนั้นก่อน
+                                    </span>
+                                </span>
+                            </label>
 
                             {/* cover */}
                             <div>
@@ -549,6 +640,50 @@ export default function AdminExamPapersPage() {
                                     {previewName && <span className="text-sm kh-ink flex items-center gap-1.5"><FileCheck2 size={16} style={{ color: "var(--good)" }} /> {previewName}</span>}
                                 </div>
                                 <p className="text-xs kh-ink3 mt-1">แนะนำให้ตัดมา 1–2 หน้าแรก ให้ลูกค้าดูก่อนซื้อ ช่วยเพิ่มยอดขาย</p>
+                            </div>
+
+                            {/* ภาพหน้ากระดาษตัวอย่าง — โชว์คาหน้าขาย ไม่ต้องกดเปิด PDF */}
+                            <div>
+                                <label className="block text-sm font-medium kh-ink mb-1">ภาพหน้าในเล่ม (โชว์บนหน้าขาย)</label>
+                                <p className="text-xs kh-ink3 mb-3">
+                                    แคปหรือเซฟหน้าจริงจากไฟล์มา 3–4 หน้า (ปก · โจทย์ · <strong>หน้าเฉลยละเอียด</strong>) —
+                                    ลูกค้าเห็นคุณภาพเฉลยตั้งแต่ยังไม่กดอะไร ต่างจากไฟล์ตัวอย่างที่ต้องกดเปิดเอง
+                                </p>
+
+                                {samples.length > 0 && (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                                        {samples.map((s) => (
+                                            <div key={s.id} className="kh-card overflow-hidden">
+                                                <div className="relative aspect-[3/4] bg-[var(--card-2)]">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={s.url} alt={s.caption} className="w-full h-full object-cover object-top" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeSample(s.id)}
+                                                        aria-label="ลบภาพนี้"
+                                                        className="absolute top-1.5 right-1.5 rounded-full p-1.5"
+                                                        style={{ background: "rgba(12,24,22,0.7)", color: "#fff" }}
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                    {s.file && <span className="absolute bottom-1.5 left-1.5 text-[10px] kh-pill kh-pill-warn no-dot">ยังไม่อัป</span>}
+                                                </div>
+                                                <input
+                                                    className="kh-input w-full"
+                                                    style={{ padding: "6px 8px", fontSize: 12, borderRadius: 0, border: "none", borderTop: "1px solid var(--line)" }}
+                                                    value={s.caption}
+                                                    onChange={(e) => setSampleCaption(s.id, e.target.value)}
+                                                    placeholder="คำบรรยาย"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <button type="button" className="kh-btn-ghost" onClick={() => samplesInputRef.current?.click()}>
+                                    <ImagePlus size={16} /> เพิ่มภาพหน้าในเล่ม
+                                </button>
+                                <input ref={samplesInputRef} type="file" accept="image/*" multiple hidden onChange={(e) => { onAddSamples(e.target.files); e.target.value = ""; }} />
                             </div>
 
                             {/* วิเคราะห์แนวข้อสอบ — sales section (optional) */}

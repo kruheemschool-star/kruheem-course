@@ -100,6 +100,14 @@ export interface ExamPaperAnalysis {
     article?: string;        // full "บทวิเคราะห์" write-up in Markdown, rendered under the chart
 }
 
+// หน้ากระดาษตัวอย่างที่โชว์บนหน้าขาย — รูป JPEG สาธารณะที่เรนเดอร์จากไฟล์จริง
+// จุดประสงค์คือให้ผู้ปกครองเห็น "เฉลยละเอียด" ด้วยตาก่อนจ่ายเงิน โดยไม่ต้องเปิด PDF
+export interface ExamPaperSample {
+    url: string;      // public image URL
+    path?: string;    // Storage path ของ url — ต้องมีไว้ลบทีหลัง
+    caption?: string; // e.g. "หน้าเฉลยละเอียด"
+}
+
 // A single sellable PDF exam product. Bundles one or more ExamPaperFile. Cover +
 // preview are public; the master files are private (signed URLs only).
 export interface ExamPaper {
@@ -123,6 +131,11 @@ export interface ExamPaper {
     pageCount?: number;      // shown as "X หน้า" on the shop card
     questionCount?: number;  // shown as "X ข้อ" on the "my exam papers" card
     analysis?: ExamPaperAnalysis; // optional "วิเคราะห์แนวข้อสอบ" sales section
+    samplePages?: ExamPaperSample[]; // ภาพหน้ากระดาษจริงบนหน้าขาย (ปก/โจทย์/เฉลย)
+    badge?: string;          // ป้ายมุมการ์ด e.g. "ใหม่ ปี 2570", "ขายดี" — ว่าง = ไม่มีป้าย
+    // ชุดที่ยังทำไม่เสร็จแต่อยากให้เห็นบนชั้นวาง: การ์ดจะกดเข้าหน้าขายไม่ได้
+    // โชว์ "เร็วๆ นี้" + ปุ่มทักไลน์จองแทน (ใช้วัดความต้องการก่อนลงแรงผลิต)
+    comingSoon?: boolean;
     hidden?: boolean;        // draft / hidden from the public shop
     order?: number;          // manual sort (lower first)
     createdAt?: Timestamp | Date;

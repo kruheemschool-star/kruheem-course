@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getDocument, listCollection } from "@/lib/firestoreRest";
+import { getPaperTrust } from "@/lib/paperTrust";
 import PaperDetailClient from "@/components/exampapers/PaperDetailClient";
 import type { ExamPaper } from "@/types";
 
@@ -34,6 +35,12 @@ async function getPaper(id: string): Promise<PaperPageData | null> {
                 pageCount: Number(d.pageCount ?? 0),
                 questionCount: Number(d.questionCount ?? 0),
                 analysis: (d.analysis as ExamPaper["analysis"]) || undefined,
+                samplePages: (Array.isArray(d.samplePages) ? d.samplePages : [])
+                    .map((s) => s as { url?: string; caption?: string })
+                    .filter((s) => !!s?.url)
+                    .map((s) => ({ url: String(s.url), caption: s.caption ? String(s.caption) : undefined })),
+                badge: (d.badge as string) || "",
+                comingSoon: !!d.comingSoon,
             },
             fileLabels,
         };
@@ -47,13 +54,14 @@ async function getRelatedPapers(current: ExamPaper): Promise<ExamPaper[]> {
     try {
         const docs = await listCollection(
             "examPapers",
-            ["title", "price", "fullPrice", "level", "category", "coverUrl", "hidden", "order"],
+            ["title", "price", "fullPrice", "level", "category", "coverUrl", "comingSoon", "hidden", "order"],
             { revalidate: 300 },
         );
         const score = (p: { category?: string; level?: string }) =>
             (p.category && p.category === current.category ? 0 : 2) + (p.level && p.level === current.level ? 0 : 1);
         return docs
-            .filter((d) => !d.hidden && d.id !== current.id)
+            // ชุด "เร็วๆ นี้" ยังซื้อไม่ได้ — เอาไปแนะนำต่อท้ายหน้าขายไม่มีประโยชน์
+            .filter((d) => !d.hidden && !d.comingSoon && d.id !== current.id)
             .map((d) => ({
                 id: d.id,
                 title: (d.title as string) || "",
@@ -100,13 +108,20 @@ export default async function PaperDetailPage({ params }: { params: Promise<{ id
     const { id } = await params;
     const data = await getPaper(id);
     if (!data) notFound();
-    const related = await getRelatedPapers(data.paper);
+    const [related, trust] = await Promise.all([getRelatedPapers(data.paper), getPaperTrust(3)]);
 
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans flex flex-col transition-colors">
             <Navbar />
             <div className="pt-24 flex-1">
-                <PaperDetailClient paper={data.paper} fileLabels={data.fileLabels} related={related} />
+                <PaperDetailClient
+                    paper={data.paper}
+                    fileLabels={data.fileLabels}
+                    related={related}
+                    reviews={trust.reviews}
+                    reviewCount={trust.reviewCount}
+                    avgRating={trust.avgRating}
+                />
             </div>
             <Footer />
         </div>

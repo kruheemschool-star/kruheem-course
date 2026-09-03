@@ -66,6 +66,8 @@ service firebase.storage {
     // Covers are shown on the shop cards; previews are the intentional free
     // sample (first 1–2 pages). Public read, admin-only write.
     match /exam-paper-covers/{allPaths=**}   { allow read: if true; allow write: if isAdmin(); }
+    // ภาพหน้ากระดาษตัวอย่างที่โชว์คาหน้าขาย (ปก/โจทย์/เฉลย) — ตั้งใจให้เห็นก่อนซื้อ
+    match /exam-paper-samples/{allPaths=**}  { allow read: if true; allow write: if isAdmin(); }
     match /exam-paper-previews/{allPaths=**} {
       allow read: if true;
       allow write: if isAdmin()
