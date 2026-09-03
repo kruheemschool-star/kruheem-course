@@ -82,7 +82,7 @@ async function getRelatedPapers(current: ExamPaper): Promise<ExamPaper[]> {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
     const { id } = await params;
     const data = await getPaper(id);
-    if (!data) return { title: "ไม่พบข้อสอบ | KruHeem Course" };
+    if (!data) return { title: "ไม่พบข้อสอบ" }; // layout ต่อ "| KruHeem Course" ให้เอง
     const paper = data.paper;
     const title = `${paper.title} | คลังข้อสอบ PDF ครูฮีม`;
     const description = paper.description || `ดาวน์โหลด ${paper.title} เป็นไฟล์ PDF พร้อมเฉลย`;

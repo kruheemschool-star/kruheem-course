@@ -8,7 +8,9 @@ import ExamListClient from "@/components/exam/ExamListClient";
 
 // SEO Metadata
 export const metadata: Metadata = {
-    title: "คลังข้อสอบคณิตศาสตร์ออนไลน์ (Practice Mode) | KruHeem Course",
+    // layout ต่อท้าย "| KruHeem Course" ให้เองผ่าน title.template — ใส่ซ้ำที่นี่
+    // แท็บกับผลค้นหา Google จะขึ้นชื่อแบรนด์สองรอบ
+    title: "คลังข้อสอบคณิตศาสตร์ออนไลน์ (Practice Mode)",
     description: "ฝึกทำโจทย์คณิตศาสตร์ ป.1 - ม.6 จับเวลาจำลองสอบจริง พร้อมเฉลยละเอียด ตะลุยโจทย์ O-NET, A-Level เพื่อวัดระดับความรู้",
     keywords: ["ฝึกทำโจทย์คณิต", "คลังข้อสอบ", "จับเวลาทำข้อสอบ", "จำลองสอบ", "ตะลุยโจทย์", "ข้อสอบ A-Level"],
 };
