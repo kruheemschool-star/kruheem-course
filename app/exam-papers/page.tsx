@@ -3,6 +3,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { listCollection } from "@/lib/firestoreRest";
 import { getPaperTrust } from "@/lib/paperTrust";
+import { getExamCountdown } from "@/lib/examCountdown";
 import ExamPapersShop from "@/components/exampapers/ExamPapersShop";
 import type { ExamPaper } from "@/types";
 
@@ -55,7 +56,7 @@ async function getPapers(): Promise<ExamPaper[]> {
 }
 
 export default async function ExamPapersPage() {
-    const [papers, trust] = await Promise.all([getPapers(), getPaperTrust(3)]);
+    const [papers, trust, countdown] = await Promise.all([getPapers(), getPaperTrust(3), getExamCountdown()]);
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans flex flex-col transition-colors">
             <Navbar />
@@ -65,6 +66,7 @@ export default async function ExamPapersPage() {
                     reviews={trust.reviews}
                     reviewCount={trust.reviewCount}
                     avgRating={trust.avgRating}
+                    countdown={countdown}
                 />
             </div>
             <Footer />

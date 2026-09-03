@@ -12,7 +12,7 @@ import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slip
 import { useUserAuth } from "@/context/AuthContext";
 import type { ExamPaper } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
-import { FileText, Eye, EyeOff, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, X, UploadCloud, Loader2, Clock, UserPlus } from "lucide-react";
+import { FileText, Eye, EyeOff, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, ArrowRight, X, UploadCloud, Loader2, Clock, UserPlus } from "lucide-react";
 import ExamAnalysisSection from "@/components/exampapers/ExamAnalysisSection";
 import ExamAnalysisArticle from "@/components/exampapers/ExamAnalysisArticle";
 import SamplePages from "@/components/exampapers/SamplePages";
@@ -403,6 +403,19 @@ export default function PaperDetailClient({
                         </Link>
                         <Link href="/exam-papers" className="inline-flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold px-5 py-2.5 transition hover:bg-slate-200 dark:hover:bg-slate-700">
                             เลือกซื้อชุดอื่น
+                        </Link>
+                    </div>
+
+                    {/* ช่องว่างระหว่าง "จ่ายเงินแล้ว" กับ "ได้ไฟล์" คือตอนที่ลูกค้าไม่มีอะไรทำ
+                        และเป็นจังหวะเดียวที่ชวนไปคลังข้อสอบออนไลน์แล้วไม่แย่งปุ่มซื้อของหน้าขาย */}
+                    <div className="mt-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-5 text-left">
+                        <div className="text-sm font-black text-slate-900 dark:text-white">ระหว่างรอครูฮีมอนุมัติ</div>
+                        <p className="text-[13px] text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
+                            ให้ลูกลองทำข้อสอบบนเว็บไปพลางๆ ได้เลยครับ ในคลังข้อสอบออนไลน์มีชุดให้ทำฟรี
+                            ตรวจให้อัตโนมัติพร้อมเฉลยทุกข้อ จะได้ไม่เสียจังหวะซ้อม
+                        </p>
+                        <Link href="/exam" className="inline-flex items-center gap-1.5 mt-3 text-[13px] font-bold text-teal-600 dark:text-teal-400 hover:underline">
+                            ไปคลังข้อสอบออนไลน์ <ArrowRight size={15} />
                         </Link>
                     </div>
                 </div>

@@ -5,8 +5,10 @@ import Link from "next/link";
 import { FileText, Download, Eye, ShoppingBag, BadgeCheck, Printer, Clock, MessageCircle, Sparkles } from "lucide-react";
 import type { ExamPaper } from "@/types";
 import type { TrustReview } from "@/lib/paperTrust";
+import type { ExamCountdown } from "@/lib/examCountdown";
 import KruheemTrustStrip from "@/components/exampapers/KruheemTrustStrip";
 import PaperReviews from "@/components/exampapers/PaperReviews";
+import ExamDateStrip from "@/components/exampapers/ExamDateStrip";
 
 const LINE_URL = "https://line.me/ti/p/~kruheemschool";
 
@@ -19,11 +21,13 @@ export default function ExamPapersShop({
     reviews = [],
     reviewCount,
     avgRating,
+    countdown = null,
 }: {
     papers: ExamPaper[];
     reviews?: TrustReview[];
     reviewCount?: number;
     avgRating?: number;
+    countdown?: ExamCountdown | null;
 }) {
     // ชิปกรองผูกกับ URL (?level= / ?category=) — แชร์ลิงก์หมวดแล้วชิปถูกเลือกให้เอง
     // จงใจไม่ใช้ useSearchParams: บน route static มันบังคับทั้งหน้าร้านเป็น
@@ -97,6 +101,13 @@ export default function ExamPapersShop({
                     <Download size={15} /> ข้อสอบที่ฉันซื้อไว้
                 </Link>
             </div>
+
+            {/* วันสอบที่ครูฮีมตั้งไว้ที่ /admin/countdown — บอกว่าเหลือเวลาเท่าไร */}
+            {countdown && (
+                <div className="mb-5">
+                    <ExamDateStrip countdown={countdown} />
+                </div>
+            )}
 
             {/* ซื้อจากใคร — ด่านแรกที่ผู้ปกครองใช้ตัดสินใจ */}
             <div className="mb-10">
