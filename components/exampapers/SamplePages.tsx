@@ -233,20 +233,26 @@ export default function SamplePages({ samples }: { samples?: ExamPaperSample[] }
     const active = open !== null ? items[open] : null;
 
     return (
-        <div className="mt-14">
-            <h2 className="text-lg font-black text-slate-900 dark:text-white">เปิดดูข้างในเล่มก่อนตัดสินใจ</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">
-                หน้าจริงจากไฟล์ที่ได้รับ กดที่ภาพเพื่อขยายอ่าน
+        <section className="khps-sec">
+            <div className="khps-eyebrow">เปิดดูข้างในเล่ม</div>
+            <h2 className="khps-h2 mt-3.5" style={{ maxWidth: "22ch" }}>
+                หน้าจริงจากไฟล์ที่ได้รับ
+            </h2>
+            <p className="mt-4 text-[15px] font-light khps-muted" style={{ maxWidth: "58ch" }}>
+                ไม่ใช่ภาพจัดฉาก — กดที่ภาพเพื่อขยายอ่านได้เลย
             </p>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+            <div
+                className="grid gap-5 mt-9"
+                style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}
+            >
                 {items.map((s, i) => (
                     <button
                         key={s.url}
                         onClick={() => openAt(i)}
-                        className="group text-left rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:shadow-[0_16px_40px_-24px_rgba(15,23,42,0.4)] hover:-translate-y-0.5 transition"
+                        className="khps-card-sm group text-left overflow-hidden transition hover:-translate-y-0.5"
                     >
-                        <div className="relative bg-slate-50 dark:bg-slate-800 aspect-[3/4] overflow-hidden">
+                        <div className="relative aspect-[3/4] overflow-hidden" style={{ background: "var(--kp-slot)" }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 ref={(el) => { thumbRefs.current[i] = el; }}
@@ -255,12 +261,12 @@ export default function SamplePages({ samples }: { samples?: ExamPaperSample[] }
                                 loading="lazy"
                                 className="w-full h-full object-cover object-top group-hover:scale-[1.03] transition"
                             />
-                            <span className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition flex items-center justify-center">
+                            <span className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition flex items-center justify-center">
                                 <ZoomIn size={22} className="text-white opacity-0 group-hover:opacity-100 transition drop-shadow" />
                             </span>
                         </div>
                         {s.caption && (
-                            <div className="px-3 py-2.5 text-[12.5px] font-semibold text-slate-600 dark:text-slate-300 leading-snug">
+                            <div className="px-4 py-3.5 text-[12.5px] font-medium leading-snug khps-muted">
                                 {s.caption}
                             </div>
                         )}
@@ -278,7 +284,7 @@ export default function SamplePages({ samples }: { samples?: ExamPaperSample[] }
                 >
                     {/* ฉากหลังจางเข้า-จางออกพร้อมกับภาพ กดตรงไหนก็ปิด */}
                     <div
-                        className={`absolute inset-0 bg-slate-950/90 backdrop-blur-sm transition-opacity duration-300 ${shown ? "opacity-100" : "opacity-0"}`}
+                        className={`absolute inset-0 bg-[#17181A]/90 backdrop-blur-sm transition-opacity duration-300 ${shown ? "opacity-100" : "opacity-0"}`}
                     />
 
                     <div
@@ -329,6 +335,6 @@ export default function SamplePages({ samples }: { samples?: ExamPaperSample[] }
                     />
                 </div>
             )}
-        </div>
+        </section>
     );
 }

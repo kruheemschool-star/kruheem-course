@@ -2611,3 +2611,340 @@ mark.khb-mark {
     .khsl-backdrop, .khsl-panel, .khsl-img { transition-duration: .01ms !important; }
     .khsl-panel { transform: none !important; }
 }
+
+/* ============================================================
+   "Studio" theme — SCOPED to /exam-papers/[id] (หน้าขายชุดข้อสอบ PDF)
+   สเปก: kruheem-paper-detail-design-spec.md (แนว C — Studio)
+
+   4 ข้อตัดสินใจที่ทำให้หน้าตาเป็นแบบนี้:
+     1. ไม่มีเส้นขอบ — กล่องแยกตัวจากพื้นด้วยเงาอ่อน + พื้นขาว
+        (ข้อยกเว้นเดียวคือเส้นคั่นในตารางสเปกกับกรอบประช่องแนบสลิป)
+     2. ตัวหนังสือน้ำหนักบางขนาดใหญ่ — Sarabun 200 ที่ 36–64px ตัดกับตัวเน้น 600
+     3. สีเดียว — เขียวลึก #0A5147 เป็นสีเน้นทั้งหน้า ไม่มีสีที่สอง
+     4. ระยะระหว่างหมวดค่าเดียวทั้งหน้า
+
+   Light-only by design เหมือน .graph-theme / .mc-theme — สเปกไม่ได้นิยาม
+   จานสีโหมดมืดไว้ จึงไม่ใช้ dark: utility ในหน้านี้เลย
+   ============================================================ */
+.khps {
+    --kp-bg: #F4F3F0;
+    --kp-card: #FFFFFF;
+    --kp-slot: #F0EFEB;
+    --kp-ink: #17181A;
+    --kp-ink-2: #43443F;
+    --kp-ink-3: #4E4F4A;
+    --kp-ink-4: #6B6A64;
+    --kp-line: #E6E4DF;
+    --kp-track: #EDECE8;
+    --kp-accent: #0A5147;
+    --kp-accent-soft: #E4EDE9;
+    /* ระยะระหว่างหมวด — สเปกกำหนด 120px ค่าเดียว ย่อลงบนจอแคบเพื่อไม่ให้
+       มือถือเลื่อนผ่านที่ว่างเปล่าๆ นานเกินไป */
+    --kp-gap: clamp(72px, 10vw, 120px);
+    --kp-shadow: 0 1px 2px rgba(23, 24, 26, .04), 0 28px 60px -44px rgba(23, 24, 26, .35);
+    --kp-shadow-sm: 0 1px 2px rgba(23, 24, 26, .04), 0 16px 34px -28px rgba(23, 24, 26, .3);
+
+    color: var(--kp-ink);
+    font-family: var(--font-sarabun), var(--font-ibm-loop), sans-serif;
+    background-color: var(--kp-bg);
+    color-scheme: light;
+}
+
+/* หน้านี้เป็นโหมดสว่างอย่างเดียว — กันไม่ให้ .dark ของ next-themes
+   ไปพลิกฟอร์ม/สกรอลบาร์ของเบราว์เซอร์เป็นสีเข้มจนตัดกับพื้นหน้า */
+.dark .khps { color-scheme: light; }
+
+.khps-wrap {
+    width: 100%;
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 4vw, 32px);
+}
+
+.khps-sec { margin-top: var(--kp-gap); }
+
+.khps-card {
+    background: var(--kp-card);
+    border-radius: 24px;
+    box-shadow: var(--kp-shadow);
+}
+
+.khps-card-sm {
+    background: var(--kp-card);
+    border-radius: 20px;
+    box-shadow: var(--kp-shadow-sm);
+}
+
+/* ---------- ตัวอักษร ---------- */
+.khps-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--kp-ink-4);
+}
+
+.khps-h1 {
+    font-size: clamp(36px, 5.6vw, 64px);
+    font-weight: 200;
+    letter-spacing: -.025em;
+    line-height: 1.15;
+    /* balance ไม่ใช่ pretty สำหรับพาดหัว — กันบรรทัดสุดท้ายเหลือคำเดียวโดดๆ
+       (พาดหัวไทยยาวสองบรรทัดเจอบ่อยมาก) */
+    text-wrap: balance;
+}
+
+.khps-h2 {
+    font-size: clamp(28px, 3.8vw, 40px);
+    font-weight: 200;
+    letter-spacing: -.02em;
+    line-height: 1.25;
+    text-wrap: balance;
+}
+
+/* ตัวเน้นในพาดหัวบาง (ชื่อโรงเรียน/สนามสอบ) */
+.khps-h1 strong, .khps-h2 strong { font-weight: 600; }
+
+.khps-lead {
+    font-size: 19px;
+    font-weight: 300;
+    line-height: 1.8;
+    color: var(--kp-ink-2);
+    text-wrap: pretty;
+}
+
+.khps-price {
+    font-size: 56px;
+    font-weight: 200;
+    letter-spacing: -.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.khps-stat {
+    font-size: clamp(58px, 7vw, 76px);
+    font-weight: 200;
+    letter-spacing: -.03em;
+    line-height: .95;
+    font-variant-numeric: tabular-nums;
+}
+
+.khps-muted { color: var(--kp-ink-4); }
+.khps-body { color: var(--kp-ink-2); font-weight: 300; line-height: 1.8; }
+
+/* ---------- ปุ่มและป้าย ---------- */
+.khps-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 999px;
+    font-size: 15.5px;
+    font-weight: 500;
+    padding: 19px 30px;
+    line-height: 1;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease, opacity .18s ease;
+}
+.khps-btn:disabled { cursor: not-allowed; opacity: .7; }
+.khps-btn-sm { padding: 13px 22px; font-size: 14px; }
+.khps-btn-block { width: 100%; }
+
+.khps-btn-primary { background: var(--kp-ink); color: #FFFFFF; }
+.khps-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 20px 36px -24px rgba(23, 24, 26, .8); }
+
+.khps-btn-accent { background: var(--kp-accent); color: #FFFFFF; }
+.khps-btn-accent:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 20px 36px -24px rgba(10, 81, 71, .85); }
+
+.khps-btn-ghost { background: var(--kp-card); color: var(--kp-ink); box-shadow: var(--kp-shadow-sm); }
+.khps-btn-ghost:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--kp-shadow); }
+
+.khps-btn-quiet { background: var(--kp-accent-soft); color: var(--kp-accent); }
+
+.khps-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 6px 13px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--kp-accent-soft);
+    color: var(--kp-accent);
+}
+.khps-pill-quiet { background: var(--kp-slot); color: var(--kp-ink-4); }
+
+/* ---------- ตารางสเปก ---------- */
+.khps-spec {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    /* ไม่ใช้ column-gap — เส้นคั่นเป็น border-top ของสองช่อง ถ้ามีช่องว่างคั่น
+       เส้นจะขาดกลางเป็นสองท่อน ใช้ padding ด้านในแทนเพื่อให้เส้นต่อกันเป็นเส้นเดียว */
+    column-gap: 0;
+}
+.khps-spec > dt {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--kp-ink-4);
+    padding: 15px 16px 15px 0;
+}
+.khps-spec > dd {
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--kp-ink);
+    padding: 15px 0 15px 16px;
+    text-align: right;
+    text-wrap: pretty;
+}
+.khps-spec > dt:not(:first-of-type),
+.khps-spec > dd:not(:first-of-type) { border-top: 1px solid var(--kp-line); }
+
+/* ---------- ช่องรูป ---------- */
+/* ปกเป็นหน้า A4 แนวตั้ง — contain เท่านั้น cover จะครอบหัวท้ายทิ้ง */
+.khps-slot {
+    background: var(--kp-slot);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.khps-cover { aspect-ratio: 1 / 1.414; }
+.khps-cover img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ---------- กราฟวิเคราะห์แนวข้อสอบ ---------- */
+.khps-chartrow {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    column-gap: 16px;
+}
+.khps-track {
+    grid-column: 1 / -1;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--kp-track);
+    overflow: hidden;
+    margin-top: 10px;
+}
+.khps-fill {
+    height: 100%;
+    border-radius: 999px;
+    transform-origin: left;
+}
+
+@keyframes khps-grow {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+}
+
+/* แท่งยืดตามการเลื่อนหน้า ไม่ใช่เล่นครั้งเดียวตอนโหลด — ห่อ @supports ไว้
+   เบราว์เซอร์ที่ยังไม่รองรับจะเห็นแท่งเต็มค่าทันที ไม่ค้างอยู่ที่ 0 */
+@supports (animation-timeline: view()) {
+    .khps-chart { view-timeline-name: --khps-chart; }
+    .khps-chart [data-grow] {
+        animation-name: khps-grow;
+        animation-duration: auto;
+        animation-timing-function: cubic-bezier(.22, 1, .36, 1);
+        animation-fill-mode: both;
+        animation-timeline: --khps-chart;
+        animation-range: cover 5% cover 62%;
+    }
+    /* เหลื่อมทีละแถว +5% */
+    .khps-chart [data-row]:nth-child(2)  [data-grow] { animation-range: cover 10% cover 67%; }
+    .khps-chart [data-row]:nth-child(3)  [data-grow] { animation-range: cover 15% cover 72%; }
+    .khps-chart [data-row]:nth-child(4)  [data-grow] { animation-range: cover 20% cover 77%; }
+    .khps-chart [data-row]:nth-child(5)  [data-grow] { animation-range: cover 25% cover 82%; }
+    .khps-chart [data-row]:nth-child(6)  [data-grow] { animation-range: cover 30% cover 87%; }
+    .khps-chart [data-row]:nth-child(7)  [data-grow] { animation-range: cover 35% cover 92%; }
+    .khps-chart [data-row]:nth-child(8)  [data-grow] { animation-range: cover 40% cover 97%; }
+    .khps-chart [data-row]:nth-child(9)  [data-grow] { animation-range: cover 45% cover 100%; }
+    .khps-chart [data-row]:nth-child(10) [data-grow] { animation-range: cover 50% cover 100%; }
+}
+
+/* ---------- แถบราคาลอย (CSS ล้วน ไม่ใช้ JavaScript) ----------
+   เป็นลูกคนสุดท้ายของกล่องที่ครอบเนื้อหาตั้งแต่ "เปิดดูข้างในเล่ม" ลงไป
+   → ยังอยู่ที่ปุ่มซื้อแรก = ไม่เห็น · เลื่อนพ้นบล็อกราคา = ปักที่ก้นจอ
+   → ถึงท้ายหน้า = จอดก่อนฟุตเตอร์ */
+.khps-dockwrap { position: relative; }
+.khps-dock {
+    position: sticky;
+    bottom: 14px;
+    z-index: 30;
+    display: flex;
+    justify-content: center;
+    padding: 0 clamp(12px, 4vw, 32px);
+    margin-top: 40px;
+    pointer-events: none; /* ไม่บังการกดพื้นที่ด้านหลัง */
+}
+.khps-dock-inner {
+    pointer-events: auto;
+    width: 100%;
+    max-width: 760px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(255, 255, 255, .92);
+    /* -webkit- ต้องมาก่อน ไม่งั้นตัวย่อ CSS ของ Next ตัดบรรทัดไม่มีคำนำหน้าทิ้ง
+       แล้วแคปซูลจะโปร่งจนตัวหนังสือข้างหลังทะลุขึ้นมา */
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-radius: 999px;
+    padding: 10px 10px 10px 26px;
+    /* เงาหนักกว่าการ์ดทั่วไป — แคปซูลลอยอยู่บนเนื้อหา ถ้าใช้เงามาตรฐาน
+       ขอบจะจมไปกับพื้นจนอ่านไม่ออกว่าเป็นแถบแยกชิ้น */
+    box-shadow: 0 2px 6px rgba(23, 24, 26, .06), 0 26px 50px -26px rgba(23, 24, 26, .45);
+}
+
+/* ---------- ฟอร์มสั่งซื้อ ---------- */
+.khps-modal {
+    width: 100%;
+    max-width: 880px;
+    border-radius: 28px;
+    background: var(--kp-bg);
+}
+.khps-step {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--kp-accent);
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+}
+.khps-input {
+    width: 100%;
+    background: var(--kp-bg);
+    border: 0;
+    border-radius: 12px;
+    padding: 13px 16px;
+    font-size: 15px;
+    color: var(--kp-ink);
+    outline: none;
+    box-shadow: inset 0 0 0 1.5px transparent;
+    transition: box-shadow .15s ease;
+}
+.khps-input::placeholder { color: var(--kp-ink-4); }
+.khps-input:focus { box-shadow: inset 0 0 0 1.5px var(--kp-accent); }
+.khps-drop {
+    border-radius: 12px;
+    border: 1.5px dashed var(--kp-line);
+    background: var(--kp-bg);
+    padding: 18px;
+    text-align: center;
+    transition: border-color .15s ease;
+}
+.khps-drop:hover { border-color: var(--kp-accent); }
+
+/* ---------- ผู้ใช้ที่ขอลดการเคลื่อนไหว ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .khps *,
+    .khps *::before,
+    .khps *::after {
+        animation: none !important;
+        transition-duration: .01ms !important;
+    }
+}

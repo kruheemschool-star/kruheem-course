@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
@@ -10,16 +10,16 @@ import { useInAppBrowser, openInExternalBrowser } from "@/lib/inAppBrowser";
 import { uploadPublicFile } from "@/lib/pdfUpload";
 import { prepareSlipImage, slipPrepErrorText, slipContentType } from "@/lib/slipFile";
 import { useUserAuth } from "@/context/AuthContext";
+import { PAYMENT_INFO } from "@/lib/constants";
 import type { ExamPaper } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
-import { FileText, Eye, EyeOff, ShoppingCart, Check, ShieldCheck, Download, ArrowLeft, ArrowRight, X, UploadCloud, Loader2, Clock, UserPlus } from "lucide-react";
+import { FileText, Eye, EyeOff, Check, ShieldCheck, Download, ArrowLeft, ArrowRight, X, UploadCloud, Loader2, Clock, UserPlus, Copy } from "lucide-react";
 import ExamAnalysisSection from "@/components/exampapers/ExamAnalysisSection";
 import ExamAnalysisArticle from "@/components/exampapers/ExamAnalysisArticle";
 import SamplePages from "@/components/exampapers/SamplePages";
-import KruheemTrustStrip from "@/components/exampapers/KruheemTrustStrip";
-import PaperReviews from "@/components/exampapers/PaperReviews";
+import StudioTrustStrip from "@/components/exampapers/StudioTrustStrip";
+import StudioReviews from "@/components/exampapers/StudioReviews";
 import type { TrustReview } from "@/lib/paperTrust";
-import PaymentTransferInfo from "@/components/payment/PaymentTransferInfo";
 
 const LINE_URL = "https://line.me/ti/p/~kruheemschool";
 
@@ -381,40 +381,47 @@ export default function PaperDetailClient({
 
     if (done) {
         return (
-            <div className="max-w-5xl mx-auto px-4 md:px-8 pb-16">
-                <div className="max-w-lg mx-auto py-16 text-center">
-                    <div className="mx-auto w-16 h-16 rounded-full bg-teal-100 dark:bg-teal-900 flex items-center justify-center mb-5">
-                        <Check size={32} className="text-teal-600 dark:text-teal-300" />
+            <div className="khps-wrap pb-24">
+                <div className="max-w-xl mx-auto py-20 text-center">
+                    <div
+                        className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-7"
+                        style={{ background: "var(--kp-accent-soft)" }}
+                    >
+                        <Check size={30} style={{ color: "var(--kp-accent)" }} />
                     </div>
-                    <h1 className="text-2xl font-black text-slate-900 dark:text-white">ส่งคำสั่งซื้อแล้ว!</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-3">
+                    <h1 className="khps-h2">ส่งคำสั่งซื้อแล้ว</h1>
+                    <p className="khps-lead mt-5">
                         ครูฮีมกำลังตรวจสอบสลิปของคุณ เมื่ออนุมัติแล้วคุณจะดาวน์โหลดไฟล์ได้ที่หน้า “คอร์สเรียนของฉัน” ทันที
                     </p>
                     {doneEmail && (
                         // บอกบัญชีปลายทางให้ทวนตั้งแต่ตอนนี้ — ถ้าอีเมลพิมพ์ผิดจะได้ทักครูฮีมแก้ได้ทัน
-                        <p className="mt-4 rounded-xl bg-slate-50 dark:bg-slate-800/70 px-4 py-3 text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                            ไฟล์จะเก็บไว้ในบัญชี <span className="font-bold text-slate-800 dark:text-white">{doneEmail}</span>
+                        <p className="khps-card-sm mt-8 px-6 py-5 text-[14px] font-light leading-relaxed" style={{ color: "var(--kp-ink-2)" }}>
+                            ไฟล์จะเก็บไว้ในบัญชี <span className="font-semibold" style={{ color: "var(--kp-ink)" }}>{doneEmail}</span>
                             <br />ถ้าอีเมลนี้ไม่ถูกต้อง ทักไลน์ครูฮีมได้เลยครับ เดี๋ยวย้ายให้
                         </p>
                     )}
-                    <div className="flex items-center justify-center gap-3 mt-7">
-                        <Link href="/my-courses" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 transition">
+                    <div className="flex flex-wrap items-center justify-center gap-3 mt-9">
+                        <Link href="/my-courses" className="khps-btn khps-btn-sm khps-btn-primary">
                             <Download size={17} /> ไปหน้าคอร์สเรียนของฉัน
                         </Link>
-                        <Link href="/exam-papers" className="inline-flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold px-5 py-2.5 transition hover:bg-slate-200 dark:hover:bg-slate-700">
+                        <Link href="/exam-papers" className="khps-btn khps-btn-sm khps-btn-ghost">
                             เลือกซื้อชุดอื่น
                         </Link>
                     </div>
 
                     {/* ช่องว่างระหว่าง "จ่ายเงินแล้ว" กับ "ได้ไฟล์" คือตอนที่ลูกค้าไม่มีอะไรทำ
                         และเป็นจังหวะเดียวที่ชวนไปคลังข้อสอบออนไลน์แล้วไม่แย่งปุ่มซื้อของหน้าขาย */}
-                    <div className="mt-8 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-5 text-left">
-                        <div className="text-sm font-black text-slate-900 dark:text-white">ระหว่างรอครูฮีมอนุมัติ</div>
-                        <p className="text-[13px] text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
+                    <div className="khps-card mt-12 p-7 text-left">
+                        <div className="text-[16px] font-medium">ระหว่างรอครูฮีมอนุมัติ</div>
+                        <p className="text-[14.5px] font-light leading-relaxed mt-2" style={{ color: "var(--kp-ink-2)" }}>
                             ให้ลูกลองทำข้อสอบบนเว็บไปพลางๆ ได้เลยครับ ในคลังข้อสอบออนไลน์มีชุดให้ทำฟรี
                             ตรวจให้อัตโนมัติพร้อมเฉลยทุกข้อ จะได้ไม่เสียจังหวะซ้อม
                         </p>
-                        <Link href="/exam" className="inline-flex items-center gap-1.5 mt-3 text-[13px] font-bold text-teal-600 dark:text-teal-400 hover:underline">
+                        <Link
+                            href="/exam"
+                            className="inline-flex items-center gap-1.5 mt-4 text-[14px] font-medium hover:underline"
+                            style={{ color: "var(--kp-accent)" }}
+                        >
                             ไปคลังข้อสอบออนไลน์ <ArrowRight size={15} />
                         </Link>
                     </div>
@@ -424,298 +431,401 @@ export default function PaperDetailClient({
         );
     }
 
+    // ปุ่มหลัก 4 สถานะ — ใช้ทั้งบล็อกราคาและแถบราคาลอย จึงต้องอยู่ที่เดียว
+    // (เป็นฟังก์ชันคืน JSX ไม่ใช่คอมโพเนนต์ซ้อน — คอมโพเนนต์ที่นิยามในตัว render
+    //  จะถูก unmount/mount ใหม่ทุกครั้งที่พิมพ์ในฟอร์ม)
+    const buyCta = (compact = false) => {
+        const size = compact ? "khps-btn khps-btn-sm" : "khps-btn khps-btn-block";
+        if (paper.comingSoon) {
+            // ชุดที่ยังทำไม่เสร็จ: ไม่มีไฟล์ให้ส่งมอบ จึงต้องไม่มีปุ่มรับเงิน
+            return (
+                <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className={`${size} khps-btn-primary`}>
+                    <Clock size={18} /> {compact ? "ทักไลน์จองก่อน" : "ยังไม่เปิดขาย — ทักไลน์จองก่อนได้"}
+                </a>
+            );
+        }
+        if (ownStatus === "approved") {
+            return (
+                <Link href="/my-courses" className={`${size} khps-btn-accent`}>
+                    <Download size={18} /> {compact ? "ไปดาวน์โหลด" : "ซื้อแล้ว — ไปหน้าดาวน์โหลด"}
+                </Link>
+            );
+        }
+        if (ownStatus === "pending") {
+            return (
+                <button disabled className={`${size} khps-btn-quiet`}>
+                    <Clock size={18} /> ส่งสลิปแล้ว รอครูตรวจ
+                </button>
+            );
+        }
+        return (
+            <button onClick={openCheckout} className={`${size} khps-btn-primary`}>
+                {compact ? "ซื้อชุดนี้" : "ซื้อและดาวน์โหลด"}
+            </button>
+        );
+    };
+
+    // ตารางสเปก — ตัดแถวที่ไม่มีข้อมูลจริงทิ้ง ไม่เติมค่าให้ดูเต็ม
+    const specs: { k: string; v: string }[] = [
+        ...(paper.level ? [{ k: "ระดับชั้น", v: paper.level }] : []),
+        ...(paper.category ? [{ k: "สนามสอบ", v: paper.category }] : []),
+        ...(paper.questionCount ? [{ k: "จำนวนข้อ", v: `${paper.questionCount.toLocaleString()} ข้อ` }] : []),
+        ...(paper.pageCount ? [{ k: "จำนวนหน้า", v: `${paper.pageCount.toLocaleString()} หน้า` }] : []),
+        { k: "ไฟล์ที่ได้รับ", v: fileLabels.length > 0 ? fileLabels.join(" · ") : "ตัวข้อสอบ · เฉลย" },
+    ];
+
+    const previewButton = paper.previewUrl && (isInApp ? (
+        <button onClick={openPreview} className="khps-btn khps-btn-block khps-btn-ghost">
+            <Eye size={17} /> ดูตัวอย่างฟรี
+        </button>
+    ) : (
+        <a href={paper.previewUrl} target="_blank" rel="noopener noreferrer" className="khps-btn khps-btn-block khps-btn-ghost">
+            <Eye size={17} /> ดูตัวอย่างฟรี
+        </a>
+    ));
+
     return (
-        <div className="max-w-5xl mx-auto px-4 md:px-8 pb-16">
+        <div className="pb-16">
             <Toaster position="top-center" />
-            <Link href="/exam-papers" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-teal-600 mb-6">
-                <ArrowLeft size={16} /> กลับไปคลังข้อสอบ
-            </Link>
 
-            <div className="grid md:grid-cols-2 gap-8 items-start">
-                {/* cover — ปกเป็นหน้า A4 แนวตั้ง ถ้า object-cover จะถูกครอบหัวท้ายทิ้ง
-                    ตรงนี้เป็นรูปเดียวที่ผู้ซื้อใช้ตัดสิน "เล่มนี้ทำมาดีไหม" จึงโชว์เต็มหน้า */}
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 overflow-hidden aspect-[4/3] flex items-center justify-center p-3">
-                    {paper.coverUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={paper.coverUrl} alt={paper.title} className="max-w-full max-h-full object-contain rounded-lg shadow-[0_8px_24px_-12px_rgba(15,23,42,0.4)]" />
-                    ) : (
-                        <FileText size={64} className="text-slate-300 dark:text-slate-600" />
-                    )}
+            <div className="khps-wrap">
+                <Link
+                    href="/exam-papers"
+                    className="inline-flex items-center gap-2 text-[13px] font-medium khps-muted hover:underline"
+                >
+                    <ArrowLeft size={15} /> กลับไปคลังข้อสอบ
+                </Link>
+            </div>
+
+            {/* 1 — พาดหัว + คำอธิบายชุด */}
+            <header className="khps-wrap mt-10 md:mt-14">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    {paper.level && <span className="khps-eyebrow">{paper.level}</span>}
+                    {paper.level && paper.category && <span className="khps-eyebrow" aria-hidden>·</span>}
+                    {paper.category && <span className="khps-eyebrow">{paper.category}</span>}
+                    {paper.badge && !paper.comingSoon && <span className="khps-pill">{paper.badge}</span>}
                 </div>
+                <h1 className="khps-h1 mt-5" style={{ maxWidth: "18ch" }}>{paper.title}</h1>
+                {paper.description && (
+                    <p className="khps-lead mt-8" style={{ maxWidth: "62ch" }}>{paper.description}</p>
+                )}
+            </header>
 
-                {/* info */}
-                <div>
-                    <div className="flex flex-wrap items-center gap-2 mb-3">
-                        {paper.level && <span className="rounded-full bg-teal-50 dark:bg-teal-950 px-2.5 py-1 text-xs font-bold text-teal-700 dark:text-teal-300">{paper.level}</span>}
-                        {paper.category && <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-bold text-slate-600 dark:text-slate-300">{paper.category}</span>}
-                        {paper.badge && !paper.comingSoon && (
-                            <span className="rounded-full bg-rose-500 px-2.5 py-1 text-xs font-bold text-white">{paper.badge}</span>
-                        )}
+            {/* 2 — แถบเครดิตครูฮีม (ความน่าเชื่อถือมาก่อนราคา) */}
+            <div className="khps-wrap khps-sec">
+                <StudioTrustStrip reviewCount={reviewCount} avgRating={avgRating} />
+            </div>
+
+            {/* 3 — ปก + ราคา + ปุ่มซื้อ + ตารางสเปก */}
+            <div className="khps-wrap khps-sec">
+                <div
+                    className="grid gap-10 lg:gap-16 items-start"
+                    style={{ gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))" }}
+                >
+                    <div className="khps-card p-6 md:p-8">
+                        <div className="khps-slot khps-cover">
+                            {paper.coverUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={paper.coverUrl} alt={paper.title} />
+                            ) : (
+                                <FileText size={56} style={{ color: "var(--kp-ink-4)", opacity: 0.35 }} />
+                            )}
+                        </div>
+                        <p className="text-[12px] text-center mt-5 khps-muted">ปกชุดข้อสอบ — ไฟล์จริงขนาด A4 พิมพ์ได้</p>
                     </div>
-                    <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight">{paper.title}</h1>
-                    {paper.description && <p className="text-slate-600 dark:text-slate-300 mt-3 leading-relaxed">{paper.description}</p>}
 
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mt-6">
-                        <span className="text-3xl font-black text-teal-600 dark:text-teal-400">฿{price.toLocaleString()}</span>
-                        {hasDiscount && (
-                            <>
-                                <span className="text-lg font-bold text-slate-400 line-through">฿{fullPrice.toLocaleString()}</span>
-                                <span className="rounded-full bg-rose-50 dark:bg-rose-950 px-2 py-0.5 text-xs font-bold text-rose-600 dark:text-rose-300">
-                                    ประหยัด ฿{(fullPrice - price).toLocaleString()}
-                                </span>
-                            </>
-                        )}
-                        {paper.questionCount ? <span className="text-sm text-slate-400">· {paper.questionCount} ข้อ</span> : null}
-                        {paper.pageCount ? <span className="text-sm text-slate-400">· {paper.pageCount} หน้า</span> : null}
-                    </div>
-
-                    {dupNotice && (
-                        <div className="mt-5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3.5">
-                            <p className="text-[13px] text-amber-800 dark:text-amber-200 leading-relaxed">
-                                <span className="font-bold">บัญชีนี้เคยสั่งซื้อชุดนี้ไว้แล้วครับ</span> จึงไม่ได้สร้างรายการใหม่ให้
-                                — ไปดาวน์โหลดได้ที่หน้า “คอร์สเรียนของฉัน” ได้เลย
-                                <br />ถ้าเพิ่งโอนเงินซ้ำ ทักไลน์ครูฮีมได้เลยครับ เดี๋ยวคืนให้
-                            </p>
-                            <div className="flex flex-wrap gap-2 mt-3">
-                                <Link href="/my-courses" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[13px] font-bold px-3.5 py-2 transition">
-                                    <Download size={15} /> ไปหน้าดาวน์โหลด
-                                </Link>
-                                <a href="https://line.me/ti/p/~kruheemschool" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200 text-[13px] font-bold px-3.5 py-2 transition hover:bg-amber-100 dark:hover:bg-slate-700">
-                                    ทัก LINE ครูฮีม
-                                </a>
+                    {/* บล็อกราคา — ไม่ใส่กรอบ ปล่อยลอยบนพื้นหน้า */}
+                    <div className="min-w-0">
+                        {dupNotice && (
+                            <div className="khps-card-sm p-5 mb-8">
+                                <p className="text-[13.5px] font-light leading-relaxed" style={{ color: "var(--kp-ink-2)" }}>
+                                    <span className="font-semibold" style={{ color: "var(--kp-ink)" }}>บัญชีนี้เคยสั่งซื้อชุดนี้ไว้แล้วครับ</span> จึงไม่ได้สร้างรายการใหม่ให้
+                                    — ไปดาวน์โหลดได้ที่หน้า “คอร์สเรียนของฉัน” ได้เลย
+                                    <br />ถ้าเพิ่งโอนเงินซ้ำ ทักไลน์ครูฮีมได้เลยครับ เดี๋ยวคืนให้
+                                </p>
+                                <div className="flex flex-wrap gap-2.5 mt-4">
+                                    <Link href="/my-courses" className="khps-btn khps-btn-sm khps-btn-accent">
+                                        <Download size={15} /> ไปหน้าดาวน์โหลด
+                                    </Link>
+                                    <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="khps-btn khps-btn-sm khps-btn-quiet">
+                                        ทัก LINE ครูฮีม
+                                    </a>
+                                </div>
                             </div>
-                        </div>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-3 mt-6">
-                        {paper.comingSoon ? (
-                            // ชุดที่ยังทำไม่เสร็จ: ไม่มีไฟล์ให้ส่งมอบ จึงต้องไม่มีปุ่มรับเงิน
-                            <a
-                                href={LINE_URL}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold px-6 py-3 transition hover:opacity-90"
-                            >
-                                <Clock size={19} /> ยังไม่เปิดขาย — ทักไลน์จองก่อนได้
-                            </a>
-                        ) : ownStatus === "approved" ? (
-                            <Link href="/my-courses" className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 transition shadow-sm">
-                                <Download size={19} /> ซื้อแล้ว — ไปหน้าดาวน์โหลด
-                            </Link>
-                        ) : ownStatus === "pending" ? (
-                            <button disabled className="inline-flex items-center gap-2 rounded-xl bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 font-bold px-6 py-3 cursor-not-allowed">
-                                <Clock size={19} /> ส่งสลิปแล้ว รอครูตรวจ
-                            </button>
-                        ) : (
-                            <button onClick={openCheckout} className="inline-flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold px-6 py-3 transition shadow-sm">
-                                <ShoppingCart size={19} /> ซื้อและดาวน์โหลด
-                            </button>
                         )}
-                        {paper.previewUrl && (isInApp ? (
-                            <button onClick={openPreview} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold px-5 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800">
-                                <Eye size={18} /> ดูตัวอย่างฟรี
-                            </button>
-                        ) : (
-                            <a href={paper.previewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-semibold px-5 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800">
-                                <Eye size={18} /> ดูตัวอย่างฟรี
-                            </a>
-                        ))}
-                    </div>
-                    {ownStatus === "pending" && (
-                        <p className="mt-2.5 text-xs text-slate-500 dark:text-slate-400">
-                            ครูฮีมกำลังตรวจสลิปให้อยู่ครับ — <Link href="/my-courses" className="font-semibold text-teal-600 dark:text-teal-400 underline">ดูสถานะได้ที่หน้าคอร์สเรียนของฉัน</Link>
-                        </p>
-                    )}
-                    {isInApp && previewHint && (
-                        <p className="mt-2.5 text-xs text-slate-500 dark:text-slate-400">
-                            ถ้าไฟล์ตัวอย่างไม่เด้งขึ้นมา ลองกดเมนู ⋯ มุมขวาบน แล้วเลือก “เปิดในเบราว์เซอร์” นะครับ
-                        </p>
-                    )}
 
-                    {/* ในแพ็กนี้ได้อะไรบ้าง — รายชื่อไฟล์จากฝั่งเซิร์ฟเวอร์ (เฉพาะ label ไม่มี path) */}
-                    <div className="mt-6 rounded-xl border border-teal-100 dark:border-teal-900/60 bg-teal-50/70 dark:bg-teal-950/30 p-4">
-                        <div className="text-sm font-bold text-teal-800 dark:text-teal-200 mb-1">📦 ในชุดนี้ได้รับ</div>
-                        <div className="text-sm text-teal-900/80 dark:text-teal-100/80 leading-relaxed">
-                            {fileLabels.length > 0 ? fileLabels.join(" · ") : "ตัวข้อสอบ · เฉลย"}
-                            <span className="text-teal-700/70 dark:text-teal-300/70"> (ไฟล์ PDF ดาวน์โหลดเก็บได้ตลอด)</span>
+                        <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+                            <span className="khps-price">฿{price.toLocaleString()}</span>
+                            {hasDiscount && (
+                                <>
+                                    <span className="text-[19px] font-light line-through khps-muted">฿{fullPrice.toLocaleString()}</span>
+                                    <span className="khps-pill">ประหยัด ฿{(fullPrice - price).toLocaleString()}</span>
+                                </>
+                            )}
                         </div>
-                    </div>
+                        <p className="mt-4 text-[14px] font-light khps-muted">จ่ายครั้งเดียว ดาวน์โหลดซ้ำได้ตลอดชีพ</p>
 
-                    <div className="mt-7 space-y-2.5 text-sm text-slate-600 dark:text-slate-300">
-                        <div className="flex items-center gap-2"><ShieldCheck size={16} className="text-teal-500 shrink-0" /> ไฟล์ PDF พร้อมเฉลยละเอียด</div>
-                        <div className="flex items-center gap-2"><Download size={16} className="text-teal-500 shrink-0" /> ซื้อครั้งเดียว โหลดซ้ำได้ตลอดที่หน้า “ข้อสอบของฉัน”</div>
-                        <div className="flex items-center gap-2"><Check size={16} className="text-teal-500 shrink-0" /> โอนเงินแล้วแนบสลิป ครูฮีมตรวจและอนุมัติให้</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* เปิดดูข้างในเล่ม — หลักฐานชิ้นที่แรงที่สุด วางไว้ก่อนอย่างอื่นเสมอ */}
-            <SamplePages samples={paper.samplePages} />
-
-            {/* วิเคราะห์แนวข้อสอบ — the sales section (shows only if data is filled in) */}
-            <ExamAnalysisSection analysis={paper.analysis} />
-
-            {/* บทวิเคราะห์ฉบับเต็ม — long-form Markdown write-up (optional) */}
-            <ExamAnalysisArticle article={paper.analysis?.article} />
-
-            {/* ซื้อจากใคร */}
-            <div className="mt-14">
-                <KruheemTrustStrip reviewCount={reviewCount} avgRating={avgRating} />
-            </div>
-
-            {/* เสียงผู้เรียนจริง */}
-            <PaperReviews reviews={reviews} reviewCount={reviewCount} avgRating={avgRating} />
-
-            {/* ชุดอื่นที่น่าสนใจ — cross-sell */}
-            <RelatedPapers items={related} />
-
-            {/* คำถามที่พบบ่อย */}
-            <div className="mt-14 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-6 md:p-8">
-                <h2 className="text-lg font-black text-slate-900 dark:text-white mb-5">คำถามที่คุณพ่อคุณแม่ถามบ่อย</h2>
-                <div className="space-y-5 text-sm leading-relaxed">
-                    <div>
-                        <div className="font-bold text-slate-800 dark:text-slate-100">ซื้อแล้วได้ไฟล์เมื่อไร?</div>
-                        <p className="text-slate-600 dark:text-slate-300 mt-1">หลังครูฮีมตรวจสลิปและอนุมัติ ปกติไม่เกินไม่กี่ชั่วโมง ไฟล์จะไปรออยู่ที่หน้า “คอร์สเรียนของฉัน” ให้ดาวน์โหลดได้เลยครับ</p>
-                    </div>
-                    <div>
-                        <div className="font-bold text-slate-800 dark:text-slate-100">ดาวน์โหลดซ้ำได้ไหม?</div>
-                        <p className="text-slate-600 dark:text-slate-300 mt-1">ได้ตลอดชีพครับ ซื้อครั้งเดียว กลับมาโหลดใหม่เมื่อไรก็ได้</p>
-                    </div>
-                    <div>
-                        <div className="font-bold text-slate-800 dark:text-slate-100">พิมพ์ออกมาให้ลูกทำได้ไหม?</div>
-                        <p className="text-slate-600 dark:text-slate-300 mt-1">ได้เลยครับ ไฟล์ทำไว้สำหรับปริ้นท์ให้ลูกฝึกทำบนกระดาษจริงเหมือนสอบจริง</p>
-                    </div>
-                    <div>
-                        <div className="font-bold text-slate-800 dark:text-slate-100">ติดปัญหาติดต่อที่ไหน?</div>
-                        <p className="text-slate-600 dark:text-slate-300 mt-1">
-                            ทัก <a href="https://line.me/ti/p/~kruheemschool" target="_blank" rel="noopener noreferrer" className="font-semibold text-teal-600 dark:text-teal-400 underline">LINE ครูฮีม</a> ได้เลยครับ ครูตอบเองทุกข้อความ
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* checkout modal */}
-            {checkoutOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)" }} onClick={() => !submitting && !formDirty && setCheckoutOpen(false)}>
-                    <div role="dialog" aria-modal="true" aria-labelledby="checkout-title" className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 id="checkout-title" className="text-lg font-black text-slate-900 dark:text-white">สั่งซื้อข้อสอบ</h2>
-                            <button onClick={() => !submitting && setCheckoutOpen(false)} aria-label="ปิด" className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><X size={20} /></button>
+                        <div className="mt-8 flex flex-col gap-3">
+                            {buyCta()}
+                            {previewButton}
                         </div>
 
-                        <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 mb-4 flex items-center justify-between">
-                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 line-clamp-1 pr-2">{paper.title}</span>
-                            <span className="flex items-baseline gap-1.5 shrink-0">
-                                {hasDiscount && <span className="text-xs text-slate-400 line-through">฿{fullPrice.toLocaleString()}</span>}
-                                <span className="font-black text-teal-600 dark:text-teal-400">฿{price.toLocaleString()}</span>
+                        {ownStatus === "pending" && (
+                            <p className="mt-4 text-[13px] font-light khps-muted">
+                                ครูฮีมกำลังตรวจสลิปให้อยู่ครับ —{" "}
+                                <Link href="/my-courses" className="font-medium underline" style={{ color: "var(--kp-accent)" }}>
+                                    ดูสถานะได้ที่หน้าคอร์สเรียนของฉัน
+                                </Link>
+                            </p>
+                        )}
+                        {isInApp && previewHint && (
+                            <p className="mt-4 text-[13px] font-light khps-muted">
+                                ถ้าไฟล์ตัวอย่างไม่เด้งขึ้นมา ลองกดเมนู ⋯ มุมขวาบน แล้วเลือก “เปิดในเบราว์เซอร์” นะครับ
+                            </p>
+                        )}
+
+                        <dl className="khps-spec mt-9">
+                            {specs.map((s) => (
+                                <Fragment key={s.k}>
+                                    <dt>{s.k}</dt>
+                                    <dd>{s.v}</dd>
+                                </Fragment>
+                            ))}
+                        </dl>
+
+                        <div className="mt-7 flex flex-col gap-2.5 text-[13.5px] font-light" style={{ color: "var(--kp-ink-2)" }}>
+                            <span className="flex items-center gap-2.5">
+                                <ShieldCheck size={15} className="shrink-0" style={{ color: "var(--kp-accent)" }} /> ไฟล์ PDF พร้อมเฉลยละเอียด
+                            </span>
+                            <span className="flex items-center gap-2.5">
+                                <Check size={15} className="shrink-0" style={{ color: "var(--kp-accent)" }} /> โอนเงินแล้วแนบสลิป ครูฮีมตรวจและอนุมัติให้
                             </span>
                         </div>
+                    </div>
+                </div>
+            </div>
 
-                        {/* transfer details — same block as the main checkout */}
-                        <div className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">1. สแกน QR หรือโอนเข้าบัญชี</div>
-                        <div className="mb-4"><PaymentTransferInfo compact /></div>
-                        <div className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">2. กรอกข้อมูล แล้วแนบสลิป</div>
+            {/* ตั้งแต่ตรงนี้ลงไปคือช่วงที่แถบราคาลอยทำงาน — .khps-dock เป็นลูกคนสุดท้าย
+                ของกล่องนี้ จึงปักที่ก้นจอเฉพาะตอนที่เลื่อนพ้นบล็อกราคาไปแล้ว (CSS ล้วน) */}
+            <div className="khps-dockwrap">
+                <div className="khps-wrap">
+                    {/* 4 — เปิดดูข้างในเล่ม (หลักฐานชิ้นที่แรงที่สุด) */}
+                    <SamplePages samples={paper.samplePages} />
 
-                        <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-3">
-                            {authLoading ? (
-                                // ระหว่างกู้เซสชันยังไม่รู้ว่าเป็นสมาชิกเดิมหรือคนใหม่ —
-                                // ห้ามเดา ไม่งั้นสมาชิกเดิมจะเห็นช่องสมัครวูบขึ้นมา
-                                <p className="flex items-center gap-2 text-[12.5px] text-slate-400 dark:text-slate-500 -mt-1">
-                                    <Loader2 size={14} className="animate-spin" /> กำลังตรวจสอบบัญชี...
-                                </p>
-                            ) : user ? (
-                                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-xl bg-slate-50 dark:bg-slate-800/70 px-3 py-2 -mt-1">
-                                    <p className="text-[12.5px] text-slate-600 dark:text-slate-300">
-                                        สั่งซื้อในบัญชี <span className="font-bold text-slate-800 dark:text-white">{user.email}</span>
-                                    </p>
-                                    {/* มือถือเครื่องเดียวใช้กันทั้งบ้าน — ต้องเปลี่ยนบัญชีได้จากตรงนี้ */}
-                                    <button type="button" onClick={() => logOut()} className="text-[12px] font-semibold text-teal-600 dark:text-teal-400 underline hover:no-underline">
-                                        ไม่ใช่บัญชีคุณ? ใช้บัญชีอื่น
-                                    </button>
+                    {/* 5 — วิเคราะห์แนวข้อสอบ (ขึ้นเฉพาะชุดที่กรอกข้อมูลไว้) */}
+                    <ExamAnalysisSection analysis={paper.analysis} />
+                    <ExamAnalysisArticle article={paper.analysis?.article} />
+
+                    {/* 6 — เสียงจากผู้เรียน */}
+                    <StudioReviews reviews={reviews} reviewCount={reviewCount} avgRating={avgRating} />
+
+                    {/* 7 — คำถามที่ถามบ่อย */}
+                    <Faq />
+
+                    {/* 8 — ชุดอื่นในคลัง */}
+                    <RelatedPapers items={related} />
+                </div>
+
+                <div className="khps-dock">
+                    <div className="khps-dock-inner">
+                        <div className="min-w-0 flex-1">
+                            <div className="text-[13px] font-medium truncate">{paper.title}</div>
+                            <div className="text-[12px] khps-muted">
+                                ฿{price.toLocaleString()}
+                                {hasDiscount && <span className="line-through ml-1.5">฿{fullPrice.toLocaleString()}</span>}
+                            </div>
+                        </div>
+                        {buyCta(true)}
+                    </div>
+                </div>
+            </div>
+
+            {/* ฟอร์มสั่งซื้อ */}
+            {checkoutOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                    style={{ background: "rgba(23,24,26,0.5)", backdropFilter: "blur(6px)" }}
+                    onClick={() => !submitting && !formDirty && setCheckoutOpen(false)}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="checkout-title"
+                        className="khps-modal max-h-[92vh] overflow-y-auto p-6 md:p-8"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-start justify-between gap-4 mb-6">
+                            <div className="min-w-0">
+                                <h2 id="checkout-title" className="text-[26px] font-extralight leading-tight" style={{ letterSpacing: "-0.02em" }}>
+                                    สั่งซื้อชุดข้อสอบ
+                                </h2>
+                                <p className="text-[13px] mt-1.5 khps-muted truncate">{paper.title}</p>
+                            </div>
+                            <button
+                                onClick={() => !submitting && setCheckoutOpen(false)}
+                                aria-label="ปิด"
+                                className="khps-muted hover:opacity-70 shrink-0 mt-1"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div
+                            className="grid gap-5 items-start"
+                            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}
+                        >
+                            {/* ขั้นที่ 1 — โอนเงิน */}
+                            <div className="khps-card-sm p-6">
+                                <div className="flex items-center gap-2.5">
+                                    <span className="khps-step">1</span>
+                                    <span className="text-[15px] font-medium">โอนเงิน</span>
                                 </div>
-                            ) : (
-                                <div className="rounded-xl bg-teal-50/70 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900 p-3 space-y-2.5">
-                                    <p className="flex items-start gap-1.5 text-[12.5px] text-teal-800 dark:text-teal-200 leading-relaxed">
-                                        <UserPlus size={15} className="shrink-0 mt-0.5" />
-                                        <span>ตั้งอีเมลกับรหัสผ่านไว้ด้วยนะครับ ระบบจะเก็บไฟล์ไว้ในบัญชีนี้ให้ กลับมาโหลดซ้ำได้ตลอด <strong>ถ้ามีบัญชีอยู่แล้วกรอกอีเมลกับรหัสเดิมได้เลย</strong></span>
-                                    </p>
-                                    <input
-                                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500"
-                                        placeholder="อีเมล *"
-                                        aria-label="อีเมลสำหรับเก็บไฟล์ข้อสอบ"
-                                        type="email"
-                                        inputMode="email"
-                                        autoComplete="email"
-                                        value={email}
-                                        onChange={(e) => { setEmail(e.target.value); setAuthNotice(""); setNeedsResetLink(false); }}
-                                        onBlur={checkEmailOnBlur}
-                                    />
-                                    <div className="relative">
-                                        <input
-                                            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 pr-11 text-slate-900 dark:text-white outline-none focus:border-teal-500"
-                                            placeholder="รหัสผ่าน (บัญชีใหม่ตั้งอย่างน้อย 6 ตัว) *"
-                                            aria-label="รหัสผ่านของบัญชี"
-                                            type={showPassword ? "text" : "password"}
-                                            // current-password เพื่อให้ตัวจำรหัสผ่านของเครื่องเติมรหัสเดิมให้ลูกค้าเก่าได้
-                                            // (ช่องนี้ใช้ทั้งสมัครใหม่และเข้าสู่ระบบ) — new-password จะบล็อกการเติม
-                                            autoComplete="current-password"
-                                            value={password}
-                                            onChange={(e) => { setPassword(e.target.value); setAuthNotice(""); setNeedsResetLink(false); }}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword((v) => !v)}
-                                            aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "ดูรหัสผ่าน"}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+
+                                <div className="mt-6 text-[12px] khps-muted">ยอดที่ต้องโอน</div>
+                                <div
+                                    className="tabular-nums"
+                                    style={{ fontSize: 42, fontWeight: 200, letterSpacing: "-0.03em", lineHeight: 1.1 }}
+                                >
+                                    ฿{price.toLocaleString()}
+                                </div>
+
+                                <TransferBlock />
+
+                                <dl className="khps-spec mt-6">
+                                    <dt>สิ่งที่ได้รับ</dt>
+                                    <dd>{fileLabels.length > 0 ? fileLabels.join(" · ") : "ตัวข้อสอบ · เฉลย"}</dd>
+                                    <dt>สิทธิ์ดาวน์โหลด</dt>
+                                    <dd>ตลอดชีพ</dd>
+                                    <dt>อนุมัติโดย</dt>
+                                    <dd>ครูฮีม (ตรวจสลิปเอง)</dd>
+                                </dl>
+
+                                <p className="mt-5 text-[12.5px] font-light khps-muted leading-relaxed">
+                                    โอนแล้วติดปัญหา ทัก{" "}
+                                    <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="font-medium underline" style={{ color: "var(--kp-accent)" }}>
+                                        LINE ครูฮีม
+                                    </a>{" "}
+                                    ได้เลยครับ ครูตอบเองทุกข้อความ
+                                </p>
+                            </div>
+
+                            {/* ขั้นที่ 2 — กรอกข้อมูล */}
+                            <div className="khps-card-sm p-6">
+                                <div className="flex items-center gap-2.5 mb-5">
+                                    <span className="khps-step">2</span>
+                                    <span className="text-[15px] font-medium">กรอกข้อมูล แล้วแนบสลิป</span>
+                                </div>
+
+                                <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-3">
+                                    {authLoading ? (
+                                        // ระหว่างกู้เซสชันยังไม่รู้ว่าเป็นสมาชิกเดิมหรือคนใหม่ —
+                                        // ห้ามเดา ไม่งั้นสมาชิกเดิมจะเห็นช่องสมัครวูบขึ้นมา
+                                        <p className="flex items-center gap-2 text-[12.5px] khps-muted">
+                                            <Loader2 size={14} className="animate-spin" /> กำลังตรวจสอบบัญชี...
+                                        </p>
+                                    ) : user ? (
+                                        <div
+                                            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl px-4 py-3"
+                                            style={{ background: "var(--kp-bg)" }}
                                         >
-                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                        </button>
-                                    </div>
-                                    {authNotice && (
-                                        <div aria-live="polite" className="text-[12.5px] text-amber-700 dark:text-amber-300 leading-relaxed">
-                                            {authNotice}
-                                            {needsResetLink && (
-                                                <button type="button" onClick={sendReset} className="ml-1.5 font-semibold underline hover:no-underline">ส่งลิงก์ตั้งรหัสใหม่</button>
+                                            <p className="text-[12.5px] font-light" style={{ color: "var(--kp-ink-2)" }}>
+                                                สั่งซื้อในบัญชี <span className="font-semibold" style={{ color: "var(--kp-ink)" }}>{user.email}</span>
+                                            </p>
+                                            {/* มือถือเครื่องเดียวใช้กันทั้งบ้าน — ต้องเปลี่ยนบัญชีได้จากตรงนี้ */}
+                                            <button type="button" onClick={() => logOut()} className="text-[12px] font-medium underline" style={{ color: "var(--kp-accent)" }}>
+                                                ไม่ใช่บัญชีคุณ? ใช้บัญชีอื่น
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-xl p-4 space-y-2.5" style={{ background: "var(--kp-accent-soft)" }}>
+                                            <p className="flex items-start gap-2 text-[12.5px] font-light leading-relaxed" style={{ color: "var(--kp-accent)" }}>
+                                                <UserPlus size={15} className="shrink-0 mt-0.5" />
+                                                <span>ตั้งอีเมลกับรหัสผ่านไว้ด้วยนะครับ ระบบจะเก็บไฟล์ไว้ในบัญชีนี้ให้ กลับมาโหลดซ้ำได้ตลอด <strong className="font-semibold">ถ้ามีบัญชีอยู่แล้วกรอกอีเมลกับรหัสเดิมได้เลย</strong></span>
+                                            </p>
+                                            <input
+                                                className="khps-input"
+                                                style={{ background: "#FFFFFF" }}
+                                                placeholder="อีเมล *"
+                                                aria-label="อีเมลสำหรับเก็บไฟล์ข้อสอบ"
+                                                type="email"
+                                                inputMode="email"
+                                                autoComplete="email"
+                                                value={email}
+                                                onChange={(e) => { setEmail(e.target.value); setAuthNotice(""); setNeedsResetLink(false); }}
+                                                onBlur={checkEmailOnBlur}
+                                            />
+                                            <div className="relative">
+                                                <input
+                                                    className="khps-input pr-12"
+                                                    style={{ background: "#FFFFFF" }}
+                                                    placeholder="รหัสผ่าน (บัญชีใหม่ตั้งอย่างน้อย 6 ตัว) *"
+                                                    aria-label="รหัสผ่านของบัญชี"
+                                                    type={showPassword ? "text" : "password"}
+                                                    // current-password เพื่อให้ตัวจำรหัสผ่านของเครื่องเติมรหัสเดิมให้ลูกค้าเก่าได้
+                                                    // (ช่องนี้ใช้ทั้งสมัครใหม่และเข้าสู่ระบบ) — new-password จะบล็อกการเติม
+                                                    autoComplete="current-password"
+                                                    value={password}
+                                                    onChange={(e) => { setPassword(e.target.value); setAuthNotice(""); setNeedsResetLink(false); }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword((v) => !v)}
+                                                    aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "ดูรหัสผ่าน"}
+                                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 khps-muted hover:opacity-70"
+                                                >
+                                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                                </button>
+                                            </div>
+                                            {authNotice && (
+                                                <div aria-live="polite" className="text-[12.5px] font-light leading-relaxed" style={{ color: "var(--kp-ink-3)" }}>
+                                                    {authNotice}
+                                                    {needsResetLink && (
+                                                        <button type="button" onClick={sendReset} className="ml-1.5 font-semibold underline" style={{ color: "var(--kp-accent)" }}>
+                                                            ส่งลิงก์ตั้งรหัสใหม่
+                                                        </button>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     )}
-                                </div>
-                            )}
-                            <input className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500" placeholder="ชื่อ-นามสกุล *" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-                            <input className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500" placeholder="เบอร์โทรศัพท์ *" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ""))} />
-                            <input className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-teal-500" placeholder="LINE ID (ถ้ามี)" value={lineId} onChange={(e) => setLineId(e.target.value)} />
 
-                            <label className="block cursor-pointer">
-                                <div className="rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 p-4 text-center hover:border-teal-500 transition">
-                                    {slipBusy ? (
-                                        <div className="text-slate-400 py-3">
-                                            <Loader2 size={26} className="mx-auto mb-1.5 animate-spin" />
-                                            <span className="text-sm font-semibold">กำลังเตรียมรูปสลิป...</span>
-                                        </div>
-                                    ) : slipPreview ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={slipPreview} alt="สลิป" className="max-h-40 mx-auto rounded-lg" />
-                                    ) : (
-                                        <div className="text-slate-400">
-                                            <UploadCloud size={26} className="mx-auto mb-1.5" />
-                                            <span className="text-sm font-semibold">แนบสลิปโอนเงิน *</span>
-                                        </div>
-                                    )}
-                                    {/* value reset → re-picking the SAME file after a rejection still fires onChange */}
-                                    <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ""; pickSlip(f); }} />
-                                </div>
-                            </label>
+                                    <input className="khps-input" placeholder="ชื่อ-นามสกุล *" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                                    <input className="khps-input" placeholder="เบอร์โทรศัพท์ *" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ""))} />
+                                    <input className="khps-input" placeholder="LINE ID (ถ้ามี)" value={lineId} onChange={(e) => setLineId(e.target.value)} />
 
-                            <button type="submit" disabled={submitting || slipBusy || authLoading} className="w-full !mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold px-5 py-3 transition">
-                                {submitting
-                                    ? <><Loader2 className="animate-spin" size={18} /> {progress > 0 ? `กำลังอัปโหลด ${progress}%` : "กำลังส่ง..."}</>
-                                    // ปุ่มต้องบอกเองว่าทำไมกดไม่ได้ — ข้อความ "กำลังตรวจสอบบัญชี"
-                                    // ด้านบนอยู่ไกลเกินกว่าจะเห็นตอนเลื่อนมาถึงปุ่มบนมือถือ
-                                    : authLoading
-                                        ? <><Loader2 className="animate-spin" size={18} /> กำลังตรวจสอบบัญชี...</>
-                                        : <><Check size={18} /> ยืนยันสั่งซื้อ</>}
-                            </button>
-                        </form>
+                                    <label className="block cursor-pointer">
+                                        <div className="khps-drop">
+                                            {slipBusy ? (
+                                                <div className="py-3 khps-muted">
+                                                    <Loader2 size={24} className="mx-auto mb-2 animate-spin" />
+                                                    <span className="text-[13.5px] font-medium">กำลังเตรียมรูปสลิป...</span>
+                                                </div>
+                                            ) : slipPreview ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={slipPreview} alt="สลิป" className="max-h-40 mx-auto rounded-lg" />
+                                            ) : (
+                                                <div className="khps-muted">
+                                                    <UploadCloud size={24} className="mx-auto mb-2" />
+                                                    <span className="text-[13.5px] font-medium">แนบสลิปโอนเงิน *</span>
+                                                </div>
+                                            )}
+                                            {/* value reset → re-picking the SAME file after a rejection still fires onChange */}
+                                            <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ""; pickSlip(f); }} />
+                                        </div>
+                                    </label>
+
+                                    <button type="submit" disabled={submitting || slipBusy || authLoading} className="khps-btn khps-btn-block khps-btn-primary !mt-5">
+                                        {submitting
+                                            ? <><Loader2 className="animate-spin" size={18} /> {progress > 0 ? `กำลังอัปโหลด ${progress}%` : "กำลังส่ง..."}</>
+                                            // ปุ่มต้องบอกเองว่าทำไมกดไม่ได้ — ข้อความ "กำลังตรวจสอบบัญชี"
+                                            // ด้านบนอยู่ไกลเกินกว่าจะเห็นตอนเลื่อนมาถึงปุ่มบนมือถือ
+                                            : authLoading
+                                                ? <><Loader2 className="animate-spin" size={18} /> กำลังตรวจสอบบัญชี...</>
+                                                : <><Check size={18} /> ยืนยันสั่งซื้อ</>}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -723,13 +833,129 @@ export default function PaperDetailClient({
     );
 }
 
-// การ์ดเล็ก "ชุดอื่นที่น่าสนใจ" — ใช้ทั้งท้ายหน้าขายและใต้หน้า "สั่งซื้อสำเร็จ"
+/**
+ * QR + เลขบัญชี ในธีม Studio
+ *
+ * ตัวเลขทั้งหมดมาจาก PAYMENT_INFO ที่เดียวกับหน้าแจ้งโอนหลัก (lib/constants)
+ * — แยกเป็นคอมโพเนนต์ของตัวเองเพราะหน้าตาต่างจาก PaymentTransferInfo คนละธีม
+ * ถ้าเลขบัญชีเปลี่ยน ให้แก้ที่ PAYMENT_INFO จุดเดียว ทุกหน้าจะตามมาเอง
+ */
+function TransferBlock() {
+    const [copied, setCopied] = useState<string | null>(null);
+
+    const copy = (v: string) => {
+        navigator.clipboard?.writeText(v).then(() => {
+            setCopied(v);
+            setTimeout(() => setCopied((c) => (c === v ? null : c)), 1500);
+        });
+    };
+
+    return (
+        <div className="mt-6 flex flex-col gap-4">
+            <div className="flex items-center gap-4">
+                <div className="w-[104px] h-[104px] rounded-xl bg-white p-2 shrink-0" style={{ boxShadow: "var(--kp-shadow-sm)" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={PAYMENT_INFO.qrImage} alt="QR พร้อมเพย์" className="w-full h-full object-contain" />
+                </div>
+                <div className="min-w-0">
+                    <div className="khps-eyebrow">พร้อมเพย์ · PromptPay</div>
+                    <div className="text-[14px] font-medium mt-1.5">{PAYMENT_INFO.accountName}</div>
+                    <div className="text-[12px] khps-muted mt-1">สแกนด้วยแอปธนาคารได้ทุกธนาคาร</div>
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+                {PAYMENT_INFO.accounts.map((acc) => (
+                    <div key={acc.value} className="rounded-xl px-4 py-3" style={{ background: "var(--kp-bg)" }}>
+                        <div className="text-[11.5px] khps-muted">{acc.label}</div>
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                            <span className="text-[16px] font-medium tabular-nums tracking-wide">{acc.value}</span>
+                            <button
+                                type="button"
+                                onClick={() => copy(acc.value)}
+                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-medium shrink-0"
+                                style={{ background: "var(--kp-accent-soft)", color: "var(--kp-accent)" }}
+                            >
+                                {copied === acc.value ? <><Check size={12} /> คัดลอกแล้ว</> : <><Copy size={12} /> คัดลอก</>}
+                            </button>
+                        </div>
+                        {acc.note && <div className="text-[11.5px] khps-muted mt-1">{acc.note}</div>}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// คำถามที่คุณพ่อคุณแม่ถามบ่อย
+function Faq() {
+    const items = [
+        {
+            q: "ซื้อแล้วได้ไฟล์เมื่อไร?",
+            a: "หลังครูฮีมตรวจสลิปและอนุมัติ ปกติไม่เกินไม่กี่ชั่วโมง ไฟล์จะไปรออยู่ที่หน้า “คอร์สเรียนของฉัน” ให้ดาวน์โหลดได้เลยครับ",
+        },
+        {
+            q: "ดาวน์โหลดซ้ำได้ไหม?",
+            a: "ได้ตลอดชีพครับ ซื้อครั้งเดียว กลับมาโหลดใหม่เมื่อไรก็ได้",
+        },
+        {
+            q: "พิมพ์ออกมาให้ลูกทำได้ไหม?",
+            a: "ได้เลยครับ ไฟล์ทำไว้สำหรับปริ้นท์ให้ลูกฝึกทำบนกระดาษจริงเหมือนสอบจริง",
+        },
+        {
+            q: "ติดปัญหาติดต่อที่ไหน?",
+            a: "",
+        },
+    ];
+
+    return (
+        <section className="khps-sec">
+            <div className="khps-eyebrow">คำถามที่ถามบ่อย</div>
+            <h2 className="khps-h2 mt-3.5" style={{ maxWidth: "26ch" }}>
+                คุณพ่อคุณแม่ถามครูฮีมมาแบบนี้
+            </h2>
+
+            <div
+                className="grid gap-5 mt-9"
+                style={{ gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))" }}
+            >
+                {items.map((it) => (
+                    <div key={it.q} className="khps-card-sm p-7">
+                        <div className="text-[16px] font-medium leading-snug">{it.q}</div>
+                        <p className="text-[14.5px] font-light leading-relaxed mt-3" style={{ color: "var(--kp-ink-3)" }}>
+                            {it.a || (
+                                <>
+                                    ทัก{" "}
+                                    <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="font-medium underline" style={{ color: "var(--kp-accent)" }}>
+                                        LINE ครูฮีม
+                                    </a>{" "}
+                                    ได้เลยครับ ครูตอบเองทุกข้อความ
+                                </>
+                            )}
+                        </p>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+}
+
+// การ์ดเล็ก "ชุดอื่นในคลัง" — ใช้ทั้งท้ายหน้าขายและใต้หน้า "สั่งซื้อสำเร็จ"
 function RelatedPapers({ items }: { items: ExamPaper[] }) {
     if (!items.length) return null;
     return (
-        <div className="mt-14">
-            <h2 className="text-lg font-black text-slate-900 dark:text-white mb-4">ชุดอื่นที่น่าสนใจ</h2>
-            <div className="grid gap-4 sm:grid-cols-3">
+        <section className="khps-sec">
+            <div className="khps-eyebrow">ชุดอื่นในคลัง</div>
+            <h2 className="khps-h2 mt-3.5" style={{ maxWidth: "24ch" }}>
+                ชุดที่คนซื้อชุดนี้มักดูต่อ
+            </h2>
+
+            {/* auto-fill (ไม่ใช่ auto-fit) — เหลือชุดเดียว/สองชุดก็ยังเป็นการ์ดขนาดปกติ
+                ไม่ยืดเต็มแถวจนปก A4 สูงท่วมหน้า */}
+            <div
+                className="grid gap-5 mt-9"
+                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))" }}
+            >
                 {items.map((p) => {
                     const pr = Number(p.price || 0);
                     const full = Number(p.fullPrice || 0);
@@ -737,31 +963,30 @@ function RelatedPapers({ items }: { items: ExamPaper[] }) {
                         <Link
                             key={p.id}
                             href={`/exam-papers/${p.id}`}
-                            className="group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden hover:shadow-[0_16px_40px_-24px_rgba(15,23,42,0.35)] hover:-translate-y-0.5 transition"
+                            className="khps-card-sm group overflow-hidden transition hover:-translate-y-0.5"
                         >
-                            <div className="aspect-[4/3] bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                            <div className="khps-slot khps-cover" style={{ borderRadius: 0 }}>
                                 {p.coverUrl ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={p.coverUrl} alt={p.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition" />
+                                    <img src={p.coverUrl} alt={p.title} loading="lazy" />
                                 ) : (
-                                    <FileText size={36} className="text-slate-300 dark:text-slate-600" />
+                                    <FileText size={34} style={{ color: "var(--kp-ink-4)", opacity: 0.35 }} />
                                 )}
                             </div>
-                            <div className="p-3.5">
-                                <div className="flex items-center gap-1.5 mb-1.5">
-                                    {p.level && <span className="rounded-full bg-teal-50 dark:bg-teal-950 px-2 py-0.5 text-[11px] font-bold text-teal-700 dark:text-teal-300">{p.level}</span>}
-                                    {p.category && <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-600 dark:text-slate-300">{p.category}</span>}
+                            <div className="p-5">
+                                <div className="khps-eyebrow">
+                                    {[p.level, p.category].filter(Boolean).join(" · ")}
                                 </div>
-                                <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug line-clamp-2">{p.title}</h3>
-                                <div className="flex items-baseline gap-1.5 mt-2">
-                                    <span className="font-black text-teal-600 dark:text-teal-400">฿{pr.toLocaleString()}</span>
-                                    {full > pr && <span className="text-xs text-slate-400 line-through">฿{full.toLocaleString()}</span>}
+                                <h3 className="text-[15px] font-medium leading-snug mt-2.5 line-clamp-2">{p.title}</h3>
+                                <div className="flex items-baseline gap-2 mt-3">
+                                    <span className="text-[17px] font-medium tabular-nums">฿{pr.toLocaleString()}</span>
+                                    {full > pr && <span className="text-[13px] khps-muted line-through">฿{full.toLocaleString()}</span>}
                                 </div>
                             </div>
                         </Link>
                     );
                 })}
             </div>
-        </div>
+        </section>
     );
 }

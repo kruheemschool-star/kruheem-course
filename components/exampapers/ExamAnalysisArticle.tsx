@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { BookOpenText, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 // Walk a hast node and collect its plain text — used to pick a callout tone
 // from the emoji the blockquote starts with.
@@ -18,12 +18,12 @@ const hastText = (n?: HastNode): string =>
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const omitNode = <T extends { node?: unknown }>({ node, ...rest }: T) => rest;
 
-// Blockquotes become branded callout cards, coloured by their leading emoji:
-// ⚠️/📌 warnings → amber, 💡/✨/🔑 insights → yellow, everything else → teal.
-const CALLOUT_TONES: Record<string, string> = {
-    warn: "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
-    idea: "border-yellow-200 bg-yellow-50 text-yellow-950 dark:border-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-100",
-    tip: "border-teal-200 bg-teal-50/70 text-teal-950 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-50",
+// ธีม Studio ใช้สีเน้นสีเดียวทั้งหน้า — กล่องคำเตือน/เคล็ดลับจึงแยกกันด้วย
+// น้ำหนักของพื้นและแถบข้าง ไม่ใช่ด้วยสีที่สอง (แดง/ส้ม/เหลืองไม่มีในจานสีนี้)
+const CALLOUT_TONES: Record<string, { bg: string; bar: string }> = {
+    warn: { bg: "var(--kp-slot)", bar: "var(--kp-ink)" },
+    idea: { bg: "var(--kp-slot)", bar: "var(--kp-ink-4)" },
+    tip: { bg: "var(--kp-accent-soft)", bar: "var(--kp-accent)" },
 };
 function calloutTone(text: string): string {
     const t = text.trim();
@@ -32,10 +32,9 @@ function calloutTone(text: string): string {
     return "tip";
 }
 
-// "บทวิเคราะห์ฉบับเต็ม" — the long-form write-up ครูฮีม uploads as Markdown in
-// the admin. Rendered as a styled article under the chapter-frequency chart.
-// Long articles start collapsed behind a fade + "อ่านฉบับเต็ม" button so the
-// sales page keeps its shape.
+// "บทวิเคราะห์ฉบับเต็ม" — บทความยาวที่ครูฮีมอัปโหลดเป็น Markdown ในหลังบ้าน
+// วางต่อจากกราฟความถี่รายบท บทความยาวเริ่มด้วยการพับไว้หลังม่านจาง +
+// ปุ่ม "อ่านฉบับเต็ม" เพื่อไม่ให้หน้าขายเสียรูป
 export default function ExamAnalysisArticle({ article }: { article?: string }) {
     const [open, setOpen] = useState(false);
     const text = (article || "").trim();
@@ -45,68 +44,74 @@ export default function ExamAnalysisArticle({ article }: { article?: string }) {
     const collapsed = collapsible && !open;
 
     return (
-        <section className="mt-12 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 md:p-10">
-            <div className="text-center mb-7">
-                <div className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-teal-600 dark:text-teal-400">
-                    <BookOpenText size={15} />
-                    บทวิเคราะห์จากครูฮีม
-                </div>
-            </div>
+        <section className="khps-sec">
+            <div className="khps-eyebrow">บทวิเคราะห์จากครูฮีม</div>
 
-            <div className={collapsed ? "relative max-h-[34rem] overflow-hidden" : undefined}>
-                <article className="max-w-3xl mx-auto text-slate-700 dark:text-slate-300 text-[15.5px] md:text-base leading-[1.9]">
-                    <ReactMarkdown
-                        remarkPlugins={[remarkMath]}
-                        rehypePlugins={[rehypeKatex]}
-                        components={{
-                            h1: (p) => <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white text-center leading-tight mb-4" {...omitNode(p)} />,
-                            h2: (p) => <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mt-10 mb-4 border-l-4 border-teal-500 pl-3 leading-snug" {...omitNode(p)} />,
-                            h3: (p) => <h4 className="text-lg font-bold text-slate-900 dark:text-white mt-8 mb-3" {...omitNode(p)} />,
-                            p: (p) => <p className="mb-4 last:mb-0" {...omitNode(p)} />,
-                            strong: (p) => <strong className="font-bold text-slate-900 dark:text-white" {...omitNode(p)} />,
-                            em: (p) => <em className="text-slate-500 dark:text-slate-400" {...omitNode(p)} />,
-                            ul: (p) => <ul className="list-disc pl-6 space-y-1.5 mb-4" {...omitNode(p)} />,
-                            ol: (p) => <ol className="list-decimal pl-6 space-y-1.5 mb-4" {...omitNode(p)} />,
-                            li: (p) => <li className="pl-1 [&>p]:mb-0" {...omitNode(p)} />,
-                            hr: (p) => <hr className="my-8 border-slate-200 dark:border-slate-700" {...omitNode(p)} />,
-                            a: (p) => <a className="text-teal-600 dark:text-teal-400 underline underline-offset-2" target="_blank" rel="noopener noreferrer" {...omitNode(p)} />,
-                            code: (p) => <code className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[0.9em]" {...omitNode(p)} />,
-                            blockquote: ({ node, children }) => {
-                                const tone = calloutTone(hastText(node as unknown as HastNode));
-                                return (
-                                    <div className={`my-5 rounded-2xl border px-5 py-4 [&>p]:mb-0 [&>p+p]:mt-2 ${CALLOUT_TONES[tone]}`}>
-                                        {children}
-                                    </div>
-                                );
-                            },
-                            table: (p) => (
-                                <div className="overflow-x-auto my-5 rounded-xl border border-slate-200 dark:border-slate-700">
-                                    <table className="w-full text-sm border-collapse" {...omitNode(p)} />
-                                </div>
-                            ),
-                            th: (p) => <th className="bg-teal-50 dark:bg-teal-950/50 text-teal-900 dark:text-teal-100 font-bold px-3 py-2 text-left border-b border-slate-200 dark:border-slate-700 whitespace-nowrap" {...omitNode(p)} />,
-                            td: (p) => <td className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 tabular-nums" {...omitNode(p)} />,
-                        }}
+            <div className="khps-card mt-6 p-7 md:p-12">
+                <div className={collapsed ? "relative max-h-[34rem] overflow-hidden" : undefined}>
+                    <article
+                        className="max-w-3xl mx-auto text-[16px] md:text-[16.5px] font-light leading-[1.95]"
+                        style={{ color: "var(--kp-ink-2)" }}
                     >
-                        {text}
-                    </ReactMarkdown>
-                </article>
-                {collapsed && (
-                    <div className="absolute bottom-0 inset-x-0 h-36 bg-gradient-to-t from-white dark:from-slate-900 to-transparent" />
+                        <ReactMarkdown
+                            remarkPlugins={[remarkMath]}
+                            rehypePlugins={[rehypeKatex]}
+                            components={{
+                                h1: (p) => <h2 className="khps-h2 text-center mb-6" style={{ color: "var(--kp-ink)" }} {...omitNode(p)} />,
+                                h2: (p) => <h3 className="text-[22px] md:text-[26px] font-normal mt-12 mb-4 leading-snug" style={{ color: "var(--kp-ink)", letterSpacing: "-0.015em" }} {...omitNode(p)} />,
+                                h3: (p) => <h4 className="text-[18px] font-medium mt-9 mb-3" style={{ color: "var(--kp-ink)" }} {...omitNode(p)} />,
+                                p: (p) => <p className="mb-5 last:mb-0" {...omitNode(p)} />,
+                                strong: (p) => <strong className="font-semibold" style={{ color: "var(--kp-ink)" }} {...omitNode(p)} />,
+                                em: (p) => <em className="khps-muted" {...omitNode(p)} />,
+                                ul: (p) => <ul className="list-disc pl-6 space-y-2 mb-5" {...omitNode(p)} />,
+                                ol: (p) => <ol className="list-decimal pl-6 space-y-2 mb-5" {...omitNode(p)} />,
+                                li: (p) => <li className="pl-1 [&>p]:mb-0" {...omitNode(p)} />,
+                                hr: (p) => <hr className="my-10" style={{ border: 0, borderTop: "1px solid var(--kp-line)" }} {...omitNode(p)} />,
+                                a: (p) => <a className="underline underline-offset-2" style={{ color: "var(--kp-accent)" }} target="_blank" rel="noopener noreferrer" {...omitNode(p)} />,
+                                code: (p) => <code className="rounded px-1.5 py-0.5 text-[0.9em]" style={{ background: "var(--kp-slot)" }} {...omitNode(p)} />,
+                                blockquote: ({ node, children }) => {
+                                    const tone = CALLOUT_TONES[calloutTone(hastText(node as unknown as HastNode))];
+                                    return (
+                                        <div
+                                            className="my-6 rounded-2xl px-6 py-5 [&>p]:mb-0 [&>p+p]:mt-2.5"
+                                            style={{ background: tone.bg, borderLeft: `2px solid ${tone.bar}` }}
+                                        >
+                                            {children}
+                                        </div>
+                                    );
+                                },
+                                table: (p) => (
+                                    <div className="overflow-x-auto my-6 rounded-xl" style={{ background: "var(--kp-slot)" }}>
+                                        <table className="w-full text-sm border-collapse" {...omitNode(p)} />
+                                    </div>
+                                ),
+                                th: (p) => <th className="font-semibold px-3.5 py-2.5 text-left whitespace-nowrap" style={{ color: "var(--kp-accent)", borderBottom: "1px solid var(--kp-line)" }} {...omitNode(p)} />,
+                                td: (p) => <td className="px-3.5 py-2.5 tabular-nums" style={{ borderBottom: "1px solid var(--kp-line)" }} {...omitNode(p)} />,
+                            }}
+                        >
+                            {text}
+                        </ReactMarkdown>
+                    </article>
+                    {collapsed && (
+                        <div
+                            className="absolute bottom-0 inset-x-0 h-36"
+                            style={{ background: "linear-gradient(to top, var(--kp-card), transparent)" }}
+                        />
+                    )}
+                </div>
+
+                {collapsible && (
+                    <div className="text-center mt-7">
+                        <button
+                            type="button"
+                            onClick={() => setOpen((o) => !o)}
+                            className="khps-btn khps-btn-sm khps-btn-quiet"
+                        >
+                            {open ? <>ย่อบทวิเคราะห์ <ChevronUp size={16} /></> : <>อ่านบทวิเคราะห์ฉบับเต็ม <ChevronDown size={16} /></>}
+                        </button>
+                    </div>
                 )}
             </div>
-
-            {collapsible && (
-                <div className="text-center mt-5">
-                    <button
-                        type="button"
-                        onClick={() => setOpen((o) => !o)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/50 px-5 py-2.5 text-sm font-bold text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900 transition"
-                    >
-                        {open ? <>ย่อบทวิเคราะห์ <ChevronUp size={16} /></> : <>อ่านบทวิเคราะห์ฉบับเต็ม <ChevronDown size={16} /></>}
-                    </button>
-                </div>
-            )}
         </section>
     );
 }

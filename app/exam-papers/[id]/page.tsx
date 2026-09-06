@@ -111,7 +111,9 @@ export default async function PaperDetailPage({ params }: { params: Promise<{ id
     const [related, trust] = await Promise.all([getRelatedPapers(data.paper), getPaperTrust(3)]);
 
     return (
-        <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans flex flex-col transition-colors">
+        // .khps = ธีม "Studio" ของหน้าขายชุดข้อสอบ PDF (โหมดสว่างอย่างเดียวตามสเปก)
+        // พื้นหลัง/ตัวอักษรมาจากตัวแปรใน globals.css ทั้งหมด จึงไม่ใส่ bg-*/dark:* ตรงนี้
+        <div className="khps min-h-screen flex flex-col">
             <Navbar />
             <div className="pt-24 flex-1">
                 <PaperDetailClient
