@@ -1,5 +1,7 @@
 import HomeClient from "./HomeClient";
+import ExamPapersHomeSection from "@/components/home/ExamPapersHomeSection";
 import { getActivePromotion } from "@/lib/promotion";
+import { listPublicExamPapers } from "@/lib/examPapers";
 import { getDocument } from "@/lib/firestoreRest";
 import { PUBLIC_SETTINGS_DOC, PUBLIC_SETTINGS_REVALIDATE, PUBLIC_SETTINGS_TAGS } from "@/lib/publicSettings";
 import type { CountdownConfig } from "@/components/home/ExamCountdownHero";
@@ -28,9 +30,18 @@ async function getHomeCountdown(): Promise<Partial<CountdownConfig> | null> {
 }
 
 export default async function HomePage() {
-  const [initialPromo, initialCountdown] = await Promise.all([
+  const [initialPromo, initialCountdown, papers] = await Promise.all([
     getActivePromotion(),
     getHomeCountdown(),
+    listPublicExamPapers(),
   ]);
-  return <HomeClient initialPromo={initialPromo} initialCountdown={initialCountdown} />;
+  return (
+    <HomeClient
+      initialPromo={initialPromo}
+      initialCountdown={initialCountdown}
+      // เรนเดอร์ฝั่งเซิร์ฟเวอร์แล้วส่งเป็น slot — HomeClient เป็น client component
+      // ถ้า import ตรงๆ การ์ดจะถูกลากเข้า client bundle ทั้งก้อน
+      examPapersSection={<ExamPapersHomeSection papers={papers} />}
+    />
+  );
 }

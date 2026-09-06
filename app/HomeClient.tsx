@@ -36,9 +36,12 @@ interface Course {
 }
 
 
-export default function HomeClient({ initialPromo, initialCountdown }: {
+export default function HomeClient({ initialPromo, initialCountdown, examPapersSection }: {
   initialPromo: PromotionData | null;
   initialCountdown?: Partial<CountdownConfig> | null;
+  // ส่งมาเป็น slot จาก server component เพื่อให้การ์ดร้าน PDF เรนเดอร์ฝั่งเซิร์ฟเวอร์
+  // (ไม่ต้องลากข้อมูลสินค้าเข้า client bundle)
+  examPapersSection?: React.ReactNode;
 }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -238,6 +241,9 @@ export default function HomeClient({ initialPromo, initialCountdown }: {
 
         {/* Content Cards Section - Slideshow */}
         <FeatureCarousel />
+
+        {/* ทางเข้าร้านเอกสาร/ข้อสอบ PDF — เดิมหน้าแรกไม่มีทางเข้าเลย */}
+        {examPapersSection}
 
         {/* Story Section */}
         <section className="py-16 px-6 relative z-10">
