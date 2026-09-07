@@ -5,6 +5,7 @@ import { listPublicExamPapers } from "@/lib/examPapers";
 import { getPaperTrust } from "@/lib/paperTrust";
 import { getExamCountdown } from "@/lib/examCountdown";
 import ExamPapersShop from "@/components/exampapers/ExamPapersShop";
+import BlobBackground from "@/components/BlobBackground";
 
 export const metadata: Metadata = {
     // layout ต่อท้าย "| KruHeem Course" ให้เองผ่าน title.template — ใส่ซ้ำที่นี่
@@ -25,8 +26,10 @@ export default async function ExamPapersPage() {
     const [papers, trust, countdown] = await Promise.all([listPublicExamPapers(), getPaperTrust(3), getExamCountdown()]);
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans flex flex-col transition-colors">
+            {/* สีฟุ้งลอยอยู่หลังลายจุด — เนื้อหาข้างล่างต้องมี z-10 ไม่งั้นโดนสีทับ */}
+            <BlobBackground />
             <Navbar />
-            <div className="pt-24 flex-1">
+            <div className="relative z-10 pt-24 flex-1">
                 <ExamPapersShop
                     papers={papers}
                     reviews={trust.reviews}

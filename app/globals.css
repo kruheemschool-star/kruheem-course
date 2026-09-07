@@ -2611,3 +2611,89 @@ mark.khb-mark {
     .khsl-backdrop, .khsl-panel, .khsl-img { transition-duration: .01ms !important; }
     .khsl-panel { transform: none !important; }
 }
+
+/* ============================================================
+   พื้นหลัง "สีฟุ้ง" ใช้ซ้ำได้ทุกหน้า — <BlobBackground /> ใน components/
+   วิธีทำ: วงกลมทึบ 3 วงเบลอหนักๆ วางบนแผ่นตรึงหน้าจอหลังเนื้อหา
+   พอเบลอขนาดนี้ขอบวงกลมหายไปเหลือแต่สีฟุ้ง (ยกจากแนวหน้า /reviews)
+
+   วางซ้อนบนพื้นหลังเดิมของหน้าได้เลย (เช่น .bg-dot-pattern) — แผ่นนี้ไม่มี
+   background ของตัวเอง ลายจุด/ลายเส้นเดิมจึงยังขึ้นมาเห็นผ่านสีฟุ้ง
+
+   ⚠️ เนื้อหาของหน้าต้องอยู่บนแผ่นนี้ ไม่งั้นสีจะทับตัวหนังสือ —
+   ครอบเนื้อหาด้วย `relative z-10` เสมอ (แผ่นนี้เป็น z-index: 0)
+   ============================================================ */
+.kh-blobs {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.kh-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    /* พื้นขาวสว่างกว่าพื้นครีมของ /reviews สีเลยอิ่มกว่าที่ความทึบเท่ากัน
+       ต้องหรี่ลงกว่าต้นแบบหน่อยถึงจะฟุ้งพอๆ กัน */
+    opacity: .34;
+    will-change: transform;
+}
+
+.dark .kh-blob { opacity: .2; }
+
+.kh-blob.b1 {
+    width: 460px;
+    height: 460px;
+    top: -140px;
+    right: -120px;
+    background: #FBBF24;
+    animation: kh-blob-drift 22s ease-in-out infinite;
+}
+
+.kh-blob.b2 {
+    width: 520px;
+    height: 520px;
+    bottom: -160px;
+    left: -160px;
+    background: #14B8A6;
+    animation: kh-blob-drift 26s ease-in-out infinite reverse;
+}
+
+/* วงชมพูอยู่กลางจอ ไม่มีการ์ดบังเหมือนหน้า /reviews จึงต้องจางเป็นพิเศษ
+   ไม่งั้นกลายเป็นก้อนชมพูทึบกลางหน้า */
+.kh-blob.b3 {
+    width: 340px;
+    height: 340px;
+    top: 30%;
+    left: 52%;
+    background: #F43F5E;
+    opacity: .2;
+    filter: blur(95px);
+    animation: kh-blob-drift 18s ease-in-out infinite;
+}
+
+.dark .kh-blob.b3 { opacity: .14; }
+
+/* จอมือถือแคบกว่าวงมาก ถ้าใช้ค่าเดียวกับจอคอมสีจะท่วมทั้งหน้า —
+   ย่อวงลงและหรี่ลงอีก (ช่วยเรื่องความลื่นด้วย blur ใหญ่ๆ หนักการ์ดจอมือถือ) */
+@media (max-width: 640px) {
+    .kh-blob { opacity: .2; filter: blur(60px); }
+    .kh-blob.b1 { width: 300px; height: 300px; top: -110px; right: -90px; }
+    .kh-blob.b2 { width: 320px; height: 320px; bottom: -120px; left: -110px; }
+    .kh-blob.b3 { width: 240px; height: 240px; opacity: .12; filter: blur(70px); }
+    .dark .kh-blob { opacity: .16; }
+    .dark .kh-blob.b3 { opacity: .1; }
+}
+
+/* ขยับช้าๆ คนละจังหวะ รอบละ 18-26 วิ เลยดูเหมือนสีไหลไม่ซ้ำรอบ */
+@keyframes kh-blob-drift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(28px, -22px) scale(1.08); }
+    66%      { transform: translate(-22px, 18px) scale(0.94); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kh-blob { animation: none !important; }
+}
