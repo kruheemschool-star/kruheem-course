@@ -26,10 +26,12 @@ export default async function ExamPapersPage() {
     const [papers, trust, countdown] = await Promise.all([listPublicExamPapers(), getPaperTrust(3), getExamCountdown()]);
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans flex flex-col transition-colors">
-            {/* สีฟุ้งลอยอยู่หลังลายจุด — เนื้อหาข้างล่างต้องมี z-10 ไม่งั้นโดนสีทับ */}
+            {/* สีฟุ้งลอยอยู่หลังลายจุด — เนื้อหาต้องเป็น relative ถึงจะอยู่เหนือแผ่นสี
+                (ห้ามใส่ z-index ตรงนี้ ไม่งั้นกลายเป็น stacking context ใหม่ แล้วป๊อปอัป
+                ข้างในจะมุดไปอยู่ใต้แถบเมนู z-50) */}
             <BlobBackground />
             <Navbar />
-            <div className="relative z-10 pt-24 flex-1">
+            <div className="relative pt-24 flex-1">
                 <ExamPapersShop
                     papers={papers}
                     reviews={trust.reviews}
