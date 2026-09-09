@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, getDoc, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, serverTimestamp, onSnapshot, deleteField } from "firebase/firestore";
+import { collection, getDocs, getDoc, query, orderBy, doc, updateDoc, deleteDoc, where, setDoc, addDoc, limit, serverTimestamp, onSnapshot, deleteField } from "firebase/firestore";
 import Link from "next/link";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { useUserAuth } from "@/context/AuthContext";
@@ -180,12 +180,22 @@ export default function AdminEnrollmentsPage() {
     const [courseOptions, setCourseOptions] = useState<CourseLite[]>([]);
     const [coursesLoading, setCoursesLoading] = useState(false);
     const [courseSearch, setCourseSearch] = useState("");
-    const [pickedCourseId, setPickedCourseId] = useState<string>("");
+    // ติ๊กได้หลายคอร์ส — ผู้ปกครองแจ้งโอนมาใบเดียวแต่ซื้อจริงหลายคอร์สเป็นเรื่องปกติ
+    // คอร์สแรกอยู่บนใบเดิม ส่วนคอร์สที่เพิ่มจะแตกเป็นใบใหม่ใบละคอร์ส
+    // (โครงเดียวกับตอนผู้ปกครองติ๊กหลายคอร์สจากหน้าแจ้งโอนเอง — ระบบก็แตกเป็นหลายใบ)
+    const [pickedCourseIds, setPickedCourseIds] = useState<string[]>([]);
     const [syncPrice, setSyncPrice] = useState(false);
     const [savingCourse, setSavingCourse] = useState(false);
 
     const editing = enrollments.find((e) => e.id === editingId) || null;
-    const pickedCourse = courseOptions.find((c) => c.id === pickedCourseId) || null;
+    const pickedCourses = pickedCourseIds
+        .map((id) => courseOptions.find((c) => c.id === id))
+        .filter((c): c is CourseLite => !!c);
+    // ใบเดิมยึดคอร์สเดิมไว้ถ้ายังติ๊กอยู่ (จะได้ไม่เขียนทับของที่ถูกอยู่แล้ว)
+    // ไม่งั้นใช้คอร์สแรกที่ติ๊ก — ที่เหลือคือคอร์สที่ต้องแตกใบใหม่
+    const primaryCourse =
+        pickedCourses.find((c) => c.id === editing?.courseId) || pickedCourses[0] || null;
+    const extraCourses = primaryCourse ? pickedCourses.filter((c) => c.id !== primaryCourse.id) : [];
 
     const coursesLoadedRef = useRef(false);
     const ensureCourses = useCallback(async () => {
@@ -221,7 +231,7 @@ export default function AdminEnrollmentsPage() {
             return;
         }
         setEditingId(item.id);
-        setPickedCourseId(item.courseId || "");
+        setPickedCourseIds(item.courseId ? [item.courseId] : []);
         setCourseSearch("");
         setSyncPrice(false);
         ensureCourses();
@@ -229,13 +239,39 @@ export default function AdminEnrollmentsPage() {
 
     const closeCourseEditor = () => {
         setEditingId(null);
-        setPickedCourseId("");
+        setPickedCourseIds([]);
         setCourseSearch("");
         setSyncPrice(false);
     };
 
+    const togglePickedCourse = (id: string) =>
+        setPickedCourseIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+    /** กันแจกซ้ำ — ผู้เรียนคนนี้มีใบของคอร์สนี้อยู่แล้วหรือยัง
+     *  (ดูจากคิวที่รออนุมัติในจอก่อน แล้วค่อยยิงถามเฉพาะใบที่อนุมัติไปแล้ว) */
+    const alreadyHasCourse = async (userId: string, courseId: string, selfId: string) => {
+        if (enrollments.some((e) => e.id !== selfId && e.userId === userId && e.courseId === courseId)) return true;
+        if (!userId) return false;
+        try {
+            const snap = await withTimeout(
+                getDocs(query(
+                    collection(db, "enrollments"),
+                    where("userId", "==", userId),
+                    where("courseId", "==", courseId),
+                    where("status", "==", "approved"),
+                    limit(1)
+                )),
+                15000,
+                "ตรวจคอร์สซ้ำ"
+            );
+            return !snap.empty;
+        } catch {
+            return false; // ถามไม่ได้ก็ปล่อยผ่าน ดีกว่าค้างไม่ให้ทำงาน
+        }
+    };
+
     const handleSaveCourse = async () => {
-        if (!editing || !pickedCourse) return;
+        if (!editing || !primaryCourse) return;
         // ชั้นกันสุดท้ายก่อนเขียนจริง — ถ้า state หลุดมาถึงตรงนี้ได้ ห้ามเขียนทับ
         if (isExamPaper(editing)) {
             toast.error("ใบข้อสอบ PDF เปลี่ยนเป็นคอร์สไม่ได้");
@@ -244,26 +280,79 @@ export default function AdminEnrollmentsPage() {
         }
         setSavingCourse(true);
         try {
+            /* ---------- 1) ใบเดิม: คอร์สหลัก ---------- */
             const patch: Record<string, unknown> = {
-                courseId: pickedCourse.id,
-                courseTitle: pickedCourse.title,
+                courseId: primaryCourse.id,
+                courseTitle: primaryCourse.title,
                 // ต้องย้ายสิทธิ์คลังข้อสอบตามคอร์สใหม่ด้วย ไม่งั้น ExamAccessGuard จะจับคู่ผิด
-                allowedExamLevel: pickedCourse.allowedExamLevel ?? null,
+                allowedExamLevel: primaryCourse.allowedExamLevel ?? null,
             };
             // เก็บร่องรอยว่าใครเปลี่ยนจากคอร์สอะไร (ไว้ย้อนดูเวลาสงสัย)
-            if (pickedCourse.id !== editing.courseId) {
+            if (primaryCourse.id !== editing.courseId) {
                 patch.courseChangedAt = new Date();
                 patch.previousCourseTitle = editing.courseTitle || null;
             }
             // ปรับยอดตามราคาคอร์สใหม่ (ถ้าติ๊ก) — ส่วนลดคูปองเดิมยังคงอยู่
             if (syncPrice) {
-                const newPrice = Number(pickedCourse.price) || 0;
+                const newPrice = Number(primaryCourse.price) || 0;
                 const currentDiscount = Number(editing.discountAmount) || 0;
                 patch.price = newPrice;
                 patch.finalPrice = Math.max(0, newPrice - currentDiscount);
             }
             await withTimeout(updateDoc(doc(db, "enrollments", editing.id), patch), 20000, "บันทึกคอร์ส");
-            toast.success("บันทึกคอร์สใหม่เรียบร้อย");
+
+            /* ---------- 2) คอร์สที่เพิ่ม: แตกเป็นใบใหม่ใบละคอร์ส ----------
+               ทั้งเว็บจับคู่สิทธิ์เข้าเรียนจาก "หนึ่งใบ = หนึ่งคอร์ส" (my-courses,
+               useCourseEnrollment, ExamAccessGuard) ยัดหลายคอร์สลงใบเดียวจึงไม่ได้
+               ใบใหม่ผูกสลิปใบเดิมไว้ และเข้าคิวรออนุมัติ กดอนุมัติพร้อมกันได้เลย */
+            const added: string[] = [];
+            const skipped: string[] = [];
+            const failed: string[] = [];
+            for (const c of extraCourses) {
+                const title = c.title || "ไม่ระบุชื่อคอร์ส";
+                if (await alreadyHasCourse(editing.userId, c.id, editing.id)) {
+                    skipped.push(title);
+                    continue;
+                }
+                // ยอด: ไม่ติ๊กปรับยอด = ใบที่เพิ่มบันทึก ฿0 เพื่อไม่ให้รายได้นับซ้ำ
+                // (เงินที่โอนมาจริงยังอยู่ครบบนใบแรก)
+                const price = syncPrice ? Number(c.price) || 0 : 0;
+                try {
+                    await withTimeout(addDoc(collection(db, "enrollments"), {
+                        userId: editing.userId ?? null,
+                        userName: editing.userName ?? null,
+                        userTel: editing.userTel ?? null,
+                        lineId: editing.lineId ?? null,
+                        userEmail: editing.userEmail ?? null,
+                        courseId: c.id,
+                        courseTitle: title,
+                        allowedExamLevel: c.allowedExamLevel ?? null,
+                        price,
+                        // คูปองไม่ติดมาด้วย — ไม่งั้นตอนอนุมัติจะนับยอดใช้คูปองซ้ำ
+                        couponCode: null,
+                        discountAmount: 0,
+                        finalPrice: price,
+                        slipUrl: editing.slipUrl ?? null,
+                        slipUrls: editing.slipUrls ?? null,
+                        status: "pending",
+                        // ใช้เวลาของใบเดิม ใบพี่น้องจะได้เรียงติดกันในคิว
+                        createdAt: editing.createdAt ?? new Date(),
+                        addedByAdmin: true,
+                        addedFromEnrollmentId: editing.id,
+                        courseChangedAt: new Date(),
+                    }), 20000, `เพิ่มคอร์ส ${title}`);
+                    added.push(title);
+                } catch (err) {
+                    console.error("Error adding course enrollment:", err);
+                    if (isNetTimeout(err)) throw err;
+                    failed.push(title);
+                }
+            }
+
+            if (added.length > 0) toast.success(`บันทึกคอร์สเรียบร้อย · เพิ่มอีก ${added.length} คอร์สเข้าคิวรออนุมัติ`);
+            else toast.success("บันทึกคอร์สใหม่เรียบร้อย");
+            if (skipped.length > 0) toast(`ข้าม ${skipped.length} คอร์สที่ผู้เรียนมีอยู่แล้ว: ${skipped.join(", ")}`, { icon: "ℹ️" });
+            if (failed.length > 0) toast.error(`เพิ่มไม่สำเร็จ ${failed.length} คอร์ส: ${failed.join(", ")}`);
             closeCourseEditor();
         } catch (error) {
             console.error("Error updating course:", error);
@@ -281,7 +370,10 @@ export default function AdminEnrollmentsPage() {
         );
     })();
 
-    const courseChanged = !!editing && !!pickedCourse && (pickedCourse.id !== editing.courseId || syncPrice);
+    // มีอะไรให้บันทึกไหม — เปลี่ยนคอร์สหลัก, เพิ่มคอร์ส, หรือสั่งปรับยอด
+    const courseChanged =
+        !!editing && !!primaryCourse &&
+        (primaryCourse.id !== editing.courseId || extraCourses.length > 0 || syncPrice);
 
     // Debounced public_stats recalculation. Recomputing the unique-student
     // counter needs a scan of every approved enrollment (~600 reads), and it
@@ -698,12 +790,17 @@ export default function AdminEnrollmentsPage() {
                                                             แอดมินเปลี่ยนจาก “{item.previousCourseTitle}”
                                                         </div>
                                                     )}
+                                                    {item.addedByAdmin && (
+                                                        <div className="text-[11.5px] mt-1.5" style={{ color: "var(--en-ink-2)" }}>
+                                                            แอดมินเพิ่มคอร์สนี้จากใบแจ้งโอนใบเดียวกัน
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 {/* ใบข้อสอบ PDF ไม่มีปุ่มนี้ — หน้าต่างเปลี่ยนคอร์สเลือกได้แต่คอร์ส
                                                     กดแล้วจะกลายเป็นเขียนคอร์สทับตัวสินค้าที่ลูกค้าสั่งจริง */}
                                                 {!isExamPaper(item) && (
                                                     <button type="button" onClick={() => openCourseEditor(item)} className="khen-btn-soft khen-btn-sm flex-shrink-0">
-                                                        <Pencil size={14} /> เปลี่ยนคอร์ส
+                                                        <Pencil size={14} /> เปลี่ยน/เพิ่มคอร์ส
                                                     </button>
                                                 )}
                                             </div>
@@ -988,7 +1085,7 @@ export default function AdminEnrollmentsPage() {
                     >
                         <div className="p-5 flex items-start gap-3 flex-wrap" style={{ borderBottom: "1px solid var(--en-line)" }}>
                             <div className="flex-1 min-w-0">
-                                <h3 className="khen-t text-[20px]" style={{ color: "var(--en-ink)" }}>เปลี่ยนคอร์สเรียน</h3>
+                                <h3 className="khen-t text-[20px]" style={{ color: "var(--en-ink)" }}>เลือกคอร์สของใบแจ้งโอนนี้</h3>
                                 <p className="text-[12.5px] mt-0.5 truncate" style={{ color: "var(--en-ink-2)" }}>
                                     ใบแจ้งโอนของ {editing.userName || "ไม่ระบุชื่อ"} · <span className="khen-num">{baht(amountOf(editing))}</span>
                                 </p>
@@ -998,19 +1095,36 @@ export default function AdminEnrollmentsPage() {
                             </button>
                         </div>
 
-                        <div className="px-5 pt-4 flex items-center gap-3 flex-wrap">
+                        <div className="px-5 pt-4 flex items-start gap-3 flex-wrap">
                             <div className="min-w-0">
                                 <div className="khen-eyebrow mb-0.5">คอร์สเดิม</div>
                                 <div className="text-[13px] font-semibold break-words" style={{ color: "var(--en-ink-2)" }}>{editing.courseTitle || "ไม่ระบุคอร์ส"}</div>
                             </div>
-                            <ArrowRight size={18} className="flex-shrink-0" style={{ color: "var(--en-ink-3)" }} />
-                            <div className="min-w-0">
-                                <div className="khen-eyebrow mb-0.5">คอร์สใหม่</div>
-                                <div className="khen-t text-[14px] break-words" style={{ color: "var(--en-accent-deep)" }}>
-                                    {pickedCourse ? pickedCourse.title : "— ยังไม่ได้เลือก —"}
+                            <ArrowRight size={18} className="flex-shrink-0 mt-4" style={{ color: "var(--en-ink-3)" }} />
+                            <div className="min-w-0 flex-1">
+                                <div className="khen-eyebrow mb-0.5">
+                                    ที่เลือกไว้{pickedCourses.length > 0 ? ` ${pickedCourses.length} คอร์ส` : ""}
                                 </div>
+                                {pickedCourses.length === 0 ? (
+                                    <div className="khen-t text-[14px]" style={{ color: "var(--en-ink-3)" }}>— ยังไม่ได้เลือก —</div>
+                                ) : (
+                                    <div className="space-y-0.5">
+                                        {pickedCourses.map((c) => (
+                                            <div key={c.id} className="khen-t text-[14px] leading-snug break-words" style={{ color: "var(--en-accent-deep)" }}>
+                                                {c.title || "(ไม่มีชื่อคอร์ส)"}
+                                                {primaryCourse && c.id !== primaryCourse.id && (
+                                                    <span className="khen-pill ml-2">ใบใหม่</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
+
+                        <p className="px-5 pt-2 text-[12px]" style={{ color: "var(--en-ink-2)" }}>
+                            ติ๊กได้มากกว่า 1 คอร์ส — ถ้าผู้ปกครองแจ้งโอนมาใบเดียวแต่ซื้อหลายคอร์ส ติ๊กให้ครบได้เลย
+                        </p>
 
                         <div className="px-5 pt-4 pb-3">
                             <div className="relative">
@@ -1034,13 +1148,14 @@ export default function AdminEnrollmentsPage() {
                                 <div className="py-10 text-center text-[13px]" style={{ color: "var(--en-ink-3)" }}>ไม่พบคอร์สที่ค้นหา</div>
                             ) : (
                                 filteredCourses.map((c) => {
-                                    const isPicked = c.id === pickedCourseId;
+                                    const isPicked = pickedCourseIds.includes(c.id);
                                     const isCurrent = c.id === editing.courseId;
                                     return (
                                         <button
                                             key={c.id}
                                             type="button"
-                                            onClick={() => setPickedCourseId(c.id)}
+                                            onClick={() => togglePickedCourse(c.id)}
+                                            aria-pressed={isPicked}
                                             className="w-full text-left rounded-[14px] p-3 flex items-center gap-3"
                                             style={{
                                                 background: isPicked ? "var(--en-b-course)" : "var(--en-card)",
@@ -1048,12 +1163,15 @@ export default function AdminEnrollmentsPage() {
                                             }}
                                         >
                                             <span
-                                                className="w-5 h-5 rounded-full flex-shrink-0"
+                                                className="w-5 h-5 rounded-[6px] flex-shrink-0 flex items-center justify-center"
                                                 style={{
-                                                    border: isPicked ? "6px solid var(--en-accent)" : "2px solid var(--en-line-2)",
-                                                    background: isPicked ? "var(--en-card)" : "transparent",
+                                                    border: `2px solid ${isPicked ? "var(--en-accent)" : "var(--en-line-2)"}`,
+                                                    background: isPicked ? "var(--en-accent)" : "transparent",
+                                                    color: "var(--en-card)",
                                                 }}
-                                            />
+                                            >
+                                                {isPicked && <Check size={13} strokeWidth={3} />}
+                                            </span>
                                             {c.image && (
                                                 /* eslint-disable-next-line @next/next/no-img-element */
                                                 <img
@@ -1083,7 +1201,23 @@ export default function AdminEnrollmentsPage() {
                         </div>
 
                         <div className="p-5 space-y-3" style={{ borderTop: "1px solid var(--en-line)" }}>
-                            {pickedCourse && Number(pickedCourse.price || 0) !== Number(editing.price || 0) && (
+                            {extraCourses.length > 0 && (
+                                <div
+                                    className="flex items-start gap-3 rounded-[14px] p-3 text-[12.5px]"
+                                    style={{ background: "var(--en-b-course)", border: "1px solid var(--en-b-course-l)" }}
+                                >
+                                    <BookOpen size={16} className="flex-shrink-0 mt-0.5" style={{ color: "var(--en-accent)" }} />
+                                    <span>
+                                        <span className="block font-semibold" style={{ color: "var(--en-ink)" }}>
+                                            คอร์สที่เพิ่มจะกลายเป็นใบแจ้งโอนใหม่อีก {extraCourses.length} ใบ (คอร์สละใบ)
+                                        </span>
+                                        <span className="block mt-0.5" style={{ color: "var(--en-ink-2)" }}>
+                                            ใบใหม่ใช้สลิปเดียวกัน เข้าคิวรออนุมัติ กดอนุมัติพร้อมใบเดิมได้เลย
+                                        </span>
+                                    </span>
+                                </div>
+                            )}
+                            {primaryCourse && (extraCourses.length > 0 || Number(primaryCourse.price || 0) !== Number(editing.price || 0)) && (
                                 <label
                                     className="flex items-start gap-3 rounded-[14px] p-3 cursor-pointer"
                                     style={{ background: "var(--en-b-i3)", border: "1px solid var(--en-b-i3-l)" }}
@@ -1097,10 +1231,14 @@ export default function AdminEnrollmentsPage() {
                                     />
                                     <span className="text-[12.5px]">
                                         <span className="block font-semibold" style={{ color: "var(--en-ink)" }}>
-                                            ปรับยอดเป็นราคาคอร์สใหม่ (<span className="khen-num">{baht(pickedCourse.price)}</span>)
+                                            {extraCourses.length > 0
+                                                ? "บันทึกยอดของแต่ละใบตามราคาคอร์สจริง"
+                                                : <>ปรับยอดเป็นราคาคอร์สใหม่ (<span className="khen-num">{baht(primaryCourse.price)}</span>)</>}
                                         </span>
                                         <span className="block mt-0.5" style={{ color: "var(--en-ink-2)" }}>
-                                            ถ้าไม่ติ๊ก จะเก็บยอดที่โอนมาจริงไว้เท่าเดิม (<span className="khen-num">{baht(editing.price)}</span>)
+                                            {extraCourses.length > 0
+                                                ? <>ถ้าไม่ติ๊ก ยอดที่โอนมาจริง (<span className="khen-num">{baht(editing.price)}</span>) จะอยู่ที่ใบเดิมทั้งก้อน ส่วนใบที่เพิ่มบันทึกยอด <span className="khen-num">{baht(0)}</span> เพื่อไม่ให้รายได้นับซ้ำ</>
+                                                : <>ถ้าไม่ติ๊ก จะเก็บยอดที่โอนมาจริงไว้เท่าเดิม (<span className="khen-num">{baht(editing.price)}</span>)</>}
                                         </span>
                                     </span>
                                 </label>
@@ -1116,7 +1254,9 @@ export default function AdminEnrollmentsPage() {
                                     style={{ flex: 2 }}
                                     disabled={!courseChanged || savingCourse}
                                 >
-                                    {savingCourse ? <><Loader2 size={16} className="animate-spin" /> กำลังบันทึก...</> : <><Check size={16} /> บันทึกคอร์สใหม่</>}
+                                    {savingCourse
+                                        ? <><Loader2 size={16} className="animate-spin" /> กำลังบันทึก...</>
+                                        : <><Check size={16} /> {pickedCourses.length > 1 ? `บันทึก ${pickedCourses.length} คอร์ส` : "บันทึกคอร์สใหม่"}</>}
                                 </button>
                             </div>
                         </div>
