@@ -2,7 +2,9 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Printer, ArrowLeft, Lock, Loader2 } from 'lucide-react';
+import { Printer, ArrowLeft, Lock, Loader2, ExternalLink, Copy, Check, RefreshCw, LogIn, HelpCircle } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { useInAppBrowser, tryEscapeToBrowser, copyTextToClipboard, type Platform } from '@/lib/inAppBrowser';
 import MathRenderer from './MathRenderer';
 import { convertThaiLettersToNumbers, formatExplanation } from './QuestionCard';
 import { sanitizeExamData, isFillQuestion, sampleDiagnosticQuiz, getQuestionKey } from '@/lib/exam-utils';
@@ -139,6 +141,103 @@ const SheetHeader: React.FC<{ examTitle: string; total: number; level?: string; 
     </header>
 );
 
+// ── เปิดจากในแอป (Facebook / Messenger / LINE / Instagram …) ─────────────────
+// เบราว์เซอร์ในแอปพวกนี้ไม่มีคำสั่งพิมพ์เลย: window.print() เงียบ ไม่ขึ้นอะไร ไม่มี error
+// = สาเหตุที่ผู้ปกครองบอกว่า "กดดาวน์โหลดแล้วไม่ได้อะไร" — ต้องพาออกไป Safari/Chrome ก่อน
+// (สไตล์ด้วย Tailwind เพราะการ์ดนี้ต้องโผล่บนหน้าล็อกด้วย ซึ่งอยู่นอก <style jsx> ของหน้าพิมพ์)
+const InAppEscapeCard: React.FC<{ platform: Platform; appName: string }> = ({ platform, appName }) => {
+    const [failed, setFailed] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const browserName = platform === 'ios' ? 'Safari' : platform === 'android' ? 'Chrome' : 'Safari / Chrome';
+    const canJump = platform === 'ios' || platform === 'android';
+    const jump = async () => {
+        // iOS ของ Facebook/Messenger มักกลืนคำสั่งเด้งออก — ถ้าไม่เด้งใน 1.5 วิ โชว์วิธีทำเองแทน
+        const ok = await tryEscapeToBrowser(window.location.href, platform);
+        if (!ok) setFailed(true);
+    };
+    const copy = async () => { setCopied(await copyTextToClipboard(window.location.href)); };
+    const menuHint = platform === 'ios'
+        ? 'กดปุ่ม ••• ของแอป (มุมขวาบนหรือมุมล่าง) → เลือก “เปิดในเบราว์เซอร์” หรือ “Open in Safari”'
+        : 'กดปุ่ม ⋮ มุมขวาบนของแอป → เลือก “เปิดในเบราว์เซอร์” หรือ “เปิดใน Chrome”';
+    return (
+        <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-left text-slate-800 shadow-sm" role="alert">
+            <div className="mb-1 text-[15px] font-black leading-snug">📲 ตอนนี้เปิดจากในแอป {appName} — บันทึกเป็น PDF จากตรงนี้ไม่ได้ครับ</div>
+            <p className="mb-3 text-[13px] leading-relaxed text-slate-600">
+                เบราว์เซอร์ในแอป {appName} ไม่มีคำสั่งพิมพ์/บันทึก PDF กดปุ่มแล้วจะเงียบ ไม่มีอะไรขึ้นมา
+                ให้เปิดหน้านี้ใน <b>{browserName}</b> แล้วเข้าสู่ระบบด้วยบัญชีเดิม ก็จะกดบันทึกได้ทันที
+            </p>
+            <div className="flex flex-wrap gap-2">
+                {canJump && (
+                    <button type="button" onClick={jump} className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2.5 text-sm font-bold text-white shadow transition hover:bg-amber-600">
+                        <ExternalLink size={16} /> เปิดใน {browserName} เลย
+                    </button>
+                )}
+                <button type="button" onClick={copy} className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-white px-4 py-2.5 text-sm font-bold text-amber-800 transition hover:bg-amber-100">
+                    {copied ? <><Check size={16} /> คัดลอกลิงก์แล้ว!</> : <><Copy size={16} /> คัดลอกลิงก์หน้านี้</>}
+                </button>
+            </div>
+            {(failed || copied || !canJump) && (
+                <div className="mt-3 rounded-xl bg-white/80 p-3 text-[13px] leading-relaxed text-slate-700">
+                    {failed && <p className="mb-1 font-bold">ปุ่มไม่เด้งใช่ไหมครับ? แอป {appName} บางรุ่นไม่ยอมให้เด้งออกเอง ทำแบบนี้แทน:</p>}
+                    {copied && !failed && <p className="mb-1 font-bold">คัดลอกแล้ว ✅ ต่อไปทำแบบนี้ครับ:</p>}
+                    <ol className="list-decimal space-y-1 pl-5">
+                        <li>{menuHint}</li>
+                        <li>หรือเปิดแอป <b>{browserName}</b> → แตะช่องที่อยู่ด้านบน → <b>วาง</b>ลิงก์ที่คัดลอกไว้</li>
+                        <li>เข้าสู่ระบบอีกครั้งด้วยบัญชีเดิม → กดปุ่ม “พิมพ์ / บันทึกเป็น PDF”</li>
+                    </ol>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ── วิธี "บันทึกเป็น PDF" หลังกดปุ่ม — หน้าต่างพิมพ์ของแต่ละเครื่องหน้าตาไม่เหมือนกัน
+// ผู้ปกครองหลายคนกดปุ่มแล้วเจอหน้าเลือกเครื่องพิมพ์ก็ถอย (คิดว่าต้องมีเครื่องพิมพ์)
+// → บอกทีละขั้นตามเครื่องที่กำลังใช้ เครื่องของตัวเองขึ้นก่อน
+const PdfSaveHelp: React.FC<{ platform: Platform; open: boolean; onToggle: () => void }> = ({ platform, open, onToggle }) => {
+    const sections: { key: Platform; title: string; items: React.ReactNode[] }[] = [
+        { key: 'ios', title: '📱 iPhone / iPad (Safari)', items: [
+            <>กดปุ่ม “พิมพ์ / บันทึกเป็น PDF” → หน้าต่างพิมพ์ขึ้นมา <b>ไม่ต้องมีเครื่องพิมพ์</b> และไม่ต้องเลือกเครื่องพิมพ์</>,
+            <>แตะที่<b>รูปตัวอย่างหน้ากระดาษ</b>ด้านล่าง (หรือใช้สองนิ้วถ่างออก) ให้ขยายเต็มจอ</>,
+            <>กดปุ่ม<b>แชร์</b> (สี่เหลี่ยมมีลูกศรชี้ขึ้น) → เลือก <b>“บันทึกไปยังไฟล์”</b> หรือส่งเข้า LINE ก็ได้</>,
+        ] },
+        { key: 'android', title: '🤖 Android (Chrome)', items: [
+            <>กดปุ่ม “พิมพ์ / บันทึกเป็น PDF” → หน้าต่างพิมพ์ขึ้นมา (ไม่ต้องมีเครื่องพิมพ์)</>,
+            <>ช่องเลือกเครื่องพิมพ์ด้านบน เลือก <b>“บันทึกเป็น PDF”</b> (Save as PDF)</>,
+            <>กดปุ่มกลม <b>PDF</b> → เลือกโฟลเดอร์ที่จะเก็บ → <b>บันทึก</b></>,
+        ] },
+        { key: 'other', title: '💻 คอมพิวเตอร์ (Chrome / Edge / Safari)', items: [
+            <>กดปุ่ม “พิมพ์ / บันทึกเป็น PDF” → หน้าต่างพิมพ์ขึ้นมา</>,
+            <>ช่อง <b>ปลายทาง (Destination)</b> เลือก <b>“บันทึกเป็น PDF”</b> — บน Mac Safari กดปุ่ม <b>PDF</b> มุมล่างซ้าย</>,
+            <>กด <b>บันทึก</b> แล้วเลือกที่เก็บไฟล์</>,
+        ] },
+    ];
+    const ordered = [...sections.filter((x) => x.key === platform), ...sections.filter((x) => x.key !== platform)];
+    return (
+        <div className="mx-auto mt-2 max-w-[860px]">
+            <button type="button" onClick={onToggle} aria-expanded={open} className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-emerald-700 underline underline-offset-2 hover:text-emerald-900">
+                <HelpCircle size={15} /> {open ? 'ซ่อนวิธีบันทึกเป็น PDF' : 'กดปุ่มแล้วต้องทำยังไงต่อ? ดูวิธีบันทึกเป็น PDF ทีละขั้น'}
+            </button>
+            {open && (
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                    {ordered.map((sec, i) => (
+                        <div key={sec.key} className={`rounded-xl border p-3 text-[12.5px] text-slate-700 ${i === 0 && platform !== 'other' ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 bg-white'}`}>
+                            <div className="mb-1 font-black text-slate-800">{sec.title}{i === 0 && platform !== 'other' ? ' · เครื่องที่ใช้อยู่' : ''}</div>
+                            <ol className="list-decimal space-y-1 pl-4 leading-relaxed">
+                                {sec.items.map((it, k) => <li key={k}>{it}</li>)}
+                            </ol>
+                        </div>
+                    ))}
+                    <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] leading-relaxed text-amber-900 sm:col-span-3">
+                        ⚠️ กดปุ่มแล้ว<b>เงียบ ไม่มีหน้าต่างอะไรขึ้นมาเลย</b> = กำลังเปิดจากในแอป (Facebook / Messenger / LINE)
+                        ให้คัดลอกลิงก์หน้านี้ไปเปิดใน Safari หรือ Chrome แล้วเข้าสู่ระบบอีกครั้งครับ
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+};
+
 // ── กระดาษคำตอบแบบสนามสอบจริง (ฝนวงกลม) ──
 // คอลัมน์ละ 25 ข้อ (มาตรฐานบล็อก OMR) × 4 คอลัมน์ = 100 ข้อ/แผ่น
 // แถวสูงคงที่ → คำนวณจำนวนต่อแผ่นแบบตายตัวได้ ไม่ต้องผ่านตัววัดขนาด
@@ -161,7 +260,20 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
     const total = sanitized.length;
 
     // ── เลือกชุดที่จะพิมพ์: ทั้งชุด / ควิซย่อย (สุ่มครอบทุกหัวข้อ) / สมุดข้อผิด ──
-    const { user } = useUserAuth();
+    const { user, loading: authLoading } = useUserAuth();
+    const inApp = useInAppBrowser();
+    const pathname = usePathname();
+    const [helpOpen, setHelpOpen] = useState(false);
+    // สถานะเครื่องจัดหน้า: ช้าผิดปกติ / ล้มเหลว — เดิมปุ่มแค่จางค้างเงียบๆ ไม่มีใครรู้ว่าเกิดอะไร
+    const [measureSlow, setMeasureSlow] = useState(false);
+    const [measureError, setMeasureError] = useState(false);
+    const [measureNonce, setMeasureNonce] = useState(0); // กด "จัดหน้าใหม่" → รันเครื่องวัดซ้ำ
+    const retryMeasure = () => { setMeasureError(false); setMeasureSlow(false); setMeasureNonce((n) => n + 1); };
+    // สั่งพิมพ์ + บนมือถือเปิดคู่มือ "บันทึกเป็น PDF" ไว้เลย — กลับมาจากหน้าต่างพิมพ์แล้วหาปุ่มบันทึกไม่เจอจะได้เห็นวิธี
+    const handlePrint = () => {
+        if (inApp.platform !== 'other') setHelpOpen(true);
+        try { window.print(); } catch (e) { console.warn('[ExamPrint] window.print ล้มเหลว', e); setHelpOpen(true); }
+    };
     const [scope, setScope] = useState<'full' | 'mini' | 'wrong'>('full');
     const [miniSet, setMiniSet] = useState<ExamQuestion[] | null>(null);
     // สมุดข้อผิดของชุดนี้ (โหลดครั้งเดียว) — ใช้กรองชุด "เก็บข้อผิด"
@@ -214,6 +326,15 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
         setPages(null);
         setAnsChunks([]);
         setSolPages([]);
+        setMeasureSlow(false);
+        setMeasureError(false);
+        // ชุด 250 ข้อบนมือถือช้าอาจวัดเป็นนาที — เกิน 15 วิ บอกผู้ใช้ว่ายังทำงานอยู่ + ทางเลือก
+        const slowTimer = window.setTimeout(() => { if (!cancelled) setMeasureSlow(true); }, 15000);
+        // ทางออกเงียบทุกจุดของเครื่องวัด → รายงาน "จัดหน้าไม่สำเร็จ" ให้กดลองใหม่ได้ ไม่ปล่อยให้หมุนค้าง
+        const fail = (why: string) => {
+            console.warn(`[ExamPrint] จัดหน้าไม่สำเร็จ (รอบ ${measureNonce}):`, why);
+            if (!cancelled) { window.clearTimeout(slowTimer); setMeasureSlow(false); setMeasureError(true); }
+        };
         (async () => {
             // รอฟอนต์ (รวมฟอนต์สูตรคณิต KaTeX) พร้อมก่อน — ความสูงถึงจะนิ่ง
             try { await (document as any).fonts?.ready; } catch { /* เบราว์เซอร์เก่า */ }
@@ -223,7 +344,8 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                 await new Promise((r) => setTimeout(r, 50));
                 root = measureRef.current;
             }
-            if (!root || cancelled) return;
+            if (cancelled) return;
+            if (!root) { fail('กล่องวัดขนาดไม่ mount'); return; }
             // รอรูปทุกรูปในกล่องวัดโหลดเสร็จ (รูปโหลดช้า = ความสูงเปลี่ยน)
             const imgs = Array.from(root.querySelectorAll('img'));
             await Promise.all(imgs.map((im) => (im as HTMLImageElement).complete
@@ -232,14 +354,15 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
             await new Promise((r) => setTimeout(r, 60)); // ให้ layout นิ่ง
             // ฟอนต์ KaTeX ถูก "ขอโหลด" ตอนกล่องวัดเรนเดอร์ — await รอบสองถึงจะรอมันจริง
             try { await (document as any).fonts?.ready; } catch { /* ok */ }
-            if (cancelled || !measureRef.current) return;
+            if (cancelled) return;
+                if (!measureRef.current) { fail('กล่องวัดขนาดหายไประหว่างวัด'); return; }
 
             const probe = root.querySelector<HTMLElement>('.khp-probe');
             const headEl = root.querySelector<HTMLElement>('.khp-head');
             const qEls = Array.from(root.querySelectorAll<HTMLElement>('.pq'));
             const solEls = Array.from(root.querySelectorAll<HTMLElement>('.psol'));
             const solHeadEl = root.querySelector<HTMLElement>('.khp-sol-head');
-            if (!probe || !headEl || qEls.length === 0) return;
+            if (!probe || !headEl || qEls.length === 0) { fail('ไม่พบ probe/หัวกระดาษ/ข้อสอบในกล่องวัด'); return; }
 
             // วัดซ้ำจนความสูงนิ่ง (กันฟอนต์มาช้าแล้วความสูงเลื่อนหลังวัด)
             // หมายเหตุ: ห้ามใช้ requestAnimationFrame ตรงนี้ — แท็บที่ไม่โฟกัส/ซ่อนอยู่
@@ -248,7 +371,8 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
             let heights = readHeights();
             for (let pass = 0; pass < 3; pass++) {
                 await new Promise((r) => setTimeout(r, 90));
-                if (cancelled || !measureRef.current) return;
+                if (cancelled) return;
+                if (!measureRef.current) { fail('กล่องวัดขนาดหายไประหว่างวัด'); return; }
                 const again = readHeights();
                 const stable = again.length === heights.length && again.every((h, i) => Math.abs(h - heights[i]) <= 1);
                 heights = again;
@@ -311,28 +435,53 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                 });
             }
 
-            if (!cancelled) { setPages(bins); setAnsChunks(chunks); setSolPages(solBins); }
-        })();
-        return () => { cancelled = true; };
-    }, [activeSet, isTrial]);
+            if (!cancelled) { window.clearTimeout(slowTimer); setMeasureSlow(false); setPages(bins); setAnsChunks(chunks); setSolPages(solBins); }
+        })().catch((e) => fail(e instanceof Error ? e.message : String(e)));
+        return () => { cancelled = true; window.clearTimeout(slowTimer); };
+    }, [activeSet, isTrial, measureNonce]);
 
     // 🔒 ไม่มีสิทธิ์: ไม่ให้พิมพ์ทั้งชุด (ไฟล์ PDF = เนื้อหาเต็มหลุดออกนอกระบบ)
     if (isTrial) {
         const isCourse = lockKind === 'course';
+        // ยังไม่ได้เข้าสู่ระบบ (เช่น ก๊อปลิงก์จากในแอป Facebook มาเปิดใน Safari — session ไม่ตามมา):
+        // สมาชิกตัวจริงต้องเห็นปุ่ม "เข้าสู่ระบบ" ก่อน ไม่ใช่โดนชวนสมัครซ้ำเหมือนคนนอก
+        const loggedOut = !authLoading && !user;
+        const loginHref = `/login?returnUrl=${encodeURIComponent(pathname || backHref)}`;
         return (
-            <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-6">
-                <div className="w-20 h-20 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mb-6"><Lock size={36} /></div>
+            <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-6 py-10">
+                {inApp.isInApp && (
+                    <div className="w-full max-w-lg mb-6">
+                        <InAppEscapeCard platform={inApp.platform} appName={inApp.appName} />
+                    </div>
+                )}
+                <div className="w-20 h-20 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mb-6">{loggedOut ? <LogIn size={36} /> : <Lock size={36} />}</div>
                 <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 mb-3">
-                    {isCourse ? 'การพิมพ์ข้อสอบสำหรับผู้เรียนคอร์สนี้' : 'การพิมพ์ชุดข้อสอบสำหรับสมาชิกคลังข้อสอบ'}
+                    {loggedOut
+                        ? 'เข้าสู่ระบบก่อน แล้วค่อยพิมพ์ / บันทึกเป็น PDF'
+                        : isCourse ? 'การพิมพ์ข้อสอบสำหรับผู้เรียนคอร์สนี้' : 'การพิมพ์ชุดข้อสอบสำหรับสมาชิกคลังข้อสอบ'}
                 </h1>
                 <p className="text-slate-500 dark:text-slate-400 max-w-md mb-8 font-medium">
-                    {isCourse
-                        ? 'สมัครเรียนคอร์สนี้เพื่อดาวน์โหลด/พิมพ์ข้อสอบของบทเรียนเป็น PDF พร้อมกระดาษคำตอบและเฉลยครับ'
-                        : 'สมัครสมาชิกคลังข้อสอบเพื่อดาวน์โหลด/พิมพ์ชุดข้อสอบเป็น PDF ได้ทุกชุด พร้อมเฉลยละเอียดครับ'}
+                    {loggedOut
+                        ? (isCourse
+                            ? 'ผู้เรียนคอร์สนี้เข้าสู่ระบบด้วยบัญชีเดิม ระบบจะพากลับมาหน้านี้และพิมพ์ได้ทันทีครับ'
+                            : 'สมาชิกคลังข้อสอบเข้าสู่ระบบด้วยบัญชีเดิม ระบบจะพากลับมาหน้านี้และพิมพ์ได้ทันทีครับ')
+                        : isCourse
+                            ? 'สมัครเรียนคอร์สนี้เพื่อดาวน์โหลด/พิมพ์ข้อสอบของบทเรียนเป็น PDF พร้อมกระดาษคำตอบและเฉลยครับ'
+                            : 'สมัครสมาชิกคลังข้อสอบเพื่อดาวน์โหลด/พิมพ์ชุดข้อสอบเป็น PDF ได้ทุกชุด พร้อมเฉลยละเอียดครับ'}
                 </p>
                 <div className="flex flex-wrap gap-3 justify-center">
-                    <a href={lockHref ?? '/payment?course=vip'} className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-black shadow-lg hover:scale-105 transition">
-                        {isCourse ? 'ดูรายละเอียดคอร์ส' : 'สมัครคลังข้อสอบ'}
+                    {loggedOut && (
+                        <Link href={loginHref} className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-full font-black shadow-lg hover:scale-105 transition inline-flex items-center gap-2">
+                            <LogIn size={18} /> เข้าสู่ระบบ
+                        </Link>
+                    )}
+                    <a
+                        href={lockHref ?? '/payment?course=vip'}
+                        className={loggedOut
+                            ? 'px-8 py-4 bg-amber-50 text-amber-700 border border-amber-200 rounded-full font-bold hover:bg-amber-100 transition'
+                            : 'px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full font-black shadow-lg hover:scale-105 transition'}
+                    >
+                        {isCourse ? 'ดูรายละเอียดคอร์ส' : loggedOut ? 'ยังไม่เป็นสมาชิก? สมัครคลังข้อสอบ' : 'สมัครคลังข้อสอบ'}
                     </a>
                     <Link href={backHref} className="px-8 py-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition">← กลับไปทำข้อสอบ</Link>
                 </div>
@@ -365,10 +514,24 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
             <div className="khprint-controls no-print">
                 <div className="khprint-controls-inner">
                     <Link href={backHref} className="khp-back"><ArrowLeft size={16} /> กลับไปทำข้อสอบ</Link>
-                    <button onClick={() => window.print()} disabled={!pages || nothingSelected} className="khp-print-btn" style={{ marginLeft: 'auto' }}>
-                        <Printer size={18} /> พิมพ์ / บันทึกเป็น PDF
-                    </button>
+                    {/* ในแอป Facebook/LINE ปุ่มพิมพ์กดแล้วเงียบ → ซ่อน แล้วให้การ์ดพาออก Safari/Chrome แทน */}
+                    {!inApp.isInApp && (
+                        <button onClick={handlePrint} disabled={!pages || nothingSelected} className="khp-print-btn" style={{ marginLeft: 'auto' }}>
+                            {pages
+                                ? <><Printer size={18} /> พิมพ์ / บันทึกเป็น PDF</>
+                                : <><Loader2 size={18} className="animate-spin" /> กำลังจัดหน้า... รอสักครู่</>}
+                        </button>
+                    )}
                 </div>
+                {inApp.isInApp && (
+                    <div className="mx-auto mt-3 max-w-[860px]">
+                        <InAppEscapeCard platform={inApp.platform} appName={inApp.appName} />
+                        {/* กันตรวจจับพลาด: ถ้าจริงๆ อยู่ในเบราว์เซอร์ปกติ ยังกดพิมพ์ได้ */}
+                        <button type="button" onClick={handlePrint} disabled={!pages || nothingSelected} className="mt-2 text-[12px] text-slate-500 underline underline-offset-2 disabled:opacity-50">
+                            เปิดใน Safari / Chrome อยู่แล้ว? กดพิมพ์ตรงนี้
+                        </button>
+                    </div>
+                )}
 
                 {/* ⚡ ชุดสำเร็จรูป — คนไม่ถนัดเลือกเอง กดปุ่มเดียวจัดให้ครบ */}
                 <div className="khp-presets">
@@ -433,6 +596,7 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                         ? <>{nothingSelected ? 'ยังไม่ได้เลือกส่วนที่จะพิมพ์ — ติ๊กอย่างน้อย 1 อย่างด้านบน' : `จัดหน้าเสร็จแล้ว ${totalPages} หน้า A4`} — สิ่งที่เห็นด้านล่างคือหน้ากระดาษจริงทีละแผ่น · กดปุ่มแล้วเลือก “บันทึกเป็น PDF” (Save as PDF) ได้เลย · <b>ทำบนกระดาษเสร็จแล้ว กลับไปกด “📝 กรอกคำตอบจากกระดาษ” ที่หน้าเริ่มทำข้อสอบ เพื่อรับผลวิเคราะห์จุดอ่อน</b> · อยากได้ “ไฟล์เฉลยวิธีทำ” แยกต่างหาก: ติ๊กเฉพาะ “เฉลยวิธีทำละเอียด” แล้วบันทึกเป็นอีกไฟล์</>
                         : 'กำลังวัดขนาดทุกข้อและจัดลงหน้ากระดาษ A4...'}
                 </p>
+                {!inApp.isInApp && <PdfSaveHelp platform={inApp.platform} open={helpOpen} onToggle={() => setHelpOpen((o) => !o)} />}
             </div>
 
             {/* ── กล่องวัดขนาด (ซ่อน) — markup เดียวกับแผ่นจริงเป๊ะ ── */}
@@ -463,8 +627,23 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
             {!pages && (
                 <>
                     <div className="khp-loading no-print">
-                        <Loader2 className="animate-spin" size={28} />
-                        <span>กำลังจัดหน้ากระดาษ A4... (ชุดใหญ่อาจใช้เวลาหลายวินาที)</span>
+                        {measureError ? (
+                            <div className="khp-loading-box">
+                                <div className="khp-loading-title">😥 จัดหน้ากระดาษไม่สำเร็จ</div>
+                                <p>ลองกด “จัดหน้าใหม่” อีกครั้งครับ ถ้ายังไม่ได้ ให้เลือกพิมพ์ “ควิซย่อย 20 ข้อ” ด้านบน หรือเปิดหน้านี้ใน Chrome บนคอมพิวเตอร์</p>
+                                <button type="button" onClick={retryMeasure} className="khp-loading-btn"><RefreshCw size={16} /> จัดหน้าใหม่</button>
+                            </div>
+                        ) : (
+                            <div className="khp-loading-box">
+                                <div className="khp-loading-title"><Loader2 className="animate-spin" size={22} /> กำลังจัดหน้ากระดาษ A4...{measureSlow ? '' : ' (ชุดใหญ่อาจใช้เวลาหลายวินาที)'}</div>
+                                {measureSlow && (
+                                    <>
+                                        <p>ชุดใหญ่บนมือถืออาจใช้เวลาเป็นนาที — ระบบยังทำงานอยู่ อย่าเพิ่งปิดหน้านี้ครับ · ถ้ารอนานเกินไป ลองเลือก “ควิซย่อย 20 ข้อ” ด้านบน หรือเปิดบนคอมพิวเตอร์</p>
+                                        <button type="button" onClick={retryMeasure} className="khp-loading-btn"><RefreshCw size={16} /> จัดหน้าใหม่</button>
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <div id="print-root" className="khp-preroot">
                         ระบบกำลังจัดหน้ากระดาษอยู่ครับ — กรุณารอสักครู่ให้ขึ้นตัวอย่างหน้ากระดาษก่อน แล้วค่อยกดพิมพ์อีกครั้ง
@@ -637,7 +816,11 @@ export const ExamPrintView: React.FC<ExamPrintViewProps> = ({
                 .khp-chip { font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px; border: 1.5px solid #cbd5e1; color: #475569; background: #fff; transition: all .15s; }
                 .khp-chip:hover { border-color: #059669; color: #059669; }
                 .khp-chip.on { background: #059669; border-color: #059669; color: #fff; }
-                .khp-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 80px 20px; color: #e2e8f0; font-weight: 600; }
+                .khp-loading { display: flex; align-items: center; justify-content: center; padding: 70px 20px; color: #e2e8f0; font-weight: 600; }
+                .khp-loading-box { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; max-width: 540px; }
+                .khp-loading-title { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; }
+                .khp-loading-box p { font-size: 13px; font-weight: 500; color: #cbd5e1; line-height: 1.65; }
+                .khp-loading-btn { display: inline-flex; align-items: center; gap: 6px; background: #fff; color: #0f172a; font-weight: 800; font-size: 13px; padding: 8px 16px; border-radius: 999px; }
 
                 /* ── แผ่น A4: ขนาดจริงทั้งบนจอและบนกระดาษ ── */
                 .page {
