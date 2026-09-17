@@ -2,6 +2,7 @@ import HomeClient from "./HomeClient";
 import ExamPapersHomeSection from "@/components/home/ExamPapersHomeSection";
 import { getActivePromotion } from "@/lib/promotion";
 import { listPublicExamPapers } from "@/lib/examPapers";
+import { SHOW_EXAM_PAPERS_SHOP } from "@/lib/constants";
 import { getDocument } from "@/lib/firestoreRest";
 import { PUBLIC_SETTINGS_DOC, PUBLIC_SETTINGS_REVALIDATE, PUBLIC_SETTINGS_TAGS } from "@/lib/publicSettings";
 import type { CountdownConfig } from "@/components/home/ExamCountdownHero";
@@ -30,10 +31,11 @@ async function getHomeCountdown(): Promise<Partial<CountdownConfig> | null> {
 }
 
 export default async function HomePage() {
+  // ร้านข้อสอบ PDF ถูกซ่อนอยู่ (lib/constants.ts) → ไม่ต้องอ่าน Firestore ทิ้งเปล่า
   const [initialPromo, initialCountdown, papers] = await Promise.all([
     getActivePromotion(),
     getHomeCountdown(),
-    listPublicExamPapers(),
+    SHOW_EXAM_PAPERS_SHOP ? listPublicExamPapers() : Promise.resolve([]),
   ]);
   return (
     <HomeClient
@@ -41,7 +43,7 @@ export default async function HomePage() {
       initialCountdown={initialCountdown}
       // เรนเดอร์ฝั่งเซิร์ฟเวอร์แล้วส่งเป็น slot — HomeClient เป็น client component
       // ถ้า import ตรงๆ การ์ดจะถูกลากเข้า client bundle ทั้งก้อน
-      examPapersSection={<ExamPapersHomeSection papers={papers} />}
+      examPapersSection={SHOW_EXAM_PAPERS_SHOP ? <ExamPapersHomeSection papers={papers} /> : null}
     />
   );
 }

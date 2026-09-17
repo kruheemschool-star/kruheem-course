@@ -34,5 +34,14 @@ export const EXAM_BANK_DISCOUNT_PERCENT = Math.round(
     ((EXAM_BANK_PRICE.full - EXAM_BANK_PRICE.sale) / EXAM_BANK_PRICE.full) * 100
 );
 
+/**
+ * สวิตช์เปิด/ปิด "ทางเข้าร้านข้อสอบ PDF" ทุกจุดบนเว็บ
+ * false = ซ่อนทางเข้าทั้งหมด (เซกชันหน้าแรก · เมนูบนสุดทั้งจอใหญ่และมือถือ ·
+ *         ลิงก์ในฟุตเตอร์ · แบนเนอร์ท้ายหน้าคลังข้อสอบ · sitemap)
+ * หน้า /exam-papers เองยังเปิดด้วย URL ตรงได้ (ครูฮีมเข้าไปตรวจงานต่อได้)
+ * 2026-09-18: ครูฮีมสั่งซ่อนไว้ก่อน ร้านยังทำไม่เสร็จ — พร้อมเมื่อไหร่เปลี่ยนเป็น true จุดเดียว
+ */
+export const SHOW_EXAM_PAPERS_SHOP = false;
+
 /** ปลายทางปุ่มสมัครคลังข้อสอบทุกจุด (คนยังไม่ล็อกอินจะถูกส่งไป /login แล้วเด้งกลับมาเอง) */
 export const EXAM_BANK_BUY_HREF = "/payment?course=vip";

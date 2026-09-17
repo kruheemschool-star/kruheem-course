@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Facebook, Mail, Instagram, Sparkles } from "lucide-react";
+import { SHOW_EXAM_PAPERS_SHOP } from "@/lib/constants";
 
 export default function Footer() {
     return (
@@ -65,12 +66,15 @@ export default function Footer() {
                                     คอร์สเรียนทั้งหมด
                                 </Link>
                             </li>
-                            <li>
-                                <Link href="/exam-papers" className="text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-2 group font-medium">
-                                    <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-amber-500 transition-colors"></span>
-                                    ข้อสอบ PDF
-                                </Link>
-                            </li>
+                            {/* ลิงก์ร้านข้อสอบ PDF ซ่อนอยู่ระหว่างร้านยังไม่พร้อม — สวิตช์ที่ lib/constants.ts */}
+                            {SHOW_EXAM_PAPERS_SHOP && (
+                                <li>
+                                    <Link href="/exam-papers" className="text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-2 group font-medium">
+                                        <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-amber-500 transition-colors"></span>
+                                        ข้อสอบ PDF
+                                    </Link>
+                                </li>
+                            )}
                             <li>
                                 <Link href="/payment" className="text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-all flex items-center gap-2 group font-medium">
                                     <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-amber-500 transition-colors"></span>

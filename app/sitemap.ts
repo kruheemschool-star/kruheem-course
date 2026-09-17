@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next'
 import { listCollection, type FsDoc } from '@/lib/firestoreRest'
+import { SHOW_EXAM_PAPERS_SHOP } from "@/lib/constants"
 
 // Reads via the Firestore REST API with field projection (see lib/firestoreRest)
 // instead of the Firebase client SDK: the client SDK is unreliable inside
@@ -65,12 +66,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             changeFrequency: 'weekly',
             priority: 0.8,
         },
-        {
-            url: `${baseUrl}/exam-papers`,
-            lastModified: new Date(),
-            changeFrequency: 'weekly',
-            priority: 0.8,
-        },
+        ...(SHOW_EXAM_PAPERS_SHOP
+            ? [{
+                url: `${baseUrl}/exam-papers`,
+                lastModified: new Date(),
+                changeFrequency: 'weekly' as const,
+                priority: 0.8,
+            }]
+            : []),
         {
             url: `${baseUrl}/practice`,
             lastModified: new Date(),
@@ -153,22 +156,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
 
     // Dynamic Exam Paper (PDF shop) Routes
+    // ร้านถูกซ่อนอยู่ (lib/constants.ts) → ไม่ใส่ทั้งหน้าร้านและรายชุดลง sitemap
+    // จะได้ไม่มีคนเดินเข้ามาจาก Google ระหว่างที่ยังทำไม่เสร็จ
     let examPaperRoutes: MetadataRoute.Sitemap = []
 
-    try {
-        const docs = await listCollection('examPapers', ['hidden', 'createdAt', 'updatedAt'], { revalidate: 86400 })
+    if (SHOW_EXAM_PAPERS_SHOP) {
+        try {
+            const docs = await listCollection('examPapers', ['hidden', 'createdAt', 'updatedAt'], { revalidate: 86400 })
 
-        examPaperRoutes = docs
-            .filter((d: FsDoc) => d.createdAt != null)
-            .filter((d: FsDoc) => !d.hidden)
-            .map((d: FsDoc) => ({
-                url: `${baseUrl}/exam-papers/${d.id}`,
-                lastModified: toDate(d.updatedAt ?? d.createdAt),
-                changeFrequency: 'weekly' as const,
-                priority: 0.7,
-            }))
-    } catch (error) {
-        console.error('Error generating sitemap for exam papers:', error)
+            examPaperRoutes = docs
+                .filter((d: FsDoc) => d.createdAt != null)
+                .filter((d: FsDoc) => !d.hidden)
+                .map((d: FsDoc) => ({
+                    url: `${baseUrl}/exam-papers/${d.id}`,
+                    lastModified: toDate(d.updatedAt ?? d.createdAt),
+                    changeFrequency: 'weekly' as const,
+                    priority: 0.7,
+                }))
+        } catch (error) {
+            console.error('Error generating sitemap for exam papers:', error)
+        }
     }
 
     // Dynamic Summary Routes
