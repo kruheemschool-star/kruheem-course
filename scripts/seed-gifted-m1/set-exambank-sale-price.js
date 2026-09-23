@@ -1,8 +1,9 @@
 /**
- * set-exambank-sale-price.js — เปลี่ยน "ราคาลด" ของคอร์สคลังข้อสอบ (ราคาเต็ม 1,900 คงเดิม)
+ * set-exambank-sale-price.js — เปลี่ยน "ราคาลด" (และราคาเต็มได้ด้วย) ของคอร์สคลังข้อสอบ
  * ----------------------------------------------------------
  *   node set-exambank-sale-price.js --from=690 --to=990            # dry run
  *   node set-exambank-sale-price.js --from=690 --to=990 --commit   # เขียนจริง (สำรอง salesPage ก่อน)
+ *   เปลี่ยนราคาเต็มด้วย: เพิ่ม --full-from=1900 --full-to=3900 (ไม่ใส่ = ราคาเต็มคงเดิม)
  * ----------------------------------------------------------
  * แก้ให้ครบทุกจุดใน Firestore แล้วคำนวณข้อความ "เฉลี่ยวันละ / ตกเดือนละ" ให้เอง
  * ค่าเดิมจุดไหนไม่ตรงกับ --from = เตือนแล้วหยุด ไม่เขียนอะไรเลย
@@ -10,7 +11,7 @@
  * ⚠️ ราคาในโค้ดอีก 1 จุดต้องแก้มือ: lib/constants.ts → EXAM_BANK_PRICE.sale (แล้ว push ให้ Vercel deploy)
  *
  * ไม่แตะ: anchor คู่แข่ง (คอลัมน์ 1 และ 3 ของตารางเทียบ) · value-stack items (มูลค่ารวม 6,480 ฿)
- *        · ราคาเต็ม 1,900 ทุกจุด · boosters.exitIntent (ปิดใช้งานอยู่)
+ *        · ราคาเต็ม (ถ้าไม่ใส่ --full-to) · boosters.exitIntent (ปิดใช้งานอยู่)
  */
 const admin = require('firebase-admin');
 const fs = require('fs');
@@ -21,7 +22,8 @@ const COMMIT = process.argv.includes('--commit');
 const FROM = Number(arg('from'));
 const TO = Number(arg('to'));
 const COURSE_ID = '26UeeaBMMFswM3RH5aI1';
-const FULL_PRICE = 1900;
+const FULL_FROM = Number(arg('full-from') || 1900);
+const FULL_PRICE = Number(arg('full-to') || FULL_FROM);  // ราคาเต็มหลังแก้
 const YEARS = 5, DAYS = 365 * YEARS, MONTHS = 12 * YEARS;
 
 if (!FROM || !TO) {
@@ -64,7 +66,7 @@ function subStr(obj, key, needle, replacement, tag) {
 
 (async () => {
   console.log(COMMIT ? '🟢 COMMIT MODE — เขียนจริง\n' : '🔍 DRY RUN — ยังไม่เขียน\n');
-  console.log(`ราคาลด: ${baht(FROM)}  →  ${baht(TO)}   (ราคาเต็ม ${baht(FULL_PRICE)} คงเดิม)`);
+  console.log(`ราคาลด: ${baht(FROM)}  →  ${baht(TO)}   (ราคาเต็ม ${baht(FULL_FROM)} → ${baht(FULL_PRICE)})`);
   console.log(`เฉลี่ยวันละ: ${perDay(FROM)} → ${perDay(TO)} บาท · ตกเดือนละ: ${perMonth(FROM)} → ${perMonth(TO)} บาท`);
   console.log(`ป้ายประหยัด: ${baht(FULL_PRICE - TO)} ฿ (${Math.round(((FULL_PRICE - TO) / FULL_PRICE) * 100)}%)\n`);
 
@@ -81,7 +83,8 @@ function subStr(obj, key, needle, replacement, tag) {
   else if (c.price === FROM) { console.log(`  •  price : ${FROM}  →  ${TO}`); update.price = TO; changes++; }
   else { console.log(`  ❌ price ค่าเดิมไม่ตรง (เจอ ${c.price})`); errors++; }
 
-  if (c.fullPrice === FULL_PRICE) console.log(`  ✓  fullPrice = ${FULL_PRICE} (ราคาเต็ม คงเดิม)`);
+  if (c.fullPrice === FULL_PRICE) console.log(`  ✓  fullPrice = ${FULL_PRICE} อยู่แล้ว`);
+  else if (c.fullPrice === FULL_FROM) { console.log(`  •  fullPrice : ${FULL_FROM}  →  ${FULL_PRICE}`); update.fullPrice = FULL_PRICE; changes++; }
   else { console.log(`  ❌ fullPrice ไม่ใช่ ${FULL_PRICE} (เจอ ${c.fullPrice})`); errors++; }
 
   const sp = c.salesPage;
@@ -93,15 +96,14 @@ function subStr(obj, key, needle, replacement, tag) {
     setStr(s.data, 'ctaPriceText', `฿${baht(FROM)}`, `฿${baht(TO)}`, 'hero');
     setStr(s.data, 'pricePerDayText', `เฉลี่ยวันละ ${perDay(FROM)} บาทเท่านั้น`, `เฉลี่ยวันละ ${perDay(TO)} บาทเท่านั้น`, 'hero');
     setStr((s.data.trustChips || [])[0], 'boldText', perDay(FROM), perDay(TO), 'hero·ชิป "ค่าใช้จ่ายเฉลี่ยวันละ"');
-    if (s.data.regularPriceText === `ราคาปกติ ${baht(FULL_PRICE)}`) console.log(`  ✓  regularPriceText = "ราคาปกติ ${baht(FULL_PRICE)}" (คงเดิม)`);
-    else { console.log(`  ❌ regularPriceText เปลี่ยนไปจากที่คาด: ${JSON.stringify(s.data.regularPriceText)}`); errors++; }
+    setStr(s.data, 'regularPriceText', `ราคาปกติ ${baht(FULL_FROM)}`, `ราคาปกติ ${baht(FULL_PRICE)}`, 'hero');
   }
 
   console.log('\n=== 3) countdown (แถบนับถอยหลัง — endDate หมดอายุ ไม่แสดงผล) ===');
   for (const s of byType('countdown')) {
     setStr(s.data, 'title', `⏰ ราคาเปิดตัว ${baht(FROM)} บาท — เหลือเวลาอีก`, `⏰ ราคาเปิดตัว ${baht(TO)} บาท — เหลือเวลาอีก`, 'countdown');
-    if (String(s.data.subtitle).includes(baht(FULL_PRICE))) console.log(`  ✓  subtitle ยังอ้างราคาเต็ม ${baht(FULL_PRICE)} (คงเดิม)`);
-    else { console.log(`  ❌ subtitle ไม่ได้อ้าง ${baht(FULL_PRICE)}: ${JSON.stringify(s.data.subtitle)}`); errors++; }
+    if (FULL_FROM === FULL_PRICE && String(s.data.subtitle).includes(baht(FULL_PRICE))) console.log(`  ✓  subtitle ยังอ้างราคาเต็ม ${baht(FULL_PRICE)} (คงเดิม)`);
+    else subStr(s.data, 'subtitle', baht(FULL_FROM), baht(FULL_PRICE), 'countdown·subtitle');
   }
 
   console.log('\n=== 4) comparison (แก้เฉพาะคอลัมน์ "คอร์สครูฮีม") ===');
@@ -117,6 +119,7 @@ function subStr(obj, key, needle, replacement, tag) {
     else if (d.finalPrice === FROM) { console.log(`  •  finalPrice : ${FROM}  →  ${TO}`); d.finalPrice = TO; changes++; }
     else { console.log(`  ❌ finalPrice ค่าเดิมไม่ตรง (เจอ ${d.finalPrice})`); errors++; }
 
+    if (d.regularPrice === FULL_FROM && FULL_FROM !== FULL_PRICE) { console.log(`  •  regularPrice : ${FULL_FROM}  →  ${FULL_PRICE}`); d.regularPrice = FULL_PRICE; changes++; }
     if (d.regularPrice === FULL_PRICE) {
       const save = FULL_PRICE - TO;
       console.log(`  ✓  regularPrice = ${FULL_PRICE} (คงเดิม) → ป้ายประหยัดจะเป็น "ประหยัด ${baht(save)} ฿ (${Math.round((save / FULL_PRICE) * 100)}%)"`);
@@ -149,14 +152,14 @@ function subStr(obj, key, needle, replacement, tag) {
 
   console.log(`\n=== 8) ตรวจ "${baht(FROM)}" ที่ยังตกค้าง (ควรไม่เหลือเลย) ===`);
   const leftovers = [];
-  const pat = new RegExp(`${FROM}|${baht(FROM)}`);
+  const pat = new RegExp([FROM, baht(FROM), ...(FULL_FROM !== FULL_PRICE ? [FULL_FROM, baht(FULL_FROM)] : [])].join('|'));
   (function walk(o, p) {
     if (o == null) return;
     if (typeof o === 'string') { if (pat.test(o)) leftovers.push([p, o.length > 90 ? o.slice(0, 90) + '…' : o]); return; }
-    if (typeof o === 'number') { if (o === FROM) leftovers.push([p, o]); return; }
+    if (typeof o === 'number') { if (o === FROM || (FULL_FROM !== FULL_PRICE && o === FULL_FROM)) leftovers.push([p, o]); return; }
     if (Array.isArray(o)) return o.forEach((v, i) => walk(v, `${p}[${i}]`));
     if (typeof o === 'object') for (const k of Object.keys(o)) walk(o[k], p ? `${p}.${k}` : k);
-  })({ price: update.price ?? c.price, fullPrice: c.fullPrice, salesPage: newSp }, '');
+  })({ price: update.price ?? c.price, fullPrice: update.fullPrice ?? c.fullPrice, salesPage: newSp }, '');
   if (!leftovers.length) console.log(`  ✓  ไม่มี ${baht(FROM)} เหลือแล้ว`);
   for (const [p, v] of leftovers) console.log(`  ℹ️  ${p} : ${JSON.stringify(v)}`);
 
@@ -172,6 +175,6 @@ function subStr(obj, key, needle, replacement, tag) {
 
   await ref.update(update);
   console.log(`✅ เขียนแล้ว — ราคาเต็ม ${baht(FULL_PRICE)} / ราคาลด ${baht(TO)} ครบทุกจุดใน Firestore`);
-  console.log('⚠️  อย่าลืมแก้ lib/constants.ts → EXAM_BANK_PRICE.sale แล้ว push');
+  console.log('⚠️  อย่าลืมแก้ lib/constants.ts → EXAM_BANK_PRICE (full/sale) แล้ว push');
   process.exit(0);
 })().catch((e) => { console.error('ERROR:', e.message); process.exit(1); });
