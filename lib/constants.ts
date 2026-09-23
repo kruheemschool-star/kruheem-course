@@ -25,8 +25,8 @@ export const PAYMENT_INFO = {
 //  salesPage.hero/countdown/priceStack — ถ้าครูฮีมเปลี่ยนราคา ต้องแก้ที่นี่ด้วย
 //  ไม่งั้นปุ่มในห้องสอบจะโชว์ราคาเก่า)
 export const EXAM_BANK_PRICE = {
-    full: 1900,
-    sale: 790,
+    full: 3900,
+    sale: 1500,
 };
 
 /** ส่วนลดที่โชว์บนป้าย (ปัดลง) — คำนวณให้ ไม่ต้องแก้มือเวลาราคาเปลี่ยน */
