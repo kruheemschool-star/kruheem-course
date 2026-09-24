@@ -130,7 +130,7 @@ class StudyDeskScene extends React.Component {
     this.mats = {}; this.items = {}; this.hitList = []; this.order = [];
     this.tex = {}; this.makeTextures();
     this.buildRoom(); this.buildDesk(); this.buildLaptop(); if (this.cdOn()) this.buildCalendar(); this.buildLamp(); this.buildBooks();
-    this.buildNotebook(); this.buildTips(); this.buildPapers(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable();
+    this.buildNotebook(); this.buildTips(); this.buildPapers(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable(); this.compact = undefined; this.applyLayout();
     this.ring = new T.Mesh(new T.RingGeometry(0.92, 1, 72), new T.MeshBasicMaterial({ color: 0x14b8a6, transparent: true, opacity: 0, depthWrite: false }));
     this.ring.rotation.x = -Math.PI / 2; this.ring.position.y = 0.012; S.add(this.ring); this.ringA = 0;
 
@@ -155,6 +155,36 @@ class StudyDeskScene extends React.Component {
     this.loop();
   }
 
+  // [พอร์ต] มือถือแนวตั้ง: ต้นแบบวางของเต็มความกว้างโต๊ะ + โต๊ะข้าง → บนจอแคบทุกอย่างเล็กจนอ่านไม่ออก
+  // (ครูฮีมขอ 2026-09-25) → ย้ายของเข้ามาชิดกลางโต๊ะ ซูมกล้องเฉพาะช่วงนี้ และซ่อนกระดาน/หน้าต่าง/นาฬิกา/โปสเตอร์ครู
+  // ค่า: [x, z, rotY, ขนาด] — ของที่ไม่มีในนี้อยู่ที่เดิม
+  COMPACT = {
+    courses: [-2.95, -1.75, 0.1, 0.9], mycourse: [0.45, -2.05, 0, 0.9], countdown: [3.2, -2.35, -0.24, 0.9], lamp: [3.6, -3.25, 0, 0.8],
+    contact: [-3.3, 0.95, 0.16, 0.9], story: [-1.75, 0.95, 0, 0.9], exams: [3.05, 0.9, 0.08, 0.85],
+    tips: [-3.1, 2.55, 0.16, 0.9], apply: [-0.55, 2.45, -0.06, 0.9], summary: [2.35, 2.75, -0.06, 0.95],
+  };
+  COMPACT_X = 4.35; // ครึ่งความกว้างที่ต้องเห็นเต็มจอ (ต้นแบบ 7.9 = โต๊ะ + โต๊ะข้าง)
+  COMPACT_DIR = [0, 14, 10]; // ทิศกล้องมือถือ (ต้นแบบ 0, 8.6, 15) — มองสูงกว่าให้ของไม่บังกันและเต็มจอแนวตั้ง
+  COMPACT_YF = -1.5; // ขอบล่างที่ต้องเห็น (หน้าลิ้นชัก)
+  isCompact() { return innerWidth < 640 && innerHeight > innerWidth * 1.05; }
+  applyLayout() {
+    const c = this.isCompact(); if (c === this.compact) return false; this.compact = c;
+    for (const it of this.order) {
+      if (it.static || !it.g) continue;
+      if (!it._d) it._d = { x: it.x, z: it.z, rotY: it.rotY, bs: it.bs || 1, rs: it.rs };
+      const L = c && this.COMPACT[it.k], k = L ? L[3] : 1;
+      it.x = L ? L[0] : it._d.x; it.z = L ? L[1] : it._d.z; it.rotY = L ? L[2] : it._d.rotY; it.bs = it._d.bs * k; it.rs = it._d.rs * k;
+      it.g.position.x = it.x; it.g.position.z = it.z; it.g.scale.setScalar(it.bs);
+    }
+    this._foot = null; this.hideWall();
+    return true;
+  }
+  // ของบนผัง (กระดาน โพสต์อิท หน้าต่าง นาฬิกา โปสเตอร์ครู ชอล์ก) → layer 1 = ไม่วาด ไม่มีเงา และแตะไม่โดน
+  hideWall() {
+    const L = this.compact ? 1 : 0, lay = (o) => o && o.traverse(n => n.layers.set(L));
+    lay(this.board); lay(this.win); lay(this.clock); if (this.kru) lay(this.kru.g);
+    (this.props3 || []).forEach(o => { if (o.tray) lay(o.g); });
+  }
   M(c, o) {
     o = o || {}; const k = c + '|' + (o.r ?? .62) + '|' + (o.m ?? 0);
     if (!this.mats[k]) this.mats[k] = new this.T.MeshStandardMaterial({ color: c, roughness: o.r ?? 0.62, metalness: o.m ?? 0, envMapIntensity: 0.45 });
@@ -189,7 +219,11 @@ class StudyDeskScene extends React.Component {
   }
   tx(name, canvas) {
     const T = this.T;
-    if (this.tex[name]) { this.tex[name].image = canvas; this.tex[name].needsUpdate = true; return; }
+    if (this.tex[name]) {
+      const o = this.tex[name], im = o.image;
+      if (!im || (im.width === canvas.width && im.height === canvas.height)) { o.image = canvas; o.needsUpdate = true; return; }
+      o.dispose(); // [พอร์ต] ขนาดไม่เท่าเดิม → ทิ้งแล้วสร้างใหม่ (ต้นแบบเขียนทับ → ภาพกระดานเพี้ยนบนมือถือ)
+    }
     const t = new T.CanvasTexture(canvas); t.encoding = T.sRGBEncoding; t.anisotropy = 8; this.tex[name] = t;
   }
   makeTextures() {
@@ -480,6 +514,7 @@ class StudyDeskScene extends React.Component {
     const hand = (len, wd, col, z) => { const pv = new T.Group(); pv.position.z = z; const m = this.mesh(new T.BoxGeometry(wd, len, 0.03), this.M(col, { r: .4 })); m.position.y = len / 2 - len * 0.12; pv.add(m); this.clock.add(pv); return pv; };
     this.hH = hand(cr * 0.5, 0.07, 0x0f172a, 0.12); this.hM = hand(cr * 0.75, 0.05, 0x0f172a, 0.14); this.hS = hand(cr * 0.82, 0.02, 0xf43f5e, 0.16);
     const pin = this.mesh(new T.CylinderGeometry(0.06, 0.06, 0.06, 16), this.M(0xf43f5e)); pin.rotation.x = Math.PI / 2; pin.position.z = 0.18; this.clock.add(pin);
+    this.hideWall(); // [พอร์ต] มือถือแนวตั้งไม่โชว์ของบนผนัง
   }
   buildDesk() {
     const T = this.T, tone = this.props.deskTone || '#74472a', wt = this.woodTex('deskWood', 1024, 512, false); wt.repeat.set(0.085, 0.16);
@@ -855,25 +890,28 @@ class StudyDeskScene extends React.Component {
     c.fov = this.cam.fov; c.aspect = innerWidth / innerHeight; c.near = .1; c.far = 200; c.clearViewOffset(); c.updateProjectionMatrix();
     c.position.copy(tgt).addScaledVector(dir, d); c.lookAt(tgt); c.updateMatrixWorld();
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; const v = new T.Vector3();
-    const pts = []; for (const X of [-7.9, 7.9]) { for (const Y of [-0.3, 2.5]) for (const Z of [-3.9, 3.9]) pts.push([X, Y, Z]); pts.push([X, -3.4, 3.9]); }
+    const XW = this.compact ? this.COMPACT_X : 7.9, YF = this.compact ? this.COMPACT_YF : -3.4; // [พอร์ต] มือถือ: ช่วงของบนโต๊ะ + หน้าลิ้นชัก
+    const YT = this.compact ? 2.2 : 2.5, ZB = this.compact ? -3.5 : -3.9;
+    const pts = []; for (const X of [-XW, XW]) { for (const Y of [-0.3, YT]) for (const Z of [ZB, 3.9]) pts.push([X, Y, Z]); pts.push([X, YF, 3.9]); }
     for (const [X, Y, Z] of pts) {
       v.set(X, Y, Z).project(c); const sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight;
       x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
     }
-    return { w: x1 - x0, h: y1 - y0, cy: (y0 + y1) / 2 };
+    return { w: x1 - x0, h: y1 - y0, cy: (y0 + y1) / 2, y0 };
   }
   homePose() {
-    const T = this.T, dir = new T.Vector3(0, 8.6, 15).normalize(), tgt = new T.Vector3(0, 0.4, 0);
+    const T = this.T, dir = this.compact ? new T.Vector3(...this.COMPACT_DIR).normalize() : new T.Vector3(0, 8.6, 15).normalize(), tgt = new T.Vector3(0, 0.4, 0);
     const hr = this.heroRef.current, dr = this.dockRef.current;
     // [พอร์ต] เก็บกรอบข้อความบนกระดานไว้ให้ป้ายชื่อหลบ
     if (hr) { this.heroBottom = hr.getBoundingClientRect().bottom; let l = 1e9, r = -1e9, b = -1e9; for (const ch of hr.children) { const q = ch.getBoundingClientRect(); if (q.width < 4 || q.height < 4) continue; l = Math.min(l, q.left); r = Math.max(r, q.right); b = Math.max(b, q.bottom); } this.heroBox = l < r ? { l, r, b } : null; } if (dr) this.dockTop = dr.getBoundingClientRect().top;
     const top = (this.heroBottom || innerHeight * 0.3) + 2, bot = (this.dockTop || innerHeight - 80) + 6;
-    const availH = Math.max(150, bot - top), availW = innerWidth - 32;
+    const availH = Math.max(150, bot - top), availW = innerWidth - (this.compact ? 8 : 32);
     let d = 22;
     if (innerWidth > 0 && innerHeight > 0) for (let i = 0; i < 4; i++) { const e = this.extent(tgt, dir, d); const f = Math.min(availH / e.h, availW / e.w); if (!Number.isFinite(f) || f <= 0) { d = 22; break; } d = d / f; }
     if (!Number.isFinite(d) || d <= 0) d = 22;
     let e = this.extent(tgt, dir, d); if (!Number.isFinite(e.cy)) e = { cy: innerHeight / 2 };
-    let s = (top + bot) / 2 - e.cy; if (!Number.isFinite(s)) s = 0;
+    // [พอร์ต] มือถือ: ภาพถูกจำกัดด้วยความกว้าง เหลือที่ว่างแนวตั้ง → ชิดโต๊ะขึ้นใต้ข้อความหัวเรื่อง (ที่ว่างไปอยู่พื้นห้องด้านล่างแทน)
+    let s = this.compact && Number.isFinite(e.y0) ? top + 14 - e.y0 : (top + bot) / 2 - e.cy; if (!Number.isFinite(s)) s = 0;
     const pose = { t: tgt, p: tgt.clone().addScaledVector(dir, d), s };
     this.homeOk = innerWidth > 0 && innerHeight > 0;
     this._lastHome = pose; this.placeRoom(pose);
@@ -1323,7 +1361,7 @@ class StudyDeskScene extends React.Component {
     if (key !== this.state.panel) this.sfx(key);
     this.setState({ panel: key, hover: null }); this.dockHover = null;
     if (key === 'mycourse' && this.props.onNeedMy) this.props.onNeedMy(); // [พอร์ต] อ่าน "เรียนค้างไว้" เฉพาะตอนเปิดแผง
-    if (this.T && this.items[key]) this.goTo(this.focusPose(key));
+    if (this.T && this.items[key] && !(this.compact && key === 'reviews')) this.goTo(this.focusPose(key));
   }
   drawDrawerQuote() {
     const Q = this.QUOTES; let i = Math.floor(Math.random() * Q.length); if (i === this._dqi) i = (i + 1) % Q.length; this._dqi = i;
@@ -1370,6 +1408,7 @@ class StudyDeskScene extends React.Component {
   }
   resize() {
     if (!this.R) return; this.R.setSize(innerWidth, innerHeight); this.cam.aspect = innerWidth / innerHeight; this.cam.updateProjectionMatrix();
+    if (this.applyLayout()) this._roomKey = null; // [พอร์ต] สลับผังมือถือ/จอใหญ่
     // [พอร์ต] ลิ้นชักเปิดอยู่ → จัดภาพลิ้นชักใหม่ · กล้องกำลังบิน → เปลี่ยนปลายทางแทนการกระโดด
     const p = this.state.panel ? this.focusPose(this.state.panel) : (this.drawerOpen && this.items.drawer ? (this.homePose(), this.drawerPose()) : this.homePose());
     if (this.tw && !this.introOn) { this.tw.p1 = p.p; this.tw.t1 = p.t; this.tw.s1 = p.s || 0; this.tw.x1 = p.sx || 0; return; }
@@ -1466,7 +1505,7 @@ class StudyDeskScene extends React.Component {
       K.pivot.position.z = 0; K.pivot.rotation.set(0, 0, -0.045);
       this.kruMat.color.setScalar(1 - 0.55 * n);
       const kr = this.kruRef.current;
-      if (kr) { const show = vis && pk >= 1 && !active && !this.drawerOpen && (!hk || hk === 'kru') && now < (this.kruShow ?? (now + 99));
+      if (kr) { const show = vis && !this.compact && pk >= 1 && !active && !this.drawerOpen && (!hk || hk === 'kru') && now < (this.kruShow ?? (now + 99));
         if (show) { K.pivot.updateMatrixWorld(true); const v = K.pivot.localToWorld(new T.Vector3(0, -K.PH / 2 - 0.05, 0.05)).project(this.cam); const sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight, bh2 = (kr.offsetHeight || 44) / 2;
           kr.style.flexDirection = 'column-reverse'; const ar = kr.lastElementChild; ar.style.borderLeft = '8px solid transparent'; ar.style.borderRight = '8px solid transparent'; ar.style.borderTop = '0'; ar.style.borderBottom = '9px solid #fff'; ar.style.marginRight = '0';
           // [พอร์ต] สเปกข้อ 14.4: กล่องคำพูดห้ามทับหัวเว็บ/ข้อความบนกระดาน/แถบเมนู — จอแคบโปสเตอร์ครูอยู่นอกจอ
