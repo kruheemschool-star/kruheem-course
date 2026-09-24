@@ -1,49 +1,17 @@
-import HomeClient from "./HomeClient";
-import ExamPapersHomeSection from "@/components/home/ExamPapersHomeSection";
-import { getActivePromotion } from "@/lib/promotion";
-import { listPublicExamPapers } from "@/lib/examPapers";
-import { SHOW_EXAM_PAPERS_SHOP } from "@/lib/constants";
-import { getDocument } from "@/lib/firestoreRest";
-import { PUBLIC_SETTINGS_DOC, PUBLIC_SETTINGS_REVALIDATE, PUBLIC_SETTINGS_TAGS } from "@/lib/publicSettings";
-import type { CountdownConfig } from "@/components/home/ExamCountdownHero";
+import ClassicHome from "./ClassicHome";
+import StudyDesk from "@/components/desk/StudyDesk";
+import { SHOW_DESK_HOME } from "@/lib/constants";
+import { getDeskHomeData } from "@/lib/deskHomeData";
 
-// Server component: read the promotion on the server so the homepage HTML
-// already knows whether to show the banner (no layout shift / hero "jump"),
-// then hand off to the interactive client homepage. ISR-cached ~30s so admin
-// promo edits appear on the live site quickly.
 // 5 นาที (เดิม 30 วิ): หน้านี้ต้อง re-render เป็นระยะเพราะแบนเนอร์โปรโมชัน
 // คัดกรองด้วย startDate/endDate ณ เวลา render (lib/promotion.ts) — โปรตั้งเวลา
 // ล่วงหน้า/หมดเขตต้องสลับเองแม้ไม่มีใครกดบันทึก การ re-render ใช้ข้อมูลจาก
 // fetch-cache (1 ชม. + tag) จึงแทบไม่เกิด Firestore read เพิ่ม
 export const revalidate = 300;
 
-// การ์ดนับถอยหลัง: อ่าน field `countdown` ใน settings/homepage_promotion ฝั่ง
-// เซิร์ฟเวอร์ แล้วส่งเป็น prop — ใช้ doc เดียวกับโปรโมชัน (เหตุผลเรื่อง rules ดู
-// lib/publicSettings.ts) URL+revalidate ตรงกับ getActivePromotion จึงแชร์แคช
-// ไม่เพิ่มยอดอ่าน Firestore
-async function getHomeCountdown(): Promise<Partial<CountdownConfig> | null> {
-  try {
-    const doc = await getDocument(PUBLIC_SETTINGS_DOC, { revalidate: PUBLIC_SETTINGS_REVALIDATE, tags: PUBLIC_SETTINGS_TAGS });
-    return (doc?.countdown as Partial<CountdownConfig> | undefined) ?? null;
-  } catch {
-    return null; // การ์ดใช้ค่า default ของตัวเอง
-  }
-}
-
+// หน้าแรกมี 2 แบบ สลับด้วยสวิตช์ SHOW_DESK_HOME (lib/constants.ts):
+// หน้าเลื่อนยาวแบบเดิม (ClassicHome — ใช้ร่วมกับ /classic) หรือโต๊ะเรียน 3 มิติ
 export default async function HomePage() {
-  // ร้านข้อสอบ PDF ถูกซ่อนอยู่ (lib/constants.ts) → ไม่ต้องอ่าน Firestore ทิ้งเปล่า
-  const [initialPromo, initialCountdown, papers] = await Promise.all([
-    getActivePromotion(),
-    getHomeCountdown(),
-    SHOW_EXAM_PAPERS_SHOP ? listPublicExamPapers() : Promise.resolve([]),
-  ]);
-  return (
-    <HomeClient
-      initialPromo={initialPromo}
-      initialCountdown={initialCountdown}
-      // เรนเดอร์ฝั่งเซิร์ฟเวอร์แล้วส่งเป็น slot — HomeClient เป็น client component
-      // ถ้า import ตรงๆ การ์ดจะถูกลากเข้า client bundle ทั้งก้อน
-      examPapersSection={SHOW_EXAM_PAPERS_SHOP ? <ExamPapersHomeSection papers={papers} /> : null}
-    />
-  );
+  if (SHOW_DESK_HOME) return <StudyDesk data={await getDeskHomeData()} classicUrl="/classic" />;
+  return <ClassicHome />;
 }

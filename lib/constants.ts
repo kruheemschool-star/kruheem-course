@@ -43,5 +43,14 @@ export const EXAM_BANK_DISCOUNT_PERCENT = Math.round(
  */
 export const SHOW_EXAM_PAPERS_SHOP = false;
 
+/**
+ * สวิตช์หน้าแรก "โต๊ะเรียน 3 มิติ" (components/desk — สเปก KruHeem-Study-Desk-SPEC.md)
+ * false = หน้าแรก "/" เป็นหน้าเลื่อนยาวแบบเดิม · ดูโต๊ะเรียนได้ที่ /desk-preview (ไม่ขึ้น Google)
+ * true  = "/" เป็นโต๊ะเรียน · หน้าเดิมย้ายไป /classic (ปุ่ม "เวอร์ชันคลาสสิก" มุมขวาบนของฉาก)
+ * 2026-09-24: สร้างไว้ก่อน รอครูฮีมดูของจริงแล้วตัดสิน — พร้อมเมื่อไหร่เปลี่ยนเป็น true จุดเดียว
+ * ⚠️ ก่อนเปิด: ลิงก์ "/#courses" (Footer · FAQ · reviews) ต้องชี้ไป "/classic#courses"
+ */
+export const SHOW_DESK_HOME = false;
+
 /** ปลายทางปุ่มสมัครคลังข้อสอบทุกจุด (คนยังไม่ล็อกอินจะถูกส่งไป /login แล้วเด้งกลับมาเอง) */
 export const EXAM_BANK_BUY_HREF = "/payment?course=vip";

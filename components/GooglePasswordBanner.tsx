@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUserAuth } from "@/context/AuthContext";
 import { KeyRound, X, ArrowRight } from "lucide-react";
+import { SHOW_DESK_HOME } from "@/lib/constants";
 
 /**
  * Floating banner shown ONLY to users who signed up with Google and don't yet
@@ -23,6 +24,8 @@ export default function GooglePasswordBanner() {
   if (isAdmin) return null;
   // Don't show on the set-password page itself or the auth pages.
   if (pathname === "/set-password" || pathname === "/login" || pathname === "/register") return null;
+  // หน้าโต๊ะเรียน 3 มิติ: แบนเนอร์ลอยทับแถบเมนูล่างของฉาก
+  if (pathname === "/desk-preview" || (SHOW_DESK_HOME && pathname === "/")) return null;
 
   const providers = (user.providerData || []).map((p) => p.providerId);
   const isGoogleOnly = providers.includes("google.com") && !providers.includes("password");
