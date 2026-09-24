@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Plus, Minus, HelpCircle, MessageCircle, CheckCircle2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { HOME_COURSES_HREF } from "@/lib/constants";
 
 const faqs = [
     {
@@ -149,7 +150,7 @@ export default function FAQPage() {
                                 อย่าปล่อยให้ความไม่เข้าใจสะสมจนแก้ไม่ทัน เริ่มต้นปูพื้นฐานใหม่วันนี้ เพื่ออนาคตที่ดีกว่า
                             </p>
                             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                                <Link href="/#courses" className="px-8 py-4 bg-white text-indigo-600 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-50 transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                                <Link href={HOME_COURSES_HREF} className="px-8 py-4 bg-white text-indigo-600 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-50 transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
                                     <CheckCircle2 size={20} />
                                     สมัครเรียนเลย
                                 </Link>

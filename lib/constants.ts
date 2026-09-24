@@ -47,10 +47,12 @@ export const SHOW_EXAM_PAPERS_SHOP = false;
  * สวิตช์หน้าแรก "โต๊ะเรียน 3 มิติ" (components/desk — สเปก KruHeem-Study-Desk-SPEC.md)
  * false = หน้าแรก "/" เป็นหน้าเลื่อนยาวแบบเดิม · ดูโต๊ะเรียนได้ที่ /desk-preview (ไม่ขึ้น Google)
  * true  = "/" เป็นโต๊ะเรียน · หน้าเดิมย้ายไป /classic (ปุ่ม "เวอร์ชันคลาสสิก" มุมขวาบนของฉาก)
- * 2026-09-24: สร้างไว้ก่อน รอครูฮีมดูของจริงแล้วตัดสิน — พร้อมเมื่อไหร่เปลี่ยนเป็น true จุดเดียว
- * ⚠️ ก่อนเปิด: ลิงก์ "/#courses" (Footer · FAQ · reviews) ต้องชี้ไป "/classic#courses"
+ * 2026-09-25: ครูฮีมสั่งเปิดเป็นหน้าแรกจริง (ปิดกลับ = เปลี่ยนเป็น false จุดเดียว)
  */
-export const SHOW_DESK_HOME = false;
+export const SHOW_DESK_HOME = true;
+
+/** ลิงก์ "ดูคอร์สทั้งหมด" ในหน้าอื่น (Footer · FAQ · รีวิว) — รายการคอร์สแบบเลื่อนยาวอยู่ในหน้าแรกเวอร์ชันคลาสสิก */
+export const HOME_COURSES_HREF = SHOW_DESK_HOME ? "/classic#courses" : "/#courses";
 
 /** ปลายทางปุ่มสมัครคลังข้อสอบทุกจุด (คนยังไม่ล็อกอินจะถูกส่งไป /login แล้วเด้งกลับมาเอง) */
 export const EXAM_BANK_BUY_HREF = "/payment?course=vip";

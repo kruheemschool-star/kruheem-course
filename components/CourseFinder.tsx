@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowRight, Check, Sparkles, GraduationCap, Shirt, BookOpen, Trophy, TrendingUp, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { HOME_COURSES_HREF } from "@/lib/constants";
 import NextImage from 'next/image';
 import { getCoursesByTags, Course } from '@/services/courseService';
 
@@ -311,7 +312,7 @@ export default function CourseFinder() {
                                         ) : (
                                             <div className="max-w-md mx-auto bg-slate-50 rounded-2xl p-8 border border-slate-200">
                                                 <p className="text-slate-500 mb-4">ยังไม่พบคอร์สที่ตรงตามเงื่อนไขเป๊ะๆ ลองดูคอร์สพื้นฐานของเราไหมครับ?</p>
-                                                <Link href="/#courses" className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition">
+                                                <Link href={HOME_COURSES_HREF} className="inline-block px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition">
                                                     ดูคอร์สทั้งหมด
                                                 </Link>
                                             </div>

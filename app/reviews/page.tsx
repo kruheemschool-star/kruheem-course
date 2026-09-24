@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { Star, Quote, Clock, BookOpen, ThumbsUp, BadgeCheck, Search, EyeOff, Eye, Trash2, Rocket, MessageCircle } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
+import { HOME_COURSES_HREF } from "@/lib/constants";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // LINE consult link (matches Footer / guide page)
@@ -537,7 +538,7 @@ export default function ReviewsPage() {
                             </p>
                             <div className="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3">
                                 <Link
-                                    href="/#courses"
+                                    href={HOME_COURSES_HREF}
                                     className="khrv-cta-btn inline-flex items-center gap-2 px-7 py-3.5 rounded-full font-semibold text-base"
                                     style={{ background: "#fff", color: "var(--khrv-teal)", boxShadow: "0 14px 28px -16px rgba(0,0,0,0.5)" }}
                                 >
