@@ -38,6 +38,9 @@ class StudyDeskScene extends React.Component {
   get FEAT() { return (this.props.data && this.props.data.feat) || {}; }
   // โพสต์อิท 6 ใบ: สลับเหลือง/ชมพูตามลำดับ (kid = ใช้แค่เลือกสี ไม่ได้บอกว่าใครเขียน — ข้อมูลจริงไม่มีบอก)
   get REVIEWS() { return ((this.props.data && this.props.data.reviews) || []).map((r, i) => Object.assign({}, r, { kid: i % 2 === 0 })); }
+  // [พอร์ต] เล่มบน "คอร์สทั้งหมด" ต้นแบบสีแดงเลือดหมู #881337 (บนจอออกชมพู) — ครูฮีมขอเป็นฟ้า/เขียว (2026-09-25)
+  //   เลือกฟ้าเข้ม: ไม่ชนเขียวทีลของเล่ม "ประถม" ที่วางอยู่ข้างใต้
+  TOP_BOOK = '#075985';
   SPINE = ['#0f766e', '#d97706', '#4f46e5', '#e11d48', '#0e7490', '#881337'];
   get CATS() { return (this.props.data && this.props.data.cats) || []; }
   // สันหนังสือบนโต๊ะไม่เกิน 5 เล่ม (+ เล่มบน "คอร์สทั้งหมด") ไม่งั้นตั้งหนังสือสูงจนบังของอื่น — หมวดที่เหลือยังเลือกได้ในแผง
@@ -325,14 +328,14 @@ class StudyDeskScene extends React.Component {
     }));
     this.tx('cover', this.cv(1024, 728, (x, w, h) => {
       x.clearRect(0, 0, w, h); const L = 170;
-      x.strokeStyle = 'rgba(136,19,55,.35)'; x.lineWidth = 3; rr(x, L - 40, 44, w - L + 10, h - 88, 22); x.stroke();
-      x.fillStyle = '#9f1239'; x.font = `700 24px ${B}`; x.letterSpacing = '9px'; x.fillText('KRUHEEM · MATH SCHOOL', L, 100); x.letterSpacing = '0px';
-      x.fillStyle = '#0f766e'; x.beginPath(); x.arc(w - 120, 250, 62, 0, 7); x.fill();
-      x.fillStyle = '#fff'; x.font = `600 80px ${F}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('π', w - 120, 246); x.textAlign = 'left'; x.textBaseline = 'alphabetic';
-      x.fillStyle = '#881337'; x.font = `600 196px ${F}`; x.fillText('คณิต', L - 10, 342);
-      x.fillStyle = '#0f766e'; x.font = `600 132px ${F}`; x.fillText('ครูฮีม', L - 4, 524);
-      x.strokeStyle = 'rgba(136,19,55,.45)'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, 598); x.lineTo(w - 90, 598); x.stroke();
-      x.fillStyle = '#881337'; x.font = `600 30px ${B}`; x.fillText('สอนเทคนิคคิดลัด เข้าใจง่าย', L, 646);
+      x.strokeStyle = 'rgba(12,74,110,.35)'; x.lineWidth = 3; rr(x, L - 40, 44, w - L + 10, h - 88, 22); x.stroke(); // [พอร์ต] เล่มฟ้าโดนไฟด้านบนจนสว่าง → ตัวหนังสือเข้มอ่านชัดกว่า
+      x.fillStyle = '#075985'; x.font = `700 24px ${B}`; x.letterSpacing = '9px'; x.fillText('KRUHEEM · MATH SCHOOL', L, 100); x.letterSpacing = '0px';
+      x.fillStyle = '#fbbf24'; x.beginPath(); x.arc(w - 120, 250, 62, 0, 7); x.fill();
+      x.fillStyle = '#0f172a'; x.font = `600 80px ${F}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('π', w - 120, 246); x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+      x.fillStyle = '#0c4a6e'; x.font = `600 196px ${F}`; x.fillText('คณิต', L - 10, 342);
+      x.fillStyle = '#b45309'; x.font = `600 132px ${F}`; x.fillText('ครูฮีม', L - 4, 524);
+      x.strokeStyle = 'rgba(12,74,110,.4)'; x.lineWidth = 3; x.beginPath(); x.moveTo(L, 598); x.lineTo(w - 90, 598); x.stroke();
+      x.fillStyle = '#0c4a6e'; x.font = `600 30px ${B}`; x.fillText('สอนเทคนิคคิดลัด เข้าใจง่าย', L, 646);
     }));
     this.tx('letter', this.cv(600, 780, (x, w, h) => {
       x.fillStyle = '#fffaf0'; x.fillRect(0, 0, w, h);
@@ -346,7 +349,7 @@ class StudyDeskScene extends React.Component {
       x.fillStyle = '#f43f5e'; x.beginPath(); const hx = w - 110, hy = 600; x.moveTo(hx, hy + 18); x.bezierCurveTo(hx - 40, hy - 10, hx - 18, hy - 40, hx, hy - 18); x.bezierCurveTo(hx + 18, hy - 40, hx + 40, hy - 10, hx, hy + 18); x.fill();
     }));
     this.BOOK_CATS.concat(['คอร์สทั้งหมด']).forEach((title, i) => this.tx('sp' + i, this.cv(1024, 150, (x, w, h) => {
-      x.fillStyle = i === this.BOOK_CATS.length ? this.SPINE[this.SPINE.length - 1] : this.SPINE[i % this.SPINE.length]; x.fillRect(0, 0, w, h); // [พอร์ต] เล่มบนสีเดิมเสมอ
+      x.fillStyle = i === this.BOOK_CATS.length ? this.TOP_BOOK : this.SPINE[i % this.SPINE.length]; x.fillRect(0, 0, w, h); // [พอร์ต] เล่มบนสีเดิมเสมอ
       x.fillStyle = 'rgba(255,255,255,.22)'; x.fillRect(0, 16, w, 5); x.fillRect(0, h - 21, w, 5);
       x.fillStyle = '#fff'; { let fz = 68; x.font = `600 ${fz}px ${F}`; while (fz > 36 && x.measureText(title).width > w - 260) { fz -= 2; x.font = `600 ${fz}px ${F}`; } } x.textBaseline = 'middle'; x.fillText(title, 56, h / 2 + 4);
       x.globalAlpha = .75; x.font = `700 28px ${B}`; x.textAlign = 'right'; x.fillText('KruHeem', w - 48, h / 2 + 2); x.globalAlpha = 1;
@@ -698,7 +701,7 @@ class StudyDeskScene extends React.Component {
     let y = 0; this.books = [];
     list.forEach((cat, i) => {
       const top = cat === null, th = top ? 0.34 : 0.38 + ((i * 37) % 5) * 0.025, w = top ? 2.62 : 2.52 - ((i * 53) % 4) * 0.07, d = top ? 1.84 : 1.72 - ((i * 29) % 3) * 0.05;
-      const si = top ? this.BOOK_CATS.length : this.BOOK_CATS.indexOf(cat), col = top ? this.SPINE[this.SPINE.length - 1] : this.SPINE[si % this.SPINE.length];
+      const si = top ? this.BOOK_CATS.length : this.BOOK_CATS.indexOf(cat), col = top ? this.TOP_BOOK : this.SPINE[si % this.SPINE.length];
       const b = new T.Group(); b.position.set((((i * 41) % 5) - 2) * 0.035, y + th / 2, 0); b.rotation.y = (((i * 67) % 7) - 3) * 0.018; g.add(b);
       const pg = this.rbox(w - 0.1, th - 0.07, d - 0.1, 0.03, this.M(0xfbf6ea, { r: .9 })); pg.position.z = -0.03; b.add(pg);
       const cm = this.M(col, { r: .55 });
@@ -1361,9 +1364,13 @@ class StudyDeskScene extends React.Component {
     let box, dir;
     if (it.boxFn) { box = it.boxFn(); dir = it.dir || new T.Vector3(0, .1, 1).normalize(); }
     else {
+      // [พอร์ต] วัดกรอบตอนของ "วางอยู่บนโต๊ะ" — ต้นแบบวัดตำแหน่งปัจจุบัน ถ้ากดเมนูระหว่างของยังหล่นลงโต๊ะ (ไม่กี่วินาทีแรก)
+      //   กล้องจะเล็งกลางอากาศแล้วค้างมองกระดาน
+      const y0 = it.g.position.y; if (!it.static) it.g.position.y = 0;
       box = new T.Box3(); it.g.updateMatrixWorld(true);
       it.g.traverse(n => { if (n.isMesh && n.visible && n.material && !Array.isArray(n.material) && n.material.blending !== T.AdditiveBlending && n.material.opacity !== 0) { n.geometry.computeBoundingBox && !n.geometry.boundingBox && n.geometry.computeBoundingBox(); const bb = n.geometry.boundingBox.clone().applyMatrix4(n.matrixWorld); box.union(bb); } else if (n.isMesh && Array.isArray(n.material)) { if (!n.geometry.boundingBox) n.geometry.computeBoundingBox(); box.union(n.geometry.boundingBox.clone().applyMatrix4(n.matrixWorld)); } });
       dir = new T.Vector3(0, 3.5, 4.6).normalize();
+      it.g.position.y = y0; it.g.updateMatrixWorld(true);
     }
     if (box.isEmpty()) box.setFromCenterAndSize(new T.Vector3(it.x, (it.ay || 1) * .5, it.z), new T.Vector3(2, 2, 2));
     return this.fitPose(box, dir, rect, 3.5);
