@@ -472,8 +472,8 @@ class StudyDeskScene extends React.Component {
     [0, 1].forEach((row) => {
       [0, 1, 2].forEach((col) => {
         const idx = row * 3 + col; if (!this.tex['pi' + idx]) return; // [พอร์ต] รีวิวจริงไม่ถึง 6 ใบ → ไม่ติดโพสต์อิทเปล่า
-        const ng = new T.Group(); ng.position.set(gcx + (col - 1) * (sz0 + gx) + (row ? 0.08 : -0.06) * ps, (row ? -gy : gy) + (col === 1 ? 0.05 : 0) * ps, 0.12); ng.rotation.z = tilt[idx];
-        const sz = sz0, pm = new T.Mesh(new T.PlaneGeometry(sz, sz), new T.MeshStandardMaterial({ map: this.tex['pi' + idx], roughness: .85 }));
+        const ng = new T.Group(); ng.position.set(gcx + (col - 1) * (sz0 + gx) + (row ? 0.08 : -0.06) * ps, (row ? -gy : gy) + (col === 1 ? 0.05 : 0) * ps, 0.16); ng.rotation.z = tilt[idx];
+        const sz = sz0, pm = new T.Mesh(new T.PlaneGeometry(sz, sz), new T.MeshStandardMaterial({ map: this.tex['pi' + idx], roughness: .85, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
         pm.castShadow = true; ng.add(pm);
         const tack = this.mesh(new T.SphereGeometry(0.055 * ps + 0.02, 16, 12), this.M(idx % 2 ? 0x0f766e : 0xef4444, { r: .3 })); tack.position.set(0, sz / 2 - 0.1, 0.05); ng.add(tack);
         B.add(ng); notes.push({ g: ng, rz: ng.rotation.z });
@@ -491,7 +491,7 @@ class StudyDeskScene extends React.Component {
     let it = this.items.reviews;
     if (!it) { it = { k: 'reviews', static: true, h: 0, v: 0, rotY: 0, fd: 1, rs: 0.001 }; this.items.reviews = it; this.order.push(it); }
     it.g = B; it.x = cx + bw / 2 - ext / 2; it.ay = cy + 0.75 * ps + 0.2; it.z = ZB + 0.2;
-    it.anim = (hv, t) => notes.forEach((n, i) => { n.g.position.z = 0.12 + hv * 0.3; n.g.rotation.x = -hv * 0.16; n.g.rotation.z = n.rz + Math.sin(t * 2.2 + i) * 0.03 * hv; });
+    it.anim = (hv, t) => notes.forEach((n, i) => { hv = Math.max(0, hv); n.g.position.z = 0.16 + hv * 0.3; n.g.rotation.x = -hv * 0.16; n.g.rotation.z = n.rz + Math.sin(t * 2.2 + i) * 0.03 * hv; });
     delete it.focus;
     it.boxFn = () => { const b = new T.Box3(); notes.forEach(n => { n.g.updateMatrixWorld(true); b.expandByObject(n.g); }); if (this._fbLabel) { this._fbLabel.updateMatrixWorld(true); b.expandByObject(this._fbLabel); } return b; };
     it.dir = new T.Vector3(0, 0.12, 1).normalize();
@@ -1510,6 +1510,7 @@ class StudyDeskScene extends React.Component {
     for (const it of this.order) {
       const tg = (this.fkey(hk) === it.k || this.fkey(active) === it.k) ? 1 : 0;
       it.v = (it.v + (tg - it.h) * 0.14) * 0.74; it.h += it.v;
+      if (it.h < 0) { it.h = 0; it.v = 0; } // [พอร์ต] สปริงวางกลับต้องไม่เด้งต่ำกว่าที่พัก (ครูฮีมเห็นโพสต์อิท "หายแล้วกลับมา" = ทะลุหลังกระดาน 8 เฟรม)
       if (it.static) { if (it.anim) it.anim(it.h, t); continue; }
       const p = Math.max(0, Math.min(1, (t - it.delay) / 0.95));
       it.g.visible = p > 0;
