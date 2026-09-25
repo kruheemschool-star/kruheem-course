@@ -69,7 +69,7 @@ class StudyDeskScene extends React.Component {
     removeEventListener('orientationchange', this.onResize);
     if (this.R) { try { this.R.forceContextLoss(); } catch (e) {} }
     clearInterval(this.musT);
-    clearInterval(this.tick); clearInterval(this.qt); clearTimeout(this.tw0); cancelAnimationFrame(this.raf);
+    clearTimeout(this._pvT); clearInterval(this.tick); clearInterval(this.qt); clearTimeout(this.tw0); cancelAnimationFrame(this.raf);
     removeEventListener('keydown', this.onKey); removeEventListener('resize', this.onResize);
     if (this.R) { this.R.dispose(); this.R.domElement.remove(); this.R = null; }
   }
@@ -1386,9 +1386,23 @@ class StudyDeskScene extends React.Component {
     if (key === 'drawer') { this.toggleDrawer(!this.drawerOpen); return; }
     if (key === 'lamp') { this.sfx('lamp'); this.setNight(!this.state.night); this.say(this.state.night ? 'เช้าแล้ว! มาเรียนกันต่อครับ' : 'ดึกแล้ว อ่านอีกนิดนะครับ สู้ๆ', 3500); return; }
     if (key !== this.state.panel) this.sfx(key);
-    this.setState({ panel: key, hover: null }); this.dockHover = null;
+    // [พอร์ต] ครูฮีมแจ้ง: กดโพสต์อิทบนกระดานแล้ว "หายไปแล้วกลับมา" — ต้นแบบเปิดแผงพร้อมกล้อง แผงเลื่อนทับของที่อยู่
+    //   ฝั่งขวา (มือถือ = ครึ่งล่าง) ก่อนกล้องจะพาของไปที่ว่าง → ถ้าของอยู่ใต้แผง ให้กล้องพาออกมาก่อน (เริ่มเร็ว) แล้วแผงค่อยตาม
+    const fk = this.fkey(key), covered = !!(this.T && this.items[fk] && this.underPanel(fk));
+    clearTimeout(this._pvT);
+    this.setState({ panel: key, hover: null, panelVis: covered ? null : key }); this.dockHover = null;
+    if (covered) this._pvT = setTimeout(() => { if (this.state.panel === key) this.setState({ panelVis: key }); }, 480);
     if (key === 'mycourse' && this.props.onNeedMy) this.props.onNeedMy(); // [พอร์ต] อ่าน "เรียนค้างไว้" เฉพาะตอนเปิดแผง
-    if (this.T && this.items[this.fkey(key)]) this.goTo(this.focusPose(this.fkey(key)));
+    if (this.T && this.items[fk]) { this.goTo(this.focusPose(fk), covered ? 1.05 : undefined); if (covered) this.tw.ease = 'out'; }
+  }
+  // ตำแหน่งบนจอตอนนี้ของชิ้นนั้น อยู่ในพื้นที่ที่แผงจะมาทับไหม (จอใหญ่ = แผงขวา · มือถือ/แท็บเล็ตตั้ง = แผงล่าง 64%)
+  underPanel(k) {
+    const T = this.T, it = this.items[k]; if (!it || !this.cam) return false;
+    let box; if (it.boxFn) box = it.boxFn(); else { it.g.updateMatrixWorld(true); box = new T.Box3().setFromObject(it.g); }
+    if (!box || box.isEmpty()) return false;
+    const c = box.getCenter(new T.Vector3()).project(this.cam), sx = (c.x + 1) / 2 * innerWidth, sy = (1 - c.y) / 2 * innerHeight;
+    if (this.isSheetMode()) return sy > innerHeight * 0.36 - 20;
+    return sx > innerWidth - Math.min(460, innerWidth - 32) - 16 - 40;
   }
   drawDrawerQuote() {
     const Q = this.QUOTES; let i = Math.floor(Math.random() * Q.length); if (i === this._dqi) i = (i + 1) % Q.length; this._dqi = i;
@@ -1447,7 +1461,8 @@ class StudyDeskScene extends React.Component {
   closePanel() {
     if (!this.state.panel) { if (this.drawerOpen) this.toggleDrawer(false); return; }
     this.sfx('close');
-    this.setState({ panel: null });
+    clearTimeout(this._pvT);
+    this.setState({ panel: null, panelVis: null });
     if (this.T) this.goTo(this.homePose(), 1.2);
   }
   clickAt(e) {
@@ -1516,7 +1531,7 @@ class StudyDeskScene extends React.Component {
     if (this.hS) { const d = new Date(), sec = d.getSeconds() + d.getMilliseconds() / 1000, mn = d.getMinutes() + sec / 60, hr = (d.getHours() % 12) + mn / 60; this.hS.rotation.z = -sec / 60 * Math.PI * 2; this.hM.rotation.z = -mn / 60 * Math.PI * 2; this.hH.rotation.z = -hr / 12 * Math.PI * 2; }
     this.spot.intensity = 3.6 * n; this.bulbMat.emissiveIntensity = 2.6 * n + (this.lampHover || 0) * 0.8;
 
-    if (this.tw) { this.tw.t = Math.min(1, this.tw.t + dt / this.tw.d); const x = this.tw.t, e = x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; this.camP.lerpVectors(this.tw.p0, this.tw.p1, e); this.camT.lerpVectors(this.tw.t0, this.tw.t1, e); this.camS = this.tw.s0 + (this.tw.s1 - this.tw.s0) * e; this.camSX = this.tw.x0 + (this.tw.x1 - this.tw.x0) * e; if (this.tw.t >= 1) this.tw = null; }
+    if (this.tw) { this.tw.t = Math.min(1, this.tw.t + dt / this.tw.d); const x = this.tw.t, e = this.tw.ease === 'out' ? 1 - Math.pow(1 - x, 3) : (x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2); this.camP.lerpVectors(this.tw.p0, this.tw.p1, e); this.camT.lerpVectors(this.tw.t0, this.tw.t1, e); this.camS = this.tw.s0 + (this.tw.s1 - this.tw.s0) * e; this.camSX = this.tw.x0 + (this.tw.x1 - this.tw.x0) * e; if (this.tw.t >= 1) this.tw = null; }
     const par = active ? 0.2 : 1;
     if (!this.dragging && (active || now - (this.lastDrag || 0) > 2.2)) { this.yawT *= 0.96; this.pitchT *= 0.96; }
     this.yaw += (this.yawT - this.yaw) * 0.12; this.pitch += (this.pitchT - this.pitch) * 0.12;
@@ -1651,7 +1666,7 @@ class StudyDeskScene extends React.Component {
       musicBg: this.state.music && !this.state.muted ? '#fbbf24' : 'var(--chip)', musicInk: this.state.music && !this.state.muted ? '#0f172a' : 'var(--chipInk)',
       toggleMusic: () => { const on = !this.state.music; this.setState({ music: on }); try { localStorage.setItem('kh_desk_music', on ? '1' : '0'); } catch (e) {} this.ensureAudio(); if (on && !this.state.muted) this.startMusic(); else this.stopMusic(); },
       toggleMute: () => { const m = !this.state.muted; this.setState({ muted: m }); try { localStorage.setItem('kh_desk_muted', m ? '1' : '0'); } catch (e) {} if (m) this.stopMusic(); else if (this.state.music) { this.ensureAudio(); setTimeout(() => this.startMusic(), 50); } if (!m) { this.ensureAudio(); setTimeout(() => this.sfx('pop'), 30); } }, heroRef: this.heroRef, dockRef: this.dockRef,
-      noPanel: !p, panelOpen: !!p,
+      noPanel: !p, panelOpen: !!p && this.state.panelVis === p,
       tipObj: hv ? hv.o : '', tipTitle: hv ? hv.t : '', tipDesc: desc(hv),
       dock: this.MENU.map((m, i) => ({
         n: String(i + 1).padStart(2, '0'), t: m.t, on: this.state.hover === m.k, off: this.state.hover !== m.k,
