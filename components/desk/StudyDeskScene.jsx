@@ -33,8 +33,8 @@ class StudyDeskScene extends React.Component {
     { k: 'apply', t: 'สมัครเรียน', o: 'ใบสมัครบนคลิปบอร์ด', d: 'วิธีสมัคร แจ้งโอน คำถามที่พบบ่อย' },
     { k: 'contact', t: 'ติดต่อครูฮีม', o: 'โทรศัพท์มือถือ', d: 'LINE · Facebook · Email' },
     { k: 'window', t: 'พักสายตา', o: 'หน้าต่าง', d: 'ชมวิวภูเขา เมฆ นก และเสียงธรรมชาติ' },
-    // [พอร์ต] เกมพักสมอง "ครูฮีม หนีซอมบี้!" (/game) — ทางเข้าคือเครื่องเกมพกพาบนโต๊ะ (buildGame) แตะแล้วไปหน้าเกมเลย ไม่มีแผง
-    { k: 'game', t: 'เกมพักสมอง', o: 'เครื่องเกมพกพา', d: 'ครูฮีม หนีซอมบี้! กระโดดข้ามกองหนังสือ อย่าให้ซอมบี้ตามทัน' }
+    // [พอร์ต] เกมพักสมอง "ครูฮีม หนีซอมบี้!" (/game) — ซ่อนในลิ้นชักขวาบนสุด (buildGameDrawer): แตะลิ้นชัก/เมนู = เปิดลิ้นชัก · แตะเครื่องเกมข้างใน = ไปหน้าเกม
+    { k: 'game', t: 'เกมพักสมอง', o: 'ลิ้นชักขวามือ', d: 'เปิดลิ้นชักดูสิ มีของเล่นซ่อนอยู่' }
   ];
   // [พอร์ต] ปิดนับถอยหลังจากหลังบ้าน (/admin/countdown) → ไม่มีปฏิทินบนโต๊ะ และไม่มีเมนูนี้
   get MENU() { return this.cdOn() ? this.MENU_ALL : this.MENU_ALL.filter(m => m.k !== 'countdown'); }
@@ -142,7 +142,7 @@ class StudyDeskScene extends React.Component {
     this.mats = {}; this.items = {}; this.hitList = []; this.order = [];
     this.tex = {}; this.makeTextures();
     this.buildRoom(); this.buildDesk(); this.buildLaptop(); if (this.cdOn()) this.buildCalendar(); this.buildLamp(); this.buildBooks();
-    this.buildNotebook(); this.buildTips(); this.buildPapers(); this.buildDeskNotes(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildGame(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable(); this.compact = undefined; this.applyLayout();
+    this.buildNotebook(); this.buildTips(); this.buildPapers(); this.buildDeskNotes(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildGameDrawer(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable(); this.compact = undefined; this.applyLayout();
     this.ring = new T.Mesh(new T.RingGeometry(0.92, 1, 72), new T.MeshBasicMaterial({ color: 0x14b8a6, transparent: true, opacity: 0, depthWrite: false }));
     this.ring.rotation.x = -Math.PI / 2; this.ring.position.y = 0.012; S.add(this.ring); this.ringA = 0;
 
@@ -173,9 +173,7 @@ class StudyDeskScene extends React.Component {
   COMPACT = {
     reviewsDesk: [0.5, 0.45, 0, 1], courses: [-2.95, -1.75, 0.1, 0.9], mycourse: [0.45, -2.05, 0, 0.9], countdown: [3.2, -2.35, -0.24, 0.9], lamp: [3.6, -3.25, 0, 0.8],
     contact: [-3.3, 0.95, 0.16, 0.9], story: [-1.75, 0.95, 0, 0.9], exams: [3.05, 0.9, 0.08, 0.85],
-    tips: [-3.4, 2.17, 0.16, 0.9], apply: [-0.55, 2.45, -0.06, 0.9], summary: [2.35, 2.75, -0.06, 0.95],
-    // เครื่องเกม: มุมหน้าซ้ายของโต๊ะ (ใกล้กล้องที่สุด = เห็นใหญ่) แทนที่ดินสอ (ซ่อนใน hideWall) · เคยลองข้างปฏิทินแล้วกองข้อสอบบังหมด
-    game: [-3.3, 3.32, 0.1, 0.69], // 1.3 × 0.69 ≈ 0.9 ของขนาดโมเดล
+    tips: [-3.1, 2.55, 0.16, 0.9], apply: [-0.55, 2.45, -0.06, 0.9], summary: [2.35, 2.75, -0.06, 0.95],
   };
   COMPACT_X = 4.35; // ครึ่งความกว้างที่ต้องเห็นเต็มจอ (ต้นแบบ 7.9 = โต๊ะ + โต๊ะข้าง)
   COMPACT_DIR = [0, 14, 10]; // ทิศกล้องมือถือ (ต้นแบบ 0, 8.6, 15) — มองสูงกว่าให้ของไม่บังกันและเต็มจอแนวตั้ง
@@ -198,7 +196,7 @@ class StudyDeskScene extends React.Component {
     const L = this.compact ? 1 : 0, lay = (o) => o && o.traverse(n => n.layers.set(L));
     lay(this.board); lay(this.clock); if (this.kru) lay(this.kru.g);
     const winL = (this.compact && !this.winView && !this._winKeep) ? 1 : 0; if (this.win) this.win.traverse(n => n.layers.set(winL)); // มือถือ: โชว์หน้าต่างเฉพาะโหมดพักสายตา
-    (this.props3 || []).forEach(o => { if (o.tray) lay(o.g); if (o.pencil) o.g.traverse(n => n.layers.set(this.compact ? 1 : 0)); });
+    (this.props3 || []).forEach(o => { if (o.tray) lay(o.g); });
     const on = (o, v) => o && o.traverse(n => n.layers.set(v ? 0 : 1));
     (this._drawerSmall || []).forEach(o => on(o, !this.compact)); (this._drawerBig || []).forEach(o => on(o, this.compact));
     if (this.items && this.items.reviewsDesk) on(this.items.reviewsDesk.g, this.compact);
@@ -582,6 +580,7 @@ class StudyDeskScene extends React.Component {
     const handle = (parent, w, y, z) => { const hd = this.mesh(new T.CapsuleGeometry(0.05, w, 4, 12), metal); hd.rotation.z = Math.PI / 2; hd.position.set(0, y, z); parent.add(hd); };
     for (let i = 0; i < 3; i++) {
       const dh = (pedH - 0.5) / 3, y = pedTop - 0.2 - dh / 2 - i * (dh + 0.05);
+      if (i === 0) { this._gdSlot = { x: pedX, y, dh }; continue; } // [พอร์ต] ช่องบนสุด = ลิ้นชักเกม เลื่อนเปิดได้ (buildGameDrawer)
       const f = add(this.rbox(3.2, dh - 0.12, 0.12, 0.05, this.deskMat)); f.position.set(pedX, y, 3.54);
       handle(f, 1.0, 0, 0.1);
     }
@@ -916,10 +915,10 @@ class StudyDeskScene extends React.Component {
     this.phoneGlow.position.set(0, 1.0, -0.14); pv.add(this.phoneGlow);
     this.add('contact', g, -2.3, -0.2, 0.18, { ay: 2.6, fd: 1.05, rs: 0.85, anim: (hv, t) => { pv.rotation.x = -0.32 + hv * 0.1; pv.rotation.z = hv > 0.3 ? Math.sin(t * 70) * 0.025 * Math.max(0, Math.sin(t * 2.5)) : 0; this.phoneGlow.material.opacity = hv * 0.7; } });
   }
-  // [พอร์ต] เครื่องเกมพกพา = ทางเข้าเกม "ครูฮีม หนีซอมบี้!" (ครูฮีมสั่งวางบนหน้าแรก 2026-09-25)
-  //   จอโชว์ภาพจริงจากเกม (เอนจินเดียวกัน โหมด manual) · วางใต้ปฏิทินข้างแล็ปท็อป = ที่ว่างเดิม ไม่ต้องขยับของอื่น
-  //   มือถือย้ายไประหว่างปฏิทินกับกองข้อสอบ (COMPACT.game) · ตัวเครื่องสีเหลืองครูฮีม ทรงเครื่องเกมแนวนอนที่เด็กคุ้น
-  buildGame() {
+  // [พอร์ต] เครื่องเกมพกพา = ทางเข้าเกม "ครูฮีม หนีซอมบี้!" (ครูฮีมสั่ง 2026-09-25: ซ่อนในลิ้นชักขวา เปิดมาแล้วเจอเกม ค่อยกดเข้าเกม)
+  //   จอโชว์ภาพจริงจากเกม (เอนจินเดียวกัน โหมด manual) · ตัวเครื่องสีเหลืองครูฮีม ทรงเครื่องเกมแนวนอนที่เด็กคุ้น
+  //   (เวอร์ชันแรกวางบนโต๊ะใต้ปฏิทิน — ครูขอย้ายลงลิ้นชักให้เป็นของลับ)
+  buildGamepad(art) {
     const T = this.T, g = new T.Group();
     const shell = new T.MeshStandardMaterial({ color: 0xfbbf24, roughness: .42, envMapIntensity: .45 }), dark = this.M(0x1f2430, { r: .5 }), grey = this.M(0x475569, { r: .4 });
     const pv = new T.Group(); pv.position.set(0, 0.1, 0.04); pv.rotation.x = 0.36; g.add(pv); // rotation.x บวก = ขอบหลังยก จอหันหาคนดู
@@ -938,17 +937,83 @@ class StudyDeskScene extends React.Component {
     this.gameGlow.rotation.x = -Math.PI / 2; this.gameGlow.position.set(0, 0.2, -0.02); pv.add(this.gameGlow);
     try {
       const ga = new ZrAudio(); ga.disabled = true; // จอบนโต๊ะไม่ส่งเสียง (เสียงแตะเป็นของโต๊ะ)
-      this.gameEng = new ZombieRunEngine(this.gameCv, { art: buildGameArt(), audio: ga, manual: true, onPhase: () => {}, onHud: () => {} });
+      this.gameEng = new ZombieRunEngine(this.gameCv, { art, audio: ga, manual: true, onPhase: () => {}, onHud: () => {} });
       this.gameEng.setFont("'Mitr', sans-serif"); this.gameEng.resize(320, 320, 180, 1); this.gameTex.needsUpdate = true;
     } catch (e) { this.gameEng = null; }
-    g.scale.setScalar(1.3);
-    this.add('game', g, 4.7, -0.35, -0.26, { ay: 0.7, fd: 1.0, rs: 1.3, bs: 1.3, anim: (hv, t) => { hv = Math.max(0, hv); pv.rotation.x = 0.36 + hv * 0.12; this.gameGlow.material.opacity = 0.12 + hv * 0.45; } });
+    g.userData.pv = pv;
+    return g;
   }
-  // แตะเครื่องเกม (หรือกดเมนู "เกมพักสมอง"): จอเริ่มวิ่งให้เห็น + เสียง + กล้องซูมเข้า แล้วพาไปหน้าเกมจริง
+  // ลิ้นชักขวาบนสุด เลื่อนเปิดได้ (โครงเดียวกับลิ้นชักกลาง) ข้างใน: เครื่องเกม + โน้ตครูฮีม + เหรียญจากเกม
+  //   key 'game' = ตัวลิ้นชัก (อยู่ในเมนู "เกมพักสมอง") · key 'gamepad' = เครื่องเกม/พื้นที่ในลิ้นชัก (แตะ = เข้าเกม) เห็น+แตะได้เฉพาะตอนเปิด
+  GD_Z = 3.54; GD_SLIDE = 2.75;
+  buildGameDrawer() {
+    const T = this.T, slot = this._gdSlot; if (!slot) return;
+    const art = buildGameArt();
+    const gd = new T.Group(), fh = slot.dh - 0.12, bodyH = fh - 0.34, floorY = -fh / 2 + 0.14;
+    const front = this.rbox(3.2, fh, 0.12, 0.05, this.deskMat); gd.add(front);
+    const hd = this.mesh(new T.CapsuleGeometry(0.05, 1.0, 4, 12), this.M(0xd6d3d1, { r: .25, m: .8 })); hd.rotation.z = Math.PI / 2; hd.position.set(0, 0, 0.1); gd.add(hd);
+    // สติกเกอร์ครูฮีมพิกเซลบนหน้าลิ้นชัก = คำใบ้ว่ามีอะไรซ่อนอยู่
+    this.tx('gdSticker', this.cv(160, 160, (x, w, h) => { x.clearRect(0, 0, w, h); x.beginPath(); x.arc(80, 80, 74, 0, 7); x.fillStyle = '#1a1024'; x.fill(); x.beginPath(); x.arc(80, 80, 66, 0, 7); x.fillStyle = '#fbbf24'; x.fill(); x.imageSmoothingEnabled = false; const sp = art.kru.thumb, k = 4.4; x.drawImage(sp, 80 - sp.width * k / 2 + 6, 80 - sp.height * k / 2 + 8, sp.width * k, sp.height * k); }));
+    const stk = new T.Mesh(new T.PlaneGeometry(0.5, 0.5), new T.MeshStandardMaterial({ map: this.tex.gdSticker, transparent: true, roughness: .8 })); stk.position.set(-1.05, 0.08, 0.062); stk.rotation.z = 0.18; gd.add(stk); // ฝั่งซ้ายของมือจับ — มือถือเห็นตู้แค่ครึ่งซ้าย
+    const woodIn = this.M(0xd9c3a5, { r: .8 }), floorIn = this.M(0xefe3cf, { r: .9 });
+    const bodyG = new T.Group(); gd.add(bodyG); this._gdBody = bodyG;
+    const flo = this.rbox(3.0, 0.05, 3.0, 0.02, floorIn); flo.position.set(0, floorY, -1.56); bodyG.add(flo);
+    [-1.48, 1.48].forEach(sx => { const sd = this.rbox(0.05, bodyH, 3.0, 0.01, woodIn); sd.position.set(sx, floorY + bodyH / 2, -1.56); bodyG.add(sd); });
+    const bk = this.rbox(3.0, bodyH, 0.05, 0.01, woodIn); bk.position.set(0, floorY + bodyH / 2, -3.05); bodyG.add(bk);
+    // ของข้างใน
+    const pad = this.buildGamepad(art); pad.scale.setScalar(1.25); pad.position.set(0.3, floorY + 0.03, -1.3); pad.rotation.y = -0.14; gd.add(pad); this.gamepadG = pad;
+    this.tx('gdNote', this.cv(512, 380, () => {}));
+    const note = this.rbox(1.15, 0.02, 0.85, 0.02, this.M(0xfef9c3, { r: .9 })); note.position.set(-0.8, floorY + 0.035, -2.45); note.rotation.y = 0.22; gd.add(note); this.decal(1.11, 0.81, 'gdNote', note, 0.011);
+    const gold = new T.MeshStandardMaterial({ color: 0xffd23f, roughness: .3, metalness: .5, envMapIntensity: .6 });
+    [[1.05, -2.6, 0.2], [1.25, -2.35, -0.4], [0.95, -2.25, 0.9]].forEach(([cx, cz, r]) => { const c = this.mesh(new T.CylinderGeometry(0.11, 0.11, 0.035, 20), gold); c.position.set(cx, floorY + 0.045, cz); c.rotation.y = r; gd.add(c); });
+    // พื้นที่แตะทั้งช่องลิ้นชัก (มองไม่เห็น) — เด็กแตะตรงไหนในลิ้นชักก็เข้าเกม
+    const hit = new T.Mesh(new T.PlaneGeometry(2.9, 2.9), new T.MeshBasicMaterial({ visible: false })); hit.rotation.x = -Math.PI / 2; hit.position.set(0, floorY + 0.3, -1.56); gd.add(hit);
+    this._gdPadMeshes = []; pad.traverse(n => { if (n.isMesh) { n.userData.key = 'gamepad'; this.hitList.push(n); this._gdPadMeshes.push(n); } }); hit.userData.key = 'gamepad'; this.hitList.push(hit); this._gdPadMeshes.push(hit);
+    [front, hd, stk].forEach(m => { m.userData.key = 'game'; this.hitList.push(m); });
+    gd.position.set(slot.x, slot.y, this.GD_Z); this.scene.add(gd);
+    let dz = 0;
+    const pv = pad.userData.pv;
+    const it = { k: 'game', g: gd, static: true, h: 0, v: 0, rotY: 0, fd: 1, rs: 0.001, x: slot.x, z: this.GD_Z, ay: slot.y + 0.9,
+      anim: (hv) => { const tg = this.gdOpen ? this.GD_SLIDE : hv * 0.4; dz += (tg - dz) * 0.12; gd.position.z = this.GD_Z + dz; if (!this.gdOpen && dz < 0.04 && this._padVis) this.setGamepadLayer(1); } };
+    this.items.game = it; this.order.push(it);
+    const ip = { k: 'gamepad', g: pad, static: true, h: 0, v: 0, rotY: -0.14, fd: 1, rs: 0.001, x: slot.x + 0.3, z: this.GD_Z - 1.3, ay: slot.y + 0.4,
+      anim: (hv) => { hv = Math.max(0, hv); pv.rotation.x = 0.36 + hv * 0.12; this.gameGlow.material.opacity = 0.12 + hv * 0.45; } };
+    this.items.gamepad = ip; this.order.push(ip);
+    this.setGamepadLayer(1); // ปิดอยู่ = ไม่วาด ไม่โดนแตะทะลุตู้
+  }
+  setGamepadLayer(L) { this._padVis = L === 0; (this._gdPadMeshes || []).forEach(m => m.layers.set(L)); }
+  drawGdNote() {
+    const tex = this.tex.gdNote; if (!tex) return; const cv = tex.image, x = cv.getContext('2d'), w = cv.width, hh = cv.height;
+    x.fillStyle = '#fef9c3'; x.fillRect(0, 0, w, hh);
+    x.fillStyle = '#b45309'; x.font = "700 40px 'Mitr', sans-serif"; x.textAlign = 'left'; x.fillText('พักสมองแป๊บนึง', 40, 96);
+    x.fillStyle = '#334155'; x.font = "500 34px 'IBM Plex Sans Thai Looped', sans-serif"; x.fillText('เล่นสัก 2 นาที', 40, 170); x.fillText('แล้วกลับมาลุยต่อนะ', 40, 224);
+    x.fillStyle = '#0f766e'; x.font = "500 34px 'Mitr', sans-serif"; x.textAlign = 'right'; x.fillText('— ครูฮีม', w - 44, 320); x.textAlign = 'left';
+    tex.needsUpdate = true;
+  }
+  toggleGameDrawer(open, silent) {
+    this.endIntro();
+    if (open === !!this.gdOpen) return;
+    this.gdOpen = open; this.setState({ gdrawer: open });
+    if (!silent) this.sfx('drawer');
+    if (open) { this.drawGdNote(); this.setGamepadLayer(0); if (this.drawerOpen) this.toggleDrawer(false); }
+    if (!this.T) return;
+    if (open) { this.goTo(this.gameDrawerPose(), 1.2); this.say('เปิดเจอของลับ! แตะเครื่องเกมเล่นได้เลย', 3500); }
+    else if (!silent) this.goTo(this.homePose(), 1.1);
+  }
+  gameDrawerPose() {
+    const T = this.T, gd = this.items.game.g, z0 = gd.position.z;
+    gd.position.z = this.GD_Z + this.GD_SLIDE; gd.updateMatrixWorld(true);
+    const box = new T.Box3().setFromObject(this._gdBody); box.max.y += 0.45;
+    gd.position.z = z0; gd.updateMatrixWorld(true);
+    const dr = this.dockRef && this.dockRef.current, bot = dr ? dr.getBoundingClientRect().top - 12 : innerHeight - 90;
+    const dir = this.compact ? new T.Vector3(0, 2.4, 0.9).normalize() : new T.Vector3(0, 1.35, 0.85).normalize();
+    return this.fitPose(box, dir, { x0: 24, x1: innerWidth - 24, y0: 90, y1: Math.max(200, bot) }, this.compact ? 2 : 3);
+  }
+  // แตะเครื่องเกมในลิ้นชัก (หรือพื้นที่ในลิ้นชัก): จอเริ่มวิ่งให้เห็น + เสียง + กล้องซูมเข้าเครื่อง แล้วพาไปหน้าเกมจริง
   gameTap() {
     if (this._gameGo) return; this._gameGo = true;
     this.sfx('game'); if (this.gameEng) { try { this.gameEng.start(); } catch (e) {} }
-    if (this.T && this.items.game) this.goTo(this.focusPose('game'), 0.8);
+    if (this.T && this.items.gamepad) this.goTo(this.focusPose('gamepad'), 0.8);
     this.say('ไปเล่นกัน! อย่าให้ซอมบี้ตามทันนะ', 3000);
     this._gameT = setTimeout(() => { this._gameGo = false; if (this.props.onGame) this.props.onGame(); else location.assign('/game'); }, 760);
   }
@@ -1252,7 +1317,7 @@ class StudyDeskScene extends React.Component {
     const T = this.T; this.props3 = [];
     const mk = (g, x, z, yaw, r) => { const o = { g, home: new T.Vector3(x, r, z), yaw0: yaw, pos: new T.Vector3(x, r, z), vel: new T.Vector3(), q: new T.Quaternion().setFromEuler(new T.Euler(0, yaw, 0)), w: new T.Vector3(), state: 'rest', t: 0, r, s: 1 }; g.position.copy(o.pos); g.quaternion.copy(o.q); this.scene.add(g); const i = this.props3.length; g.traverse(n => { if (n.isMesh) { n.userData.key = 'prop'; n.userData.prop = i; this.hitList.push(n); } }); this.props3.push(o); };
     const e = new T.Group(); e.add(this.rbox(0.62, 0.18, 0.3, 0.05, this.M(0xfda4af, { r: .8 }))); const es = this.rbox(0.4, 0.19, 0.32, 0.02, this.M(0x0ea5e9, { r: .4 })); es.position.x = 0.08; e.add(es); mk(e, 0.72, 3.38, 0.35, 0.09);
-    mk(this.pencil(1.5), -2.4, 3.5, 0.08, 0.07); this.props3[this.props3.length - 1].pencil = true; // มือถือซ่อน (ที่ตรงนี้เป็นเครื่องเกม)
+    mk(this.pencil(1.5), -2.4, 3.5, 0.08, 0.07);
     const s = new T.Group(); s.add(this.rbox(0.36, 0.26, 0.3, 0.05, this.M(0xf43f5e, { r: .35 }))); const sh = this.mesh(new T.CylinderGeometry(0.07, 0.07, 0.06, 20), this.M(0x475569, { r: .3, m: .6 })); sh.rotation.x = Math.PI / 2; sh.position.set(0, 0.02, 0.17); s.add(sh); mk(s, 3.35, 3.38, -0.4, 0.13);
     const be = new T.Group(); const bt = this.rbox(0.92, 0.2, 0.34, 0.06, this.M(0xc8a27a, { r: .55 })); bt.position.y = 0.05; be.add(bt); const fl = this.rbox(0.9, 0.09, 0.32, 0.02, this.M(0x475569, { r: .95 })); fl.position.y = -0.1; be.add(fl);
     const bl = new T.Mesh(new T.PlaneGeometry(0.6, 0.1), this.M(0x0f766e, { r: .6 })); bl.rotation.x = -Math.PI / 2; bl.position.y = 0.152; be.add(bl);
@@ -1667,7 +1732,9 @@ class StudyDeskScene extends React.Component {
     if (key === 'cat') { this.catTap(); return; }
     if (key === 'radio' || key === 'radioPlay' || key === 'radioNext') { this.radioAction(key); return; }
     if (key === 'window') { this.toggleWindow(); return; }
-    if (key === 'game') { this.gameTap(); return; }
+    if (this.gdOpen && key !== 'game' && key !== 'gamepad') this.toggleGameDrawer(false, true); // เปิดอย่างอื่น → ลิ้นชักเกมปิดเงียบๆ
+    if (key === 'game') { this.toggleGameDrawer(!this.gdOpen); return; }
+    if (key === 'gamepad') { this.gameTap(); return; }
     if (key === 'drawer') { this.toggleDrawer(!this.drawerOpen); return; }
     if (key === 'lamp') { this.sfx('lamp'); this.setNight(!this.state.night); this.say(this.state.night ? 'เช้าแล้ว! มาเรียนกันต่อครับ' : 'ดึกแล้ว อ่านอีกนิดนะครับ สู้ๆ', 3500); return; }
     if (key !== this.state.panel) this.sfx(key);
@@ -1745,7 +1812,7 @@ class StudyDeskScene extends React.Component {
     return this.fitPose(box, new T.Vector3(0, 1.25, 0.8).normalize(), { x0: 24, x1: innerWidth - 24, y0: 90, y1: Math.max(200, bot) }, 3);
   }
   closePanel() {
-    if (!this.state.panel) { if (this.drawerOpen) this.toggleDrawer(false); if (this.winView) this.exitWindow(); return; }
+    if (!this.state.panel) { if (this.drawerOpen) this.toggleDrawer(false); if (this.gdOpen) this.toggleGameDrawer(false); if (this.winView) this.exitWindow(); return; }
     this.sfx('close');
     clearTimeout(this._pvT);
     this.setState({ panel: null, panelVis: null });
@@ -1765,7 +1832,7 @@ class StudyDeskScene extends React.Component {
     if (this.applyLayout()) this._roomKey = null; // [พอร์ต] สลับผังมือถือ/จอใหญ่
     if (this.panoOn && this.pano) this.pano.resize(innerWidth, innerHeight, Math.min(devicePixelRatio || 1, innerWidth < 640 ? 1.25 : 1.5));
     // [พอร์ต] ลิ้นชักเปิดอยู่ → จัดภาพลิ้นชักใหม่ · กล้องกำลังบิน → เปลี่ยนปลายทางแทนการกระโดด
-    const p = this.state.panel ? this.focusPose(this.fkey(this.state.panel)) : (this.winView ? (this.homePose(), this.windowPose()) : (this.drawerOpen && this.items.drawer ? (this.homePose(), this.drawerPose()) : this.homePose()));
+    const p = this.state.panel ? this.focusPose(this.fkey(this.state.panel)) : (this.winView ? (this.homePose(), this.windowPose()) : (this.drawerOpen && this.items.drawer ? (this.homePose(), this.drawerPose()) : (this.gdOpen && this.items.game ? (this.homePose(), this.gameDrawerPose()) : this.homePose())));
     if (this.tw && !this.introOn) { this.tw.p1 = p.p; this.tw.t1 = p.t; this.tw.s1 = p.s || 0; this.tw.x1 = p.sx || 0; return; }
     if (this.tw && this.introOn) { const q = this.homePose(); this.tw.p1 = q.p; this.tw.t1 = q.t; this.tw.s1 = q.s || 0; this.tw.x1 = 0; return; }
     this.camP.copy(p.p); this.camT.copy(p.t); this.camS = p.s; this.camSX = p.sx || 0;
@@ -1898,7 +1965,7 @@ class StudyDeskScene extends React.Component {
     if (this.scrMat && playing !== this._playing) { this._playing = playing; this.vidT0 = t; this.scrMat.map = playing ? this.vidTex : (this.idleTex || this.tex.screen); this.scrMat.needsUpdate = true; this._if = 0; }
     if (!playing && this.idleX && (!this._if || (!this.reduced && t - this._if > 1 / 20))) { this._if = t || 1e-6; this.drawIdle(this.reduced ? 3 : t); this.idleTex.needsUpdate = true; } // [พอร์ต] จอตอนนิ่งเคลื่อนไหว
     // [พอร์ต] จอเครื่องเกมพกพา = เกมจริงในโหมดหน้ารอ (ครูฮีมวิ่ง ซอมบี้ไล่) เดิน 20 เฟรม/วิ · ลดการเคลื่อนไหว = ภาพนิ่ง
-    if (this.gameEng && this.gameTex && (!this._gf || (!this.reduced && t - this._gf > 1 / 20))) { const gdt = this._gf ? t - this._gf : 0; this._gf = t || 1e-6; try { this.gameEng.advance(gdt); this.gameTex.needsUpdate = true; } catch (e) { this.gameEng = null; } }
+    if (this.gameEng && this.gameTex && this._padVis && (!this._gf || (!this.reduced && t - this._gf > 1 / 20))) { const gdt = this._gf ? t - this._gf : 0; this._gf = t || 1e-6; try { this.gameEng.advance(gdt); this.gameTex.needsUpdate = true; } catch (e) { this.gameEng = null; } }
     if (playing && this.vidX && (!this._vf || t - this._vf > 1 / 30)) { this._vf = t; this.drawVideo(t - this.vidT0); this.vidTex.needsUpdate = true; }
     if (this.halo) this.halo.material.opacity = active === 'mycourse' ? 0 : 0.35 + Math.sin(t * 3) * 0.2 + (hk === 'mycourse' ? 0.3 : 0);
     if (this.panoOn && this.pano && (!this._pf || now - this._pf > 1 / 30)) { this._pf = now; this.pano.frame(now - this._panoT0, this.nightT || 0, this.m, this.reduced); this._panoFull = now - this._panoT0 > 1.5; }
@@ -1956,7 +2023,7 @@ class StudyDeskScene extends React.Component {
     const diff = Math.max(0, target - now), pad = n => String(n).padStart(2, '0');
     const pct = target - start <= 0 ? 100 : Math.max(0, Math.min(100, (now - start) / (target - start) * 100));
     const stn = this.STATIONS ? this.STATIONS[this.station || 0] : { name: '' }, stn2 = this.STATIONS ? this.STATIONS[((this.station || 0) + 1) % this.STATIONS.length] : { name: '' };
-    const all = [...this.MENU, this.LAMP, ...['radio', 'radioPlay', 'radioNext'].map(k => ({ k, t: this.state.music && !this.state.muted ? 'หยุดเพลง' : 'เปิดเพลง Lo-fi', o: 'วิทยุ', d: 'แตะเพื่อเปิด/ปิดเพลง' })), { k: 'kru', t: 'ครูฮีม', o: 'ครูฮีม', d: 'แตะเพื่อฟังคำแนะนำ' }, { k: 'drawer', t: this.state.drawer ? 'ปิดลิ้นชัก' : 'เปิดลิ้นชัก', o: 'ลิ้นชักโต๊ะ', d: 'ดินสอ ปากกา ไม้บรรทัด ยางลบ' }], find = k => all.find(m => m.k === k);
+    const all = [...this.MENU, this.LAMP, ...['radio', 'radioPlay', 'radioNext'].map(k => ({ k, t: this.state.music && !this.state.muted ? 'หยุดเพลง' : 'เปิดเพลง Lo-fi', o: 'วิทยุ', d: 'แตะเพื่อเปิด/ปิดเพลง' })), { k: 'kru', t: 'ครูฮีม', o: 'ครูฮีม', d: 'แตะเพื่อฟังคำแนะนำ' }, { k: 'gamepad', t: 'ครูฮีม หนีซอมบี้!', o: 'เครื่องเกมพกพา', d: 'แตะเพื่อเริ่มเล่น' }, { k: 'drawer', t: this.state.drawer ? 'ปิดลิ้นชัก' : 'เปิดลิ้นชัก', o: 'ลิ้นชักโต๊ะ', d: 'ดินสอ ปากกา ไม้บรรทัด ยางลบ' }], find = k => all.find(m => m.k === k);
     const hv = find(this.state.hover), pn = find(this.state.panel);
     const days = this.daysLeft(now), fmt = n => '฿' + n.toLocaleString('en-US');
     const desc = (m) => m ? (m.k === 'countdown' ? (diff <= 0 ? 'ถึงวันสอบแล้ว! สู้ ๆ' : 'เหลืออีก ' + days + ' วัน') : (m.k === 'courses' && this.state.hoverCat ? 'หมวด ' + this.state.hoverCat : m.d)) : '';
@@ -1974,7 +2041,7 @@ class StudyDeskScene extends React.Component {
           asMaxH: sheet ? '64vh' : 'none', asH: sheet ? '64vh' : 'auto'
         };
       })(),
-      rootRef: this.rootRef, canvasHostRef: this.canvasHostRef, panoRef: this.panoRef, tipRef: this.tipRef, kruRef: this.kruRef, kruMsg: this.state.kruMsg, heroOp: this.state.drawer ? '0' : '1', dailyQuote: this.QUOTES[Math.floor((Date.now() + 7 * 3600e3) / 86400000) % this.QUOTES.length],
+      rootRef: this.rootRef, canvasHostRef: this.canvasHostRef, panoRef: this.panoRef, tipRef: this.tipRef, kruRef: this.kruRef, kruMsg: this.state.kruMsg, heroOp: (this.state.drawer || this.state.gdrawer) ? '0' : '1', dailyQuote: this.QUOTES[Math.floor((Date.now() + 7 * 3600e3) / 86400000) % this.QUOTES.length],
       soundOn: !this.state.muted, soundOff: this.state.muted,
       introOn: !!this.state.intro && !this.state.noGL, skipIntro: () => this.skipIntro(),
       noGL: !!this.state.noGL, slowToast: !!this.state.slowToast, classicUrl: this.props.classicUrl || '/classic',
