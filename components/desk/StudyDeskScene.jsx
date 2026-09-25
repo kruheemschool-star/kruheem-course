@@ -184,6 +184,8 @@ class StudyDeskScene extends React.Component {
     const L = this.compact ? 1 : 0, lay = (o) => o && o.traverse(n => n.layers.set(L));
     lay(this.board); lay(this.win); lay(this.clock); if (this.kru) lay(this.kru.g);
     (this.props3 || []).forEach(o => { if (o.tray) lay(o.g); });
+    const on = (o, v) => o && o.traverse(n => n.layers.set(v ? 0 : 1));
+    (this._drawerSmall || []).forEach(o => on(o, !this.compact)); (this._drawerBig || []).forEach(o => on(o, this.compact));
   }
   M(c, o) {
     o = o || {}; const k = c + '|' + (o.r ?? .62) + '|' + (o.m ?? 0);
@@ -565,6 +567,13 @@ class StudyDeskScene extends React.Component {
     const qc = this.rbox(1.5, 0.02, 1.08, 0.02, this.M(0xfef9c3, { r: .9 })); qc.position.set(-0.18, Y0 + 0.012, -1.2); qc.rotation.y = 0; dg.add(qc);
     this.decal(1.46, 1.04, 'drawerQuote', qc, 0.011);
     const tape = new T.Mesh(new T.PlaneGeometry(0.34, 0.1), new T.MeshStandardMaterial({ color: 0xfde68a, roughness: .9, transparent: true, opacity: .85 })); tape.rotation.x = -Math.PI / 2; tape.rotation.z = 0.3; tape.position.set(0.5, Y0 + 0.034, -1.72); tape.rotation.z = -0.35; dg.add(tape);
+    // [พอร์ต] มือถือ: กระดาษคำคมแผ่นใหญ่เกือบเต็มช่องซ้าย ตัวหนังสือใหญ่ (ครูฮีมขอ 2026-09-25 — แผ่นเล็กบนมือถืออ่านไม่ออก)
+    //   ช่องซ้ายกว้าง x -2.13..0.95 ลึก z -3.25..-0.06 · สลับกับแผ่นเล็กและดินสอ/ปากกา/ไม้บรรทัด/กระดาษโน้ตใน hideWall()
+    this.tx('drawerQuoteBig', this.cv(640, 620, () => {}));
+    const qcB = this.rbox(2.86, 0.02, 2.78, 0.02, this.M(0xfef9c3, { r: .9 })); qcB.position.set(-0.59, Y0 + 0.012, -1.66); dg.add(qcB);
+    this.decal(2.8, 2.72, 'drawerQuoteBig', qcB, 0.011);
+    const tapeB = new T.Mesh(new T.PlaneGeometry(0.5, 0.14), new T.MeshStandardMaterial({ color: 0xfde68a, roughness: .9, transparent: true, opacity: .85 })); tapeB.rotation.x = -Math.PI / 2; tapeB.rotation.z = -0.3; tapeB.position.set(0.55, Y0 + 0.034, -2.95); dg.add(tapeB);
+    this._drawerSmall = [p1, p2, penW, rul, pad, qc, tape]; this._drawerBig = [qcB, tapeB];
     this.drawDrawerQuote();
     dg.position.set(-1.3, apY, 3.56); this.scene.add(dg);
     let dz = 0;
@@ -1376,6 +1385,28 @@ class StudyDeskScene extends React.Component {
     const cut = lines.length > 4; lines.slice(0, 4).forEach((l, j) => x.fillText((j === 0 ? '“' : '') + l.trim() + (j === Math.min(3, lines.length - 1) ? (cut ? '…”' : '”') : ''), 52, 196 + j * 62));
     x.fillStyle = '#0f766e'; x.font = "36px 'Itim', cursive"; x.textAlign = 'right'; x.fillText('— ครูฮีม', w - 50, hh - 36); x.textAlign = 'left';
     tex.needsUpdate = true;
+    this.drawDrawerQuoteBig(q, segs);
+  }
+  // [พอร์ต] แผ่นใหญ่ (มือถือ): หัวข้อ 44px · คำคม 84px ลดลงทีละขั้นจนพอดี · ลงชื่อ 52px
+  drawDrawerQuoteBig(q, segs) {
+    const tex = this.tex.drawerQuoteBig; if (!tex) return; const cv = tex.image, x = cv.getContext('2d'), w = cv.width, hh = cv.height;
+    x.fillStyle = '#fef9c3'; x.fillRect(0, 0, w, hh);
+    x.fillStyle = '#b45309'; x.font = "700 44px 'IBM Plex Sans Thai Looped', sans-serif"; x.textAlign = 'left'; x.fillText('คำคมวันนี้', 44, 86);
+    x.fillStyle = '#fbbf24'; x.fillRect(44, 104, 96, 7);
+    const top = 150, bottom = hh - 104, maxW = w - 88;
+    let fs = 84, lines = [], lh = 0;
+    for (; fs >= 48; fs -= 4) {
+      x.font = fs + "px 'Itim', cursive"; lh = Math.round(fs * 1.16); lines = []; let cur = '';
+      segs.forEach(g => { if (cur && x.measureText(cur + g).width > maxW) { lines.push(cur); cur = g.trimStart(); } else cur += g; }); lines.push(cur);
+      if (lines.length * lh <= bottom - top) break;
+    }
+    if (fs < 48) fs = 48;
+    const maxL = Math.max(1, Math.floor((bottom - top) / lh)), cut = lines.length > maxL; lines = lines.slice(0, maxL);
+    x.strokeStyle = 'rgba(202,138,4,.2)'; x.lineWidth = 2; for (let i = 0; i < maxL; i++) { const y = top + (i + 1) * lh + 10; if (y > bottom + 8) break; x.beginPath(); x.moveTo(40, y); x.lineTo(w - 40, y); x.stroke(); }
+    x.fillStyle = '#0f172a'; x.font = fs + "px 'Itim', cursive";
+    lines.forEach((l, j) => x.fillText((j === 0 ? '“' : '') + l.trim() + (j === lines.length - 1 ? (cut ? '…”' : '”') : ''), 46, top + (j + 1) * lh - Math.round(fs * 0.12)));
+    x.fillStyle = '#0f766e'; x.font = "52px 'Itim', cursive"; x.textAlign = 'right'; x.fillText('— ครูฮีม', w - 46, hh - 40); x.textAlign = 'left';
+    tex.needsUpdate = true;
   }
   toggleDrawer(open) {
     this.endIntro(); // [พอร์ต]
@@ -1387,7 +1418,11 @@ class StudyDeskScene extends React.Component {
   }
   drawerPose() {
     const T = this.T, g = this.items.drawer.g; g.updateMatrixWorld(true);
-    const box = new T.Box3().setFromObject(g); box.min.z += 3.05 - (g.position.z - 3.56); box.max.z += 3.05 - (g.position.z - 3.56);
+    // [พอร์ต] มือถือ: ซูมที่กระดาษคำคมแผ่นใหญ่ มองจากด้านบนให้ตัวหนังสือไม่เอียง (จอใหญ่ใช้กรอบลิ้นชักทั้งใบตามต้นแบบ)
+    const big = this.compact && this._drawerBig && this._drawerBig[0];
+    const box = big ? new T.Box3().setFromObject(big).expandByVector(new T.Vector3(0.12, 0.05, 0.2)) : new T.Box3().setFromObject(g);
+    box.min.z += 3.05 - (g.position.z - 3.56); box.max.z += 3.05 - (g.position.z - 3.56);
+    if (big) { const dr = this.dockRef && this.dockRef.current, bot = dr ? dr.getBoundingClientRect().top - 12 : innerHeight - 90; return this.fitPose(box, new T.Vector3(0, 2.6, 0.75).normalize(), { x0: 10, x1: innerWidth - 10, y0: 80, y1: Math.max(200, bot) }, 2); }
     const dr = this.dockRef && this.dockRef.current, bot = dr ? dr.getBoundingClientRect().top - 12 : innerHeight - 90;
     return this.fitPose(box, new T.Vector3(0, 1.25, 0.8).normalize(), { x0: 24, x1: innerWidth - 24, y0: 90, y1: Math.max(200, bot) }, 3);
   }
