@@ -10,6 +10,8 @@ const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a === undefined ? 1 : a})
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const smooth = (t) => t * t * (3 - 2 * t);
 const rnd = (seed) => { let s = seed % 2147483647; if (s <= 0) s += 2147483646; return () => (s = (s * 16807) % 2147483647) / 2147483647; };
+import { drawLeaf, LEAF_PALETTES } from './leafArt';
+
 const rr = (x, X, Y, W, H, R) => { x.beginPath(); x.moveTo(X + R, Y); x.arcTo(X + W, Y, X + W, Y + H, R); x.arcTo(X + W, Y + H, X, Y + H, R); x.arcTo(X, Y + H, X, Y, R); x.arcTo(X, Y, X + W, Y, R); x.closePath(); };
 
 // สันเขา: จุดควบคุมสุ่ม → เส้นเรียบ + รอยหยักเล็กๆ (u 0..1 → 0..1, 1 = ยอดสูงสุด)
@@ -88,6 +90,9 @@ export class Panorama {
     // ต้นไม้ใหญ่ 2 ต้น: ทรงพุ่มจากวงกลมหลายวง
     const canopy = (seed) => { const q = rnd(seed), a = []; for (let i = 0; i < 18; i++) { const an = q() * 6.28, dd = q() * 0.75; a.push([Math.cos(an) * dd, Math.sin(an) * dd * 0.7 - 0.1, 0.3 + q() * 0.3]); } return a; };
     this.trees = [{ u: 0.1, s: S * 0.2, c: canopy(3), ph: 0 }, { u: 0.9, s: S * 0.16, c: canopy(4), ph: 2 }];
+    // ใบไม้ปลิวตามลม 12 ใบ (สไปรต์จาก leafArt) คนละระยะ/ขนาด
+    this.leafSprites = []; for (let i = 0; i < 6; i++) { const sh = i % 4, sq = sh >= 2, c = document.createElement('canvas'); c.width = sq ? 48 : 64; c.height = sq ? 48 : 40; drawLeaf(c.getContext('2d'), c.width, c.height, sh, LEAF_PALETTES[(i * 5) % LEAF_PALETTES.length], i * 17 + 3); this.leafSprites.push(c); }
+    this.leaves = []; for (let i = 0; i < 12; i++) this.leaves.push({ sp: this.leafSprites[i % this.leafSprites.length], d: 0.55 + r() * 0.45, x0: r() * this.PW, y0: H * (0.3 + r() * 0.55), v: 0.02 + r() * 0.035, ph: r() * 6, rot: (r() - 0.5) * 3, flip: 1.5 + r() * 2, sc: 0.28 + r() * 0.4 });
     this.x.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
@@ -218,6 +223,10 @@ export class Panorama {
       [0, 1].forEach(tone => { x.strokeStyle = rgba(gc[tone]); x.lineWidth = 1.6 + tone * 0.6; x.lineCap = 'round'; x.beginPath(); this.grass.forEach(([u, hgt, ph, tn]) => { if (tn !== tone) return; const X = sx(u * lw, d); if (X < -20 || X > W + 20) return; const Y = H + 2, sw = (Math.sin(tt * 1.9 + ph) * 0.6 + 0.4) * wind * hgt * 0.5 + px * 3; x.moveTo(X, Y); x.quadraticCurveTo(X + sw * 0.3, Y - hgt * 0.6, X + sw, Y - hgt); }); x.stroke(); });
     }
 
+    // ---------- ใบไม้ปลิวตามลม (ลอยขวาง ส่ายขึ้นลง พลิกไปมา) ----------
+    this.leaves.forEach((L) => { const lw = LW(L.d) + 80, wx = ((L.x0 + tt * L.v * W * (0.6 + wind)) % lw + lw) % lw - 40, X = sx(wx, L.d), Y = L.y0 + Math.sin(tt * 1.3 + L.ph) * H * 0.03 + Math.sin(tt * 0.35 + L.ph * 2) * H * 0.06; if (X < -60 || X > W + 60) return;
+      const s = L.sc * (0.6 + L.d) * (S / 900) * 1.6, fl = Math.cos(tt * L.flip + L.ph); x.save(); x.translate(X, Y); x.rotate(tt * L.rot + Math.sin(tt * 2 + L.ph) * 0.5); x.scale(s * (0.25 + 0.75 * Math.abs(fl)), s); x.globalAlpha = 1 - 0.55 * n; x.drawImage(L.sp, -L.sp.width / 2, -L.sp.height / 2); x.restore(); });
+    x.globalAlpha = 1;
     // ---------- หิ่งห้อย (กลางคืน) ----------
     if (n > 0.25) this.flies.forEach(([u, v, ph, spd]) => { const X = u * W + Math.sin(tt * 0.5 * spd + ph) * W * 0.03 - ox * 0.9, Y = H * v + Math.cos(tt * 0.4 * spd + ph * 2) * H * 0.02, a = n * Math.max(0, Math.sin(tt * 1.6 * spd + ph)) * 0.95; if (a < 0.02) return; const gg = x.createRadialGradient(X, Y, 0, X, Y, 8); gg.addColorStop(0, `rgba(230,255,150,${a.toFixed(3)})`); gg.addColorStop(0.35, `rgba(200,255,120,${(a * 0.5).toFixed(3)})`); gg.addColorStop(1, 'rgba(200,255,120,0)'); x.fillStyle = gg; x.fillRect(X - 8, Y - 8, 16, 16); });
 

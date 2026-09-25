@@ -9,6 +9,10 @@ import React from "react";
 import * as THREE from "three";
 import { css, DESK_PAGE_CSS } from "./deskCss";
 import { Panorama } from "./panorama";
+import { drawLeaf, drawPaper, LEAF_PALETTES } from "./leafArt";
+import { buildArt as buildGameArt } from "../game/zombieRunArt";
+import { ZombieRunEngine } from "../game/zombieRunEngine";
+import { ZrAudio } from "../game/zombieRunAudio";
 
 const HOVER_CSS = ".khd-h0:hover{color:var(--chipInk) !important;transform:translateY(-1px) !important}\n.khd-h1:hover{transform:scale(1.06) !important}\n.khd-h2:hover{transform:rotate(-15deg) scale(1.06) !important}\n.khd-h3:hover{color:#b45309 !important}\n.khd-h4:hover{color:#fff !important}\n.khd-h5:hover{color:#0f172a !important}\n.khd-h6:hover{background:rgba(15,23,42,.9) !important}\n.khd-h7:hover{background:#e2e8f0 !important}\n.khd-h8:hover{border-color:#94a3b8 !important}\n.khd-h9:hover{color:#1e293b !important;transform:translateY(-3px) !important}\n.khd-h10:hover{color:#0f172a !important;transform:translateY(-3px) !important}\n.khd-h11:hover{transform:translateY(-3px) !important}\n.khd-h12:hover{color:#0d9488 !important}";
 
@@ -28,7 +32,9 @@ class StudyDeskScene extends React.Component {
     { k: 'story', t: 'เรื่องของครูฮีม', o: 'แก้วน้ำ', d: 'เหมือนเติมน้ำใส่แก้วที่รั่ว' },
     { k: 'apply', t: 'สมัครเรียน', o: 'ใบสมัครบนคลิปบอร์ด', d: 'วิธีสมัคร แจ้งโอน คำถามที่พบบ่อย' },
     { k: 'contact', t: 'ติดต่อครูฮีม', o: 'โทรศัพท์มือถือ', d: 'LINE · Facebook · Email' },
-    { k: 'window', t: 'พักสายตา', o: 'หน้าต่าง', d: 'ชมวิวภูเขา เมฆ นก และเสียงธรรมชาติ' }
+    { k: 'window', t: 'พักสายตา', o: 'หน้าต่าง', d: 'ชมวิวภูเขา เมฆ นก และเสียงธรรมชาติ' },
+    // [พอร์ต] เกมพักสมอง "ครูฮีม หนีซอมบี้!" (/game) — ทางเข้าคือเครื่องเกมพกพาบนโต๊ะ (buildGame) แตะแล้วไปหน้าเกมเลย ไม่มีแผง
+    { k: 'game', t: 'เกมพักสมอง', o: 'เครื่องเกมพกพา', d: 'ครูฮีม หนีซอมบี้! กระโดดข้ามกองหนังสือ อย่าให้ซอมบี้ตามทัน' }
   ];
   // [พอร์ต] ปิดนับถอยหลังจากหลังบ้าน (/admin/countdown) → ไม่มีปฏิทินบนโต๊ะ และไม่มีเมนูนี้
   get MENU() { return this.cdOn() ? this.MENU_ALL : this.MENU_ALL.filter(m => m.k !== 'countdown'); }
@@ -68,7 +74,8 @@ class StudyDeskScene extends React.Component {
   }
   componentWillUnmount() {
     // [พอร์ต] Next.js เปลี่ยนหน้าโดยไม่รีโหลด → ต้องหยุดเพลง/ปิดเสียง/คืนการ์ดจอเอง ไม่งั้นเพลงยังดังต่อในหน้าอื่น
-    this._dead = true; this.stopAmbient(); clearInterval(this.ambT); clearTimeout(this._panoHide); if (this.pano) { this.pano.dispose(); this.pano = null; }
+    this._dead = true; clearTimeout(this._gameT); if (this.gameEng) { try { this.gameEng.destroy(); } catch (e) {} this.gameEng = null; }
+    this.stopAmbient(); clearInterval(this.ambT); clearTimeout(this._panoHide); if (this.pano) { this.pano.dispose(); this.pano = null; }
     try { if (this.mus) { this.mus.cr.stop(); this.mus.g.disconnect(); this.mus = null; } } catch (e) {}
     try { if (this.ac) { this.ac.close(); this.ac = null; } } catch (e) {}
     removeEventListener('orientationchange', this.onResize);
@@ -135,7 +142,7 @@ class StudyDeskScene extends React.Component {
     this.mats = {}; this.items = {}; this.hitList = []; this.order = [];
     this.tex = {}; this.makeTextures();
     this.buildRoom(); this.buildDesk(); this.buildLaptop(); if (this.cdOn()) this.buildCalendar(); this.buildLamp(); this.buildBooks();
-    this.buildNotebook(); this.buildTips(); this.buildPapers(); this.buildDeskNotes(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable(); this.compact = undefined; this.applyLayout();
+    this.buildNotebook(); this.buildTips(); this.buildPapers(); this.buildDeskNotes(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildGame(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable(); this.compact = undefined; this.applyLayout();
     this.ring = new T.Mesh(new T.RingGeometry(0.92, 1, 72), new T.MeshBasicMaterial({ color: 0x14b8a6, transparent: true, opacity: 0, depthWrite: false }));
     this.ring.rotation.x = -Math.PI / 2; this.ring.position.y = 0.012; S.add(this.ring); this.ringA = 0;
 
@@ -167,6 +174,7 @@ class StudyDeskScene extends React.Component {
     reviewsDesk: [0.5, 0.45, 0, 1], courses: [-2.95, -1.75, 0.1, 0.9], mycourse: [0.45, -2.05, 0, 0.9], countdown: [3.2, -2.35, -0.24, 0.9], lamp: [3.6, -3.25, 0, 0.8],
     contact: [-3.3, 0.95, 0.16, 0.9], story: [-1.75, 0.95, 0, 0.9], exams: [3.05, 0.9, 0.08, 0.85],
     tips: [-3.1, 2.55, 0.16, 0.9], apply: [-0.55, 2.45, -0.06, 0.9], summary: [2.35, 2.75, -0.06, 0.95],
+    game: [3.42, -1.08, -0.12, 0.85], // ที่ว่างระหว่างปฏิทินกับกองข้อสอบ (วัดกรอบของจริงแล้ว ไม่ทับอะไร)
   };
   COMPACT_X = 4.35; // ครึ่งความกว้างที่ต้องเห็นเต็มจอ (ต้นแบบ 7.9 = โต๊ะ + โต๊ะข้าง)
   COMPACT_DIR = [0, 14, 10]; // ทิศกล้องมือถือ (ต้นแบบ 0, 8.6, 15) — มองสูงกว่าให้ของไม่บังกันและเต็มจอแนวตั้ง
@@ -907,6 +915,40 @@ class StudyDeskScene extends React.Component {
     this.phoneGlow.position.set(0, 1.0, -0.14); pv.add(this.phoneGlow);
     this.add('contact', g, -2.3, -0.2, 0.18, { ay: 2.6, fd: 1.05, rs: 0.85, anim: (hv, t) => { pv.rotation.x = -0.32 + hv * 0.1; pv.rotation.z = hv > 0.3 ? Math.sin(t * 70) * 0.025 * Math.max(0, Math.sin(t * 2.5)) : 0; this.phoneGlow.material.opacity = hv * 0.7; } });
   }
+  // [พอร์ต] เครื่องเกมพกพา = ทางเข้าเกม "ครูฮีม หนีซอมบี้!" (ครูฮีมสั่งวางบนหน้าแรก 2026-09-25)
+  //   จอโชว์ภาพจริงจากเกม (เอนจินเดียวกัน โหมด manual) · วางใต้ปฏิทินข้างแล็ปท็อป = ที่ว่างเดิม ไม่ต้องขยับของอื่น
+  //   มือถือย้ายไประหว่างปฏิทินกับกองข้อสอบ (COMPACT.game) · ตัวเครื่องสีเหลืองครูฮีม ทรงเครื่องเกมแนวนอนที่เด็กคุ้น
+  buildGame() {
+    const T = this.T, g = new T.Group();
+    const shell = new T.MeshStandardMaterial({ color: 0xfbbf24, roughness: .42, envMapIntensity: .45 }), dark = this.M(0x1f2430, { r: .5 }), grey = this.M(0x475569, { r: .4 });
+    const pv = new T.Group(); pv.position.set(0, 0.1, 0.04); pv.rotation.x = -0.36; g.add(pv);
+    const wedge = this.rbox(1.2, 0.3, 0.3, 0.06, dark); wedge.position.set(0, 0.15, -0.3); g.add(wedge); // ลิ่มรองหลังให้จอเงยหาคนดู
+    const body = this.rbox(1.62, 0.16, 0.86, 0.14, shell); body.position.y = 0.08; pv.add(body);
+    const bez = this.rbox(0.92, 0.03, 0.62, 0.05, dark); bez.position.set(0, 0.165, -0.02); pv.add(bez);
+    this.gameCv = document.createElement('canvas'); this.gameCv.width = 320; this.gameCv.height = 180;
+    this.gameTex = new T.CanvasTexture(this.gameCv); this.gameTex.encoding = T.sRGBEncoding; this.gameTex.magFilter = T.NearestFilter; this.gameTex.minFilter = T.LinearFilter; this.gameTex.generateMipmaps = false;
+    const scr = new T.Mesh(new T.PlaneGeometry(0.82, 0.46), new T.MeshBasicMaterial({ map: this.gameTex, toneMapped: false })); scr.rotation.x = -Math.PI / 2; scr.position.set(0, 0.185, -0.02); pv.add(scr);
+    const dh = this.rbox(0.3, 0.05, 0.1, 0.02, grey); dh.position.set(-0.6, 0.17, 0); pv.add(dh); const dv = this.rbox(0.1, 0.05, 0.3, 0.02, grey); dv.position.set(-0.6, 0.17, 0); pv.add(dv);
+    const btn = (x, z, c) => { const b = this.mesh(new T.CylinderGeometry(0.075, 0.075, 0.05, 20), this.M(c, { r: .35 })); b.position.set(x, 0.17, z); pv.add(b); };
+    btn(0.67, -0.07, 0xef4444); btn(0.52, 0.1, 0x0ea5e9);
+    [-0.13, 0.13].forEach(x => { const s = this.rbox(0.16, 0.03, 0.055, 0.015, grey); s.position.set(x, 0.16, 0.36); pv.add(s); });
+    for (let i = 0; i < 4; i++) { const sp = this.rbox(0.022, 0.012, 0.13, 0.005, dark); sp.position.set(0.47 + i * 0.05, 0.165, 0.33); pv.add(sp); }
+    this.gameGlow = new T.Mesh(new T.PlaneGeometry(2.4, 1.7), new T.MeshBasicMaterial({ map: this.tex.glow, color: 0xfbbf24, transparent: true, opacity: 0.12, blending: T.AdditiveBlending, depthWrite: false }));
+    this.gameGlow.rotation.x = -Math.PI / 2; this.gameGlow.position.set(0, 0.2, -0.02); pv.add(this.gameGlow);
+    try {
+      this.gameEng = new ZombieRunEngine(this.gameCv, { art: buildGameArt(), audio: new ZrAudio(), manual: true, onPhase: () => {}, onHud: () => {} });
+      this.gameEng.setFont("'Mitr', sans-serif"); this.gameEng.resize(320, 320, 180, 1); this.gameTex.needsUpdate = true;
+    } catch (e) { this.gameEng = null; }
+    this.add('game', g, 4.7, -0.35, -0.26, { ay: 0.7, fd: 1.0, rs: 1.2, anim: (hv, t) => { hv = Math.max(0, hv); pv.rotation.x = -0.36 - hv * 0.12; this.gameGlow.material.opacity = 0.12 + hv * 0.45; } });
+  }
+  // แตะเครื่องเกม (หรือกดเมนู "เกมพักสมอง"): จอเริ่มวิ่งให้เห็น + เสียง + กล้องซูมเข้า แล้วพาไปหน้าเกมจริง
+  gameTap() {
+    if (this._gameGo) return; this._gameGo = true;
+    this.sfx('game'); if (this.gameEng) { try { this.gameEng.start(); } catch (e) {} }
+    if (this.T && this.items.game) this.goTo(this.focusPose('game'), 0.8);
+    this.say('ไปเล่นกัน! อย่าให้ซอมบี้ตามทันนะ', 3000);
+    this._gameT = setTimeout(() => { this._gameGo = false; if (this.props.onGame) this.props.onGame(); else location.assign('/game'); }, 760);
+  }
   buildApply() {
     const T = this.T, F = "'Mitr', sans-serif", B = "'IBM Plex Sans Thai Looped', sans-serif", g = new T.Group();
     this.tx('form', this.cv(600, 820, (x, w, h) => {
@@ -1158,6 +1200,7 @@ class StudyDeskScene extends React.Component {
       case 'close': noise(0.32, 0.14, 600, 0.6, 0, 'bandpass', (q) => q * (1 - q) * 4, 1500); tone(640, 420, 0.16, 0.025, 'sine', 0.04); break;
       case 'tab': noise(0.018, 0.3, 2800, 1.4, 0); tone(900, 900, 0.035, 0.025, 'triangle'); break;
       case 'pop': tone(420, 880, 0.14, 0.08); break;
+      case 'game': [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(f, f, 0.16, 0.05, 'triangle', i * 0.075)); tone(1046.5, 1046.5, 0.5, 0.03, 'sine', 0.3); break;
       case 'tune': noise(0.38, 0.22, 700, 2.5, 0, 'bandpass', (q) => 0.6 + 0.4 * Math.sin(q * 70), 3200); tone(1200, 400, 0.3, 0.02, 'sine', 0.02); tone(880, 880, 0.08, 0.04, 'triangle', 0.36); break;
       case 'meow': { const t = T0, o = a.createOscillator(), g2 = a.createGain(), bp = a.createBiquadFilter(); o.type = 'sawtooth'; o.frequency.setValueAtTime(520, t); o.frequency.linearRampToValueAtTime(820, t + 0.18); o.frequency.linearRampToValueAtTime(480, t + 0.62); bp.type = 'bandpass'; bp.Q.value = 3; bp.frequency.setValueAtTime(900, t); bp.frequency.linearRampToValueAtTime(1800, t + 0.2); bp.frequency.linearRampToValueAtTime(1000, t + 0.6); g2.gain.setValueAtTime(0.0001, t); g2.gain.linearRampToValueAtTime(0.2, t + 0.06); g2.gain.linearRampToValueAtTime(0.16, t + 0.4); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.7); o.connect(bp); bp.connect(g2); g2.connect(out); o.start(t); o.stop(t + 0.75); break; }
       case 'winOpen': noise(0.12, 0.3, 900, 0.8, 0, 'lowpass'); tone(300, 180, 0.12, 0.05, 'sine', 0.02); noise(1.4, 0.18, 600, 0.4, 0.12, 'bandpass', (q) => Math.sin(Math.PI * q), 1600); break;
@@ -1392,21 +1435,38 @@ class StudyDeskScene extends React.Component {
     else { const on = !this.mus; this.sfx('click'); this.setState({ music: on }); try { localStorage.setItem('kh_desk_music', on ? '1' : '0'); } catch (e) {} if (on) { if (this.state.muted) this.setState({ muted: false }); setTimeout(() => this.startMusic(), 60); } else this.stopMusic(); }
     setTimeout(() => this.drawDial(), 450);
   }
+  // [พอร์ต] ใบไม้ปลิวเข้าหน้าต่างแบบสมจริง (ครูฮีมขอ 2026-09-25): ใบไม้วาดจริง 4 ทรง 6 โทนสี แผ่นโค้งเล็กน้อย
+  //   ฟิสิกส์: ลมจากหน้าต่าง (กระโชกเป็นจังหวะ + ปั่นป่วน) แรงต้านอากาศต่างกันด้านแบน/ด้านคม ส่ายซ้ายขวาแบบใบไม้ร่วง
+  //   ใบหันด้านแบนสู้ลมเอง หมุนคว้างเป็นครั้งคราว ตกถึงโต๊ะ/พื้นเด้งเบาๆ แล้วนอนราบ ลมแรงพัดให้ไถลต่อ
   buildLeaves() {
-    const T = this.T; this.leaves = [];
-    const cols = ['#65a30d', '#84cc16', '#f59e0b', '#ea580c', '#16a34a'];
-    const texs = cols.map(c => { const cv = this.cv(64, 40, (x) => { x.clearRect(0, 0, 64, 40); x.fillStyle = c; x.beginPath(); x.ellipse(32, 20, 28, 14, 0, 0, 7); x.fill(); x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 2; x.beginPath(); x.moveTo(6, 20); x.lineTo(58, 20); x.stroke(); }); const t = new T.CanvasTexture(cv); t.encoding = T.sRGBEncoding; return t; });
-    for (let i = 0; i < 18; i++) {
-      const paper = i % 6 === 5, m = new T.Mesh(new T.PlaneGeometry(paper ? 0.34 : 0.26, paper ? 0.44 : 0.16), new T.MeshStandardMaterial(paper ? { color: 0xffffff, roughness: .9, side: T.DoubleSide, transparent: true } : { map: texs[i % texs.length], roughness: .8, side: T.DoubleSide, transparent: true, alphaTest: 0.05 }));
-      m.castShadow = true; m.visible = false; this.scene.add(m); this.leaves.push({ m, on: false, v: new T.Vector3(), w: new T.Vector3(), life: 0, ph: 0, rest: false });
+    const T = this.T; this.leaves = []; const mats = [];
+    for (let i = 0; i < 12; i++) {
+      const shape = i % 4, sq = shape >= 2, pal = LEAF_PALETTES[(i * 5 + (i >> 2)) % LEAF_PALETTES.length];
+      const cv = this.cv(sq ? 128 : 160, sq ? 128 : 96, (x, w, h) => drawLeaf(x, w, h, shape, pal, i * 131 + 7));
+      const t = new T.CanvasTexture(cv); t.encoding = T.sRGBEncoding; t.anisotropy = 4;
+      mats.push({ m: new T.MeshStandardMaterial({ map: t, roughness: .78, side: T.DoubleSide, transparent: true, alphaTest: 0.45 }), sq });
     }
+    const pcv = this.cv(96, 128, (x, w, h) => drawPaper(x, w, h)); const pt = new T.CanvasTexture(pcv); pt.encoding = T.sRGBEncoding;
+    const paperM = new T.MeshStandardMaterial({ map: pt, roughness: .92, side: T.DoubleSide, transparent: true });
+    for (let i = 0; i < 26; i++) {
+      const paper = i % 9 === 8, k = mats[i % mats.length];
+      const w = paper ? 0.32 : (k.sq ? 0.24 : 0.3) * (0.75 + Math.random() * 0.5), h = paper ? 0.42 : (k.sq ? w : w * 0.6);
+      const geo = new T.PlaneGeometry(w, h, 6, 4), arr = geo.attributes.position.array, curl = paper ? 0.05 : 0.025 + Math.random() * 0.05;
+      for (let j = 0; j < arr.length; j += 3) { const u = arr[j] / w, v = arr[j + 1] / h; arr[j + 2] = curl * (v * v * 4 - 0.3) + curl * 0.9 * Math.max(0, u) * u * 4; } // ขอบใบงอนขึ้น ปลายใบงอนขึ้น
+      geo.computeVertexNormals();
+      const m = new T.Mesh(geo, paper ? paperM : k.m); m.castShadow = true; m.visible = false; this.scene.add(m);
+      this.leaves.push({ m, on: false, v: new T.Vector3(), w: new T.Vector3(), life: 0, ph: Math.random() * 6, f: 2.4 + Math.random() * 1.8, amp: (paper ? 1.2 : 1.6) + Math.random() * 1.8, cd: paper ? 1.5 : 0.85 + Math.random() * 0.7, rest: false, paper });
+    }
+    this._lv = { W: new T.Vector3(), u: new T.Vector3(), n: new T.Vector3(), a: new T.Vector3(), ax: new T.Vector3(), tq: new T.Vector3(), q: new T.Quaternion(), e: new T.Euler(), tmp: new T.Vector3() };
   }
   spawnLeaf() {
     if (!this.leaves || !this.win) return; const L = this.leaves.find(l => !l.on); if (!L) return; const T = this.T, wp = this.win.position, ww = this._winW || 3, wh = this._winH || 4;
-    L.on = true; L.rest = false; L.life = 7; L.ph = Math.random() * 6; L.m.visible = true; L.m.material.opacity = 1;
-    L.m.position.set(wp.x + (Math.random() - .5) * ww * 0.7, wp.y + (Math.random() - .1) * wh * 0.4, wp.z + 0.4);
-    L.v.set(1.2 + Math.random() * 1.6, -0.2 + Math.random() * 0.6, 2.2 + Math.random() * 1.8); L.w.set(Math.random() * 4 - 2, Math.random() * 4 - 2, Math.random() * 4 - 2);
-    L.m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+    L.on = true; L.rest = false; L.bounced = false; L.life = 9 + Math.random() * 3; L.ph = Math.random() * 6; L.m.visible = true; L.m.material.opacity = 1;
+    // เริ่มนอกหน้าต่าง (หลังกระจก/ผนัง) แล้วพุ่งเข้าห้องตามลม — ดูเหมือนลอยเข้ามาจากข้างนอก
+    L.m.position.set(wp.x + (Math.random() - .5) * ww * 0.75, wp.y + (Math.random() - .3) * wh * 0.7, wp.z - 0.55);
+    L.v.set(0.5 + Math.random() * 1.2, 0.2 + Math.random() * 0.9, 2.8 + Math.random() * 2.4);
+    L.w.set((Math.random() - .5) * 6, (Math.random() - .5) * 6, (Math.random() - .5) * 6);
+    L.m.quaternion.setFromEuler(new T.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6));
   }
   stepRoomFx(dt, t, now) {
     const T = this.T;
@@ -1418,18 +1478,41 @@ class StudyDeskScene extends React.Component {
       for (let i = 0; i < arr.length; i += 3) { const x = b[i], y = b[i + 1], ny = Math.max(0, (H / 2 - y) / H); arr[i] = x + Math.sin(t * 1.3 + y * 2 + c.ph) * 0.03 * ny * wind * c.side; arr[i + 2] = b[i + 2] + Math.sin(t * 1.7 + y * 1.3 + x * 3 + c.ph) * 0.07 * ny * (0.5 + wind) + this.winA * ny * ny * 0.55 * (0.6 + 0.4 * Math.sin(t * 1.1 + c.ph)); }
       pa.needsUpdate = true; c.m.geometry.computeVertexNormals();
     }
-    if (this.winOpen) { this._leafT = (this._leafT || 0) - dt; if (this._leafT <= 0) { this._leafT = 0.35 + Math.random() * 0.8; this.spawnLeaf(); if (Math.random() < .4) this.spawnLeaf(); } }
-    if (this.leaves) for (const L of this.leaves) {
-      if (!L.on) continue; L.life -= dt; const p = L.m.position;
+    if (this.winOpen) { this._leafT = (this._leafT || 0) - dt; if (this._leafT <= 0) { const g0 = this.winA * (0.55 + 0.45 * Math.sin(t * 0.7) * Math.sin(t * 1.9 + 1)); this._leafT = (g0 > 0.6 ? 0.25 : 0.7) + Math.random() * 0.9; const cnt = g0 > 0.6 ? 2 + Math.floor(Math.random() * 3) : 1; for (let k = 0; k < cnt; k++) setTimeout(() => this.winOpen && this.spawnLeaf(), k * 120); } }
+    // ลมในห้อง: จากหน้าต่างเข้ามา (+z เอียง +x) แรงตามการเปิดบาน + กระโชกเป็นจังหวะ + ปั่นป่วนตามตำแหน่ง อ่อนลงตามระยะ
+    const gust = this.winA * (0.55 + 0.45 * Math.sin(t * 0.7) * Math.sin(t * 1.9 + 1));
+    const V = this._lv, wp0 = this.win ? this.win.position : null;
+    const windAt = (p, out) => { const dx = wp0 ? p.x - wp0.x : 0, dz = wp0 ? p.z - wp0.z : 0, fall = Math.max(0.12, 1 - Math.hypot(dx, dz) / 15), sp = (0.7 + 2.4 * gust) * fall;
+      out.set(0.35 + 0.3 * Math.sin(t * 0.8 + p.z), 0.12 * Math.sin(t * 1.7 + p.x * 0.7), 1).normalize().multiplyScalar(sp);
+      out.x += Math.sin(t * 2.1 + p.y * 1.3 + p.z) * 0.35 * sp; out.y += Math.sin(t * 2.7 + p.x * 1.1) * 0.3 * sp; out.z += Math.cos(t * 1.6 + p.x * 0.9) * 0.25 * sp; return out; };
+    if (this.leaves && V) for (const L of this.leaves) {
+      if (!L.on) continue; L.life -= dt; const p = L.m.position, st = Math.min(dt, 1 / 30);
+      const onDesk = Math.abs(p.x) < 6.2 && Math.abs(p.z) < 3.7 && p.y > -0.35, gy = (onDesk ? 0.0 : this.FY) + 0.025;
       if (!L.rest) {
-        L.v.y -= 1.4 * dt; L.v.y = Math.max(L.v.y, -1.1); L.v.x *= Math.pow(0.6, dt); L.v.z *= Math.pow(0.6, dt);
-        p.addScaledVector(L.v, dt); p.x += Math.sin(t * 3 + L.ph) * 0.7 * dt; p.z += Math.cos(t * 2.3 + L.ph) * 0.35 * dt;
-        L.m.rotation.x += L.w.x * dt; L.m.rotation.y += L.w.y * dt; L.m.rotation.z += L.w.z * dt;
-        const onDesk = Math.abs(p.x) < 6.2 && Math.abs(p.z) < 3.7 && p.y > -0.3, gy = onDesk ? 0.02 : this.FY + 0.02;
-        if (p.y < gy) { p.y = gy; L.rest = true; L.m.rotation.set(-Math.PI / 2, 0, Math.random() * 6); L.life = Math.min(L.life, 3); }
+        const W = windAt(p, V.W); V.u.copy(W).sub(L.v); // ลมสัมพัทธ์ที่ใบรู้สึก
+        V.n.set(0, 0, 1).applyQuaternion(L.m.quaternion); const un = V.u.dot(V.n);
+        // แรงต้านอากาศ: ด้านแบนต้านมาก (ตกช้า ลอยตามลม) ด้านคมต้านน้อย · แรงโน้มถ่วงเบาแบบใบไม้
+        V.a.copy(V.n).multiplyScalar(un * 3.4 * L.cd); V.tmp.copy(V.u).addScaledVector(V.n, -un); V.a.addScaledVector(V.tmp, 0.4 * L.cd); V.a.y -= 2.6;
+        // ส่ายซ้ายขวาตามแกนยาวของใบ (ใบไม้ร่วงจะแกว่งไปมา ไม่ตกดิ่ง)
+        V.ax.set(1, 0, 0).applyQuaternion(L.m.quaternion); V.a.addScaledVector(V.ax, Math.sin(t * L.f + L.ph) * L.amp);
+        L.v.addScaledVector(V.a, st); const spd = L.v.length(); if (spd > 6.5) L.v.multiplyScalar(6.5 / spd);
+        p.addScaledVector(L.v, st);
+        // การหมุน: หันด้านแบนสู้ลม + โยกตามจังหวะส่าย + คว้างเป็นครั้งคราว + หน่วง
+        const uL = V.u.length(); if (uL > 0.05) { V.tmp.copy(V.u).multiplyScalar(1 / uL); if (V.n.dot(V.tmp) < 0) V.tmp.negate(); V.tq.crossVectors(V.n, V.tmp).multiplyScalar(2.6 * Math.min(1.2, uL)); L.w.addScaledVector(V.tq, st); }
+        L.w.addScaledVector(V.ax, Math.cos(t * L.f + L.ph) * L.amp * 0.8 * st);
+        if (Math.random() < 0.5 * st) { V.tmp.crossVectors(V.n, V.ax); L.w.addScaledVector(V.tmp, (Math.random() - 0.5) * 7); }
+        L.w.multiplyScalar(Math.pow(0.22, st));
+        const wl = L.w.length(); if (wl > 1e-4) { V.tmp.copy(L.w).multiplyScalar(1 / wl); V.q.setFromAxisAngle(V.tmp, wl * st); L.m.quaternion.premultiply(V.q); }
+        if (p.y < gy) { p.y = gy;
+          if (L.v.y < -0.5 && !L.bounced) { L.bounced = true; L.v.y *= -0.22; L.v.x *= 0.45; L.v.z *= 0.45; } // เด้งเบาๆ หนึ่งครั้ง
+          else { L.rest = true; L.v.set(0, 0, 0); L.w.set(0, 0, 0); V.e.set(-Math.PI / 2 + (Math.random() - 0.5) * 0.3, 0, Math.random() * 6.28, 'XYZ'); L.m.quaternion.setFromEuler(V.e); L.life = Math.min(L.life, 3.5 + Math.random() * 3); L.onDesk = onDesk; }
+        }
+      } else if (gust > 0.62 && Math.random() < 1.6 * st) { // ลมกระโชกแรง → ใบที่นอนอยู่ไถล/กระดกนิดหน่อย
+        p.x += (0.1 + Math.random() * 0.25) * (gust - 0.5); p.z += (0.2 + Math.random() * 0.4) * (gust - 0.5); L.m.rotation.z += (Math.random() - 0.5) * 0.6;
+        if (L.onDesk && (Math.abs(p.x) > 6.25 || Math.abs(p.z) > 3.75)) { L.rest = false; L.bounced = false; L.v.set(0, -0.2, 0.3); L.life = Math.max(L.life, 4); } // ไถลตกขอบโต๊ะ → ร่วงต่อลงพื้น
       }
       if (L.life < 1) L.m.material.opacity = Math.max(0, L.life);
-      if (L.life <= 0) { L.on = false; L.m.visible = false; }
+      if (L.life <= 0) { L.on = false; L.m.visible = false; L.m.material.opacity = 1; }
     }
     if (!this._sunT || now - this._sunT > 1) {
       this._sunT = now; const d = new Date(), hr = d.getHours() + d.getMinutes() / 60, k = Math.max(0.04, Math.min(0.96, (hr - 6) / 12)), ang = k * Math.PI;
@@ -1581,6 +1664,7 @@ class StudyDeskScene extends React.Component {
     if (key === 'cat') { this.catTap(); return; }
     if (key === 'radio' || key === 'radioPlay' || key === 'radioNext') { this.radioAction(key); return; }
     if (key === 'window') { this.toggleWindow(); return; }
+    if (key === 'game') { this.gameTap(); return; }
     if (key === 'drawer') { this.toggleDrawer(!this.drawerOpen); return; }
     if (key === 'lamp') { this.sfx('lamp'); this.setNight(!this.state.night); this.say(this.state.night ? 'เช้าแล้ว! มาเรียนกันต่อครับ' : 'ดึกแล้ว อ่านอีกนิดนะครับ สู้ๆ', 3500); return; }
     if (key !== this.state.panel) this.sfx(key);
@@ -1810,6 +1894,8 @@ class StudyDeskScene extends React.Component {
     const playing = active === 'mycourse';
     if (this.scrMat && playing !== this._playing) { this._playing = playing; this.vidT0 = t; this.scrMat.map = playing ? this.vidTex : (this.idleTex || this.tex.screen); this.scrMat.needsUpdate = true; this._if = 0; }
     if (!playing && this.idleX && (!this._if || (!this.reduced && t - this._if > 1 / 20))) { this._if = t || 1e-6; this.drawIdle(this.reduced ? 3 : t); this.idleTex.needsUpdate = true; } // [พอร์ต] จอตอนนิ่งเคลื่อนไหว
+    // [พอร์ต] จอเครื่องเกมพกพา = เกมจริงในโหมดหน้ารอ (ครูฮีมวิ่ง ซอมบี้ไล่) เดิน 20 เฟรม/วิ · ลดการเคลื่อนไหว = ภาพนิ่ง
+    if (this.gameEng && this.gameTex && (!this._gf || (!this.reduced && t - this._gf > 1 / 20))) { const gdt = this._gf ? t - this._gf : 0; this._gf = t || 1e-6; try { this.gameEng.advance(gdt); this.gameTex.needsUpdate = true; } catch (e) { this.gameEng = null; } }
     if (playing && this.vidX && (!this._vf || t - this._vf > 1 / 30)) { this._vf = t; this.drawVideo(t - this.vidT0); this.vidTex.needsUpdate = true; }
     if (this.halo) this.halo.material.opacity = active === 'mycourse' ? 0 : 0.35 + Math.sin(t * 3) * 0.2 + (hk === 'mycourse' ? 0.3 : 0);
     if (this.panoOn && this.pano && (!this._pf || now - this._pf > 1 / 30)) { this._pf = now; this.pano.frame(now - this._panoT0, this.nightT || 0, this.m, this.reduced); this._panoFull = now - this._panoT0 > 1.5; }
