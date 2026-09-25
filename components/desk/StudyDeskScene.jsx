@@ -1686,7 +1686,21 @@ class StudyDeskScene extends React.Component {
       myCourses: list, hasMyCourses: st === 'ready' && list.length > 0, noMyCourses: st === 'ready' && !rs && list.length === 0,
       openCourses: () => this.openPanel('courses'),
       authHref: st === 'guest' || st === 'loading' ? '/login' : '/my-courses', authText: st === 'guest' || st === 'loading' ? 'เข้าสู่ระบบ' : 'คอร์สของฉัน',
-      authVis: st === 'loading' ? 'hidden' : 'visible'
+      authVis: st === 'loading' ? 'hidden' : 'visible',
+      ...this.adminVals()
+    };
+  }
+  // [พอร์ต] แจ้งเตือนเฉพาะแอดมิน (ครูฮีมขอ 2026-09-25): ปุ่มในแถบบน เห็นเฉพาะบัญชีแอดมินที่ล็อกอิน
+  //   มีสลิปแจ้งโอนรอตรวจ → ปุ่มสีทอง กระดิ่งสั่น จุดแดงกระเพื่อม + ตัวเลข → /admin/enrollments · ไม่มี → ปุ่ม "แอดมิน" ธรรมดา → /admin
+  adminVals() {
+    const a = this.props.admin || {}, n = a.on ? (a.pending | 0) : 0, on = !!a.on;
+    return {
+      adminOn: on, adminPending: n > 0, adminCount: n > 99 ? '99+' : String(n),
+      adminHref: n > 0 ? '/admin/enrollments' : '/admin', adminText: n > 0 ? 'สลิปรอตรวจ' : 'แอดมิน',
+      adminTitle: n > 0 ? 'มีสลิปแจ้งโอนรอตรวจ ' + n + ' รายการ — แตะเพื่อไปอนุมัติ' : 'ระบบจัดการ (แอดมิน)',
+      adminBg: n > 0 ? 'linear-gradient(135deg,#fde68a,#fbbf24)' : 'var(--chip)', adminInk: n > 0 ? '#0f172a' : 'var(--chipInk)',
+      adminLine: n > 0 ? 'rgba(180,83,9,.35)' : 'var(--chipline)', adminShadow: n > 0 ? '0 6px 18px -6px rgba(180,83,9,.55),0 0 0 3px rgba(251,191,36,.28)' : 'none',
+      adminBell: n > 0 ? 'khd-bell' : ''
     };
   }
   renderVals() {
@@ -1775,6 +1789,12 @@ class StudyDeskScene extends React.Component {
             </a>
             {/* [พอร์ต] ครูฮีมสั่งเอาปุ่มปิดเสียงกับปุ่มโหมดกลางคืน (ดวงจันทร์) ออกจากแถบบน ให้ดูสะอาด (2026-09-25)
                 — กลางคืนยังสลับได้ที่โคมไฟบนโต๊ะ · เพลงเปิด/ปิดที่วิทยุ */}
+            {v.adminOn && (<a href={v.adminHref} title={v.adminTitle} aria-label={v.adminTitle} style={css(`position:relative;height:42px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 ${v.adminPending ? '12px' : '14px'} 0 12px;border-radius:999px;border:1px solid ${v.adminLine};background:${v.adminBg};backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:${v.adminInk};font-size:13px;font-weight:800;white-space:nowrap;box-shadow:${v.adminShadow};transition:transform .2s`)} className="khd-h0">
+              <svg className={v.adminBell} width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+              {v.notSmall && (<span>{v.adminText}</span>)}
+              {v.adminPending && (<span style={css(`min-width:22px;height:22px;box-sizing:border-box;padding:0 6px;border-radius:999px;background:#dc2626;color:#fff;font-family:'Mitr',sans-serif;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(220,38,38,.45)`)}>{v.adminCount}</span>)}
+              {v.adminPending && (<span aria-hidden="true" style={css(`position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #fff`)}><span style={css(`position:absolute;inset:-2px;border-radius:50%;background:#ef4444;animation:khd-ping 1.6s cubic-bezier(0,0,.2,1) infinite`)}></span></span>)}
+            </a>)}
             {v.notSmall && (<><a href="/payment" style={css(`padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;color:var(--chipInk);background:var(--chip);border:1px solid var(--chipline);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)`)} className="khd-h3">แจ้งโอน</a></>)}
             <a href={v.authHref} style={css(`visibility:${v.authVis};padding:11px 18px;border-radius:999px;font-size:14px;font-weight:700;color:#fff;background:#0f172a;box-shadow:0 4px 0 #334155`)} className="khd-h4">{v.authText}</a>
           </div>

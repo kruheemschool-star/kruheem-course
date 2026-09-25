@@ -166,7 +166,16 @@ function DeskSeo({ data }: { data: DeskHomeData }) {
 }
 
 export default function StudyDesk({ data, classicUrl }: { data: DeskHomeData; classicUrl: string }) {
-  const { user, userProfile, loading } = useUserAuth();
+  const { user, userProfile, loading, isAdmin, pendingCount } = useUserAuth();
+  // แจ้งเตือนเฉพาะแอดมิน: จำนวนสลิปแจ้งโอนที่รอตรวจ (AuthContext ฟังแบบ realtime อยู่แล้ว เฉพาะบัญชีแอดมิน)
+  // ตอนพัฒนา: ?admin_demo=3 จำลองมุมมองแอดมินโดยไม่ต้องล็อกอิน
+  const admin = useMemo(() => {
+    if (process.env.NODE_ENV !== "production" && typeof window !== "undefined") {
+      const demo = new URLSearchParams(window.location.search).get("admin_demo");
+      if (demo !== null) return { on: true, pending: Math.max(0, parseInt(demo, 10) || 0) };
+    }
+    return { on: !!isAdmin, pending: isAdmin ? pendingCount : 0 };
+  }, [isAdmin, pendingCount]);
   const countdown = useMemo(() => normalizeCountdown(data.countdown), [data.countdown]);
   const coursesById = useMemo(() => {
     const m = new Map<string, { title: string }>();
@@ -223,7 +232,7 @@ export default function StudyDesk({ data, classicUrl }: { data: DeskHomeData; cl
       {/* ลายเกรนทั้งเว็บ (layout) ทับฉาก WebGL + กินแรงการ์ดจอบนมือถือ — ปิดเฉพาะหน้านี้ */}
       <style>{".noise-overlay{display:none!important}"}</style>
       <DeskSeo data={data} />
-      <StudyDeskScene data={data} countdown={countdown} my={my} onNeedMy={onNeedMy} classicUrl={classicUrl} />
+      <StudyDeskScene data={data} countdown={countdown} my={my} admin={admin} onNeedMy={onNeedMy} classicUrl={classicUrl} />
     </>
   );
 }

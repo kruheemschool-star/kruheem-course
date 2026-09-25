@@ -47,4 +47,8 @@ html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;-webkit-
 @keyframes khd-eq{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
 @keyframes khd-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
 .khd-dock::-webkit-scrollbar{display:none}
+@keyframes khd-bell{0%,100%{transform:rotate(0)}8%{transform:rotate(-18deg)}16%{transform:rotate(15deg)}24%{transform:rotate(-11deg)}32%{transform:rotate(7deg)}40%{transform:rotate(0)}}
+@keyframes khd-ping{0%{transform:scale(1);opacity:.75}100%{transform:scale(2.6);opacity:0}}
+.khd-bell{transform-origin:50% 12%;animation:khd-bell 3s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.khd-bell{animation:none}}
 `;
