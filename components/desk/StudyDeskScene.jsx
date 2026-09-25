@@ -613,11 +613,61 @@ class StudyDeskScene extends React.Component {
     this.halo.position.set(0, 1.04, -0.06); pv.add(this.halo);
     const scr = new T.Mesh(new T.PlaneGeometry(2.92, 1.8), new T.MeshBasicMaterial({ map: this.tex.screen, toneMapped: false }));
     this.scrMat = scr.material;
+    // [พอร์ต] จอตอนนิ่ง: ภาพเคลื่อนไหวแสง/สีสัน (ครูฮีมขอ 2026-09-25) — ต้นแบบเป็นภาพนิ่ง
+    this.idleCv = document.createElement('canvas'); this.idleCv.width = 1024; this.idleCv.height = 640; this.idleX = this.idleCv.getContext('2d');
+    this.idleTex = new T.CanvasTexture(this.idleCv); this.idleTex.encoding = T.sRGBEncoding; this.idleTex.anisotropy = 8;
     this.vidCv = document.createElement('canvas'); this.vidCv.width = 1024; this.vidCv.height = 640; this.vidX = this.vidCv.getContext('2d');
     this.vidTex = new T.CanvasTexture(this.vidCv); this.vidTex.encoding = T.sRGBEncoding; this.vidTex.anisotropy = 8;
     scr.position.set(0, 1.04, 0.046); pv.add(scr); pv.rotation.x = -0.2;
     const logo = new T.Mesh(new T.CircleGeometry(0.16, 32), new T.MeshStandardMaterial({ color: 0x5b6270, roughness: .2, metalness: .8 })); logo.position.set(0, 1.03, -0.042); logo.rotation.y = Math.PI; pv.add(logo);
     this.add('mycourse', g, 0, -1.55, 0, { ay: 2.5, fd: 1.4, rs: 2.1, anim: (h) => { pv.rotation.x = -0.2 - h * 0.22; } });
+  }
+  // [พอร์ต] จอแล็ปท็อปตอนนิ่ง: แสงออโรร่าไหลช้าๆ 5 ก้อน + สัญลักษณ์คณิตลอย + แสงวูบผ่านจอ + ปุ่มทองมีประกาย
+  //   ล็อกอินแล้วและมีบทที่เรียนค้าง → โชว์ชื่อคอร์ส/บทจริง ไม่งั้นเป็นข้อความชวนเข้าเรียน
+  drawIdle(t) {
+    const x = this.idleX, w = 1024, h = 640, F = "'Mitr', sans-serif", B = "'IBM Plex Sans Thai Looped', sans-serif";
+    const rr = (X, Y, W, H, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); };
+    x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+    const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#0b3b38'); g.addColorStop(0.55, '#0f2f3a'); g.addColorStop(1, '#111b33'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    // ก้อนแสงสี (บวกแสง) ลอยช้าๆ คนละจังหวะ
+    x.globalCompositeOperation = 'lighter';
+    [['20,184,166', 0.0], ['251,191,36', 1.7], ['139,92,246', 3.1], ['56,189,248', 4.4], ['244,114,182', 5.6]].forEach(([c, ph], i) => {
+      const cx = w * (0.5 + 0.44 * Math.sin(t * 0.21 + ph)), cy = h * (0.5 + 0.4 * Math.cos(t * 0.17 + ph * 1.3)), r = 300 + 90 * Math.sin(t * 0.29 + i);
+      const rg = x.createRadialGradient(cx, cy, 0, cx, cy, r); rg.addColorStop(0, `rgba(${c},.62)`); rg.addColorStop(0.55, `rgba(${c},.2)`); rg.addColorStop(1, `rgba(${c},0)`);
+      x.fillStyle = rg; x.fillRect(cx - r, cy - r, r * 2, r * 2);
+    });
+    // ประกายแสงเล็กๆ ลอยขึ้น
+    for (let i = 0; i < 16; i++) { const ph = i * 1.37, cy = h * (1.1 - ((t * (0.04 + (i % 4) * 0.012) + ph * 0.37) % 1.2)), cx = w * ((0.05 + i * 0.061) % 0.95) + Math.sin(t * 0.8 + ph) * 22, r = 3 + (i % 3) * 2.5, a = (0.35 + 0.3 * Math.sin(t * 2.1 + ph)) * Math.max(0, Math.min(1, (h - cy) / 120)); const sg = x.createRadialGradient(cx, cy, 0, cx, cy, r * 4); sg.addColorStop(0, `rgba(255,255,255,${a.toFixed(3)})`); sg.addColorStop(0.3, `rgba(255,240,200,${(a * 0.5).toFixed(3)})`); sg.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = sg; x.fillRect(cx - r * 4, cy - r * 4, r * 8, r * 8); }
+    // สัญลักษณ์คณิตลอยขึ้นช้าๆ วนซ้ำ
+    x.font = `500 74px ${F}`; x.textAlign = 'center';
+    ['π', '∑', '√', 'x²', '∞', '÷', 'θ', '%', '='].forEach((s, i) => {
+      const ph = i * 0.73, sp = 0.05 + (i % 3) * 0.02, cy = h * (1.15 - ((t * sp + ph) % 1.3)), cx = w * (0.08 + (i * 0.115) % 0.88) + Math.sin(t * 0.6 + ph) * 28;
+      const a = Math.max(0, Math.min(1, (h - cy) / 160)) * Math.max(0, Math.min(1, cy / 160)) * (0.3 + 0.14 * Math.sin(t * 1.3 + ph));
+      x.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`; x.fillText(s, cx, cy);
+    });
+    x.globalCompositeOperation = 'source-over'; x.textAlign = 'left';
+    // แผ่นกระจกเงาบางๆ มุมซ้ายบน
+    const gl = x.createLinearGradient(0, 0, w * 0.6, h * 0.8); gl.addColorStop(0, 'rgba(255,255,255,.10)'); gl.addColorStop(0.5, 'rgba(255,255,255,0)'); x.fillStyle = gl; x.fillRect(0, 0, w, h);
+    // ข้อความ
+    const my = this.props.my || {}, rs = my.state === 'ready' && my.resume ? my.resume : null;
+    x.fillStyle = '#fff'; x.font = `600 88px ${F}`; x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 16; x.fillText('คอร์สของฉัน', 70, 196);
+    x.shadowBlur = 0; x.fillStyle = 'rgba(255,255,255,.78)'; x.font = `500 32px ${B}`;
+    x.fillText(rs ? (rs.courseTitle.length > 30 ? rs.courseTitle.slice(0, 29) + '…' : rs.courseTitle) : 'เรียนต่อจากจุดที่ค้างไว้ได้ทันที', 74, 254);
+    if (rs && rs.lessonTitle) { x.fillStyle = '#5eead4'; x.font = `500 28px ${B}`; x.fillText(rs.lessonTitle.length > 34 ? rs.lessonTitle.slice(0, 33) + '…' : rs.lessonTitle, 74, 296); }
+    if (rs && rs.total) { x.fillStyle = 'rgba(255,255,255,.16)'; rr(74, 322, 876, 18, 9); x.fill(); x.fillStyle = '#5eead4'; rr(74, 322, Math.max(18, 876 * rs.done / rs.total), 18, 9); x.fill(); }
+    // ปุ่มทอง + เรืองแสงหายใจ + ประกายวิ่งผ่าน
+    const by = 392, bh = 150, pulse = 0.5 + 0.5 * Math.sin(t * 1.6);
+    x.shadowColor = `rgba(251,191,36,${(0.35 + 0.35 * pulse).toFixed(2)})`; x.shadowBlur = 34 + 18 * pulse;
+    x.fillStyle = '#b45309'; rr(74, by + 12, 876, bh, 40); x.fill(); x.shadowBlur = 0;
+    x.fillStyle = '#fbbf24'; rr(74, by, 876, bh, 40); x.fill();
+    x.save(); rr(74, by, 876, bh, 40); x.clip();
+    const sx = 74 - 300 + ((t * 0.28) % 1) * 1500, sh = x.createLinearGradient(sx, 0, sx + 260, 0); sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,.55)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = sh; x.fillRect(sx - 40, by, 340, bh); x.restore();
+    x.fillStyle = '#0f172a'; x.beginPath(); x.arc(170, by + 75, 46, 0, 7); x.fill();
+    x.fillStyle = '#fbbf24'; x.beginPath(); x.moveTo(156, by + 50); x.lineTo(156, by + 100); x.lineTo(196, by + 75); x.closePath(); x.fill();
+    x.fillStyle = '#0f172a'; x.font = `600 70px ${F}`; x.textBaseline = 'middle'; x.fillText(rs ? 'เรียนต่อ' : 'เข้าสู่บทเรียน', 250, by + 80); x.textBaseline = 'alphabetic';
+    // แสงวูบผ่านทั้งจอทุกๆ ~7 วิ
+    const k = (t * 0.14) % 1; if (k < 0.32) { const p = k / 0.32, gx = -400 + p * (w + 800); const sw = x.createLinearGradient(gx, 0, gx + 320, h); sw.addColorStop(0, 'rgba(255,255,255,0)'); sw.addColorStop(0.5, `rgba(255,255,255,${(0.16 * Math.sin(Math.PI * p)).toFixed(3)})`); sw.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = sw; x.fillRect(0, 0, w, h); }
   }
   drawVideo(T0) {
     const x = this.vidX, w = 1024, h = 640, F = "'Mitr', sans-serif", B = "'IBM Plex Sans Thai Looped', sans-serif", HW = "'Itim', cursive";
@@ -1615,7 +1665,8 @@ class StudyDeskScene extends React.Component {
       } else tip.style.opacity = '0';
     }
     const playing = active === 'mycourse';
-    if (this.scrMat && playing !== this._playing) { this._playing = playing; this.vidT0 = t; this.scrMat.map = playing ? this.vidTex : this.tex.screen; this.scrMat.needsUpdate = true; }
+    if (this.scrMat && playing !== this._playing) { this._playing = playing; this.vidT0 = t; this.scrMat.map = playing ? this.vidTex : (this.idleTex || this.tex.screen); this.scrMat.needsUpdate = true; this._if = 0; }
+    if (!playing && this.idleX && (!this._if || (!this.reduced && t - this._if > 1 / 20))) { this._if = t || 1e-6; this.drawIdle(this.reduced ? 3 : t); this.idleTex.needsUpdate = true; } // [พอร์ต] จอตอนนิ่งเคลื่อนไหว
     if (playing && this.vidX && (!this._vf || t - this._vf > 1 / 30)) { this._vf = t; this.drawVideo(t - this.vidT0); this.vidTex.needsUpdate = true; }
     if (this.halo) this.halo.material.opacity = active === 'mycourse' ? 0 : 0.35 + Math.sin(t * 3) * 0.2 + (hk === 'mycourse' ? 0.3 : 0);
     this.R.render(this.scene, this.cam);
