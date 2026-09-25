@@ -13,7 +13,7 @@ const HOVER_CSS = ".khd-h0:hover{color:var(--chipInk) !important;transform:trans
 
 class StudyDeskScene extends React.Component {
   // [พอร์ต] เปิดโหมดลดการเคลื่อนไหวในเครื่อง → ข้ามอินโทรกล้องบิน
-  state = { intro: (() => { try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return false; return localStorage.getItem('kh_desk_intro') !== '1'; } catch (e) { return true; } })(), music: (() => { try { return localStorage.getItem('kh_desk_music') !== '0'; } catch (e) { return true; } })(), kruMsg: 'สวัสดีครับ! แตะของบนโต๊ะได้เลย', muted: (() => { try { return localStorage.getItem('kh_desk_muted') === '1'; } catch (e) { return false; } })(), vw: innerWidth, vh: innerHeight, panel: null, hover: null, night: false, cat: (this.props.data && this.props.data.cats && this.props.data.cats[0]) || '', now: Date.now(), quoteIdx: 0, modal: false };
+  state = { intro: (() => { try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return false; return localStorage.getItem('kh_desk_intro') !== '1'; } catch (e) { return true; } })(), music: (() => { try { return localStorage.getItem('kh_desk_music') === '1'; } catch (e) { return false; } })() /* [พอร์ต] ไม่มีปุ่มปิดเสียงแล้ว → เพลงเริ่มเมื่อแตะวิทยุเท่านั้น */, kruMsg: 'สวัสดีครับ! แตะของบนโต๊ะได้เลย', muted: (() => { try { return localStorage.getItem('kh_desk_muted') === '1'; } catch (e) { return false; } })(), vw: innerWidth, vh: innerHeight, panel: null, hover: null, night: false, cat: (this.props.data && this.props.data.cats && this.props.data.cats[0]) || '', now: Date.now(), quoteIdx: 0, modal: false };
   rootRef = React.createRef(); canvasHostRef = React.createRef(); tipRef = React.createRef(); kruRef = React.createRef(); radioPopRef = React.createRef(); heroRef = React.createRef(); dockRef = React.createRef();
 
   MENU_ALL = [
@@ -1646,13 +1646,8 @@ class StudyDeskScene extends React.Component {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
               {v.notSmall && (<><span>เวอร์ชันคลาสสิก</span></>)}
             </a>
-            <button onClick={v.toggleMute} aria-label="เปิด/ปิดเสียง" title="เปิด/ปิดเสียง" style={css(`width:42px;height:42px;border-radius:50%;border:1px solid var(--chipline);background:var(--chip);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--chipInk);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .2s`)} className="khd-h1">
-              {v.soundOn && (<><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 5a10 10 0 0 1 0 14"></path></svg></>)}
-              {v.soundOff && (<><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"></path><path d="m22 9-6 6"></path><path d="m16 9 6 6"></path></svg></>)}
-            </button>
-            <button onClick={v.toggleNight} aria-label="โหมดกลางคืน" title="เปิด/ปิดโคมไฟ" style={css(`width:42px;height:42px;border-radius:50%;border:1px solid var(--chipline);background:var(--chip);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--chipInk);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .2s`)} className="khd-h2">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg>
-            </button>
+            {/* [พอร์ต] ครูฮีมสั่งเอาปุ่มปิดเสียงกับปุ่มโหมดกลางคืน (ดวงจันทร์) ออกจากแถบบน ให้ดูสะอาด (2026-09-25)
+                — กลางคืนยังสลับได้ที่โคมไฟบนโต๊ะ · เพลงเปิด/ปิดที่วิทยุ */}
             {v.notSmall && (<><a href="/payment" style={css(`padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;color:var(--chipInk);background:var(--chip);border:1px solid var(--chipline);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)`)} className="khd-h3">แจ้งโอน</a></>)}
             <a href={v.authHref} style={css(`visibility:${v.authVis};padding:11px 18px;border-radius:999px;font-size:14px;font-weight:700;color:#fff;background:#0f172a;box-shadow:0 4px 0 #334155`)} className="khd-h4">{v.authText}</a>
           </div>
