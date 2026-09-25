@@ -11,8 +11,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const smooth = (t) => t * t * (3 - 2 * t);
 const rnd = (seed) => { let s = seed % 2147483647; if (s <= 0) s += 2147483646; return () => (s = (s * 16807) % 2147483647) / 2147483647; };
 import { drawLeaf, LEAF_PALETTES } from './leafArt';
-
-const rr = (x, X, Y, W, H, R) => { x.beginPath(); x.moveTo(X + R, Y); x.arcTo(X + W, Y, X + W, Y + H, R); x.arcTo(X + W, Y + H, X, Y + H, R); x.arcTo(X, Y + H, X, Y, R); x.arcTo(X, Y, X + W, Y, R); x.closePath(); };
+import { makeBalloonState, drawBalloon, makeBird, birdPose, drawBird, flockOffset } from './skyLife';
 
 // สันเขา: จุดควบคุมสุ่ม → เส้นเรียบ + รอยหยักเล็กๆ (u 0..1 → 0..1, 1 = ยอดสูงสุด)
 function ridge(seed, count, rough) {
@@ -34,23 +33,6 @@ function makeCloud(size, seed, night) {
   const base = night ? [96, 110, 150] : [255, 255, 255], shade = night ? [44, 56, 92] : [168, 190, 220], hi = night ? [150, 166, 210] : [255, 255, 255];
   puffs.forEach(([px, py, pr]) => { const g = x.createRadialGradient(px, py + pr * 0.3, pr * 0.1, px, py + pr * 0.3, pr * 1.05); g.addColorStop(0, rgba(shade, 0.85)); g.addColorStop(1, rgba(shade, 0)); x.fillStyle = g; x.beginPath(); x.arc(px, py + pr * 0.3, pr * 1.05, 0, 7); x.fill(); });
   puffs.forEach(([px, py, pr]) => { const g = x.createRadialGradient(px - pr * 0.32, py - pr * 0.38, pr * 0.08, px, py, pr); g.addColorStop(0, rgba(hi, 1)); g.addColorStop(0.55, rgba(base, 0.96)); g.addColorStop(1, rgba(base, 0)); x.fillStyle = g; x.beginPath(); x.arc(px, py, pr, 0, 7); x.fill(); });
-  return c;
-}
-
-// สไปรต์บอลลูน: ซองรูปหยดน้ำ แถบสีโค้งตามทรง แสงเงาทรงกลม เชือก ตะกร้า (กลางคืนหรี่ + ไฟเผา)
-function makeBalloon(R, cols, night) {
-  const w = Math.ceil(R * 2.8), h = Math.ceil(R * 3.7), c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
-  const cx = w / 2, cy = R * 1.15;
-  const env = () => { x.beginPath(); x.moveTo(cx, cy - R); x.bezierCurveTo(cx + R * 1.38, cy - R, cx + R * 1.12, cy + R * 0.95, cx + R * 0.2, cy + R * 1.72); x.lineTo(cx - R * 0.2, cy + R * 1.72); x.bezierCurveTo(cx - R * 1.12, cy + R * 0.95, cx - R * 1.38, cy - R, cx, cy - R); x.closePath(); };
-  x.save(); env(); x.clip();
-  const gores = 10; for (let i = 0; i < gores; i++) { const x0 = cx - R * 1.32 * Math.cos(i / gores * Math.PI), x1 = cx - R * 1.32 * Math.cos((i + 1) / gores * Math.PI); x.fillStyle = cols[i % cols.length]; x.fillRect(Math.min(x0, x1) - 0.5, 0, Math.abs(x1 - x0) + 1, h); }
-  const sh = x.createLinearGradient(cx - R * 1.32, 0, cx + R * 1.32, 0); sh.addColorStop(0, 'rgba(0,0,0,.42)'); sh.addColorStop(0.3, 'rgba(255,255,255,.22)'); sh.addColorStop(0.5, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(0,0,0,.45)'); x.fillStyle = sh; x.fillRect(0, 0, w, h);
-  const vg = x.createLinearGradient(0, cy - R, 0, cy + R * 1.72); vg.addColorStop(0, 'rgba(255,255,255,.14)'); vg.addColorStop(0.65, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.4)'); x.fillStyle = vg; x.fillRect(0, 0, w, h);
-  if (night) { x.fillStyle = 'rgba(8,14,40,.6)'; x.fillRect(0, 0, w, h); }
-  x.restore();
-  x.strokeStyle = night ? '#2f2a20' : '#6b5335'; x.lineWidth = Math.max(1, R * 0.035); [-0.18, -0.06, 0.06, 0.18].forEach(k => { x.beginPath(); x.moveTo(cx + k * R, cy + R * 1.7); x.lineTo(cx + k * R * 1.4, cy + R * 2.25); x.stroke(); });
-  const bw = R * 0.52, bh = R * 0.34, by = cy + R * 2.25; const bg = x.createLinearGradient(0, by, 0, by + bh); bg.addColorStop(0, night ? '#4a3a28' : '#b8895a'); bg.addColorStop(1, night ? '#2a2016' : '#6f4e2c'); x.fillStyle = bg; rr(x, cx - bw / 2, by, bw, bh, R * 0.07); x.fill();
-  x.strokeStyle = night ? 'rgba(0,0,0,.35)' : 'rgba(0,0,0,.18)'; x.lineWidth = 1; for (let i = 1; i < 3; i++) { x.beginPath(); x.moveTo(cx - bw / 2, by + bh * i / 3); x.lineTo(cx + bw / 2, by + bh * i / 3); x.stroke(); }
   return c;
 }
 
@@ -76,9 +58,13 @@ export class Panorama {
     this.midTrees = forest(150, 5); this.nearTrees = forest(110, 9);
     // เมฆ 10 ก้อน 3 ระยะ
     this.clouds = []; for (let i = 0; i < 10; i++) { const d = 0.16 + (i % 3) * 0.13 + r() * 0.06, size = S * (0.055 + r() * 0.075) * (0.6 + d); this.clouds.push({ d, size, day: makeCloud(size, 100 + i, false), night: makeCloud(size, 100 + i, true), x0: r() * (W + (this.PW - W) * d), y: H * (0.05 + r() * 0.36), sp: W * (0.0035 + r() * 0.006) * (0.4 + d), ph: r() * 6 }); }
-    // บอลลูน 5 ลูก
-    const pal = [['#f43f5e', '#fbbf24', '#f8fafc'], ['#0ea5e9', '#f8fafc', '#fb923c'], ['#a855f7', '#f472b6', '#fde68a'], ['#10b981', '#fef3c7', '#0f766e'], ['#ef4444', '#f8fafc', '#1d4ed8']];
-    this.balloons = []; for (let i = 0; i < 5; i++) { const d = 0.32 + i * 0.11 + r() * 0.05, R = S * (0.035 + r() * 0.045) * (0.5 + d); this.balloons.push({ d, R, day: makeBalloon(R, pal[i % pal.length], false), night: makeBalloon(R, pal[i % pal.length], true), x0: r() * (W + (this.PW - W) * d), y: H * (0.12 + r() * 0.3), sp: W * (0.0022 + r() * 0.0035) * (0.4 + d), ph: r() * 6, dir: r() < 0.5 ? -1 : 1 }); }
+    // บอลลูน 5 ลูก 5 ลาย (วาดสดทุกเฟรมด้วย skyLife: ผ้าหมุนช้าๆ ไฟหัวเผาจุดเป็นระยะ)
+    const rb = rnd(77);
+    this.balloons = []; for (let i = 0; i < 5; i++) { const d = 0.32 + i * 0.11 + r() * 0.05, R = S * (0.035 + r() * 0.045) * (0.5 + d); this.balloons.push({ d, R, st: makeBalloonState(i, rb), x0: r() * (W + (this.PW - W) * d), y: H * (0.12 + r() * 0.3), sp: W * (0.0022 + r() * 0.0035) * (0.4 + d), ph: r() * 6, dir: r() < 0.5 ? -1 : 1 }); }
+    // นก: ฝูงไกล 2 ฝูงบินรูปตัววี + นกนางนวลตัวใกล้ 2 ตัว
+    const rq = rnd(4242);
+    this.flocks = [{ spd: 0.022, fy: 0.21, s: S * 0.012, off: 0.1, dir: 1, yaw: 1.05, elev: 0.55, n: 7 }, { spd: 0.017, fy: 0.29, s: S * 0.009, off: 0.6, dir: -1, yaw: 0.95, elev: 0.5, n: 5 }].map((F) => ({ ...F, birds: Array.from({ length: F.n }, () => makeBird('far', rq, F.yaw, F.elev)) }));
+    this.gulls = [{ spd: 0.045, fy: 0.35, s: S * 0.034, off: 0.2, dir: 1, b: makeBird('gull', rq, 0.8, 0.68) }, { spd: 0.036, fy: 0.43, s: S * 0.025, off: 0.75, dir: -1, b: makeBird('gull', rq, 0.65, 0.6) }];
     // ดาว + ทางช้างเผือก
     this.stars = []; for (let i = 0; i < 190; i++) this.stars.push([r(), r() * 0.62, 0.5 + r() * 1.5, r() * 6.28, 0.5 + r() * 2.5]);
     this.milky = []; for (let i = 0; i < 380; i++) { const u = r(), v = (r() - 0.5) * (0.35 + 0.45 * Math.sin(u * Math.PI)); this.milky.push([u, v, 0.4 + r() * 1.1, r()]); }
@@ -168,8 +154,10 @@ export class Panorama {
     hz = x.createLinearGradient(0, H * 0.6, 0, H * 0.72); hz.addColorStop(0, rgba(hor, 0)); hz.addColorStop(1, rgba(hor, 0.4 * dn + 0.2 * n)); x.fillStyle = hz; x.fillRect(0, H * 0.6, W, H * 0.12);
 
     // ---------- บอลลูน (ระยะไกล) ----------
-    const drawBalloon = (b) => { const lw = LW(b.d) + b.R * 4, wx = ((b.x0 + tt * b.sp * b.dir) % lw + lw) % lw - b.R * 2, cx = sx(wx, b.d), cy = b.y + Math.sin(tt * 0.45 + b.ph) * H * 0.012 + py * H * 0.008 * b.d; if (cx > W + b.R * 3 || cx < -b.R * 3) return; x.drawImage(b.day, cx - b.day.width / 2, cy); if (n > 0.01) { x.globalAlpha = n; x.drawImage(b.night, cx - b.day.width / 2, cy); x.globalAlpha = 1; const fl = n * (0.5 + 0.5 * Math.sin(tt * 9 + b.ph)); const gg = x.createRadialGradient(cx, cy + b.R * 1.55, 0, cx, cy + b.R * 1.55, b.R * 0.9); gg.addColorStop(0, `rgba(255,200,90,${(0.55 * fl).toFixed(3)})`); gg.addColorStop(1, 'rgba(255,160,50,0)'); x.fillStyle = gg; x.fillRect(cx - b.R, cy + b.R * 0.6, b.R * 2, b.R * 2); } };
-    this.balloons.filter(b => b.d < 0.5).forEach(drawBalloon);
+    // แสงส่องจากฝั่งพระอาทิตย์ (กลางคืนฝั่งพระจันทร์) · ยิ่งไกลยิ่งจางเข้าหาสีฟ้าขอบฟ้า
+    const bEnv = { n, haze: hor, hz: 0, lightAz: 0 };
+    const drawB = (b) => { const lw = LW(b.d) + b.R * 4, wx = ((b.x0 + tt * b.sp * b.dir) % lw + lw) % lw - b.R * 2, cx = sx(wx, b.d), cy = b.y + Math.sin(tt * 0.45 + b.ph) * H * 0.012 + py * H * 0.008 * b.d; if (cx > W + b.R * 3 || cx < -b.R * 3) return; bEnv.hz = (1 - b.d) * 0.4; bEnv.lightAz = clamp(((dn > 0.5 ? SX : MX) - cx) / W * 3, -1.1, 1.1); drawBalloon(x, b.st, cx, cy, b.R, tt, bEnv); };
+    this.balloons.filter(b => b.d < 0.5).forEach(drawB);
 
     // ---------- เนินกลาง + ป่าสน ----------
     const hill = (fn, d, base, amp, cTop, cBase, trees, tScale, tDay, tNight) => {
@@ -181,14 +169,14 @@ export class Panorama {
     };
     hill(this.mid, 0.5, H * 0.76, H * 0.13 * A, col([104, 168, 122], [20, 48, 56]), col([70, 130, 96], [12, 34, 42]), this.midTrees, S * 0.03, [[36, 96, 72], [52, 122, 84]], [[10, 30, 36], [14, 38, 42]]);
 
-    // ---------- นก (กลางวัน): ฝูงไกลตัว V + นกใกล้ 2 ตัวกระพือปีก ----------
+    // ---------- นก (กลางวัน): ฝูงไกลบินรูปตัววี กระพือไม่พร้อมกัน + นกนางนวลตัวใกล้ กระพือสลับร่อน ----------
     if (dn > 0.05) {
-      x.strokeStyle = `rgba(40,52,70,${dn.toFixed(3)})`; x.lineCap = 'round';
-      const flock = (spd, fy, s, off, cnt) => { const span = W + 300, fx = ((tt * spd * W + off * span) % span) - 150 - ox * 0.12; for (let i = 0; i < cnt; i++) { const k = i === 0 ? 0 : (i % 2 ? -1 : 1) * Math.ceil(i / 2), bx = fx + k * 22 * s, by = H * fy + Math.abs(k) * 15 * s + Math.sin(tt * 1.1 + i) * 3, fl = Math.sin(tt * 7.5 + i * 1.1 + off * 4) * 7 * s; x.lineWidth = 1.6 * s; x.beginPath(); x.moveTo(bx - 11 * s, by - fl); x.quadraticCurveTo(bx - 4 * s, by - 2 * s, bx, by); x.quadraticCurveTo(bx + 4 * s, by - 2 * s, bx + 11 * s, by - fl); x.stroke(); } };
-      flock(0.024, 0.22, 0.9, 0.1, 7); flock(0.018, 0.3, 0.7, 0.6, 5);
-      [[0.05, 0.36, 1.5, 0.2], [0.04, 0.42, 1.2, 0.75]].forEach(([spd, fy, s, off]) => { const span = W + 400, bx = ((tt * spd * W + off * span) % span) - 200 - ox * 0.3, by = H * fy + Math.sin(tt * 0.9 + off * 7) * H * 0.02, fl = Math.sin(tt * 6 + off * 9); x.fillStyle = `rgba(40,52,70,${dn.toFixed(3)})`; x.beginPath(); x.ellipse(bx, by, 7 * s, 3 * s, 0, 0, 7); x.fill(); x.lineWidth = 2.4 * s; x.beginPath(); x.moveTo(bx - 3 * s, by); x.quadraticCurveTo(bx - 12 * s, by - 6 * s - fl * 10 * s, bx - 24 * s, by - 2 * s - fl * 16 * s); x.moveTo(bx + 3 * s, by); x.quadraticCurveTo(bx + 12 * s, by - 6 * s - fl * 10 * s, bx + 24 * s, by - 2 * s - fl * 16 * s); x.stroke(); });
+      const V = [[0, 0], [1, 1], [1, -1], [2, 1], [2, -1], [3, 1], [3, -1]];
+      this.flocks.forEach((F) => { const span = W + 400, fx = ((tt * F.spd * W * F.dir + F.off * span) % span + span) % span - 200 - ox * 0.12, fy = H * F.fy + Math.sin(tt * 0.3 + F.off * 5) * H * 0.01;
+        F.birds.forEach((b, i) => { const [j, side] = V[i], o = flockOffset(F.yaw, F.elev, F.dir, -j * 2.4, side * j * 2.4), bx = fx + (o[0] + Math.sin(tt * 0.7 + i * 2.1) * 0.3) * F.s, by = fy + (o[1] + Math.sin(tt * 0.9 + i * 1.3) * 0.3) * F.s; if (bx < -F.s * 4 || bx > W + F.s * 4) return; drawBird(x, b, bx, by, F.s, F.dir, birdPose(b, tt), 0.82 * dn, 0); }); });
+      this.gulls.forEach((G) => { const span = W + 500, bx = ((tt * G.spd * W * G.dir + G.off * span) % span + span) % span - 250 - ox * 0.3, ph = tt * 0.9 + G.off * 7, by = H * G.fy + Math.sin(ph) * H * 0.02; if (bx < -G.s * 3 || bx > W + G.s * 3) return; drawBird(x, G.b, bx, by, G.s, G.dir, birdPose(G.b, tt), dn, -0.2 * Math.cos(ph)); });
     }
-    this.balloons.filter(b => b.d >= 0.5).forEach(drawBalloon);
+    this.balloons.filter(b => b.d >= 0.5).forEach(drawB);
 
     // ---------- ทะเลสาบ: สะท้อนฟ้า ภูเขา และแสงพระอาทิตย์/จันทร์ ----------
     { const d = 0.72, lw = LW(d), L0 = H * 0.78, L1 = H * 0.86, xa = sx(lw * 0.27, d), xb = sx(lw * 0.73, d);
