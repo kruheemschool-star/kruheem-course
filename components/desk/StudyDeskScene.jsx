@@ -8,13 +8,14 @@
 import React from "react";
 import * as THREE from "three";
 import { css, DESK_PAGE_CSS } from "./deskCss";
+import { Panorama } from "./panorama";
 
 const HOVER_CSS = ".khd-h0:hover{color:var(--chipInk) !important;transform:translateY(-1px) !important}\n.khd-h1:hover{transform:scale(1.06) !important}\n.khd-h2:hover{transform:rotate(-15deg) scale(1.06) !important}\n.khd-h3:hover{color:#b45309 !important}\n.khd-h4:hover{color:#fff !important}\n.khd-h5:hover{color:#0f172a !important}\n.khd-h6:hover{background:rgba(15,23,42,.9) !important}\n.khd-h7:hover{background:#e2e8f0 !important}\n.khd-h8:hover{border-color:#94a3b8 !important}\n.khd-h9:hover{color:#1e293b !important;transform:translateY(-3px) !important}\n.khd-h10:hover{color:#0f172a !important;transform:translateY(-3px) !important}\n.khd-h11:hover{transform:translateY(-3px) !important}\n.khd-h12:hover{color:#0d9488 !important}";
 
 class StudyDeskScene extends React.Component {
   // [พอร์ต] เปิดโหมดลดการเคลื่อนไหวในเครื่อง → ข้ามอินโทรกล้องบิน
   state = { intro: (() => { try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return false; return localStorage.getItem('kh_desk_intro') !== '1'; } catch (e) { return true; } })(), music: (() => { try { return localStorage.getItem('kh_desk_music') === '1'; } catch (e) { return false; } })() /* [พอร์ต] ไม่มีปุ่มปิดเสียงแล้ว → เพลงเริ่มเมื่อแตะวิทยุเท่านั้น */, kruMsg: 'สวัสดีครับ! แตะของบนโต๊ะได้เลย', muted: (() => { try { return localStorage.getItem('kh_desk_muted') === '1'; } catch (e) { return false; } })(), ambient: (() => { try { return localStorage.getItem('kh_desk_ambient') !== '0'; } catch (e) { return true; } })(), vw: innerWidth, vh: innerHeight, panel: null, hover: null, night: false, cat: (this.props.data && this.props.data.cats && this.props.data.cats[0]) || '', now: Date.now(), quoteIdx: 0, modal: false };
-  rootRef = React.createRef(); canvasHostRef = React.createRef(); tipRef = React.createRef(); kruRef = React.createRef(); radioPopRef = React.createRef(); heroRef = React.createRef(); dockRef = React.createRef();
+  rootRef = React.createRef(); canvasHostRef = React.createRef(); panoRef = React.createRef(); tipRef = React.createRef(); kruRef = React.createRef(); radioPopRef = React.createRef(); heroRef = React.createRef(); dockRef = React.createRef();
 
   MENU_ALL = [
     { k: 'courses', t: 'คอร์สเรียน', o: 'ตั้งหนังสือคอร์ส', d: 'เลือกคอร์สตามระดับชั้น เรียนได้ทุกที่' },
@@ -67,7 +68,7 @@ class StudyDeskScene extends React.Component {
   }
   componentWillUnmount() {
     // [พอร์ต] Next.js เปลี่ยนหน้าโดยไม่รีโหลด → ต้องหยุดเพลง/ปิดเสียง/คืนการ์ดจอเอง ไม่งั้นเพลงยังดังต่อในหน้าอื่น
-    this._dead = true; this.stopAmbient(); clearInterval(this.ambT);
+    this._dead = true; this.stopAmbient(); clearInterval(this.ambT); clearTimeout(this._panoHide); if (this.pano) { this.pano.dispose(); this.pano = null; }
     try { if (this.mus) { this.mus.cr.stop(); this.mus.g.disconnect(); this.mus = null; } } catch (e) {}
     try { if (this.ac) { this.ac.close(); this.ac = null; } } catch (e) {}
     removeEventListener('orientationchange', this.onResize);
@@ -506,7 +507,23 @@ class StudyDeskScene extends React.Component {
     const mh = this.mesh(new T.BoxGeometry(ww, 0.1, 0.12), mm); mh.position.set(0, wh * 0.12, 0.16); this.win.add(mh);
     const sill = this.rbox(ww + 0.8, 0.14, 0.6, 0.05, mm); sill.position.set(0, -wh / 2 - 0.25, 0.3); this.win.add(sill);
     const pot = this.mesh(new T.CylinderGeometry(0.28, 0.22, 0.5, 24), this.M(0xe07a5f, { r: .7 })); pot.position.set(-ww * 0.3, -wh / 2 - 0.18 + 0.25 + 0.07, 0.35); this.win.add(pot);
-    for (let i = 0; i < 5; i++) { const lf = this.mesh(new T.SphereGeometry(0.2, 12, 10), this.M(i % 2 ? 0x5cb883 : 0x3f9d6b, { r: .6 })); lf.scale.set(.7, 1.5, .5); lf.position.set(-ww * 0.3 + Math.sin(i * 1.3) * 0.18, pot.position.y + 0.5 + (i % 3) * 0.14, 0.35 + Math.cos(i * 1.3) * 0.08); lf.rotation.z = Math.sin(i * 1.3) * 0.5; this.win.add(lf); }
+    { // [พอร์ต] ไม้ดอกในกระถาง (ครูฮีมขอ 2026-09-25 — ต้นแบบเป็นก้อนกลมๆ): ดิน ใบแผ่รอบโคน ก้าน 7 ก้าน ดอก 5 กลีบสีต่างกัน
+      const px = -ww * 0.3, py = pot.position.y + 0.25, pz = 0.35;
+      const soil = this.mesh(new T.CylinderGeometry(0.26, 0.26, 0.04, 20), this.M(0x5b4636, { r: .95 })); soil.position.set(px, py, pz); this.win.add(soil);
+      const leafM = this.M(0x3f9d6b, { r: .6 }), leafM2 = this.M(0x5cb883, { r: .6 }), stemM = this.M(0x4d7c3a, { r: .7 }), centerM = this.M(0xfde047, { r: .5 });
+      const petals = [0xf472b6, 0xfb7185, 0xfbbf24, 0xf9a8d4, 0xfda4af, 0xc084fc, 0xf97316];
+      for (let i = 0; i < 9; i++) { const a = i * 0.7 + 1.1, rr = 0.1 + (i % 2) * 0.1; const lf = this.mesh(new T.SphereGeometry(0.11, 10, 8), i % 2 ? leafM2 : leafM); lf.scale.set(0.55, 0.2, 1.3); lf.position.set(px + Math.cos(a) * rr, py + 0.06 + (i % 3) * 0.05, pz + Math.sin(a) * rr * 0.6); lf.rotation.y = -a; lf.rotation.z = 0.35 * Math.cos(a); lf.rotation.x = -0.25; this.win.add(lf); }
+      for (let i = 0; i < 7; i++) {
+        const a = i * 0.9 + 0.3, rr = 0.05 + (i % 3) * 0.05, hgt = 0.34 + ((i * 37) % 5) * 0.07;
+        const sg = new T.Group(); sg.position.set(px + Math.cos(a) * rr, py, pz + Math.sin(a) * rr * 0.6); sg.rotation.z = Math.cos(a) * 0.28; sg.rotation.x = -Math.sin(a) * 0.22; this.win.add(sg);
+        const stem = this.mesh(new T.CylinderGeometry(0.012, 0.016, hgt, 8), stemM); stem.position.y = hgt / 2; sg.add(stem);
+        const sl = this.mesh(new T.SphereGeometry(0.06, 8, 6), leafM2); sl.scale.set(0.5, 0.18, 1.2); sl.position.set(0.05, hgt * 0.55, 0); sl.rotation.z = -0.6; sg.add(sl);
+        const fl = new T.Group(); fl.position.y = hgt; fl.rotation.set(-0.5, i * 1.3, 0); sg.add(fl);
+        const pm = this.M(petals[i % petals.length], { r: .55 });
+        for (let k = 0; k < 5; k++) { const pt = this.mesh(new T.SphereGeometry(0.055, 10, 8), pm); pt.scale.set(1, 0.45, 1.5); const b = k / 5 * Math.PI * 2; pt.position.set(Math.cos(b) * 0.07, 0, Math.sin(b) * 0.07); pt.rotation.y = -b; fl.add(pt); }
+        const ce = this.mesh(new T.SphereGeometry(0.035, 10, 8), centerM); ce.position.y = 0.01; fl.add(ce);
+      }
+    }
     mv.visible = false; mh.visible = false; this._winW = ww; this._winH = wh;
     { // [พอร์ต] หน้าต่างเป็นรายการ: ชี้แล้วมีป้าย + บานแง้มนิดๆ · แตะ = โหมดพักสายตา (enterWindow)
       let wi = this.items.window; if (!wi) { wi = { k: 'window', static: true, h: 0, v: 0, rotY: 0, fd: 1, rs: 0.001, anim: (hv) => { this.winHover = hv; } }; this.items.window = wi; this.order.push(wi); }
@@ -1041,13 +1058,26 @@ class StudyDeskScene extends React.Component {
     if (!this.winOpen) { this.winOpen = true; this._leafT = 0; }
     this.sfx('winOpen'); this.hideWall();
     clearTimeout(this._pvT); this.setState({ panel: null, panelVis: null, winView: true, hover: null }); this.dockHover = null;
-    this.goTo(this.windowPose(), 1.5);
+    this.goTo(this.windowPose(), 1.5); this.startPano();
     this.ensureAudio(); setTimeout(() => { if (this.winView) this.startAmbient(); }, 350);
   }
   exitWindow() {
     if (!this.winView) return; this.winView = false; this.stopAmbient();
     if (this.winOpen) { this.winOpen = false; this.sfx('winClose'); }
-    this.setState({ winView: false }); if (this.T) this.goTo(this.homePose(), 1.3);
+    this.stopPano(); this.setState({ winView: false }); if (this.T) this.goTo(this.homePose(), 1.3);
+  }
+  // พาโนรามาเต็มจอ: เฟดเข้าหลังกล้องเริ่มบินเข้าหน้าต่าง (เหมือนทะลุออกไปข้างนอก) · เฟดออกตอนกลับ
+  startPano() {
+    const c = this.panoRef.current; if (!c) return;
+    if (!this.pano) this.pano = new Panorama(c);
+    this.pano.resize(innerWidth, innerHeight, Math.min(devicePixelRatio || 1, innerWidth < 640 ? 1.25 : 1.5));
+    this.panoOn = true; this._panoFull = false; this._panoT0 = performance.now() / 1000; this._pf = 0; c.style.pointerEvents = 'auto';
+    clearTimeout(this._panoHide); setTimeout(() => { if (this.panoOn) c.style.opacity = '1'; }, 420);
+  }
+  stopPano() {
+    const c = this.panoRef.current; this.panoOn = false; this._panoFull = false; if (!c) return;
+    c.style.opacity = '0'; c.style.pointerEvents = 'none';
+    clearTimeout(this._panoHide); this._panoHide = setTimeout(() => { if (!this.panoOn && this.pano) this.pano.clear(); }, 1000);
   }
   windowPose() {
     const T = this.T, W = innerWidth, H = innerHeight; this.win.updateMatrixWorld(true);
@@ -1646,6 +1676,7 @@ class StudyDeskScene extends React.Component {
   resize() {
     if (!this.R) return; this.R.setSize(innerWidth, innerHeight); this.cam.aspect = innerWidth / innerHeight; this.cam.updateProjectionMatrix();
     if (this.applyLayout()) this._roomKey = null; // [พอร์ต] สลับผังมือถือ/จอใหญ่
+    if (this.panoOn && this.pano) this.pano.resize(innerWidth, innerHeight, Math.min(devicePixelRatio || 1, innerWidth < 640 ? 1.25 : 1.5));
     // [พอร์ต] ลิ้นชักเปิดอยู่ → จัดภาพลิ้นชักใหม่ · กล้องกำลังบิน → เปลี่ยนปลายทางแทนการกระโดด
     const p = this.state.panel ? this.focusPose(this.fkey(this.state.panel)) : (this.winView ? (this.homePose(), this.windowPose()) : (this.drawerOpen && this.items.drawer ? (this.homePose(), this.drawerPose()) : this.homePose()));
     if (this.tw && !this.introOn) { this.tw.p1 = p.p; this.tw.t1 = p.t; this.tw.s1 = p.s || 0; this.tw.x1 = p.sx || 0; return; }
@@ -1781,6 +1812,8 @@ class StudyDeskScene extends React.Component {
     if (!playing && this.idleX && (!this._if || (!this.reduced && t - this._if > 1 / 20))) { this._if = t || 1e-6; this.drawIdle(this.reduced ? 3 : t); this.idleTex.needsUpdate = true; } // [พอร์ต] จอตอนนิ่งเคลื่อนไหว
     if (playing && this.vidX && (!this._vf || t - this._vf > 1 / 30)) { this._vf = t; this.drawVideo(t - this.vidT0); this.vidTex.needsUpdate = true; }
     if (this.halo) this.halo.material.opacity = active === 'mycourse' ? 0 : 0.35 + Math.sin(t * 3) * 0.2 + (hk === 'mycourse' ? 0.3 : 0);
+    if (this.panoOn && this.pano && (!this._pf || now - this._pf > 1 / 30)) { this._pf = now; this.pano.frame(now - this._panoT0, this.nightT || 0, this.m, this.reduced); this._panoFull = now - this._panoT0 > 1.5; }
+    if (this._panoFull) return; // [พอร์ต] วิวพาโนรามาบังเต็มจอแล้ว
     this.R.render(this.scene, this.cam);
   }
 
@@ -1809,7 +1842,7 @@ class StudyDeskScene extends React.Component {
     const on = !!this.state.winView, night = !!this.state.night, amb = this.state.ambient !== false && !this.state.muted;
     return {
       winView: on, winTitle: night ? 'ราตรีสวัสดิ์ ดาวเต็มฟ้าเลยครับ' : 'พักสายตาสักครู่นะครับ',
-      winDesc: night ? 'ฟังเสียงจิ้งหรีดกับลมเบาๆ แล้วค่อยกลับมาลุยต่อ' : 'หายใจลึกๆ มองภูเขา เมฆ และนกสักพัก แล้วค่อยกลับมาลุยต่อ',
+      winDesc: night ? 'ดาว พระจันทร์ หิ่งห้อย กับเสียงจิ้งหรีด แล้วค่อยกลับมาลุยต่อ' : 'ภูเขา ทะเลสาบ บอลลูน และนก — ลากนิ้วหรือขยับเมาส์เพื่อมองรอบๆ',
       winNightText: night ? '☀️ เปิดไฟ · กลางวัน' : '🌙 ปิดไฟ · กลางคืน', winAmbText: amb ? '🔊 เสียงธรรมชาติ' : '🔇 เสียงธรรมชาติ',
       winAmbBg: amb ? '#fbbf24' : 'transparent', winAmbInk: amb ? '#0f172a' : 'var(--chipInk)', winAmbLine: amb ? '#fbbf24' : 'var(--chipline)',
       winToggleNight: () => { this.sfx('lamp'); this.setNight(!this.state.night); },
@@ -1852,7 +1885,7 @@ class StudyDeskScene extends React.Component {
           asMaxH: sheet ? '64vh' : 'none', asH: sheet ? '64vh' : 'auto'
         };
       })(),
-      rootRef: this.rootRef, canvasHostRef: this.canvasHostRef, tipRef: this.tipRef, kruRef: this.kruRef, kruMsg: this.state.kruMsg, heroOp: this.state.drawer ? '0' : '1', dailyQuote: this.QUOTES[Math.floor((Date.now() + 7 * 3600e3) / 86400000) % this.QUOTES.length],
+      rootRef: this.rootRef, canvasHostRef: this.canvasHostRef, panoRef: this.panoRef, tipRef: this.tipRef, kruRef: this.kruRef, kruMsg: this.state.kruMsg, heroOp: this.state.drawer ? '0' : '1', dailyQuote: this.QUOTES[Math.floor((Date.now() + 7 * 3600e3) / 86400000) % this.QUOTES.length],
       soundOn: !this.state.muted, soundOff: this.state.muted,
       introOn: !!this.state.intro && !this.state.noGL, skipIntro: () => this.skipIntro(),
       noGL: !!this.state.noGL, slowToast: !!this.state.slowToast, classicUrl: this.props.classicUrl || '/classic',
@@ -1898,7 +1931,10 @@ class StudyDeskScene extends React.Component {
       <style dangerouslySetInnerHTML={{ __html: DESK_PAGE_CSS + HOVER_CSS }} />
       <div ref={v.rootRef} className="khd-root" style={css(`position:fixed;inset:0;overflow:hidden;background:#1d4f4a;--ink:#f8fafc;--muted:#d7e7e4;--accent:#0f766e;--chip:rgba(255,255,255,.92);--chipline:rgba(255,255,255,.6);--chipInk:#0f172a;--chipMuted:#64748b;--hl:linear-gradient(90deg,#fde68a,#fbbf24 50%,#fb923c)`)}>
         <div ref={v.canvasHostRef} style={css(`position:absolute;inset:0`)}></div>
+        {/* [พอร์ต] วิวพาโนรามาโหมดพักสายตา — วาดทับฉาก 3 มิติทั้งจอ (components/desk/panorama.js) */}
+        <canvas ref={v.panoRef} aria-label="วิวนอกหน้าต่าง" style={css(`position:absolute;inset:0;width:100%;height:100%;z-index:18;opacity:0;pointer-events:none;transition:opacity .9s ease;touch-action:none;display:block`)}></canvas>
       
+        {!v.winView && (<>
         <header style={css(`position:absolute;top:${v.hdTop};left:${v.hdSide};right:${v.hdSide};z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:none`)}>
           <a href="/" style={css(`pointer-events:auto;display:flex;align-items:center;gap:10px`)}>
             <img src="/logo.png" alt="KruHeem Logo" style={css(`width:42px;height:42px;border-radius:12px;box-shadow:0 6px 16px -8px rgba(15,23,42,.4)`)} />
@@ -1924,6 +1960,7 @@ class StudyDeskScene extends React.Component {
             <a href={v.authHref} style={css(`visibility:${v.authVis};padding:11px 18px;border-radius:999px;font-size:14px;font-weight:700;color:#fff;background:#0f172a;box-shadow:0 4px 0 #334155`)} className="khd-h4">{v.authText}</a>
           </div>
         </header>
+        </>)}
       
         {v.noPanel && (<>
           <div ref={v.heroRef} style={css(`opacity:${v.heroOp};transition:opacity .45s;position:absolute;left:16px;right:16px;top:clamp(78px,11vh,112px);z-index:5;display:flex;flex-direction:column;align-items:center;text-align:center;pointer-events:none;animation:khd-fade .9s cubic-bezier(.2,.8,.2,1) backwards`)}>
