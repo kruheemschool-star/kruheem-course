@@ -131,7 +131,8 @@ export class ZombieRunEngine {
   private chompT = 0;
   private zombified = false;
 
-  constructor(canvas: HTMLCanvasElement, opts: { art: Art; audio: ZrAudio; onPhase: (p: Phase, r?: RunResult) => void; onHud: (h: HudInfo) => void }) {
+  // manual = ไม่เดิน requestAnimationFrame เอง ให้คนเรียก advance(dt) (ใช้เป็นจอเครื่องเกมบนโต๊ะเรียนหน้าแรก)
+  constructor(canvas: HTMLCanvasElement, opts: { art: Art; audio: ZrAudio; onPhase: (p: Phase, r?: RunResult) => void; onHud: (h: HudInfo) => void; manual?: boolean }) {
     this.cv = canvas;
     this.cx = canvas.getContext("2d")!;
     this.buf = document.createElement("canvas");
@@ -151,7 +152,13 @@ export class ZombieRunEngine {
       /* ignore */
     }
     this.last = performance.now();
-    this.raf = requestAnimationFrame(this.loop);
+    if (!opts.manual) this.raf = requestAnimationFrame(this.loop);
+  }
+
+  // เดินเกมไปข้างหน้า dt วินาทีแล้ววาด — สำหรับโหมด manual
+  advance(dt: number) {
+    this.tick(Math.max(0, Math.min(0.1, dt)));
+    this.render();
   }
 
   setFont(f: string) {

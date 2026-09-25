@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUserAuth } from "@/context/AuthContext";
@@ -158,6 +159,7 @@ function DeskSeo({ data }: { data: DeskHomeData }) {
           <li><a tabIndex={-1} href="/how-to-apply">วิธีสมัครเรียน</a></li>
           <li><a tabIndex={-1} href="/payment">แจ้งโอน</a></li>
           <li><a tabIndex={-1} href="/faq">คำถามที่พบบ่อย</a></li>
+          <li><a tabIndex={-1} href="/game">เกมพักสมอง ครูฮีม หนีซอมบี้!</a></li>
           <li><a tabIndex={-1} href="https://line.me/ti/p/~kruheemschool">ติดต่อครูฮีมทาง LINE</a></li>
         </ul>
       </nav>
@@ -214,6 +216,9 @@ export default function StudyDesk({ data, classicUrl }: { data: DeskHomeData; cl
 
   // ฉากเรียกเมื่อเปิดแผง "คอร์สของฉัน" — ถ้าสถานะล็อกอินยังไม่มา จะดึงให้ทันทีที่รู้
   const onNeedMy = useCallback(() => { wantMy.current = true; void fetchMy(true); }, [fetchMy]);
+  // แตะเครื่องเกมบนโต๊ะ → หน้าเกม "ครูฮีม หนีซอมบี้!" (เปลี่ยนหน้าแบบไม่รีโหลด ปุ่ม "หน้าแรก" ในเกมพากลับมาที่โต๊ะ)
+  const router = useRouter();
+  const onGame = useCallback(() => router.push("/game"), [router]);
   useEffect(() => { if (wantMy.current && uid && !loading) void fetchMy(false); }, [uid, loading, fetchMy]);
 
   const own = mine && uid && mine.uid === uid ? mine : null;
@@ -232,7 +237,7 @@ export default function StudyDesk({ data, classicUrl }: { data: DeskHomeData; cl
       {/* ลายเกรนทั้งเว็บ (layout) ทับฉาก WebGL + กินแรงการ์ดจอบนมือถือ — ปิดเฉพาะหน้านี้ */}
       <style>{".noise-overlay{display:none!important}"}</style>
       <DeskSeo data={data} />
-      <StudyDeskScene data={data} countdown={countdown} my={my} admin={admin} onNeedMy={onNeedMy} classicUrl={classicUrl} />
+      <StudyDeskScene data={data} countdown={countdown} my={my} admin={admin} onNeedMy={onNeedMy} onGame={onGame} classicUrl={classicUrl} />
     </>
   );
 }

@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import ZombieRunLoader from "@/components/game/ZombieRunLoader";
 
-// เกมพักสมอง "ครูฮีม หนีซอมบี้" — ยังไม่ผูกลิงก์จากหน้าอื่น ครูฮีมลองเล่นก่อน
-// จึงบอก Google ว่าอย่าเพิ่งเก็บ (เปิดเมื่อวางทางเข้าจริงแล้ว)
+// เกมพักสมอง "ครูฮีม หนีซอมบี้" — ทางเข้าคือเครื่องเกมพกพาบนโต๊ะเรียนหน้าแรก (components/desk/StudyDeskScene.jsx buildGame)
 export const metadata: Metadata = {
   title: "ครูฮีม หนีซอมบี้! เกมพักสมอง",
   description: "เกมวิ่งพิกเซลสั้นๆ ให้น้องๆ พักสมอง พาครูฮีมกระโดดข้ามกองหนังสือ สไลด์ลอดเครื่องบินกระดาษ เก็บชาไทย อย่าให้ซอมบี้ตามทัน",
-  robots: { index: false, follow: false },
+  openGraph: { title: "ครูฮีม หนีซอมบี้! เกมพักสมอง", description: "เกมวิ่งพิกเซลสั้นๆ ให้น้องๆ พักสมอง อย่าให้ซอมบี้ตามทัน", type: "website" },
 };
 
 export const viewport: Viewport = {

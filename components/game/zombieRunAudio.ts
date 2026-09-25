@@ -32,8 +32,11 @@ export class ZrAudio {
   private eighth = 0.2;
   sfxOn = true;
   musicOn = true;
+  // disabled = ไม่สร้าง AudioContext เลย (จอเครื่องเกมบนโต๊ะเรียนหน้าแรกใช้เอนจินเดียวกันแต่ต้องเงียบ)
+  disabled = false;
 
   unlock() {
+    if (this.disabled) return;
     try {
       if (!this.ctx) {
         const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
