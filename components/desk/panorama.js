@@ -1,5 +1,5 @@
 // วิวพาโนรามานอกหน้าต่าง (โหมดพักสายตา) — canvas 2 มิติเต็มจอ วางทับฉาก 3 มิติ
-// ชั้นภาพจากหลังไปหน้า: ท้องฟ้า · พระอาทิตย์/พระจันทร์/ดาว/ทางช้างเผือก · เมฆ · ภูเขาไกล 2 ชั้น + หมอก
+// ชั้นภาพจากหลังไปหน้า: ท้องฟ้า · พระอาทิตย์/พระจันทร์/ดาว/ทางช้างเผือก · เมฆ (cloudArt) · ภูเขาไกล 2 ชั้น + หมอก
 // · ทะเลสาบ (สะท้อนภูเขา/แสง) · บอลลูน · เนินกลาง+ป่าสน · นก · เนินใกล้+ป่า · ทุ่งหญ้า+ทางเดิน+ดอกไม้
 // · ต้นไม้ใหญ่ · หญ้าพลิ้ว · หิ่งห้อย · ขอบภาพมืดจางๆ
 // ทุกชั้นเลื่อนคนละความเร็ว (parallax) กล้องแพนช้าๆ เอง + ขยับตามเมาส์/ลากนิ้ว · กลางวัน→กลางคืนไล่ระดับด้วย n (0..1)
@@ -12,6 +12,7 @@ const smooth = (t) => t * t * (3 - 2 * t);
 const rnd = (seed) => { let s = seed % 2147483647; if (s <= 0) s += 2147483646; return () => (s = (s * 16807) % 2147483647) / 2147483647; };
 import { drawLeaf, LEAF_PALETTES } from './leafArt';
 import { makeBalloonState, drawBalloon, makeBird, birdPose, drawBird, flockOffset } from './skyLife';
+import { makeCumulus, makeCirrus } from './cloudArt';
 
 // สันเขา: จุดควบคุมสุ่ม → เส้นเรียบ + รอยหยักเล็กๆ (u 0..1 → 0..1, 1 = ยอดสูงสุด)
 function ridge(seed, count, rough) {
@@ -22,18 +23,6 @@ function ridge(seed, count, rough) {
     const y = lerp(pts[i], pts[i + 1], smooth(t));
     return y + (Math.sin(u * 97 + seed) * 0.5 + Math.sin(u * 211 + seed * 2) * 0.3 + Math.sin(u * 431) * 0.2) * rough;
   };
-}
-
-// สไปรต์เมฆปุย: หลายก้อนไล่แสง (สว่างบนซ้าย เงาใต้ก้อน) ขอบฟุ้ง
-function makeCloud(size, seed, night) {
-  const r = rnd(seed), w = Math.ceil(size * 3), h = Math.ceil(size * 1.7), c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
-  const puffs = []; const n = 7 + Math.floor(r() * 5);
-  for (let i = 0; i < n; i++) puffs.push([w * 0.5 + (r() - 0.5) * size * 1.8, h * 0.6 - r() * size * 0.5, size * (0.28 + r() * 0.34)]);
-  puffs.push([w * 0.5, h * 0.68, size * 0.62], [w * 0.32, h * 0.7, size * 0.46], [w * 0.68, h * 0.7, size * 0.46]);
-  const base = night ? [96, 110, 150] : [255, 255, 255], shade = night ? [44, 56, 92] : [168, 190, 220], hi = night ? [150, 166, 210] : [255, 255, 255];
-  puffs.forEach(([px, py, pr]) => { const g = x.createRadialGradient(px, py + pr * 0.3, pr * 0.1, px, py + pr * 0.3, pr * 1.05); g.addColorStop(0, rgba(shade, 0.85)); g.addColorStop(1, rgba(shade, 0)); x.fillStyle = g; x.beginPath(); x.arc(px, py + pr * 0.3, pr * 1.05, 0, 7); x.fill(); });
-  puffs.forEach(([px, py, pr]) => { const g = x.createRadialGradient(px - pr * 0.32, py - pr * 0.38, pr * 0.08, px, py, pr); g.addColorStop(0, rgba(hi, 1)); g.addColorStop(0.55, rgba(base, 0.96)); g.addColorStop(1, rgba(base, 0)); x.fillStyle = g; x.beginPath(); x.arc(px, py, pr, 0, 7); x.fill(); });
-  return c;
 }
 
 export class Panorama {
@@ -56,8 +45,20 @@ export class Panorama {
     // ป่าสน: ตำแหน่ง/ขนาดตามสัน (สุ่มครั้งเดียว)
     const forest = (n, seed) => { const q = rnd(seed), a = []; for (let i = 0; i < n; i++) a.push([q(), 0.6 + q() * 0.9, q() < 0.5 ? 0 : 1, q()]); return a; };
     this.midTrees = forest(150, 5); this.nearTrees = forest(110, 9);
-    // เมฆ 10 ก้อน 3 ระยะ
-    this.clouds = []; for (let i = 0; i < 10; i++) { const d = 0.16 + (i % 3) * 0.13 + r() * 0.06, size = S * (0.055 + r() * 0.075) * (0.6 + d); this.clouds.push({ d, size, day: makeCloud(size, 100 + i, false), night: makeCloud(size, 100 + i, true), x0: r() * (W + (this.PW - W) * d), y: H * (0.05 + r() * 0.36), sp: W * (0.0035 + r() * 0.006) * (0.4 + d), ph: r() * 6 }); }
+    // เมฆ: ซีร์รัสบางๆ บนฟ้าสูง 3 แผ่น · คิวมูลัสแบนจางแถบขอบฟ้า 4 ก้อน (โผล่หลังภูเขา) · คิวมูลัส 7 ก้อน (ยิ่งใกล้ยิ่งใหญ่และลอยสูงบนจอ)
+    // ภาพเมฆ (cloudArt) คำนวณทีละก้อนในเฟรมถัดๆ ไปไม่ให้กระตุกตอนเข้าโหมด และใช้ซ้ำถ้าขนาดจอเดิม
+    for (let i = 0; i < 60; i++) r(); // คงลำดับตัวสุ่มเดิม บอลลูน ดาว ดอกไม้จึงอยู่ที่เดิม
+    const ck = `${W}x${H}`;
+    if (this._cloudKey !== ck) {
+      const rc = rnd(314), C = [], lwd = (d) => W + (this.PW - W) * d, res = (w) => Math.min(0.9, 360 / w);
+      for (let i = 0; i < 3; i++) { const w = W * (0.34 + rc() * 0.22), h = w * (0.2 + rc() * 0.06), d = 0.03 + rc() * 0.04; C.push({ kind: 'ci', d, w, h, res: res(w), seed: 900 + i, x0: rc() * (lwd(d) + w), y: H * (0.01 + i * 0.07 + rc() * 0.03), sp: W * (0.001 + rc() * 0.0012) }); }
+      for (let i = 0; i < 4; i++) { const w = S * (0.16 + rc() * 0.12), h = w * 0.44, d = 0.08 + rc() * 0.05; C.push({ kind: 'cu', flat: 0.85, hz: 0.42, d, w, h, res: res(w), seed: 700 + i, x0: rc() * (lwd(d) + w), y: H * (0.43 + rc() * 0.05) - h * 0.8, sp: W * (0.0015 + rc() * 0.001) }); }
+      for (let i = 0; i < 7; i++) { const q = (i + rc() * 0.8) / 7, w = S * (0.2 + 0.32 * q) * (0.85 + rc() * 0.3), flat = rc() < 0.3 ? 0.55 : rc() * 0.3, h = w * (0.56 - 0.16 * flat), d = 0.14 + 0.34 * q; C.push({ kind: 'cu', flat, hz: 0.22 * (1 - q), d, w, h, res: res(w), seed: 500 + i, x0: rc() * (lwd(d) + w), y: H * (0.36 - 0.2 * q + (rc() - 0.5) * 0.04) - h * 0.8, sp: W * (0.003 + rc() * 0.004) * (0.5 + q) }); }
+      C.sort((a, b) => a.d - b.d); this._cloudList = C; this._cloudQ = C.slice().sort((a, b) => b.w - a.w); this._cloudKey = ck;
+    }
+    this.clouds = this._cloudList;
+    // เงาเมฆทอดบนเนินเขา (กลางวัน) ลอยตามลมช้าๆ
+    const rs = rnd(515); this.shades = []; for (let i = 0; i < 4; i++) this.shades.push({ u0: rs(), v: 0.0025 + rs() * 0.002, w: 0.14 + rs() * 0.12, h: 0.035 + rs() * 0.025, k: 0.12 + rs() * 0.07 });
     // บอลลูน 5 ลูก 5 ลาย (วาดสดทุกเฟรมด้วย skyLife: ผ้าหมุนช้าๆ ไฟหัวเผาจุดเป็นระยะ)
     const rb = rnd(77);
     this.balloons = []; for (let i = 0; i < 5; i++) { const d = 0.32 + i * 0.11 + r() * 0.05, R = S * (0.035 + r() * 0.045) * (0.5 + d); this.balloons.push({ d, R, st: makeBalloonState(i, rb), x0: r() * (W + (this.PW - W) * d), y: H * (0.12 + r() * 0.3), sp: W * (0.0022 + r() * 0.0035) * (0.4 + d), ph: r() * 6, dir: r() < 0.5 ? -1 : 1 }); }
@@ -126,8 +127,19 @@ export class Panorama {
     }
 
     // ---------- เมฆ (อยู่หลังภูเขา) ----------
-    const drawCloud = (c) => { const lw = LW(c.d) + c.size * 3, wx = ((c.x0 + tt * c.sp) % lw + lw) % lw - c.size * 1.5, cx = sx(wx, c.d), cy = c.y + Math.sin(tt * 0.2 + c.ph) * H * 0.006 + py * H * 0.01 * c.d; if (cx > W + c.size * 2 || cx < -c.size * 3) return; x.drawImage(c.day, cx, cy); if (n > 0.01) { x.globalAlpha = n; x.drawImage(c.night, cx, cy); x.globalAlpha = 1; } };
-    this.clouds.forEach(drawCloud);
+    // สร้างภาพเมฆที่ยังค้าง (ก้อนใหญ่ก่อน) ไม่เกินราว 12 ms ต่อเฟรม
+    if (this._cloudQ && this._cloudQ.length) { const t0 = performance.now(); do { const c = this._cloudQ.shift(); c.spr = c.kind === 'ci' ? makeCirrus(c) : makeCumulus(c); } while (this._cloudQ.length && performance.now() - t0 < 12); }
+    // กลางวัน↔กลางคืนครอสเฟดโดยเมฆไม่จางหายระหว่างทาง · ลอยเข้าใกล้ดวงอาทิตย์/ดวงจันทร์ ขอบเมฆเรืองแสง (silver lining)
+    const na = smooth(clamp((n - 0.15) / 0.6, 0, 1)), da = 1 - smooth(clamp((n - 0.55) / 0.4, 0, 1)), rimR = S * 0.26;
+    this.clouds.forEach((c) => { const s2 = c.spr; if (!s2) return; const lw = LW(c.d) + c.w, wx = ((c.x0 + tt * c.sp) % lw + lw) % lw - c.w * 0.5, X = sx(wx, c.d) - c.w * 0.5, Y = c.y + py * H * 0.01 * c.d; if (X > W || X + c.w < 0) return;
+      if (da > 0.01) { x.globalAlpha = da; x.drawImage(s2.day, X, Y, c.w, c.h); }
+      if (na > 0.01) { x.globalAlpha = na; x.drawImage(s2.night, X, Y, c.w, c.h); }
+      // ขอบเรือง: เฉพาะส่วนของเมฆที่อยู่ใกล้ดวงอาทิตย์/ดวงจันทร์ (ไล่จางออกจากดวงเป็นวง) ไม่ใช่เส้นขอบรอบทั้งก้อน
+      if (s2.rim) [[SX, SY, dn * 0.95], [MX, MY, n * 0.9]].forEach(([lx, ly, str]) => { if (str < 0.02) return; const nx2 = clamp(lx, X, X + c.w), ny2 = clamp(ly, Y, Y + c.h); if (Math.hypot(nx2 - lx, ny2 - ly) > rimR) return;
+        const rc = this._rimCv || (this._rimCv = document.createElement('canvas')), rw = Math.ceil(c.w), rh = Math.ceil(c.h); if (rc.width < rw) rc.width = rw; if (rc.height < rh) rc.height = rh; const rx = rc.getContext('2d');
+        rx.globalCompositeOperation = 'copy'; rx.drawImage(s2.rim, 0, 0, rw, rh); rx.globalCompositeOperation = 'destination-in'; const rg = rx.createRadialGradient(lx - X, ly - Y, 0, lx - X, ly - Y, rimR); rg.addColorStop(0, `rgba(0,0,0,${str.toFixed(3)})`); rg.addColorStop(0.45, `rgba(0,0,0,${(str * 0.35).toFixed(3)})`); rg.addColorStop(1, 'rgba(0,0,0,0)'); rx.fillStyle = rg; rx.fillRect(0, 0, rw, rh); rx.globalCompositeOperation = 'source-over';
+        x.globalCompositeOperation = 'lighter'; x.globalAlpha = 1; x.drawImage(rc, 0, 0, rw, rh, X, Y, rw, rh); x.globalCompositeOperation = 'source-over'; });
+      x.globalAlpha = 1; });
 
     // ---------- ภูเขาไกล 2 ชั้น + หิมะ + เงาไหล่เขา + หมอกที่ตีน ----------
     const mountain = (fn, d, base, amp, cDay, cNight, snow) => {
@@ -164,6 +176,8 @@ export class Panorama {
       const lw = LW(d), N = 200, X0 = sx(0, d), stepX = lw / N;
       const hg = x.createLinearGradient(0, base - amp, 0, base + H * 0.1); hg.addColorStop(0, rgba(cTop)); hg.addColorStop(1, rgba(cBase)); x.fillStyle = hg;
       x.beginPath(); x.moveTo(X0, H); for (let i = 0; i <= N; i++) x.lineTo(X0 + i * stepX, base - amp * fn(i / N)); x.lineTo(X0 + lw, H); x.closePath(); x.fill();
+      // เงาเมฆทอดบนเนิน (ตัดตามรูปเนิน) · กลางวันเท่านั้น
+      if (dn > 0.05) { x.save(); x.clip(); this.shades.forEach((sd) => { const u = ((sd.u0 + tt * sd.v + d * 0.37) % 1 + 1) % 1, X = sx(u * lw, d), rw = sd.w * W * (0.6 + d * 0.6), rh = sd.h * H * (0.6 + d * 0.6); if (X < -rw || X > W + rw) return; const Y = base - amp * fn(u) + rh * 0.9; x.save(); x.translate(X, Y); x.scale(1, rh / rw); const sg = x.createRadialGradient(0, 0, 0, 0, 0, rw); sg.addColorStop(0, `rgba(16,34,48,${(sd.k * dn).toFixed(3)})`); sg.addColorStop(0.55, `rgba(16,34,48,${(sd.k * 0.6 * dn).toFixed(3)})`); sg.addColorStop(1, 'rgba(16,34,48,0)'); x.fillStyle = sg; x.fillRect(-rw, -rw, rw * 2, rw * 2); x.restore(); }); x.restore(); }
       const tc = [col(tDay[0], tNight[0]), col(tDay[1], tNight[1])];
       [0, 1].forEach(tone => { x.fillStyle = rgba(tc[tone]); x.beginPath(); trees.forEach(([u, s, tn, j]) => { if (tn !== tone) return; const X = sx(u * lw, d); if (X < -20 || X > W + 20) return; const th = tScale * s, Y = base - amp * fn(u) + th * 0.12, sway = Math.sin(tt * 1.3 + j * 9) * wind * th * 0.03; for (let k = 0; k < 3; k++) { const yy = Y - th * (0.28 + k * 0.26), hw = th * (0.34 - k * 0.08); x.moveTo(X + sway * (k + 1) * 0.5, yy - th * 0.36); x.lineTo(X - hw, yy); x.lineTo(X + hw, yy); x.closePath(); } x.rect(X - th * 0.05, Y - th * 0.3, th * 0.1, th * 0.32); }); x.fill(); });
     };
