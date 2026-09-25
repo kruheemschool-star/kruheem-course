@@ -130,7 +130,7 @@ class StudyDeskScene extends React.Component {
     this.mats = {}; this.items = {}; this.hitList = []; this.order = [];
     this.tex = {}; this.makeTextures();
     this.buildRoom(); this.buildDesk(); this.buildLaptop(); if (this.cdOn()) this.buildCalendar(); this.buildLamp(); this.buildBooks();
-    this.buildNotebook(); this.buildTips(); this.buildPapers(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable(); this.compact = undefined; this.applyLayout();
+    this.buildNotebook(); this.buildTips(); this.buildPapers(); this.buildDeskNotes(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable(); this.compact = undefined; this.applyLayout();
     this.ring = new T.Mesh(new T.RingGeometry(0.92, 1, 72), new T.MeshBasicMaterial({ color: 0x14b8a6, transparent: true, opacity: 0, depthWrite: false }));
     this.ring.rotation.x = -Math.PI / 2; this.ring.position.y = 0.012; S.add(this.ring); this.ringA = 0;
 
@@ -159,7 +159,7 @@ class StudyDeskScene extends React.Component {
   // (ครูฮีมขอ 2026-09-25) → ย้ายของเข้ามาชิดกลางโต๊ะ ซูมกล้องเฉพาะช่วงนี้ และซ่อนกระดาน/หน้าต่าง/นาฬิกา/โปสเตอร์ครู
   // ค่า: [x, z, rotY, ขนาด] — ของที่ไม่มีในนี้อยู่ที่เดิม
   COMPACT = {
-    courses: [-2.95, -1.75, 0.1, 0.9], mycourse: [0.45, -2.05, 0, 0.9], countdown: [3.2, -2.35, -0.24, 0.9], lamp: [3.6, -3.25, 0, 0.8],
+    reviewsDesk: [0.5, 0.45, 0, 1], courses: [-2.95, -1.75, 0.1, 0.9], mycourse: [0.45, -2.05, 0, 0.9], countdown: [3.2, -2.35, -0.24, 0.9], lamp: [3.6, -3.25, 0, 0.8],
     contact: [-3.3, 0.95, 0.16, 0.9], story: [-1.75, 0.95, 0, 0.9], exams: [3.05, 0.9, 0.08, 0.85],
     tips: [-3.1, 2.55, 0.16, 0.9], apply: [-0.55, 2.45, -0.06, 0.9], summary: [2.35, 2.75, -0.06, 0.95],
   };
@@ -186,7 +186,25 @@ class StudyDeskScene extends React.Component {
     (this.props3 || []).forEach(o => { if (o.tray) lay(o.g); });
     const on = (o, v) => o && o.traverse(n => n.layers.set(v ? 0 : 1));
     (this._drawerSmall || []).forEach(o => on(o, !this.compact)); (this._drawerBig || []).forEach(o => on(o, this.compact));
+    if (this.items && this.items.reviewsDesk) on(this.items.reviewsDesk.g, this.compact);
   }
+  // [พอร์ต] มือถือ: กระดานดำถูกซ่อน → โพสต์อิทรีวิวที่ติดบนกระดานหายไปด้วย (ครูฮีมแจ้ง 2026-09-25)
+  //   จึงวางโพสต์อิทรีวิว 3 ใบบนโต๊ะแทน ตรงกลางโต๊ะที่ว่างอยู่ แตะแล้วเปิดแผงผลตอบรับ · จอใหญ่ซ่อนชุดนี้ (มีบนกระดานแล้ว)
+  buildDeskNotes() {
+    const T = this.T, n = Math.min(3, this.REVIEWS.length); if (!n) return;
+    const g = new T.Group(), lay = [[-0.98, 0.1, 0.16], [0.08, -0.1, -0.07], [1.12, 0.12, 0.11]];
+    for (let i = 0; i < n; i++) {
+      const [x, z, r] = lay[i], note = new T.Group(); note.position.set(x, 0.012 + i * 0.006, z); note.rotation.y = r; g.add(note);
+      const m = new T.Mesh(new T.PlaneGeometry(1.02, 1.02), new T.MeshStandardMaterial({ map: this.tex['pi' + i], roughness: .85, polygonOffset: true, polygonOffsetFactor: -1 - i, polygonOffsetUnits: -1 - i }));
+      m.rotation.x = -Math.PI / 2; m.receiveShadow = true; note.add(m);
+      const tack = this.mesh(new T.SphereGeometry(0.075, 16, 12), this.M(i % 2 ? 0x0f766e : 0xef4444, { r: .3 })); tack.position.set(0, 0.05, -0.4); note.add(tack);
+    }
+    const it = this.add('reviewsDesk', g, 0.5, 0.45, 0, { ay: 0.45, fd: 1, rs: 1.7 });
+    g.traverse(m => { if (m.isMesh) m.userData.key = 'reviews'; }); // แตะ = เมนูผลตอบรับ
+    return it;
+  }
+  // มือถือ: เมนูผลตอบรับใช้โพสต์อิทบนโต๊ะแทนกระดาน
+  fkey(k) { return this.compact && k === 'reviews' && this.items && this.items.reviewsDesk ? 'reviewsDesk' : k; }
   M(c, o) {
     o = o || {}; const k = c + '|' + (o.r ?? .62) + '|' + (o.m ?? 0);
     if (!this.mats[k]) this.mats[k] = new this.T.MeshStandardMaterial({ color: c, roughness: o.r ?? 0.62, metalness: o.m ?? 0, envMapIntensity: 0.45 });
@@ -1066,7 +1084,7 @@ class StudyDeskScene extends React.Component {
     const T = this.T;
     if (!this._foot || performance.now() - this._footT > 4000) {
       this._footT = performance.now(); this._foot = [];
-      for (const it of this.order) { if (it.static || !it.g || !it.g.visible) continue; const b = new T.Box3().setFromObject(it.g); if (!b.isEmpty()) this._foot.push(b); }
+      for (const it of this.order) { if (it.static || !it.g || !it.g.visible || !(it.g.layers.mask & 1)) continue; const b = new T.Box3().setFromObject(it.g); if (!b.isEmpty()) this._foot.push(b); }
       if (this.kru && this.kru.g && this.kru.g.position.z > -3.8) this._foot.push(new T.Box3().setFromObject(this.kru.g));
     }
     const hit = (x, z) => this._foot.some(b => x > b.min.x - 0.35 && x < b.max.x + 0.35 && z > b.min.z - 0.35 && z < b.max.z + 0.35 && b.min.y < 0.8)
@@ -1360,7 +1378,7 @@ class StudyDeskScene extends React.Component {
   endIntro() { if (this.introOn) { this.introOn = false; this.setState({ intro: false }); } }
   openPanel(key) {
     this.endIntro(); // [พอร์ต]
-    this.ensureAudio(); this.tapItem(key, this._tapPt); this._tapPt = null;
+    this.ensureAudio(); this.tapItem(this.fkey(key), this._tapPt); this._tapPt = null;
     if (key === 'kru') { this.kruTap(); return; }
     if (key === 'cat') { this.catTap(); return; }
     if (key === 'radio' || key === 'radioPlay' || key === 'radioNext') { this.radioAction(key); return; }
@@ -1370,7 +1388,7 @@ class StudyDeskScene extends React.Component {
     if (key !== this.state.panel) this.sfx(key);
     this.setState({ panel: key, hover: null }); this.dockHover = null;
     if (key === 'mycourse' && this.props.onNeedMy) this.props.onNeedMy(); // [พอร์ต] อ่าน "เรียนค้างไว้" เฉพาะตอนเปิดแผง
-    if (this.T && this.items[key] && !(this.compact && key === 'reviews')) this.goTo(this.focusPose(key));
+    if (this.T && this.items[this.fkey(key)]) this.goTo(this.focusPose(this.fkey(key)));
   }
   drawDrawerQuote() {
     const Q = this.QUOTES; let i = Math.floor(Math.random() * Q.length); if (i === this._dqi) i = (i + 1) % Q.length; this._dqi = i;
@@ -1445,7 +1463,7 @@ class StudyDeskScene extends React.Component {
     if (!this.R) return; this.R.setSize(innerWidth, innerHeight); this.cam.aspect = innerWidth / innerHeight; this.cam.updateProjectionMatrix();
     if (this.applyLayout()) this._roomKey = null; // [พอร์ต] สลับผังมือถือ/จอใหญ่
     // [พอร์ต] ลิ้นชักเปิดอยู่ → จัดภาพลิ้นชักใหม่ · กล้องกำลังบิน → เปลี่ยนปลายทางแทนการกระโดด
-    const p = this.state.panel ? this.focusPose(this.state.panel) : (this.drawerOpen && this.items.drawer ? (this.homePose(), this.drawerPose()) : this.homePose());
+    const p = this.state.panel ? this.focusPose(this.fkey(this.state.panel)) : (this.drawerOpen && this.items.drawer ? (this.homePose(), this.drawerPose()) : this.homePose());
     if (this.tw && !this.introOn) { this.tw.p1 = p.p; this.tw.t1 = p.t; this.tw.s1 = p.s || 0; this.tw.x1 = p.sx || 0; return; }
     if (this.tw && this.introOn) { const q = this.homePose(); this.tw.p1 = q.p; this.tw.t1 = q.t; this.tw.s1 = q.s || 0; this.tw.x1 = 0; return; }
     this.camP.copy(p.p); this.camT.copy(p.t); this.camS = p.s; this.camSX = p.sx || 0;
@@ -1475,7 +1493,7 @@ class StudyDeskScene extends React.Component {
     const bounce = (x) => { const n = 7.5625, d = 2.75; if (x < 1 / d) return n * x * x; if (x < 2 / d) return n * (x -= 1.5 / d) * x + .75; if (x < 2.5 / d) return n * (x -= 2.25 / d) * x + .9375; return n * (x -= 2.625 / d) * x + .984375; };
     const active = this.state.panel;
     for (const it of this.order) {
-      const tg = (hk === it.k || active === it.k) ? 1 : 0;
+      const tg = (this.fkey(hk) === it.k || this.fkey(active) === it.k) ? 1 : 0;
       it.v = (it.v + (tg - it.h) * 0.14) * 0.74; it.h += it.v;
       if (it.static) { if (it.anim) it.anim(it.h, t); continue; }
       const p = Math.max(0, Math.min(1, (t - it.delay) / 0.95));
@@ -1487,7 +1505,7 @@ class StudyDeskScene extends React.Component {
     if (this.mug) { const p = Math.max(0, Math.min(1, (t - this.mug.delay) / 0.95)); this.mug.g.visible = p > 0; this.mug.g.position.y = (1 - bounce(p)) * 7; }
     this.steam.forEach(s => { const f = (t * 0.32 + s.userData.ph) % 1; s.position.set(0.95 + Math.sin(t * 1.3 + s.userData.ph * 6) * 0.08, 0.95 + f * 1.3, 0.35); s.material.opacity = Math.sin(Math.PI * f) * 0.35 * (this.mug.g.visible ? 1 : 0); s.scale.setScalar(0.5 + f * 0.9); s.quaternion.copy(this.cam.quaternion); });
 
-    const rk = hk || active, rit = rk && this.items[rk];
+    const rk = this.fkey(hk || active), rit = rk && this.items[rk];
     this.ringA += ((rit ? 0.9 : 0) - this.ringA) * 0.12;
     if (rit) { this.ring.position.x = rit.x; this.ring.position.z = rit.z; this.ringS = rit.rs; }
     this.ring.material.opacity = this.ringA; this.ring.scale.setScalar((this.ringS || 1) * (1 + Math.sin(t * 4) * 0.03));
@@ -1514,7 +1532,7 @@ class StudyDeskScene extends React.Component {
         this.dust.forEach((d, i) => { d.f -= d.sp * dt * 0.25; if (d.f < 0) d.f += 1; const r = (0.1 + d.f * 1.25) * (d.rr / (0.1 + d.f * 1.25 + 1e-6)) ; const a = d.a + t * 0.2 + d.ph; const cx = H0.x + (T0.x - H0.x) * d.f, cy = H0.y + (T0.y - H0.y) * d.f, cz = H0.z + (T0.z - H0.z) * d.f, rad = d.rr * (0.15 + d.f); arr[i * 3] = cx + Math.cos(a) * rad; arr[i * 3 + 1] = cy + Math.sin(t * 0.7 + d.ph) * 0.05; arr[i * 3 + 2] = cz + Math.sin(a) * rad; });
         this.dustPts.geometry.attributes.position.needsUpdate = true; }
     }
-    if (!active && !this.reduced && t > 3 && (!this.nextWig || t > this.nextWig)) { this.nextWig = t + 5 + Math.random() * 4; const pool = this.order.filter(o => !o.static && o.k !== hk && o.k !== 'lamp'); const pick = pool[Math.floor(Math.random() * pool.length)]; if (pick) pick.wig = 1; }
+    if (!active && !this.reduced && t > 3 && (!this.nextWig || t > this.nextWig)) { this.nextWig = t + 5 + Math.random() * 4; const pool = this.order.filter(o => !o.static && o.k !== hk && o.k !== 'lamp' && (o.g.layers.mask & 1)); const pick = pool[Math.floor(Math.random() * pool.length)]; if (pick) pick.wig = 1; }
     this.stepProps(dt, now);
     for (const o of this.order) { const tp = o.tap; if (!tp || o.static) continue;
       const st = Math.min(dt, 1 / 30);
@@ -1639,7 +1657,7 @@ class StudyDeskScene extends React.Component {
         n: String(i + 1).padStart(2, '0'), t: m.t, on: this.state.hover === m.k, off: this.state.hover !== m.k,
         open: () => this.openPanel(m.k), enter: () => { this.dockHover = m.k; }, leave: () => { this.dockHover = null; }
       })),
-      pObj: pn ? pn.o : '', pTitle: pn ? pn.t : '', pDesc: pn ? pn.d : '', pHref: pn && pn.href ? pn.href : '/', pCta: pn && pn.cta ? pn.cta : '',
+      pObj: pn ? (this.compact && pn.k === 'reviews' ? 'โพสต์อิทบนโต๊ะ' : pn.o) : '', reviewsWhere: this.compact ? 'บนโต๊ะ' : 'บนกระดาน', pTitle: pn ? pn.t : '', pDesc: pn ? pn.d : '', pHref: pn && pn.href ? pn.href : '/', pCta: pn && pn.cta ? pn.cta : '',
       isCourses: p === 'courses', isList: p === 'exams' || p === 'summary' || p === 'tips', isCountdown: p === 'countdown', isReviews: p === 'reviews', isStory: p === 'story', isApply: p === 'apply', isContact: p === 'contact', isMy: p === 'mycourse',
       listItems: (this.FEAT[p] || []).map((it, j) => ({ n: pad(j + 1), t: it.t, href: it.href })), hasList: (this.FEAT[p] || []).length > 0,
       cats: this.CATS.map(c => ({ name: c, active: c === this.state.cat, inactive: c !== this.state.cat, pick: () => { this.sfx('tab'); this.setState({ cat: c }); } })),
@@ -1817,7 +1835,7 @@ class StudyDeskScene extends React.Component {
               </>)}
       
               {v.isReviews && (<>
-                <p style={css(`margin:0;font-size:15px;line-height:1.7;color:#475569`)}>ผลตอบรับจริงจากน้องๆ และคุณพ่อคุณแม่ ที่ติดไว้บนกระดานของครูฮีม</p>
+                <p style={css(`margin:0;font-size:15px;line-height:1.7;color:#475569`)}>ผลตอบรับจริงจากน้องๆ และคุณพ่อคุณแม่ ที่ติดไว้{v.reviewsWhere}ของครูฮีม</p>
                 <div style={css(`display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 14px;padding:4px 2px`)}>
                   {v.reviews.map((r, r_i) => (<React.Fragment key={r_i}>
                     {r.kid && (<>
