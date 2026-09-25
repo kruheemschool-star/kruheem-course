@@ -13,7 +13,7 @@ const HOVER_CSS = ".khd-h0:hover{color:var(--chipInk) !important;transform:trans
 
 class StudyDeskScene extends React.Component {
   // [พอร์ต] เปิดโหมดลดการเคลื่อนไหวในเครื่อง → ข้ามอินโทรกล้องบิน
-  state = { intro: (() => { try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return false; return localStorage.getItem('kh_desk_intro') !== '1'; } catch (e) { return true; } })(), music: (() => { try { return localStorage.getItem('kh_desk_music') === '1'; } catch (e) { return false; } })() /* [พอร์ต] ไม่มีปุ่มปิดเสียงแล้ว → เพลงเริ่มเมื่อแตะวิทยุเท่านั้น */, kruMsg: 'สวัสดีครับ! แตะของบนโต๊ะได้เลย', muted: (() => { try { return localStorage.getItem('kh_desk_muted') === '1'; } catch (e) { return false; } })(), vw: innerWidth, vh: innerHeight, panel: null, hover: null, night: false, cat: (this.props.data && this.props.data.cats && this.props.data.cats[0]) || '', now: Date.now(), quoteIdx: 0, modal: false };
+  state = { intro: (() => { try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return false; return localStorage.getItem('kh_desk_intro') !== '1'; } catch (e) { return true; } })(), music: (() => { try { return localStorage.getItem('kh_desk_music') === '1'; } catch (e) { return false; } })() /* [พอร์ต] ไม่มีปุ่มปิดเสียงแล้ว → เพลงเริ่มเมื่อแตะวิทยุเท่านั้น */, kruMsg: 'สวัสดีครับ! แตะของบนโต๊ะได้เลย', muted: (() => { try { return localStorage.getItem('kh_desk_muted') === '1'; } catch (e) { return false; } })(), ambient: (() => { try { return localStorage.getItem('kh_desk_ambient') !== '0'; } catch (e) { return true; } })(), vw: innerWidth, vh: innerHeight, panel: null, hover: null, night: false, cat: (this.props.data && this.props.data.cats && this.props.data.cats[0]) || '', now: Date.now(), quoteIdx: 0, modal: false };
   rootRef = React.createRef(); canvasHostRef = React.createRef(); tipRef = React.createRef(); kruRef = React.createRef(); radioPopRef = React.createRef(); heroRef = React.createRef(); dockRef = React.createRef();
 
   MENU_ALL = [
@@ -26,7 +26,8 @@ class StudyDeskScene extends React.Component {
     { k: 'reviews', t: 'ผลตอบรับ', o: 'โพสต์อิทบนกระดาน', d: 'จากน้องๆ และผู้ปกครอง' },
     { k: 'story', t: 'เรื่องของครูฮีม', o: 'แก้วน้ำ', d: 'เหมือนเติมน้ำใส่แก้วที่รั่ว' },
     { k: 'apply', t: 'สมัครเรียน', o: 'ใบสมัครบนคลิปบอร์ด', d: 'วิธีสมัคร แจ้งโอน คำถามที่พบบ่อย' },
-    { k: 'contact', t: 'ติดต่อครูฮีม', o: 'โทรศัพท์มือถือ', d: 'LINE · Facebook · Email' }
+    { k: 'contact', t: 'ติดต่อครูฮีม', o: 'โทรศัพท์มือถือ', d: 'LINE · Facebook · Email' },
+    { k: 'window', t: 'พักสายตา', o: 'หน้าต่าง', d: 'ชมวิวภูเขา เมฆ นก และเสียงธรรมชาติ' }
   ];
   // [พอร์ต] ปิดนับถอยหลังจากหลังบ้าน (/admin/countdown) → ไม่มีปฏิทินบนโต๊ะ และไม่มีเมนูนี้
   get MENU() { return this.cdOn() ? this.MENU_ALL : this.MENU_ALL.filter(m => m.k !== 'countdown'); }
@@ -66,7 +67,7 @@ class StudyDeskScene extends React.Component {
   }
   componentWillUnmount() {
     // [พอร์ต] Next.js เปลี่ยนหน้าโดยไม่รีโหลด → ต้องหยุดเพลง/ปิดเสียง/คืนการ์ดจอเอง ไม่งั้นเพลงยังดังต่อในหน้าอื่น
-    this._dead = true;
+    this._dead = true; this.stopAmbient(); clearInterval(this.ambT);
     try { if (this.mus) { this.mus.cr.stop(); this.mus.g.disconnect(); this.mus = null; } } catch (e) {}
     try { if (this.ac) { this.ac.close(); this.ac = null; } } catch (e) {}
     removeEventListener('orientationchange', this.onResize);
@@ -108,7 +109,7 @@ class StudyDeskScene extends React.Component {
     // [พอร์ต] ฉากถูกสร้างใหม่ได้ในอินสแตนซ์เดิม (React Strict Mode ตอนพัฒนา / กลับมาหน้านี้) —
     // ล้างค่าที่ต้นแบบถือว่า "ยังไม่เคยมี" ไม่งั้นกระดาน/โปสเตอร์จะไม่ถูกวางในฉากใหม่ (placeRoom จำคีย์เก่า)
     this._roomKey = null; this.board = null; this.tw = null; this.introOn = false; this.hoverKey = undefined; this.kruShow = undefined;
-    this.nextWig = 0; this._playing = undefined; this.drawerOpen = false; this.winOpen = false; this._fpsDone = false; this._fpsN = 0; this._fpsS = 0;
+    this.nextWig = 0; this._playing = undefined; this.drawerOpen = false; this.winOpen = false; this.winView = false; this._winKeep = false; this.winHover = 0; this._stars = null; this._fpsDone = false; this._fpsN = 0; this._fpsS = 0;
     const R = this.R = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     R.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); R.setSize(innerWidth, innerHeight);
     R.outputEncoding = T.sRGBEncoding; R.toneMapping = T.ACESFilmicToneMapping; R.toneMappingExposure = 0.82;
@@ -185,7 +186,8 @@ class StudyDeskScene extends React.Component {
   // ของบนผัง (กระดาน โพสต์อิท หน้าต่าง นาฬิกา โปสเตอร์ครู ชอล์ก) → layer 1 = ไม่วาด ไม่มีเงา และแตะไม่โดน
   hideWall() {
     const L = this.compact ? 1 : 0, lay = (o) => o && o.traverse(n => n.layers.set(L));
-    lay(this.board); lay(this.win); lay(this.clock); if (this.kru) lay(this.kru.g);
+    lay(this.board); lay(this.clock); if (this.kru) lay(this.kru.g);
+    const winL = (this.compact && !this.winView && !this._winKeep) ? 1 : 0; if (this.win) this.win.traverse(n => n.layers.set(winL)); // มือถือ: โชว์หน้าต่างเฉพาะโหมดพักสายตา
     (this.props3 || []).forEach(o => { if (o.tray) lay(o.g); });
     const on = (o, v) => o && o.traverse(n => n.layers.set(v ? 0 : 1));
     (this._drawerSmall || []).forEach(o => on(o, !this.compact)); (this._drawerBig || []).forEach(o => on(o, this.compact));
@@ -409,13 +411,9 @@ class StudyDeskScene extends React.Component {
     const rug = new T.Mesh(new T.CircleGeometry(9.5, 96), new T.MeshStandardMaterial({ map: this.tex.rug, transparent: true, roughness: .95, envMapIntensity: .1, polygonOffset: true, polygonOffsetFactor: -1 }));
     rug.rotation.x = -Math.PI / 2; rug.scale.set(1.25, 0.72, 1); rug.position.set(0, this.FY + 0.01, 1.5); rug.receiveShadow = true; S.add(rug);
     const sk = new T.Mesh(new T.BoxGeometry(120, 0.6, 0.12), this.M(0xf5efe6, { r: .6 })); sk.position.set(0, this.FY + 0.3, this.ZW + 0.06); S.add(sk);
-    this.tx('sky', this.cv(512, 640, (x, w, h) => {
-      const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#7cc4ea'); g.addColorStop(.7, '#cdeaf5'); g.addColorStop(1, '#f4f1e4'); x.fillStyle = g; x.fillRect(0, 0, w, h);
-      x.fillStyle = 'rgba(255,255,255,.85)'; [[120, 150, 60], [190, 140, 46], [60, 170, 40], [380, 300, 52], [440, 290, 38]].forEach(([cx, cy, r]) => { x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); });
-      x.fillStyle = '#9fcf9a'; x.beginPath(); x.moveTo(0, h); for (let px = 0; px <= w; px += 16) x.lineTo(px, h - 90 - Math.sin(px * .03) * 26 - Math.sin(px * .011) * 30); x.lineTo(w, h); x.fill();
-      x.fillStyle = '#6fae78'; x.beginPath(); x.moveTo(0, h); for (let px = 0; px <= w; px += 16) x.lineTo(px, h - 40 - Math.sin(px * .05 + 1) * 16); x.lineTo(w, h); x.fill();
-    }));
-    this.skyMat = new T.MeshBasicMaterial({ map: this.tex.sky, toneMapped: false });
+    // [พอร์ต] วิวนอกหน้าต่าง: วาดทั้งหมดใน drawSky (ภูเขา/เมฆ/พระอาทิตย์/นก · กลางคืน ดาว/พระจันทร์/หิ่งห้อย) ครูฮีมขอ 2026-09-25
+    this.tx('sky', this.cv(800, 1000, (x, w, h) => { x.fillStyle = '#9dd3f2'; x.fillRect(0, 0, w, h); }));
+    this.skyMat = new T.MeshBasicMaterial({ map: this.tex.sky, toneMapped: false }); this.drawSky(0);
     this.win = new T.Group(); S.add(this.win);
     this.clock = new T.Group(); S.add(this.clock);
     this.tx('clockFace', this.cv(512, 512, (x, w) => {
@@ -510,6 +508,11 @@ class StudyDeskScene extends React.Component {
     const pot = this.mesh(new T.CylinderGeometry(0.28, 0.22, 0.5, 24), this.M(0xe07a5f, { r: .7 })); pot.position.set(-ww * 0.3, -wh / 2 - 0.18 + 0.25 + 0.07, 0.35); this.win.add(pot);
     for (let i = 0; i < 5; i++) { const lf = this.mesh(new T.SphereGeometry(0.2, 12, 10), this.M(i % 2 ? 0x5cb883 : 0x3f9d6b, { r: .6 })); lf.scale.set(.7, 1.5, .5); lf.position.set(-ww * 0.3 + Math.sin(i * 1.3) * 0.18, pot.position.y + 0.5 + (i % 3) * 0.14, 0.35 + Math.cos(i * 1.3) * 0.08); lf.rotation.z = Math.sin(i * 1.3) * 0.5; this.win.add(lf); }
     mv.visible = false; mh.visible = false; this._winW = ww; this._winH = wh;
+    { // [พอร์ต] หน้าต่างเป็นรายการ: ชี้แล้วมีป้าย + บานแง้มนิดๆ · แตะ = โหมดพักสายตา (enterWindow)
+      let wi = this.items.window; if (!wi) { wi = { k: 'window', static: true, h: 0, v: 0, rotY: 0, fd: 1, rs: 0.001, anim: (hv) => { this.winHover = hv; } }; this.items.window = wi; this.order.push(wi); }
+      wi.g = this.win; wi.x = this.win.position.x; wi.z = this.win.position.z + 0.3; wi.ay = this.win.position.y + wh / 2 + 0.6;
+      wi.boxFn = () => { this.win.updateMatrixWorld(true); return new T.Box3().setFromObject(this.win); };
+    }
 
     this.roomHits = [];
     const sashM = this.M(0xfaf7f0, { r: .5 }), glassM = new T.MeshStandardMaterial({ color: 0xdbeafe, roughness: .05, transparent: true, opacity: .16, side: T.DoubleSide, depthWrite: false });
@@ -1031,7 +1034,69 @@ class StudyDeskScene extends React.Component {
   catTap() {
     if (this.cat && (this.cat.wake || 0) <= 0) { this.cat.wake = 1; this.sfx('meow'); }
   }
-  toggleWindow() { this.winOpen = !this.winOpen; this.sfx(this.winOpen ? 'winOpen' : 'winClose'); if (this.winOpen) this._leafT = 0; }
+  // [พอร์ต] โหมดพักสายตา (ครูฮีมขอ 2026-09-25): แตะหน้าต่าง → บานเปิด กล้องซูมเข้าไปมองวิว + เสียงธรรมชาติ
+  toggleWindow() { if (this.winView) this.exitWindow(); else this.enterWindow(); }
+  enterWindow() {
+    if (this.winView || !this.T || !this.win) return; this.endIntro(); this.winView = true; this._winKeep = true;
+    if (!this.winOpen) { this.winOpen = true; this._leafT = 0; }
+    this.sfx('winOpen'); this.hideWall();
+    clearTimeout(this._pvT); this.setState({ panel: null, panelVis: null, winView: true, hover: null }); this.dockHover = null;
+    this.goTo(this.windowPose(), 1.5);
+    this.ensureAudio(); setTimeout(() => { if (this.winView) this.startAmbient(); }, 350);
+  }
+  exitWindow() {
+    if (!this.winView) return; this.winView = false; this.stopAmbient();
+    if (this.winOpen) { this.winOpen = false; this.sfx('winClose'); }
+    this.setState({ winView: false }); if (this.T) this.goTo(this.homePose(), 1.3);
+  }
+  windowPose() {
+    const T = this.T, W = innerWidth, H = innerHeight; this.win.updateMatrixWorld(true);
+    const c = this.win.localToWorld(new T.Vector3(0, 0, 0.14)), ww = this._winW || 4, wh = this._winH || 5;
+    const box = new T.Box3().setFromCenterAndSize(c, new T.Vector3(ww * 1.02, wh * 0.98, 0.2));
+    // ที่ว่างสำหรับวิว: เว้นหัวเว็บด้านบน และการ์ดพักสายตาด้านล่าง (มือถือการ์ดสูงกว่า)
+    return this.fitPose(box, new T.Vector3(0, 0.05, 1).normalize(), { x0: 16, x1: W - 16, y0: W < 560 ? 64 : 76, y1: H - (this.isSheetMode() ? 250 : 96) }, 2.5);
+  }
+  // ---------- เสียงบรรยากาศนอกหน้าต่าง (สังเคราะห์ด้วย WebAudio ไม่มีไฟล์เสียง) ----------
+  startAmbient(force) {
+    if (this.amb || !this.ac || (!force && (this.state.muted || this.state.ambient === false))) return;
+    const a = this.ac, out = a.createGain(); out.gain.value = 0.0001; out.connect(a.destination); out.gain.linearRampToValueAtTime(1, a.currentTime + 1.6);
+    const len = a.sampleRate * 2, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    // ลม: noise ผ่าน lowpass ที่แกว่งช้าๆ · ใบไม้: noise ผ่าน bandpass สูง เป็นระลอกตามลม
+    const wind = a.createBufferSource(); wind.buffer = buf; wind.loop = true; const wlp = a.createBiquadFilter(); wlp.type = 'lowpass'; wlp.frequency.value = 400; wlp.Q.value = 0.7; const wg = a.createGain(); wg.gain.value = 0.04; wind.connect(wlp); wlp.connect(wg); wg.connect(out); wind.start();
+    const leaf = a.createBufferSource(); leaf.buffer = buf; leaf.loop = true; const lbp = a.createBiquadFilter(); lbp.type = 'bandpass'; lbp.frequency.value = 3200; lbp.Q.value = 0.9; const lg = a.createGain(); lg.gain.value = 0.0001; leaf.connect(lbp); lbp.connect(lg); lg.connect(out); leaf.start();
+    // จิ้งหรีด 2 ตัว (กลางคืน) คนละความถี่ คนละข้าง
+    const cr = [4300, 4650].map((f, i) => { const o = a.createOscillator(); o.type = 'sine'; o.frequency.value = f; const g = a.createGain(); g.gain.value = 0.0001; o.connect(g); if (a.createStereoPanner) { const pn = a.createStereoPanner(); pn.pan.value = i ? 0.6 : -0.5; g.connect(pn); pn.connect(out); } else g.connect(out); o.start(); return { o, g }; });
+    this.amb = { out, wind, wlp, wg, leaf, lg, cr, nextBird: a.currentTime + 0.8, nextOwl: a.currentTime + 9, nextCr: a.currentTime + 0.5 };
+    this.ambT = setInterval(() => this.stepAmbient(), 200);
+  }
+  stopAmbient() {
+    const m = this.amb; if (!m) return; this.amb = null; clearInterval(this.ambT); const a = this.ac;
+    try { m.out.gain.cancelScheduledValues(a.currentTime); m.out.gain.setValueAtTime(Math.max(0.0001, m.out.gain.value), a.currentTime); m.out.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.9); } catch (e) {}
+    setTimeout(() => { try { m.wind.stop(); m.leaf.stop(); m.cr.forEach(c => c.o.stop()); m.out.disconnect(); } catch (e) {} }, 1100);
+  }
+  stepAmbient() {
+    const m = this.amb, a = this.ac; if (!m || !a) return; const n = this.nightT || 0, now = a.currentTime;
+    const gust = 0.5 + 0.5 * Math.sin(now * 0.31) * Math.sin(now * 0.077 + 1.3); // ลมกระโชกช้าๆ
+    m.wlp.frequency.setTargetAtTime(260 + gust * 700, now, 0.4);
+    m.wg.gain.setTargetAtTime((0.03 + gust * 0.045) * (1 - 0.35 * n), now, 0.4);
+    m.lg.gain.setTargetAtTime(Math.max(0.0001, (gust - 0.45) * 0.045) * (1 - 0.5 * n), now, 0.25);
+    if (now >= m.nextBird) { m.nextBird = now + 0.9 + Math.random() * 2.8; if (n < 0.6) this.birdChirp(m.out, 1 - n); }
+    if (now >= m.nextCr) { m.nextCr = now + 0.55 + Math.random() * 0.5; if (n > 0.3) m.cr.forEach((c, i) => { const g = c.g.gain, t0 = now + i * 0.13, k = 0.016 * n; for (let q = 0; q < 6; q++) { const st = t0 + q * 0.048; g.setValueAtTime(0.0001, st); g.linearRampToValueAtTime(k, st + 0.012); g.linearRampToValueAtTime(0.0001, st + 0.03); } }); }
+    if (now >= m.nextOwl) { m.nextOwl = now + 11 + Math.random() * 12; if (n > 0.6) this.owlHoot(m.out, n); }
+  }
+  birdChirp(out, vol) {
+    const a = this.ac, t0 = a.currentTime + 0.05, notes = 2 + Math.floor(Math.random() * 4), f0 = 2200 + Math.random() * 1800;
+    let dest = out; if (a.createStereoPanner) { const pn = a.createStereoPanner(); pn.pan.value = Math.random() * 1.4 - 0.7; pn.connect(out); dest = pn; }
+    for (let i = 0; i < notes; i++) {
+      const o = a.createOscillator(), g = a.createGain(), st = t0 + i * (0.11 + Math.random() * 0.06), d = 0.06 + Math.random() * 0.07, f = f0 * (1 + (Math.random() - 0.5) * 0.25);
+      o.type = 'sine'; o.frequency.setValueAtTime(f, st); o.frequency.exponentialRampToValueAtTime(f * (Math.random() < 0.5 ? 1.35 : 0.72), st + d);
+      g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(0.04 * vol, st + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, st + d);
+      o.connect(g); g.connect(dest); o.start(st); o.stop(st + d + 0.02);
+    }
+  }
+  owlHoot(out, vol) {
+    const a = this.ac; [0, 0.42].forEach((off, i) => { const o = a.createOscillator(), g = a.createGain(), st = a.currentTime + 0.05 + off, d = i ? 0.5 : 0.3; o.type = 'sine'; o.frequency.setValueAtTime(390, st); o.frequency.exponentialRampToValueAtTime(320, st + d); g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(0.045 * vol, st + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, st + d); o.connect(g); g.connect(out); o.start(st); o.stop(st + d + 0.02); });
+  }
   sfx(kind, pitch) {
     if (this.state.muted || !this.ac || this.ac.state !== 'running') return;
     const a = this.ac, T0 = a.currentTime + 0.005, out = a.createGain(); out.gain.value = 0.9; out.connect(a.destination);
@@ -1315,7 +1380,7 @@ class StudyDeskScene extends React.Component {
   }
   stepRoomFx(dt, t, now) {
     const T = this.T;
-    const wtg = this.winOpen ? 1 : 0; this.winA = (this.winA || 0) + (wtg - (this.winA || 0)) * Math.min(1, dt * 3);
+    const wtg = this.winOpen ? 1 : (this.winHover || 0) * 0.22; this.winA = (this.winA || 0) + (wtg - (this.winA || 0)) * Math.min(1, dt * 3);
     if (this.sashes) { const e = this.winA; this.sashes[0].rotation.y = 1.2 * e; this.sashes[1].rotation.y = -1.2 * e; }
     const wind = 0.25 + this.winA * (0.9 + 0.5 * Math.sin(t * 0.9) * Math.sin(t * 2.3));
     if (this.curtains) for (const c of this.curtains) {
@@ -1374,13 +1439,59 @@ class StudyDeskScene extends React.Component {
     this.dustHead = head; this.dustTgt = tgt; this.scene.add(this.dustPts);
   }
   drawSky(t) {
-    const tex = this.tex.sky; if (!tex) return; const cvs = tex.image, x = cvs.getContext('2d'), w = cvs.width, h = cvs.height;
-    const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#7cc4ea'); g.addColorStop(.7, '#cdeaf5'); g.addColorStop(1, '#f4f1e4'); x.fillStyle = g; x.fillRect(0, 0, w, h);
-    const cloud = (cx, cy, s) => { x.fillStyle = 'rgba(255,255,255,.9)'; [[0, 0, 1], [0.9, 0.12, .78], [-0.85, 0.15, .7], [0.35, -0.35, .72]].forEach(([dx, dy, r]) => { x.beginPath(); x.arc(cx + dx * 50 * s, cy + dy * 50 * s, r * 50 * s, 0, 7); x.fill(); }); };
-    [[0.004, 150, 1.1, 0], [0.007, 290, 0.8, 0.4], [0.003, 90, 0.6, 0.7]].forEach(([v, y, s, o]) => { const span = w + 260; cloud(((t * v * 60 + o * span) % span) - 130, y, s); });
-    for (let i = 0; i < 3; i++) { const span = w + 120, bx = ((t * 38 + i * 26 + (Math.floor(t / 9) % 2) * 60) % (span * 2.2)) - 60, by = 220 + i * 18 + Math.sin(t * 1.5 + i) * 10; if (bx > span) continue; const fl = Math.sin(t * 9 + i * 2) * 7; x.strokeStyle = '#334155'; x.lineWidth = 3; x.lineCap = 'round'; x.beginPath(); x.moveTo(bx - 12, by - fl); x.quadraticCurveTo(bx - 5, by - 4, bx, by); x.quadraticCurveTo(bx + 5, by - 4, bx + 12, by - fl); x.stroke(); }
-    x.fillStyle = '#9fcf9a'; x.beginPath(); x.moveTo(0, h); for (let px = 0; px <= w; px += 16) x.lineTo(px, h - 90 - Math.sin(px * .03) * 26 - Math.sin(px * .011) * 30); x.lineTo(w, h); x.fill();
-    x.fillStyle = '#6fae78'; x.beginPath(); x.moveTo(0, h); for (let px = 0; px <= w; px += 16) x.lineTo(px, h - 40 - Math.sin(px * .05 + 1) * 16); x.lineTo(w, h); x.fill();
+    const tex = this.tex.sky; if (!tex) return;
+    if (this.win && this.win.children[0] && !(this.win.children[0].layers.mask & 1)) return; // หน้าต่างถูกซ่อน (มือถือ) ไม่ต้องวาด
+    const cvs = tex.image, x = cvs.getContext('2d'), w = cvs.width, h = cvs.height, n = Math.max(0, Math.min(1, this.nightT || 0)), dn = 1 - n;
+    const mix = (a, b) => a.map((v, i) => Math.round(v + (b[i] - v) * n)), rgb = (c, al) => `rgba(${c[0]},${c[1]},${c[2]},${al === undefined ? 1 : al})`;
+    // ท้องฟ้า (กลางวัน ฟ้าใส → กลางคืน น้ำเงินเข้ม)
+    const g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, rgb(mix([96, 178, 232], [7, 17, 44]))); g.addColorStop(0.55, rgb(mix([160, 214, 242], [16, 36, 84]))); g.addColorStop(1, rgb(mix([236, 244, 246], [44, 72, 112]))); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    // ดาวกะพริบ (กลางคืน)
+    if (n > 0.02) {
+      if (!this._stars) { let sd = 7; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647; this._stars = Array.from({ length: 90 }, () => [r(), r() * 0.62, 0.6 + r() * 1.6, r() * 6.28, 0.6 + r() * 2]); }
+      this._stars.forEach(([sx, sy, sr, ph, sp]) => { const a = n * (0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * sp + ph))); x.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`; x.beginPath(); x.arc(sx * w, sy * h, sr, 0, 7); x.fill(); });
+    }
+    // พระอาทิตย์ + รัศมีหมุนช้าๆ (กลางวัน)
+    if (dn > 0.02) {
+      const sx = w * 0.72, sy = h * 0.2, R = w * 0.055;
+      const gl = x.createRadialGradient(sx, sy, R * 0.6, sx, sy, R * 4.2); gl.addColorStop(0, `rgba(255,240,180,${(0.55 * dn).toFixed(3)})`); gl.addColorStop(1, 'rgba(255,240,180,0)'); x.fillStyle = gl; x.fillRect(sx - R * 4.2, sy - R * 4.2, R * 8.4, R * 8.4);
+      x.save(); x.translate(sx, sy); x.rotate(t * 0.05); x.fillStyle = `rgba(255,230,150,${(0.12 * dn).toFixed(3)})`; for (let i = 0; i < 10; i++) { x.rotate(Math.PI / 5); x.beginPath(); x.moveTo(0, 0); x.lineTo(R * 3.6, -R * 0.35); x.lineTo(R * 3.6, R * 0.35); x.closePath(); x.fill(); } x.restore();
+      x.fillStyle = `rgba(255,236,170,${dn.toFixed(3)})`; x.beginPath(); x.arc(sx, sy, R, 0, 7); x.fill();
+      x.fillStyle = `rgba(255,250,220,${dn.toFixed(3)})`; x.beginPath(); x.arc(sx - R * 0.25, sy - R * 0.25, R * 0.62, 0, 7); x.fill();
+    }
+    // พระจันทร์เสี้ยว + แสงนวล (กลางคืน)
+    if (n > 0.02) {
+      const mx = w * 0.26, my = h * 0.17, R = w * 0.05;
+      const gl = x.createRadialGradient(mx, my, R * 0.5, mx, my, R * 4); gl.addColorStop(0, `rgba(226,232,255,${(0.35 * n).toFixed(3)})`); gl.addColorStop(1, 'rgba(226,232,255,0)'); x.fillStyle = gl; x.fillRect(mx - R * 4, my - R * 4, R * 8, R * 8);
+      x.fillStyle = `rgba(250,250,230,${n.toFixed(3)})`; x.beginPath(); x.arc(mx, my, R, 0, 7); x.fill();
+      x.fillStyle = rgb(mix([96, 178, 232], [7, 17, 44]), n); x.beginPath(); x.arc(mx + R * 0.42, my - R * 0.18, R * 0.86, 0, 7); x.fill();
+    }
+    // เมฆปุย 2 ระยะ ลอยคนละความเร็ว
+    const cc = mix([255, 255, 255], [120, 136, 170]);
+    const cloud = (cx, cy, sc, al) => { x.fillStyle = rgb(cc, al); [[0, 0, 1], [0.95, 0.1, .8], [-0.9, 0.14, .72], [0.4, -0.38, .75], [-0.35, -0.3, .6]].forEach(([dx, dy, r]) => { x.beginPath(); x.arc(cx + dx * 58 * sc, cy + dy * 58 * sc, r * 58 * sc, 0, 7); x.fill(); }); x.fillRect(cx - 1.1 * 58 * sc, cy - 2, 2.2 * 58 * sc, 0.5 * 58 * sc); };
+    [[0.0032, 0.14, 0.55, 0.0, 0.8], [0.0045, 0.27, 0.8, 0.35, 0.9], [0.0026, 0.09, 0.42, 0.62, 0.7], [0.0058, 0.36, 1.05, 0.15, 0.95], [0.0038, 0.22, 0.65, 0.8, 0.85]].forEach(([v, y, sc, o, al]) => { const span = w + 320; cloud(((t * v * 60 + o * span) % span) - 160, h * y, sc, al * (1 - 0.35 * n)); });
+    // ภูเขา 3 ชั้น (ไกลจางกว่า) ยอดชั้นไกลมีหิมะ
+    const mount = (base, amp, k1, k2, ph, col, snow) => {
+      const yAt = (px) => base - Math.abs(Math.sin(px * k1 + ph)) * amp - Math.sin(px * k2 + ph * 2) * amp * 0.3;
+      x.fillStyle = rgb(col); x.beginPath(); x.moveTo(0, h); for (let px = 0; px <= w; px += 8) x.lineTo(px, yAt(px)); x.lineTo(w, h); x.fill();
+      if (snow) { x.fillStyle = rgb(mix([255, 255, 255], [150, 170, 200]), 0.9); for (let px = 0; px <= w; px += 8) { const y = yAt(px), cap = base - amp * 0.72; if (y < cap) x.fillRect(px, y, 8, (cap - y) * 0.9); } }
+    };
+    mount(h * 0.66, h * 0.2, 0.0062, 0.021, 0.7, mix([150, 190, 222], [28, 44, 84]), true);
+    mount(h * 0.72, h * 0.15, 0.0088, 0.03, 2.4, mix([110, 160, 170], [22, 40, 70]), false);
+    mount(h * 0.79, h * 0.1, 0.012, 0.04, 4.1, mix([88, 146, 128], [18, 34, 58]), false);
+    // เนินหญ้า + ต้นสนน้อยๆ
+    const hillY = (px) => h * 0.86 - Math.sin(px * .02) * h * 0.03 - Math.sin(px * .007) * h * 0.035;
+    x.fillStyle = rgb(mix([159, 207, 154], [24, 52, 52])); x.beginPath(); x.moveTo(0, h); for (let px = 0; px <= w; px += 12) x.lineTo(px, hillY(px)); x.lineTo(w, h); x.fill();
+    const tree = (tx, ty, sc, c) => { x.fillStyle = rgb(mix([92, 116, 74], [20, 36, 40])); x.fillRect(tx - 3 * sc, ty - 8 * sc, 6 * sc, 14 * sc); x.fillStyle = rgb(c); [0, 1, 2].forEach(i => { x.beginPath(); x.moveTo(tx, ty - (30 + i * 14) * sc); x.lineTo(tx - (20 - i * 4) * sc, ty - (6 + i * 10) * sc); x.lineTo(tx + (20 - i * 4) * sc, ty - (6 + i * 10) * sc); x.closePath(); x.fill(); }); };
+    [[0.08, 0.9], [0.17, 0.75], [0.3, 0.65], [0.55, 0.7], [0.66, 0.85], [0.8, 0.95], [0.93, 0.7]].forEach(([fx, sc], i) => tree(fx * w, hillY(fx * w) + 6, sc, mix(i % 2 ? [63, 157, 107] : [46, 125, 90], [22, 58, 58])));
+    x.fillStyle = rgb(mix([111, 174, 120], [18, 44, 44])); x.beginPath(); x.moveTo(0, h); for (let px = 0; px <= w; px += 12) x.lineTo(px, h * 0.93 - Math.sin(px * .05 + 1) * h * 0.02); x.lineTo(w, h); x.fill();
+    // นก 2 ฝูง บินเป็นตัว V กระพือปีก (กลางวัน)
+    if (dn > 0.05) {
+      x.strokeStyle = `rgba(51,65,85,${dn.toFixed(3)})`; x.lineCap = 'round';
+      [[0.045, 0.24, 1.0, 0], [0.032, 0.31, 0.75, 0.5]].forEach(([sp, fy, sc, off]) => { const span = w + 260, fx = ((t * sp * 60 + off * span) % span) - 130;
+        [[0, 0], [-1, 0.55], [1, 0.55], [-2, 1.1], [2, 1.1]].forEach(([dx, dy], i) => { const bx = fx + dx * 22 * sc, by = h * fy + dy * 16 * sc + Math.sin(t * 1.2 + i) * 4, fl = Math.sin(t * 8 + i * 1.3 + off * 5) * 6 * sc; x.lineWidth = 2.2 * sc; x.beginPath(); x.moveTo(bx - 10 * sc, by - fl); x.quadraticCurveTo(bx - 4 * sc, by - 3 * sc, bx, by); x.quadraticCurveTo(bx + 4 * sc, by - 3 * sc, bx + 10 * sc, by - fl); x.stroke(); }); });
+    }
+    // หิ่งห้อย (กลางคืน)
+    if (n > 0.3) for (let i = 0; i < 14; i++) { const ph = i * 1.9, fx = w * (0.06 + (i * 0.071) % 0.9) + Math.sin(t * 0.7 + ph) * 26, fy = h * (0.78 + (i % 4) * 0.045) + Math.cos(t * 0.5 + ph) * 14, a = n * Math.max(0, Math.sin(t * 1.7 + ph)) * 0.9; const gl = x.createRadialGradient(fx, fy, 0, fx, fy, 9); gl.addColorStop(0, `rgba(220,255,140,${a.toFixed(3)})`); gl.addColorStop(1, 'rgba(220,255,140,0)'); x.fillStyle = gl; x.fillRect(fx - 9, fy - 9, 18, 18); }
     tex.needsUpdate = true;
   }
   isSheetMode() { const w = innerWidth, hh = innerHeight; return w < 640 || (w < 1024 && hh > w * 1.05); }
@@ -1445,6 +1556,7 @@ class StudyDeskScene extends React.Component {
     if (key !== this.state.panel) this.sfx(key);
     // [พอร์ต] ครูฮีมแจ้ง: กดโพสต์อิทบนกระดานแล้ว "หายไปแล้วกลับมา" — ต้นแบบเปิดแผงพร้อมกล้อง แผงเลื่อนทับของที่อยู่
     //   ฝั่งขวา (มือถือ = ครึ่งล่าง) ก่อนกล้องจะพาของไปที่ว่าง → ถ้าของอยู่ใต้แผง ให้กล้องพาออกมาก่อน (เริ่มเร็ว) แล้วแผงค่อยตาม
+    if (this.winView) { this.winView = false; this.stopAmbient(); this.setState({ winView: false }); } // เปิดเมนูอื่นระหว่างพักสายตา
     const fk = this.fkey(key), covered = !!(this.T && this.items[fk] && this.underPanel(fk));
     clearTimeout(this._pvT);
     this.setState({ panel: key, hover: null, panelVis: covered ? null : key }); this.dockHover = null;
@@ -1516,7 +1628,7 @@ class StudyDeskScene extends React.Component {
     return this.fitPose(box, new T.Vector3(0, 1.25, 0.8).normalize(), { x0: 24, x1: innerWidth - 24, y0: 90, y1: Math.max(200, bot) }, 3);
   }
   closePanel() {
-    if (!this.state.panel) { if (this.drawerOpen) this.toggleDrawer(false); return; }
+    if (!this.state.panel) { if (this.drawerOpen) this.toggleDrawer(false); if (this.winView) this.exitWindow(); return; }
     this.sfx('close');
     clearTimeout(this._pvT);
     this.setState({ panel: null, panelVis: null });
@@ -1535,7 +1647,7 @@ class StudyDeskScene extends React.Component {
     if (!this.R) return; this.R.setSize(innerWidth, innerHeight); this.cam.aspect = innerWidth / innerHeight; this.cam.updateProjectionMatrix();
     if (this.applyLayout()) this._roomKey = null; // [พอร์ต] สลับผังมือถือ/จอใหญ่
     // [พอร์ต] ลิ้นชักเปิดอยู่ → จัดภาพลิ้นชักใหม่ · กล้องกำลังบิน → เปลี่ยนปลายทางแทนการกระโดด
-    const p = this.state.panel ? this.focusPose(this.fkey(this.state.panel)) : (this.drawerOpen && this.items.drawer ? (this.homePose(), this.drawerPose()) : this.homePose());
+    const p = this.state.panel ? this.focusPose(this.fkey(this.state.panel)) : (this.winView ? (this.homePose(), this.windowPose()) : (this.drawerOpen && this.items.drawer ? (this.homePose(), this.drawerPose()) : this.homePose()));
     if (this.tw && !this.introOn) { this.tw.p1 = p.p; this.tw.t1 = p.t; this.tw.s1 = p.s || 0; this.tw.x1 = p.sx || 0; return; }
     if (this.tw && this.introOn) { const q = this.homePose(); this.tw.p1 = q.p; this.tw.t1 = q.t; this.tw.s1 = q.s || 0; this.tw.x1 = 0; return; }
     this.camP.copy(p.p); this.camT.copy(p.t); this.camS = p.s; this.camSX = p.sx || 0;
@@ -1585,7 +1697,7 @@ class StudyDeskScene extends React.Component {
 
     const nt = this.state.night ? 1 : 0; this.nightT += (nt - this.nightT) * 0.05; const n = this.nightT;
     this.hemi.intensity = 0.55 - 0.43 * n; this.sun.intensity = 1.25 - 1.1 * n; this.fill.intensity = 0.35 - 0.28 * n;
-    if (this.skyMat) this.skyMat.color.setRGB(1 - .78 * n, 1 - .72 * n, 1 - .55 * n);
+    if (this.skyMat) this.skyMat.color.setRGB(1 - .1 * n, 1 - .1 * n, 1 - .04 * n); // [พอร์ต] กลางคืนวาดในภาพแล้ว แค่หรี่นิด
     if (this.hS) { const d = new Date(), sec = d.getSeconds() + d.getMilliseconds() / 1000, mn = d.getMinutes() + sec / 60, hr = (d.getHours() % 12) + mn / 60; this.hS.rotation.z = -sec / 60 * Math.PI * 2; this.hM.rotation.z = -mn / 60 * Math.PI * 2; this.hH.rotation.z = -hr / 12 * Math.PI * 2; }
     this.spot.intensity = 3.6 * n; this.bulbMat.emissiveIntensity = 2.6 * n + (this.lampHover || 0) * 0.8;
 
@@ -1596,7 +1708,7 @@ class StudyDeskScene extends React.Component {
     this.cam.position.set(this.camP.x + this.m.x * 0.6 * par, this.camP.y + this.m.y * 0.3 * par, this.camP.z);
     if (Math.abs(this.yaw) + Math.abs(this.pitch) > 1e-4) { const off = this.cam.position.clone().sub(this.camT); off.applyAxisAngle(new T.Vector3(0, 1, 0), this.yaw); const side = new T.Vector3().crossVectors(off, new T.Vector3(0, 1, 0)).normalize(); off.applyAxisAngle(side, this.pitch); this.cam.position.copy(this.camT).add(off); }
     this.cam.lookAt(this.camT);
-    if (!this._skyT || now - this._skyT > 1 / 15) { this._skyT = now; this.drawSky(t); }
+    if (!this._skyT || now - this._skyT > 1 / (this.winView ? 30 : 12)) { this._skyT = now; this.drawSky(t); }
     if (this._boardAspect && this.quoteP < 1 && t > 2.4) { this.quoteP = Math.min(1, this.quoteP + dt / 2.6); if (!this._qT || now - this._qT > 1 / 20 || this.quoteP >= 1) { this._qT = now; this.boardTex(this._boardAspect, this.quoteP); } }
     if (this.promoRib) this.promoRib.rotation.z = Math.PI / 4 + Math.sin(t * 1.6) * 0.015;
     if (this.dustPts) {
@@ -1687,11 +1799,24 @@ class StudyDeskScene extends React.Component {
       openCourses: () => this.openPanel('courses'),
       authHref: st === 'guest' || st === 'loading' ? '/login' : '/my-courses', authText: st === 'guest' || st === 'loading' ? 'เข้าสู่ระบบ' : 'คอร์สของฉัน',
       authVis: st === 'loading' ? 'hidden' : 'visible',
-      ...this.adminVals()
+      ...this.adminVals(), ...this.windowVals()
     };
   }
   // [พอร์ต] แจ้งเตือนเฉพาะแอดมิน (ครูฮีมขอ 2026-09-25): ปุ่มในแถบบน เห็นเฉพาะบัญชีแอดมินที่ล็อกอิน
   //   มีสลิปแจ้งโอนรอตรวจ → ปุ่มสีทอง กระดิ่งสั่น จุดแดงกระเพื่อม + ตัวเลข → /admin/enrollments · ไม่มี → ปุ่ม "แอดมิน" ธรรมดา → /admin
+  // [พอร์ต] การ์ดโหมดพักสายตา (ล่างจอ): สลับกลางวัน/กลางคืน (= โคมไฟ) · เปิด/ปิดเสียงธรรมชาติ · กลับไปที่โต๊ะ
+  windowVals() {
+    const on = !!this.state.winView, night = !!this.state.night, amb = this.state.ambient !== false && !this.state.muted;
+    return {
+      winView: on, winTitle: night ? 'ราตรีสวัสดิ์ ดาวเต็มฟ้าเลยครับ' : 'พักสายตาสักครู่นะครับ',
+      winDesc: night ? 'ฟังเสียงจิ้งหรีดกับลมเบาๆ แล้วค่อยกลับมาลุยต่อ' : 'หายใจลึกๆ มองภูเขา เมฆ และนกสักพัก แล้วค่อยกลับมาลุยต่อ',
+      winNightText: night ? '☀️ เปิดไฟ · กลางวัน' : '🌙 ปิดไฟ · กลางคืน', winAmbText: amb ? '🔊 เสียงธรรมชาติ' : '🔇 เสียงธรรมชาติ',
+      winAmbBg: amb ? '#fbbf24' : 'transparent', winAmbInk: amb ? '#0f172a' : 'var(--chipInk)', winAmbLine: amb ? '#fbbf24' : 'var(--chipline)',
+      winToggleNight: () => { this.sfx('lamp'); this.setNight(!this.state.night); },
+      winToggleAmb: () => { const next = !amb; this.setState({ ambient: next, muted: next ? false : this.state.muted }); try { localStorage.setItem('kh_desk_ambient', next ? '1' : '0'); if (next) localStorage.setItem('kh_desk_muted', '0'); } catch (e) {} this.ensureAudio(); this.sfx('click'); setTimeout(() => { if (next && this.winView) this.startAmbient(true); else this.stopAmbient(); }, 40); },
+      winClose: () => this.exitWindow()
+    };
+  }
   adminVals() {
     const a = this.props.admin || {}, n = a.on ? (a.pending | 0) : 0, on = !!a.on;
     return {
@@ -1739,7 +1864,7 @@ class StudyDeskScene extends React.Component {
       musicBg: this.state.music && !this.state.muted ? '#fbbf24' : 'var(--chip)', musicInk: this.state.music && !this.state.muted ? '#0f172a' : 'var(--chipInk)',
       toggleMusic: () => { const on = !this.state.music; this.setState({ music: on }); try { localStorage.setItem('kh_desk_music', on ? '1' : '0'); } catch (e) {} this.ensureAudio(); if (on && !this.state.muted) this.startMusic(); else this.stopMusic(); },
       toggleMute: () => { const m = !this.state.muted; this.setState({ muted: m }); try { localStorage.setItem('kh_desk_muted', m ? '1' : '0'); } catch (e) {} if (m) this.stopMusic(); else if (this.state.music) { this.ensureAudio(); setTimeout(() => this.startMusic(), 50); } if (!m) { this.ensureAudio(); setTimeout(() => this.sfx('pop'), 30); } }, heroRef: this.heroRef, dockRef: this.dockRef,
-      noPanel: !p, panelOpen: !!p && this.state.panelVis === p,
+      noPanel: !p && !this.state.winView, panelOpen: !!p && this.state.panelVis === p,
       tipObj: hv ? hv.o : '', tipTitle: hv ? hv.t : '', tipDesc: desc(hv),
       dock: this.MENU.map((m, i) => ({
         n: String(i + 1).padStart(2, '0'), t: m.t, on: this.state.hover === m.k, off: this.state.hover !== m.k,
@@ -1843,6 +1968,22 @@ class StudyDeskScene extends React.Component {
           </nav>
         </>)}
       
+        {v.winView && (<>
+          <div style={css(`position:absolute;left:12px;right:12px;bottom:${v.dockBottom};z-index:22;display:flex;justify-content:center;pointer-events:none;animation:khd-fade .6s .35s cubic-bezier(.2,.8,.2,1) backwards`)}>
+            <div style={css(`pointer-events:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;max-width:100%;padding:12px 14px 12px 18px;border-radius:24px;background:var(--chip);border:1px solid var(--chipline);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 40px -20px rgba(15,23,42,.45);color:var(--chipInk)`)}>
+              <div style={css(`display:flex;flex-direction:column;gap:2px;min-width:0`)}>
+                <span style={css(`font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--accent)`)}>หน้าต่างห้องครูฮีม</span>
+                <span style={css(`font-family:'Mitr',sans-serif;font-size:18px;font-weight:500;line-height:1.3`)}>{v.winTitle}</span>
+                <span style={css(`font-size:12px;color:var(--chipMuted)`)}>{v.winDesc}</span>
+              </div>
+              <div style={css(`display:flex;gap:8px;flex-wrap:wrap;justify-content:center`)}>
+                <button onClick={v.winToggleNight} style={css(`padding:9px 14px;border:1px solid var(--chipline);border-radius:999px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:var(--chipInk);background:transparent;white-space:nowrap`)} className="khd-h8">{v.winNightText}</button>
+                <button onClick={v.winToggleAmb} style={css(`padding:9px 14px;border:1px solid ${v.winAmbLine};border-radius:999px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:${v.winAmbInk};background:${v.winAmbBg};white-space:nowrap`)} className="khd-h8">{v.winAmbText}</button>
+                <button onClick={v.winClose} style={css(`display:flex;align-items:center;gap:6px;padding:9px 14px;border:0;border-radius:999px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;color:#fff;background:#0f172a;white-space:nowrap`)} className="khd-h6"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>กลับไปที่โต๊ะ</button>
+              </div>
+            </div>
+          </div>
+        </>)}
         {v.noGL && (<>
           <div style={css(`position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:26;width:min(420px,calc(100vw - 32px));padding:28px 26px 24px;border-radius:28px;background:#fffdf8;box-shadow:0 40px 80px -30px rgba(0,0,0,.6);text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px`)}>
             <img src="/logo.png" alt="KruHeem" style={css(`width:56px;height:56px;border-radius:16px`)} />
