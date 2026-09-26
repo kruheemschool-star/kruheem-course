@@ -10,6 +10,7 @@ import * as THREE from "three";
 import { css, DESK_PAGE_CSS } from "./deskCss";
 import { Panorama } from "./panorama";
 import { drawLeaf, drawPaper, LEAF_PALETTES } from "./leafArt";
+import { buildCat as buildCatArt } from "./catArt";
 import { buildArt as buildGameArt } from "../game/zombieRunArt";
 import { ZombieRunEngine } from "../game/zombieRunEngine";
 import { ZrAudio } from "../game/zombieRunAudio";
@@ -1159,7 +1160,7 @@ class StudyDeskScene extends React.Component {
   }
   skipIntro() { if (this.introOn && this.tw) this.tw.t = 1; else if (this.state.intro) this.setState({ intro: false }); }
   catTap() {
-    if (this.cat && (this.cat.wake || 0) <= 0) { this.cat.wake = 1; this.sfx('meow'); }
+    if (this.cat) { const sleeping = !this.cat.awake(); this.cat.tap(); if (sleeping) this.sfx('meow'); }
   }
   // [พอร์ต] โหมดพักสายตา (ครูฮีมขอ 2026-09-25): แตะหน้าต่าง → บานเปิด กล้องซูมเข้าไปมองวิว + เสียงธรรมชาติ
   toggleWindow() { if (this.winView) this.exitWindow(); else this.enterWindow(); }
@@ -1410,32 +1411,13 @@ class StudyDeskScene extends React.Component {
     }
   }
   buildCat() {
-    const T = this.T, g = new T.Group(), fur = new T.MeshPhysicalMaterial({ color: 0x141213, roughness: .62, sheen: 1, sheenColor: new T.Color(0x8b8fa8), sheenRoughness: .45, envMapIntensity: .5 }), furD = fur, cream = fur, dark = this.M(0x8a8580, { r: .5 }), pink = this.M(0x3f2a2e, { r: .5 }), white = this.M(0xf5f5f4, { r: .3 });
-    const S = (r, m, sx, sy, sz, x, y, z, par) => { const o = this.mesh(new T.SphereGeometry(r, 28, 20), m); o.scale.set(sx, sy, sz); o.position.set(x, y, z); (par || g).add(o); return o; };
-    const bodyG = new T.Group(); g.add(bodyG);
-    const body = S(0.5, fur, 1.1, 0.52, 0.78, 0, 0.26, 0, bodyG);
-    S(0.34, fur, 1, 0.82, 1, -0.34, 0.24, -0.04, bodyG);
-    S(0.3, cream, 0.9, 0.66, 0.8, 0.3, 0.19, 0.17, bodyG);
-    
-    S(0.09, cream, 1.4, 0.55, 0.9, 0.62, 0.06, 0.34, bodyG); S(0.09, cream, 1.4, 0.55, 0.9, 0.5, 0.055, 0.42, bodyG);
-    const headG = new T.Group(); headG.position.set(0.52, 0.27, 0.28); g.add(headG);
-    S(0.26, fur, 1.06, 0.9, 0.95, 0, 0, 0, headG);
-    [-1, 1].forEach(sd => S(0.13, fur, 1, 0.85, 0.9, sd * 0.13, -0.07, 0.1, headG));
-    S(0.1, cream, 1.35, 0.8, 0.8, 0, -0.08, 0.2, headG);
-    S(0.028, pink, 1.3, 0.8, 0.8, 0, -0.035, 0.27, headG);
-    [-1, 1].forEach(sd => { const ear = this.mesh(new T.ConeGeometry(0.105, 0.24, 3), fur); ear.position.set(sd * 0.14, 0.21, -0.02); ear.rotation.set(-0.15, sd * 0.5, -sd * 0.28); headG.add(ear); const ie = this.mesh(new T.ConeGeometry(0.06, 0.15, 3), pink); ie.position.set(sd * 0.14, 0.2, 0.02); ie.rotation.set(-0.15, sd * 0.5, -sd * 0.28); headG.add(ie); });
-    const eyesC = [], eyesO = [];
-    [-1, 1].forEach(sd => {
-      const c = this.mesh(new T.TorusGeometry(0.042, 0.011, 6, 14, Math.PI), dark); c.position.set(sd * 0.1, 0.035, 0.235); c.rotation.set(0, 0, Math.PI); headG.add(c); eyesC.push(c);
-      const eo = new T.Group(); eo.position.set(sd * 0.1, 0.04, 0.225); const ball = new T.Mesh(new T.SphereGeometry(0.047, 16, 12), new T.MeshStandardMaterial({ color: 0xeab308, emissive: 0x854d0e, emissiveIntensity: .35, roughness: .15 })); eo.add(ball); const pu = this.mesh(new T.SphereGeometry(0.03, 12, 10), this.M(0x0a0a0a, { r: .2 })); pu.scale.set(0.45, 1, 0.6); pu.position.z = 0.025; eo.add(pu); const hl = this.mesh(new T.SphereGeometry(0.009, 8, 6), white); hl.position.set(0.012, 0.015, 0.04); eo.add(hl); eo.visible = false; headG.add(eo); eyesO.push(eo);
-      for (let k = 0; k < 3; k++) { const wk = this.mesh(new T.CylinderGeometry(0.003, 0.003, 0.24, 4), white); wk.rotation.z = Math.PI / 2 + (k - 1) * 0.18 * sd; wk.position.set(sd * 0.2, -0.07 + (k - 1) * 0.02, 0.2); headG.add(wk); }
-    });
-    const tail = []; for (let i = 0; i < 22; i++) { const r = 0.078 * (1 - i / 30); const m = this.mesh(new T.SphereGeometry(r, 12, 10), fur); g.add(m); tail.push(m); }
-    const zs = [0, 1, 2].map(() => { const cv = this.cv(64, 64, (x) => { x.clearRect(0, 0, 64, 64); x.fillStyle = '#fff'; x.font = "700 48px 'Mitr', sans-serif"; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('z', 32, 34); }); const sp = new T.Sprite(new T.SpriteMaterial({ map: new T.CanvasTexture(cv), transparent: true, depthWrite: false })); sp.scale.setScalar(0.22); g.add(sp); return sp; });
-    const tailSet = new Set(tail);
-    g.traverse(n => { if (n.isMesh && !tailSet.has(n)) { n.userData.key = 'cat'; this.hitList.push(n); } });
-    g.position.set(-8, 0, -4); g.scale.setScalar(0.78); this.scene.add(g);
-    this.cat = { g, body, bodyG, headG, tail, eyesC, eyesO, zs, wake: 0 };
+    // แมวสมจริง: รูปร่าง ขน ตา และการเคลื่อนไหวทั้งหมดอยู่ใน components/desk/catArt.js (ฉากทำแค่วางบนโต๊ะข้าง + ส่งจุดที่ให้มอง)
+    const T = this.T;
+    const ctx = { mesh: (g, m, nc) => this.mesh(g, m, nc), M: (c, o) => this.M(c, o), cv: (w, h, fn) => this.cv(w, h, fn), texture: (c) => { const t = new T.CanvasTexture(c); t.encoding = T.sRGBEncoding; t.anisotropy = 8; return t; } };
+    const cat = buildCatArt(T, ctx);
+    cat.hit.forEach(m => { m.userData.key = 'cat'; this.hitList.push(m); });
+    cat.g.position.set(-8, 0, -4); this.scene.add(cat.g);
+    this.cat = cat; this._catLook = new T.Vector3(); this._catTmp = new T.Vector3();
   }
   buildSideTable() {
     const T = this.T, S = this.scene, top = -1.25, X = -7.25, Z = -0.55, wood = this.deskMat, wood2 = this.deskMat2 || wood;
@@ -1598,17 +1580,11 @@ class StudyDeskScene extends React.Component {
     }
     const C = this.cat;
     if (C) {
-      C.wake = Math.max(0, (C.wake || 0) - dt / 3); const w = C.wake, p = 1 - w, on = w > 0;
-      const sm = (a, b, x) => { const u = Math.max(0, Math.min(1, (x - a) / (b - a))); return u * u * (3 - 2 * u); };
-      const up = on ? sm(0, 0.15, p) * (1 - sm(0.8, 1, p)) : 0, st = on ? sm(0.25, 0.48, p) * (1 - sm(0.6, 0.82, p)) : 0;
-      const br = Math.sin(t * 1.6) * 0.018 * (1 - up);
-      C.body.scale.set(1.1 + st * 0.3, 0.52 + br + st * 0.04, 0.78 - st * 0.06); C.bodyG.position.set(-st * 0.08, st * 0.05, 0);
-      C.headG.position.set(0.52 + st * 0.12, 0.27 + up * 0.17 + br * 0.5, 0.28 - up * 0.05); C.headG.rotation.set(-up * 0.3, Math.sin(t * 4) * 0.1 * up, (on ? Math.sin(p * 20) * 0.05 : 0) + (1 - up) * 0.18);
-      C.eyesC.forEach(e => e.visible = up < 0.35); C.eyesO.forEach(e => e.visible = up >= 0.35);
-      const n = C.tail.length, lift = st, flick = on ? Math.sin(t * 7) * 0.35 : Math.sin(t * 0.9) * 0.08;
-      for (let i = 0; i < n; i++) { const s = i / (n - 1), a = Math.PI + 0.1 - s * Math.PI * (1.05 - lift * 0.45) + (s > 0.6 ? (s - 0.6) * flick : 0), rx = 0.66 + s * 0.04, rz = 0.5 + s * 0.06;
-        C.tail[i].position.set(Math.cos(a) * rx, 0.07 + Math.sin(s * Math.PI) * 0.03 + lift * s * s * 0.6 + (s > 0.75 ? Math.sin(t * 1.3) * 0.02 * (1 - lift) : 0), Math.sin(a) * rz); }
-      C.zs.forEach((z, i) => { const f = (t * 0.35 + i / 3) % 1; z.visible = !on; z.position.set(0.6 + f * 0.35, 0.55 + f * 0.7, 0.3); z.material.opacity = Math.sin(Math.PI * f) * 0.9; z.scale.setScalar(0.14 + f * 0.14); });
+      // จุดที่แมวมอง = ตำแหน่งเมาส์ที่ระยะเดียวกับแมว (ยังไม่ขยับเมาส์ = มองกล้อง) แปลงเป็นพิกัดในกรอบแมว
+      const L = this._catLook, cam = this.cam; C.g.getWorldPosition(this._catTmp); const dist = cam.position.distanceTo(this._catTmp);
+      if (Math.abs(this.ndc.x) <= 1 && Math.abs(this.ndc.y) <= 1) L.set(this.ndc.x, this.ndc.y, 0.5).unproject(cam).sub(cam.position).normalize().multiplyScalar(dist * 0.9).add(cam.position); else L.copy(cam.position);
+      C.g.worldToLocal(L);
+      C.step(dt, t, { reduced: this.reduced, look: L, night: this.nightT || 0 });
     }
   }
   buildDust() {
