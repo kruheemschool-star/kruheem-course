@@ -10,6 +10,7 @@ import { withTimeout } from "@/lib/netGuard";
 import { fetchLessonsIndex } from "@/lib/lessonsIndex";
 import { DEFAULT_COUNTDOWN } from "@/components/home/ExamCountdownHero";
 import type { DeskHomeData } from "@/lib/deskHomeData";
+import DeskLoader, { type DeskLoadStage } from "./DeskLoader";
 
 // ตัวครอบหน้า "โต๊ะเรียน 3 มิติ" — ฉาก three.js โหลดฝั่งเครื่องผู้ใช้เท่านั้น (ssr:false)
 // จึงไม่ลากไลบรารี 3 มิติเข้าหน้าอื่น ส่วนนี้เตรียมข้อมูลจริงให้ฉาก:
@@ -17,7 +18,7 @@ import type { DeskHomeData } from "@/lib/deskHomeData";
 //   • "คอร์สของฉัน" ของคนที่ล็อกอิน อ่านเฉพาะตอนเปิดแผงแล็ปท็อป (ไม่กินยอดอ่านทุกวิว)
 const StudyDeskScene = dynamic(() => import("./StudyDeskScene"), {
   ssr: false,
-  // พื้นสีเดียวกับผนังห้อง กันจอขาววาบระหว่างโหลดฉาก
+  // พื้นสีเดียวกับผนังห้อง กันจอขาววาบระหว่างโหลดฉาก (หน้าจอกำลังโหลดจริงคือ DeskLoader ที่ทับอยู่ด้านบน)
   loading: () => <div style={{ position: "fixed", inset: 0, background: "#1d4f4a" }} />,
 });
 
@@ -169,6 +170,24 @@ function DeskSeo({ data }: { data: DeskHomeData }) {
 
 export default function StudyDesk({ data, classicUrl }: { data: DeskHomeData; classicUrl: string }) {
   const { user, userProfile, loading, isAdmin, pendingCount } = useUserAuth();
+  // หน้าจอกำลังโหลด: boot (HTML จากเซิร์ฟเวอร์) → engine (สคริปต์หน้านี้ทำงานแล้ว รอโหลดชุดภาพ 3 มิติ)
+  // → build (ฉากกำลังสร้างของบนโต๊ะ) → ready (วาดเฟรมแรกแล้ว) แล้วค่อยๆ จางหาย
+  const [loadStage, setLoadStage] = useState<DeskLoadStage>("boot");
+  const [loaderGone, setLoaderGone] = useState(false);
+  useEffect(() => { setLoadStage((s) => (s === "boot" ? "engine" : s)); }, []);
+  const onStage = useCallback((s: DeskLoadStage) => setLoadStage((cur) => (cur === "ready" ? cur : s)), []);
+  const onReady = useCallback(() => {
+    // ตอนพัฒนา: ?loader_hold=1 ค้างหน้าจอกำลังโหลดไว้ดูหน้าตา
+    if (process.env.NODE_ENV !== "production" && new URLSearchParams(window.location.search).has("loader_hold")) return;
+    setLoadStage("ready");
+  }, []);
+  useEffect(() => {
+    if (loadStage !== "ready") return;
+    const t = window.setTimeout(() => setLoaderGone(true), 900);
+    return () => window.clearTimeout(t);
+  }, [loadStage]);
+  // กันค้าง: ฉากพังหรือไม่ส่งสัญญาณ → ปิดหน้าจอโหลดเองหลัง 30 วินาที (ลิงก์หน้าคลาสสิกขึ้นตั้งแต่วินาทีที่ 10)
+  useEffect(() => { const t = window.setTimeout(() => onReady(), 30000); return () => window.clearTimeout(t); }, [onReady]);
   // แจ้งเตือนเฉพาะแอดมิน: จำนวนสลิปแจ้งโอนที่รอตรวจ (AuthContext ฟังแบบ realtime อยู่แล้ว เฉพาะบัญชีแอดมิน)
   // ตอนพัฒนา: ?admin_demo=3 จำลองมุมมองแอดมินโดยไม่ต้องล็อกอิน
   const admin = useMemo(() => {
@@ -237,7 +256,8 @@ export default function StudyDesk({ data, classicUrl }: { data: DeskHomeData; cl
       {/* ลายเกรนทั้งเว็บ (layout) ทับฉาก WebGL + กินแรงการ์ดจอบนมือถือ — ปิดเฉพาะหน้านี้ */}
       <style>{".noise-overlay{display:none!important}"}</style>
       <DeskSeo data={data} />
-      <StudyDeskScene data={data} countdown={countdown} my={my} admin={admin} onNeedMy={onNeedMy} onGame={onGame} classicUrl={classicUrl} />
+      <StudyDeskScene data={data} countdown={countdown} my={my} admin={admin} onNeedMy={onNeedMy} onGame={onGame} classicUrl={classicUrl} onStage={onStage} onReady={onReady} />
+      {!loaderGone && <DeskLoader stage={loadStage} leaving={loadStage === "ready"} classicUrl={classicUrl} />}
     </>
   );
 }

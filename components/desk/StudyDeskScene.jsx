@@ -71,8 +71,13 @@ class StudyDeskScene extends React.Component {
     addEventListener('orientationchange', this.onResize);
     addEventListener('keydown', this.onKey); addEventListener('resize', this.onResize);
     if (this.props.nightMode) this.setNight(true); else this.applyTheme(false);
-    this.waitThree();
+    // บอกหน้าจอกำลังโหลดว่ากำลังสร้างฉาก แล้วเว้นให้เบราว์เซอร์วาดข้อความนั้นก่อนหนึ่งเฟรม (การสร้างฉากกินเวลาเครื่องช่วงหนึ่ง)
+    if (this.props.onStage) this.props.onStage('build');
+    this._readyN = 0; this._readySent = false;
+    this.tw0 = setTimeout(() => { if (!this._dead) this.waitThree(); }, 32);
   }
+  // ฉากวาดได้แล้ว (หรือเครื่องไม่รองรับ 3 มิติ) → ให้หน้าจอกำลังโหลดจางหาย
+  sendReady() { if (this._readySent) return; this._readySent = true; if (this.props.onReady) this.props.onReady(); }
   componentWillUnmount() {
     // [พอร์ต] Next.js เปลี่ยนหน้าโดยไม่รีโหลด → ต้องหยุดเพลง/ปิดเสียง/คืนการ์ดจอเอง ไม่งั้นเพลงยังดังต่อในหน้าอื่น
     this._dead = true; clearTimeout(this._gameT); if (this.gameEng) { try { this.gameEng.destroy(); } catch (e) {} this.gameEng = null; }
@@ -96,7 +101,7 @@ class StudyDeskScene extends React.Component {
   hasGL() { try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl'))); } catch (e) { return false; } }
   waitThree() {
     if (this.state.noGL) return;
-    if (!this.hasGL()) { this.setState({ noGL: true, intro: false }); return; } if (THREE) this.init3D(); else this.tw0 = setTimeout(() => this.waitThree(), 80); }
+    if (!this.hasGL()) { this.setState({ noGL: true, intro: false }); this.sendReady(); return; } if (THREE) this.init3D(); else this.tw0 = setTimeout(() => this.waitThree(), 80); }
 
   setNight(on) { this.setState({ night: on }); this.applyTheme(on); }
   mix(a, b, t) {
@@ -112,7 +117,7 @@ class StudyDeskScene extends React.Component {
     if (this.wallMat) this.wallMat.color.set(this.props.bgColor || '#164a45');
   }
   // ---------- 3D ----------
-  init3D() { try { this.init3D0(); } catch (e) { console.error(e); this.setState({ noGL: true, intro: false }); } }
+  init3D() { try { this.init3D0(); } catch (e) { console.error(e); this.setState({ noGL: true, intro: false }); this.sendReady(); } }
   init3D0() {
     const T = this.T = THREE, host = this.canvasHostRef.current; if (!host) return;
     // [พอร์ต] ฉากถูกสร้างใหม่ได้ในอินสแตนซ์เดิม (React Strict Mode ตอนพัฒนา / กลับมาหน้านี้) —
@@ -1817,6 +1822,7 @@ class StudyDeskScene extends React.Component {
   loop = () => {
     if (this._dead || !this.R) return;
     this.raf = requestAnimationFrame(this.loop);
+    if (!this._readySent && ++this._readyN > 3) this.sendReady(); // วาดครบ 3 เฟรมแล้ว
     try { this.frame(); } catch (err) { if (!this._errd) { this._errd = true; console.error('desk loop', err); window.__deskErr = String(err && err.stack || err); } }
   };
   frame() {
