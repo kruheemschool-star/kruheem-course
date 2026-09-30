@@ -2,6 +2,7 @@
 import type { HeroTrustChip, HeroData, SectionContext } from "../types";
 import CourseCard from "./CourseCard";
 import { smoothScrollToId } from "../smoothScroll";
+import { hasStudentToken, resolveStudentToken } from "../liveStats";
 
 interface Props {
     data: HeroData;
@@ -68,12 +69,17 @@ export default function HeroSection({ data, ctx }: Props) {
                 <div className="w-full text-center lg:text-left">
                     {/* Tag badge */}
                     {data.badgeText && (
-                        <span className="kh-eyebrow">
+                        // ป้ายใส่ {students} ได้ = จำนวนนักเรียนจริงเลขเดียวกับการ์ดขวามือ
+                        // ระหว่างรอตัวเลขโหลด ซ่อนไว้แต่จองที่ไว้ หน้าจะได้ไม่กระตุกและไม่โชว์ "ฝึกแล้ว  คน"
+                        <span
+                            className="kh-eyebrow"
+                            style={hasStudentToken(data.badgeText) && typeof ctx.totalStudents !== "number" ? { visibility: "hidden" } : undefined}
+                        >
                             <span
                                 className="w-2 h-2 rounded-full"
                                 style={{ background: "var(--kh-good)" }}
                             />
-                            {data.badgeText}
+                            {resolveStudentToken(data.badgeText, ctx.totalStudents)}
                         </span>
                     )}
 
