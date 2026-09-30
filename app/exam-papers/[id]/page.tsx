@@ -41,9 +41,6 @@ async function getPaper(id: string): Promise<PaperPageData | null> {
                     .filter((s) => !!s?.url)
                     .map((s) => ({ url: String(s.url), caption: s.caption ? String(s.caption) : undefined })),
                 badge: (d.badge as string) || "",
-                includes: (Array.isArray(d.includes) ? d.includes : [])
-                    .map((s) => String(s ?? "").trim())
-                    .filter(Boolean),
                 comingSoon: !!d.comingSoon,
             },
             fileLabels,
