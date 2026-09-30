@@ -66,7 +66,10 @@ service cloud.firestore {
 
     // === Users ===
     match /users/{userId} {
-      allow read: if isAuth();
+      // อ่านได้เฉพาะเจ้าของกับแอดมิน — เดิม isAuth() ทำให้สมาชิกคนไหนก็ list โปรไฟล์ทุกคนได้
+      // (อีเมล เบอร์โทร หมายเหตุของครู) ตรวจแล้วไม่มีหน้าฝั่งนักเรียนที่อ่านโปรไฟล์ของคนอื่น
+      // (ผลตรวจเว็บ 30 ก.ย. 69 ข้อ E1) ส่วนหลังบ้านอ่านผ่าน isAdmin() ได้ตามเดิม
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
@@ -141,6 +144,14 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "userName", "userTel", "lineId", "slipUrl", "lastUpdated"
         ])
+      ) || (
+        // หน้าเรียน (app/learn/[id]) บันทึก "เข้าเรียนล่าสุด" ลงใบของตัวเองตอนเปิดห้องและทุก 30 นาที
+        // ให้แตะได้ช่องเดียว และต้องเป็นเวลาเซิร์ฟเวอร์ ณ ตอนเขียน (serverTimestamp) ปลอมเวลาไม่ได้
+        // เดิมโดนปฏิเสธเงียบๆ ทุกครั้ง หน้าเช็คการเข้าเรียนหลังบ้านจึงค้างตั้งแต่ พ.ค. 69 (ข้อ B4)
+        isAuth()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["lastAccessedAt"])
+        && request.resource.data.lastAccessedAt == request.time
       );
       allow delete: if isAdmin();
     }
@@ -332,10 +343,19 @@ service cloud.firestore {
     // exam_YYYY-MM-DD = ตัวนับคลังข้อสอบรายชุดรายวัน (ดู/เริ่มทำ/ส่ง/คลิกซื้อ)
     // เขียนโดย lib/examStats.ts จากทุกผู้ใช้รวมคนไม่ล็อกอิน — เอกสารรายวัน
     // ขนาดเล็กคงที่ matches() เป็น full-match จึงปลอมชื่ออื่นไม่ได้
+    //
+    // เพิ่ม/เพิ่มค่าได้อย่างเดียว: ห้ามคนนอกลบเอกสาร หรือเขียนทับจนช่องหายไป (ข้อ E8)
+    // ตัวเขียนทุกตัวใช้ setDoc merge + increment จึงมีแต่ช่องเท่าเดิมหรือเพิ่มขึ้น
     match /stats/{statId} {
+      function isCounterDoc() {
+        return statId in ['daily_visits', 'page_views', 'promo_homepage']
+               || statId.matches('exam_[0-9]{4}-[0-9]{2}-[0-9]{2}');
+      }
       allow read: if isAdmin();
-      allow write: if statId in ['daily_visits', 'page_views', 'promo_homepage']
-                   || statId.matches('exam_[0-9]{4}-[0-9]{2}-[0-9]{2}');
+      allow create: if isCounterDoc();
+      allow update: if isAdmin()
+                    || (isCounterDoc() && request.resource.data.size() >= resource.data.size());
+      allow delete: if isAdmin();
     }
 
     // === Collection-group reads for the admin console ===
