@@ -535,10 +535,21 @@ export default function PaperDetailClient({
                     {/* ในแพ็กนี้ได้อะไรบ้าง — รายชื่อไฟล์จากฝั่งเซิร์ฟเวอร์ (เฉพาะ label ไม่มี path) */}
                     <div className="mt-6 rounded-xl border border-teal-100 dark:border-teal-900/60 bg-teal-50/70 dark:bg-teal-950/30 p-4">
                         <div className="text-sm font-bold text-teal-800 dark:text-teal-200 mb-1">📦 ในชุดนี้ได้รับ</div>
-                        <div className="text-sm text-teal-900/80 dark:text-teal-100/80 leading-relaxed">
-                            {fileLabels.length > 0 ? fileLabels.join(" · ") : "ตัวข้อสอบ · เฉลย"}
-                            <span className="text-teal-700/70 dark:text-teal-300/70"> (ไฟล์ PDF ดาวน์โหลดเก็บได้ตลอด)</span>
-                        </div>
+                        {paper.includes && paper.includes.length > 0 ? (
+                            <ul className="mt-2 space-y-1.5 text-sm text-teal-900/80 dark:text-teal-100/80 leading-relaxed">
+                                {paper.includes.map((line, i) => (
+                                    <li key={i} className="flex gap-2">
+                                        <Check size={16} className="text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
+                                        <span>{line}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <div className="text-sm text-teal-900/80 dark:text-teal-100/80 leading-relaxed">
+                                {fileLabels.length > 0 ? fileLabels.join(" · ") : "ตัวข้อสอบ · เฉลย"}
+                                <span className="text-teal-700/70 dark:text-teal-300/70"> (ไฟล์ PDF ดาวน์โหลดเก็บได้ตลอด)</span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="mt-7 space-y-2.5 text-sm text-slate-600 dark:text-slate-300">
