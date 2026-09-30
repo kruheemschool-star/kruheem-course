@@ -40,8 +40,9 @@ export const EXAM_BANK_DISCOUNT_PERCENT = Math.round(
  *         ลิงก์ในฟุตเตอร์ · แบนเนอร์ท้ายหน้าคลังข้อสอบ · sitemap)
  * หน้า /exam-papers เองยังเปิดด้วย URL ตรงได้ (ครูฮีมเข้าไปตรวจงานต่อได้)
  * 2026-09-18: ครูฮีมสั่งซ่อนไว้ก่อน ร้านยังทำไม่เสร็จ — พร้อมเมื่อไหร่เปลี่ยนเป็น true จุดเดียว
+ * 2026-10-01: ครูฮีมสั่งเปิดขายผ่านหน้าเว็บ (พร้อมชุดเตรียมสอบเข้า ม.4)
  */
-export const SHOW_EXAM_PAPERS_SHOP = false;
+export const SHOW_EXAM_PAPERS_SHOP = true;
 
 /**
  * สวิตช์หน้าแรก "โต๊ะเรียน 3 มิติ" (components/desk — สเปก KruHeem-Study-Desk-SPEC.md)
