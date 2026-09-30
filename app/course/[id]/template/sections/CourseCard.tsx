@@ -34,10 +34,11 @@ const DEFAULT_CHAPTERS: HeroChapter[] = [
 const DEFAULT_EQUATIONS = ["x² + 4x − 5 = 0", "√(a²+b²)", "(x−1)(x+5)"];
 
 // Student value defaults to the live-count token so every card auto-fills it.
+// ค่าตั้งต้นมีแค่ตัวเลขจริง — เดิมมี "87% ผ่าน Gifted" กับ "4.9★" ซึ่งเป็นตัวเลขตัวอย่าง
+// ตอนออกแบบ ไปโผล่บนหน้าขายคอร์สที่ไม่ได้กรอกตัวเลขเอง (คลังข้อสอบ, Gifted, ป.6)
+// คอร์สไหนอยากโชว์ตัวเลขเพิ่ม ให้กรอก cardStats เองในหน้าแก้หน้าขาย
 const DEFAULT_STATS: HeroCardStat[] = [
     { value: "{students}", label: "นักเรียน" },
-    { value: "87%", label: "ผ่าน Gifted" },
-    { value: "4.9★" },
 ];
 
 interface CourseCardProps {
@@ -64,7 +65,8 @@ interface CourseCardProps {
  */
 export default function CourseCard({ data, courseId, courseTitle, interactive = true, previewVideoId, totalStudents, liveChapters }: CourseCardProps) {
     const cardMainText = data.cardMainText || courseTitle || "Gifted ม.1";
-    const cardTags = data.cardTags ?? ["40 บท", "5 ปี", "HD"];
+    // ไม่กรอกป้ายเอง = ไม่แสดงป้าย (เดิม "40 บท / 5 ปี / HD" เป็นค่าตัวอย่างที่ไม่ตรงกับทุกคอร์ส)
+    const cardTags = data.cardTags ?? [];
     // Live data (e.g. real exam sets) wins over the admin-set list, which wins
     // over the built-in placeholder syllabus.
     const usingLiveChapters = !!liveChapters?.length;
