@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db, storage } from "@/lib/firebase";
-import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, query, where, orderBy, writeBatch } from "firebase/firestore";
+import { collection, addDoc, getDocs, deleteDoc, updateDoc, doc, query, where, orderBy, writeBatch, getCountFromServer } from "firebase/firestore";
+import { withTimeout, NET_TIMEOUT_MS } from "@/lib/netGuard";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { uploadImageToStorage } from "@/lib/upload";
 import Link from "next/link";
@@ -177,14 +178,14 @@ export default function CourseManagerPage() {
     setAllowedExamLevel("none");
   };
 
+  // ลบคอร์ส = ลบบทเรียน + รูปปก + ตัวคอร์ส เท่านั้น
+  // ห้ามลบใบลงทะเบียน (enrollments) ตามคอร์สเด็ดขาด — ใบลงทะเบียนคือหลักฐานการจ่ายเงิน
+  // และสิทธิ์เข้าเรียนของนักเรียน (เดิมลบทิ้งทั้งหมด เช่นคลังข้อสอบ 449 ใบ กู้คืนไม่ได้)
+  // handleDelete จะไม่ยอมลบคอร์สที่ยังมีใบลงทะเบียนอยู่ตั้งแต่แรก
   const deleteCourseWithAllData = async (courseId: string, imageUrl: string) => {
     const lessonsRef = collection(db, "courses", courseId, "lessons");
-    const lessonsSnapshot = await getDocs(lessonsRef);
+    const lessonsSnapshot = await withTimeout(getDocs(lessonsRef), NET_TIMEOUT_MS, "โหลดบทเรียนของคอร์ส");
     const deletePromises = lessonsSnapshot.docs.map(doc => deleteDoc(doc.ref));
-
-    const enrollmentsQuery = query(collection(db, "enrollments"), where("courseId", "==", courseId));
-    const enrollmentsSnapshot = await getDocs(enrollmentsQuery);
-    enrollmentsSnapshot.docs.forEach(doc => deletePromises.push(deleteDoc(doc.ref)));
 
     if (imageUrl) {
       try {
@@ -197,12 +198,34 @@ export default function CourseManagerPage() {
       }
     }
 
-    await Promise.all(deletePromises);
-    await deleteDoc(doc(db, "courses", courseId));
+    await withTimeout(Promise.all(deletePromises), 60_000, "ลบบทเรียนของคอร์ส");
+    await withTimeout(deleteDoc(doc(db, "courses", courseId)), NET_TIMEOUT_MS, "ลบคอร์ส");
   };
 
   const handleDelete = async (course: any) => {
-    confirmModal("ยืนยันการลบคอร์สเรียน", `ต้องการลบ ${course.title} พร้อมข้อมูลทั้งหมดใช่ไหม? \n\n(ไม่สามารถกู้คืนได้!)`, async () => {
+    // นับใบลงทะเบียนก่อน ถ้ามีนักเรียนอยู่แม้แต่ใบเดียว ไม่ให้ลบ
+    // นับไม่สำเร็จ (เน็ตสะดุด) ก็ไม่ลบ — ปลอดภัยไว้ก่อน
+    let enrolled = 0;
+    try {
+      const countSnap = await withTimeout(
+        getCountFromServer(query(collection(db, "enrollments"), where("courseId", "==", course.id))),
+        NET_TIMEOUT_MS,
+        "นับนักเรียนของคอร์ส",
+      );
+      enrolled = countSnap.data().count;
+    } catch (e: any) {
+      showToast(`❌ ตรวจจำนวนนักเรียนไม่สำเร็จ ยังไม่ได้ลบอะไร ลองกดใหม่อีกครั้ง (${e.message})`, 'error');
+      return;
+    }
+    if (enrolled > 0) {
+      confirmModal(
+        "ลบคอร์สนี้ไม่ได้",
+        `"${course.title}" มีใบลงทะเบียนของนักเรียน ${enrolled.toLocaleString("th-TH")} ใบ\n\nระบบไม่ให้ลบคอร์สที่มีนักเรียน เพื่อไม่ให้นักเรียนที่จ่ายเงินแล้วเสียสิทธิ์เข้าเรียน และประวัติการจ่ายเงินไม่หาย`,
+        () => { },
+      );
+      return;
+    }
+    confirmModal("ยืนยันการลบคอร์สเรียน", `ต้องการลบ ${course.title} พร้อมบทเรียนทั้งหมดใช่ไหม? (คอร์สนี้ยังไม่มีนักเรียน)\n\n(ไม่สามารถกู้คืนได้!)`, async () => {
       try {
         await deleteCourseWithAllData(course.id, course.image);
         showToast(`✅ ลบสำเร็จ!`, 'success');

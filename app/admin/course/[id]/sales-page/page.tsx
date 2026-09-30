@@ -8,7 +8,7 @@ import { useUserAuth } from "@/context/AuthContext";
 import type { Section, SectionType, SalesPageConfig, BoostersConfig } from "@/app/course/[id]/template/types";
 import { SECTION_META, createDefaultSection } from "@/app/course/[id]/template/defaults";
 import { KH_THEMES, KH_DEFAULT_THEME_ID } from "@/app/course/[id]/template/khTheme";
-import { buildSampleSalesPage } from "@/app/admin/debug/seed-salespage/[courseId]/sampleData";
+import { buildSampleSalesPage } from "@/lib/salesPageSample";
 import { getSectionForm, hasFormEditor } from "@/components/admin/forms/registry";
 
 export default function SalesPageAdmin() {

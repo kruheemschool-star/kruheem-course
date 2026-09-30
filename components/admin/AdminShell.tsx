@@ -59,7 +59,7 @@ const NAV: NavGroup[] = [
         title: "เนื้อหา",
         items: [
             { href: "/admin/courses", label: "จัดการคอร์สเรียน", icon: BookOpen, match: ["/admin/course"] },
-            { href: "/admin/exams", label: "คลังข้อสอบ", icon: ClipboardList, match: ["/admin/exam-validator"] },
+            { href: "/admin/exams", label: "คลังข้อสอบ", icon: ClipboardList },
             { href: "/admin/exam-stats", label: "สถิติคลังข้อสอบ", icon: LineChart },
             { href: "/admin/exam-papers", label: "ขายข้อสอบ PDF", icon: FileText },
             { href: "/admin/summaries", label: "สรุปเนื้อหา", icon: ScrollText },
@@ -110,7 +110,6 @@ const PAGE_META: { prefix: string; exact?: boolean; title: string; subtitle: str
     { prefix: "/admin/course", title: "แก้ไขคอร์สเรียน", subtitle: "จัดการบทเรียนและเนื้อหาในคอร์ส" },
     { prefix: "/admin/exams", title: "คลังข้อสอบ", subtitle: "เพิ่ม/แก้ไขชุดข้อสอบ" },
     { prefix: "/admin/exam-stats", title: "สถิติคลังข้อสอบ", subtitle: "ดู → เริ่มทำ → ส่ง รายชุด พร้อมสัญญาณชุดที่ต้องดูแล" },
-    { prefix: "/admin/exam-validator", title: "ตรวจทานข้อสอบ", subtitle: "ตรวจความถูกต้องของชุดข้อสอบ" },
     { prefix: "/admin/summaries", title: "สรุปเนื้อหา", subtitle: "เขียน/แก้ไขบทสรุป" },
     { prefix: "/admin/posts", title: "จัดการบทความ", subtitle: "เขียน/แก้ไขเทคนิคการเรียน" },
     { prefix: "/admin/students", title: "ทะเบียนนักเรียน", subtitle: "รายชื่อ ความคืบหน้า และสถานะนักเรียน" },

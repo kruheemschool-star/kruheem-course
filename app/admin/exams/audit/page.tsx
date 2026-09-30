@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, doc, getDoc, updateDoc, addDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useUserAuth } from "@/context/AuthContext";
 import { deriveExamLevel, type ExamLevel } from "@/lib/exam-level";
 import { isValidExamQuestion } from "@/lib/exam-utils";
@@ -14,7 +14,6 @@ import {
     Loader2,
     Wrench,
     RefreshCw,
-    FolderTree,
     ScanSearch,
 } from "lucide-react";
 
@@ -55,51 +54,11 @@ const DEFAULTS: Record<ExamLevel, { category: string; level: string }> = {
     upper: { category: "ม.1", level: "ม.1" },
 };
 
-const arraysEqual = (a: string[], b: string[]) =>
-    a.length === b.length && a.every((v, i) => v === b[i]);
-
-// Re-tag rule — identical to scripts/retag-exams.mjs (kept in sync; this is
-// the in-app, admin-authenticated path so Firestore rules permit the writes).
-function classifyExamSection(
-    title: string,
-    oldCat: string,
-    oldLvl: string,
-    oldTags: unknown
-): { category: string; level: string; tags: string[]; existing: string[] } {
-    const t = String(title || "").replace(/\n/g, " ");
-    const isEntrance =
-        /สอบเข้า\s*ม\.?\s*1/.test(t) ||
-        /เข้า\s*ม\.?\s*1/.test(t) ||
-        /gifted/i.test(t);
-    let category: string;
-    let level: string;
-    if (isEntrance) {
-        category = "สอบเข้า ม.1";
-        level = "ป.6";
-    } else if (oldLvl === "ม.1" || oldCat === "ม.ต้น") {
-        category = "ม.1";
-        level = "ม.1";
-    } else {
-        category = "ป.6";
-        level = "ป.6";
-    }
-    const existing = Array.isArray(oldTags)
-        ? (oldTags.filter((x) => typeof x === "string") as string[])
-        : [];
-    const add: string[] = [];
-    if (oldCat === "เนื้อหารายบท" || t.includes("เนื้อหารายบท")) add.push("เนื้อหารายบท");
-    if (oldCat === "แบบฝึกหัด" || t.includes("แบบฝึกหัด")) add.push("แบบฝึกหัด");
-    const tags = [...existing];
-    for (const x of add) if (!tags.includes(x)) tags.push(x);
-    return { category, level, tags, existing };
-}
-
 export default function ExamAuditPage() {
     const { isAdmin, loading: authLoading } = useUserAuth();
     const [loading, setLoading] = useState(false);
     const [rows, setRows] = useState<ExamRow[]>([]);
     const [fixing, setFixing] = useState<string | null>(null);
-    const [retagging, setRetagging] = useState(false);
 
     const load = async () => {
         setLoading(true);
@@ -279,78 +238,6 @@ export default function ExamAuditPage() {
         }
     };
 
-    // Bulk re-tag every exam into the 3 canonical sections + reconcile the
-    // examCategories list. Runs client-side as the logged-in admin, so the
-    // Firestore "admin-only write" rule permits it (a terminal script can't).
-    // Idempotent: only writes docs that actually change.
-    const retagAllSections = async () => {
-        if (
-            !confirm(
-                "⚠️ ปุ่มนี้เป็นเครื่องมือ \"รีเซ็ต\" — จะจัดข้อสอบทั้งหมดกลับเข้า 3 หมวดมาตรฐาน (สอบเข้า ม.1 / ป.6 / ม.1) และลบหมวดที่เพิ่มเองทิ้ง\nปกติให้จัดหมวดที่หน้า \"คลังข้อสอบ\" แทน ใช้ปุ่มนี้เฉพาะตอนต้องการล้างกลับค่าเริ่มต้น\nระบบแก้เฉพาะ category/level/tags — ไม่แตะโจทย์/ผู้ใช้/สิทธิ์ ดำเนินการต่อ?"
-            )
-        )
-            return;
-        setRetagging(true);
-        try {
-            const snap = await getDocs(collection(db, "exams"));
-            let wrote = 0;
-            for (const d of snap.docs) {
-                const x = d.data() as any;
-                const oldCat = (x.category || "").trim();
-                const oldLvl = (x.level || "").trim();
-                const { category, level, tags, existing } = classifyExamSection(
-                    x.title || "",
-                    oldCat,
-                    oldLvl,
-                    x.tags
-                );
-                const need =
-                    oldCat !== category ||
-                    oldLvl !== level ||
-                    !arraysEqual(existing, tags);
-                if (need) {
-                    await updateDoc(doc(db, "exams", d.id), { category, level, tags });
-                    wrote++;
-                }
-            }
-            // Reconcile examCategories → exactly the 3 sections, flagship-first.
-            const DESIRED = [
-                { name: "สอบเข้า ม.1", order: 0 },
-                { name: "ป.6", order: 1 },
-                { name: "ม.1", order: 2 },
-            ];
-            const desiredNames = new Set(DESIRED.map((c) => c.name));
-            const cs = await getDocs(collection(db, "examCategories"));
-            const existingCats = cs.docs.map((cd) => ({ id: cd.id, ...(cd.data() as any) }));
-            for (const w of DESIRED) {
-                const hit = existingCats.find((c) => c.name === w.name);
-                if (!hit) {
-                    await addDoc(collection(db, "examCategories"), {
-                        name: w.name,
-                        order: w.order,
-                        createdAt: serverTimestamp(),
-                    });
-                } else if (hit.order !== w.order || hit.createdAt == null) {
-                    const patch: any = { order: w.order };
-                    if (hit.createdAt == null) patch.createdAt = serverTimestamp();
-                    await updateDoc(doc(db, "examCategories", hit.id), patch);
-                }
-            }
-            for (const c of existingCats) {
-                if (!desiredNames.has(c.name)) {
-                    await deleteDoc(doc(db, "examCategories", c.id));
-                }
-            }
-            toast.success(`จัดระเบียบเสร็จ — อัปเดต ${wrote} ชุด + หมวด 3 หมวด`);
-            await load();
-        } catch (e: any) {
-            console.error(e);
-            toast.error("จัดระเบียบไม่สำเร็จ: " + (e?.message || ""));
-        } finally {
-            setRetagging(false);
-        }
-    };
-
     const fixAllCorrupt = async () => {
         const targets = rows.filter((r) => r.hasCorruption && !r.hasQuestionsUrl);
         if (targets.length === 0) {
@@ -407,7 +294,7 @@ export default function ExamAuditPage() {
                     {corruptionCount > 0 && (
                         <button
                             onClick={fixAllCorrupt}
-                            disabled={loading || fixing !== null || retagging}
+                            disabled={loading || fixing !== null}
                             className="kh-btn"
                             style={{ background: "linear-gradient(135deg, var(--danger), color-mix(in srgb, var(--danger) 70%, #000))" }}
                         >
@@ -416,17 +303,8 @@ export default function ExamAuditPage() {
                         </button>
                     )}
                     <button
-                        onClick={retagAllSections}
-                        disabled={loading || fixing !== null || retagging}
-                        className="kh-btn"
-                        title="จัดข้อสอบทั้งหมดเข้า 3 หมวด (สอบเข้า ม.1 / ป.6 / ม.1) และอัปเดตรายการหมวดให้ตรงกัน"
-                    >
-                        {retagging ? <Loader2 size={14} className="animate-spin" /> : <FolderTree size={14} />}
-                        {retagging ? "กำลังจัด..." : "จัดหมวดทั้งหมด"}
-                    </button>
-                    <button
                         onClick={load}
-                        disabled={loading || retagging}
+                        disabled={loading}
                         className="kh-btn-ghost"
                     >
                         <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
