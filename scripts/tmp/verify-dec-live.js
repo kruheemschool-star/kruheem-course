@@ -1,0 +1,20 @@
+const admin = require('firebase-admin');
+const path = require('path');
+const sa = require(path.resolve(__dirname, '../seed-gifted-m1/serviceAccountKey.json'));
+admin.initializeApp({ credential: admin.credential.cert(sa) });
+const db = admin.firestore();
+(async () => {
+  const col = db.collection('courses').doc('fhoc1u2JT8WghFHapzx8').collection('lessons');
+  const idx = (await col.doc('_index').get()).data();
+  const items = (idx.items || []).filter(x => x.type === 'html');
+  console.log('สารบัญ _index — บท html:');
+  items.forEach(x => console.log(`  order ${x.order} | ${x.title} | questionCount=${x.questionCount ?? '-'}`));
+  const snap = await col.where('title', '==', 'แนวข้อสอบ: ทศนิยม').get();
+  const d = snap.docs[0];
+  const qs = JSON.parse(d.data().content);
+  console.log(`\nบทเรียน [${d.id}] · ${qs.length} ข้อ · id 1..${qs[qs.length-1].id}`);
+  console.log('ข้อ 1:', qs[0].question.slice(0, 60));
+  console.log('ข้อ 200:', qs[199].question.slice(0, 60));
+  console.log('tags ข้อ 200:', JSON.stringify(qs[199].tags));
+  process.exit(0);
+})().catch(e => { console.error(e); process.exit(1); });

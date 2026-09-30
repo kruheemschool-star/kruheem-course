@@ -1,0 +1,24 @@
+import { readFileSync, writeFileSync } from 'fs';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+const env = {};
+for (const line of readFileSync('.env.local','utf8').split('\n')) { const m=line.match(/^([A-Z0-9_]+)=(.*)$/); if(m) env[m[1]]=m[2].replace(/^["']|["']$/g,''); }
+const app = initializeApp({ apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY, authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID });
+const db = getFirestore(app);
+const id = process.argv[2];
+const s = await getDoc(doc(db,'exams',id));
+const d = s.data();
+writeFileSync(`scripts/tmp/exam-${id}.json`, JSON.stringify(d,null,1));
+const { questions, ...meta } = d;
+console.log('META:', JSON.stringify(meta, null, 1).slice(0,900));
+console.log('\nจำนวนข้อ:', questions.length);
+const norm = x => String(x).replace(/[0-9๐-๙,\.]+/g,'#').replace(/\s+/g,' ').trim();
+const m = new Map();
+questions.forEach((q,i)=>{ const k=norm(q.question); if(!m.has(k)) m.set(k,[]); m.get(k).push(i+1); });
+console.log('\nโครงโจทย์ที่ซ้ำเกิน 5 ข้อ:');
+[...m.entries()].filter(([,v])=>v.length>=5).sort((a,b)=>b[1].length-a[1].length).forEach(([k,v])=>console.log(` ${String(v.length).padStart(3)} ข้อ (ข้อ ${v[0]}-${v[v.length-1]}) | ${k.slice(0,110)}`));
+console.log('\nตัวอย่างโจทย์:');
+[1,40,66,100,131,160,191,220,250].forEach(n=>{const q=questions[n-1]; if(q) console.log(` ${n}. ${q.question.slice(0,120)}\n     ตัวเลือก: ${q.options.join(' | ').slice(0,90)} → ถูกข้อ ${q.correctIndex+1}`);});
+console.log('\nเฉลยตัวอย่าง (ข้อ 75):\n', questions[74].explanation.slice(0,400));
+console.log('\nมี tags:', questions.filter(q=>q.tags&&q.tags.length).length, '| distractorErrors:', questions.filter(q=>q.distractorErrors).length, '| expectedSeconds:', questions.filter(q=>q.expectedSeconds).length);
+process.exit(0);
