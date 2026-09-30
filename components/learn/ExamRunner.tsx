@@ -17,6 +17,7 @@ import {
     getQuestionKey,
     accumulateTopicStats,
     isDiagnosticExam,
+    isWeaknessScanSet,
     buildDiagnosticBreakdown,
     sampleDiagnosticQuiz,
     computeRepairShop,
@@ -993,7 +994,8 @@ export const ExamRunner: React.FC<ExamRunnerProps> = ({ questions: initialQuesti
         const repairShop = computeRepairShop(
             questions.map((q, idx) => ({ tags: extractQuestionTags(q), answered: answers[idx] !== undefined, isCorrect: isAnswerCorrect(q, answers[idx]) })),
             score, scoreDenom, isDiag);
-        const timeSinks = (!isDiag && hasTiming) ? computeTimeSinks(perQ, paceTarget) : { sinks: [], totalSinkSeconds: 0, unansweredCount: 0 };
+        // หลุมเวลาซ่อนเฉพาะชุดสแกนจุดอ่อน (ตัดสินจากชื่อ) — ชุดในคอร์สที่มีแท็ก 4 มิติยังเห็นครบ
+        const timeSinks = (!isWeaknessScanSet(lessonTitle) && hasTiming) ? computeTimeSinks(perQ, paceTarget) : { sinks: [], totalSinkSeconds: 0, unansweredCount: 0 };
         const errorProfile = hasTiming ? computeErrorProfile(perQ, paceTarget) : null;
 
         const reviewList = perQ.filter((p) =>

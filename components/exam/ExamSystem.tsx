@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { ExamQuestion } from '@/types/exam';
-import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz, isFillQuestion, isFillCorrect, computeRepairShop, computeTimeSinks, computeErrorProfile } from '@/lib/exam-utils';
+import { sanitizeExamData, formatDuration, getTimeVerdict, getCombinedVerdict, getCountdownState, getPaceStatus, getProficiencyLevel, percentileFromBuckets, DEFAULT_RECOMMENDED_SECONDS_PER_QUESTION, isDiagnosticExam, isWeaknessScanSet, buildDiagnosticBreakdown, classifyDiagnosticTag, extractQuestionTags, accumulateTopicStats, getQuestionKey, sampleDiagnosticQuiz, isFillQuestion, isFillCorrect, computeRepairShop, computeTimeSinks, computeErrorProfile } from '@/lib/exam-utils';
 import { roundPercentileForN } from '@/lib/stat-honesty';
 import { QuestionCard } from './QuestionCard';
 import { AnalysisPreview, AnalysisPreviewLastResult } from './AnalysisPreview';
@@ -996,6 +996,9 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
         // screen shows a clean per-สาระ radar plus separate ทักษะ / ชั้นต้นทาง
         // breakdowns and a CTA into the full paid bank. Normal exams stay untouched.
         const isDiagnostic = isDiagnosticExam(rSlice);
+        // ชุดสแกนจุดอ่อนตัวจริง (7 ชุดฟรี) — ซ่อนการ์ดเรื่องเวลา + ใช้การ์ดชวนสมัครของตัวเอง
+        // ชุดปกติที่มีแท็ก 4 มิติได้ทั้งการวิเคราะห์ 4 มุม และการ์ดเรื่องเวลา
+        const isScanSet = isWeaknessScanSet(examTitle);
 
         // Identify the topics (tags) the student answered worst on.
         // Per-tag: count attempts on that tag + wrong attempts. A tag is
@@ -1072,7 +1075,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                 finalScore.score, finalScore.total, isDiagnostic)
             : { items: [], projectedLow: 0, projectedHigh: 0 };
         // === 🕳️ หลุมเวลา (เฟส 1) — เฉพาะรอบจับเวลาที่มีข้อมูลเวลา ===
-        const timeSinks = (!isDiagnostic && hasTimingData)
+        const timeSinks = (!isScanSet && hasTimingData)
             ? computeTimeSinks(perQuestionTiming, paceTarget)
             : { sinks: [], totalSinkSeconds: 0, unansweredCount: 0 };
         const errorProfile = hasTimingData ? computeErrorProfile(perQuestionTiming, paceTarget) : null;
@@ -1396,7 +1399,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
 
                             {/* ⏱️ Pacing Analysis Overview — hidden on สแกนจุดอ่อน sets
                                 (diagnostic results focus on the 4-angle weakness map, not timing) */}
-                            {!isDiagnostic && hasTimingData && (
+                            {!isScanSet && hasTimingData && (
                                 <div className="mb-10 rounded-3xl border border-indigo-100 dark:border-slate-700 bg-gradient-to-br from-indigo-50/60 to-white dark:from-slate-800 dark:to-slate-800/40 p-6 md:p-8">
                                     <div className="flex items-start gap-4 mb-5">
                                         <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-300/50 dark:shadow-indigo-900/50">
@@ -1429,7 +1432,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                             )}
 
                             {/* ⏱️ Per-question time bar chart — hidden on สแกนจุดอ่อน sets */}
-                            {!isDiagnostic && hasTimingData && (() => {
+                            {!isScanSet && hasTimingData && (() => {
                                 const maxSec = Math.max(paceTarget, ...perQuestionTiming.map(p => p.seconds), 1);
                                 const targetLeft = Math.min(100, (paceTarget / maxSec) * 100);
                                 return (
@@ -1478,7 +1481,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                         เดิมเช็ค isTrial จึงโผล่เฉพาะชุดที่ต้องจ่าย คนทำ "ชุดฟรี" จนจบ
                         ไม่เคยเห็นเลย. เปลี่ยนเป็น canBuy = ทุกคนที่ยังไม่ได้ซื้อ
                         (เว้นชุดสแกนจุดอ่อน ซึ่งมีป้ายชวนของตัวเองอยู่ข้างล่างแล้ว) */}
-                    {canBuy && !isDiagnostic && (
+                    {canBuy && !isScanSet && (
                         <div className="mb-10 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 dark:from-amber-900/40 dark:via-orange-900/20 dark:to-rose-900/10 border border-amber-200 dark:border-amber-700/50 rounded-3xl p-8 text-center shadow-lg animate-in zoom-in relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-amber-200/30 rounded-full blur-3xl -mr-10 -mt-10"></div>
                             <h3 className="text-2xl font-black text-amber-800 dark:text-amber-400 mb-3">ปลดล็อกข้อสอบทั้งหมด แล้วเก่งขึ้นแบบก้าวกระโดด!</h3>
@@ -1568,7 +1571,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     {/* 🎯 Diagnostic funnel CTA → full paid bank (เฉพาะคนที่ยังไม่ได้ซื้อ)
                         เดิมเช็ค !isTrial — ชุดสแกนจุดอ่อนเป็นชุดฟรี isTrial จึง false
                         เสมอ สมาชิกที่จ่ายเงินแล้วเลยโดนชวน "สมัครคลังข้อสอบเต็ม" ซ้ำ */}
-                    {isDiagnostic && canBuy && (
+                    {isScanSet && canBuy && (
                         <div className="mt-6 mb-2 rounded-3xl border-2 border-indigo-200 dark:border-indigo-700/50 bg-gradient-to-br from-indigo-50 via-violet-50 to-white dark:from-indigo-900/30 dark:via-violet-900/20 dark:to-slate-800/40 p-8 text-center shadow-lg relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200/30 rounded-full blur-3xl -mr-10 -mt-10"></div>
                             <div className="text-4xl mb-3">🎯</div>
@@ -1588,7 +1591,7 @@ export const ExamSystem: React.FC<ExamSystemProps> = ({ examData, examTitle, exa
                     )}
 
                     {/* ⏱️ Questions to review (timing) — hidden on สแกนจุดอ่อน sets */}
-                    {!isDiagnostic && showAnswerChecking && reviewQuestions.length > 0 && (
+                    {!isScanSet && showAnswerChecking && reviewQuestions.length > 0 && (
                         <div className="mt-2 rounded-3xl border border-rose-100 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-900/10 p-6 md:p-8">
                             <h3 className="text-lg md:text-xl font-black text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2">
                                 <Clock size={20} className="text-rose-500" /> ข้อที่ควรทบทวน (เรื่องเวลา)

@@ -806,6 +806,14 @@ export const isDiagnosticExam = (questions: { tags?: string[] }[]): boolean => {
     return shaped / tagged.length >= 0.6;
 };
 
+/**
+ * ชุด "สแกนจุดอ่อน" (ชุดฟรี 24 ข้อต่อชั้น 7 ชุด) — ระบุจากชื่อชุดตรงๆ
+ * ตั้งแต่ติดแท็ก 4 มิติครบทั้งคลัง (27 ส.ค. 69) ทุกชุดมีรูปแท็กแบบเดียวกับชุดสแกน
+ * isDiagnosticExam() จึงเป็นจริงทุกชุด ใช้ตัวนั้นตัดสินแค่ "มุมมองวิเคราะห์ 4 มุม"
+ * ส่วนการซ่อนการ์ดเรื่องเวลาและสลับการ์ดชวนซื้อ ใช้ตัวนี้ (ครูเลือกให้ชุดปกติมีทั้งสองแบบ)
+ */
+export const isWeaknessScanSet = (title?: string | null): boolean => /สแกนจุดอ่อน/.test(title || '');
+
 export interface DiagStat { tag: string; correct: number; total: number; percent: number; }
 export interface DiagnosticBreakdown { topics: DiagStat[]; skills: DiagStat[]; origins: DiagStat[]; levels: DiagStat[]; }
 
