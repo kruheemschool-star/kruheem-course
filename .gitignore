@@ -67,3 +67,6 @@ scripts/exam-maintenance/optfmt/backup/
 scripts/exam-maintenance/answerfix/backup/
 
 scripts/exam-maintenance/rebalance/backup/
+
+# ข้อมูลรายนักเรียน (uid + คะแนน) ห้ามขึ้น git — เก็บในเครื่องเท่านั้น
+scripts/exam-maintenance/**/impact-*.json
