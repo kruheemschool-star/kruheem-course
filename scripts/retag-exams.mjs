@@ -3,10 +3,11 @@
 // table and makes NO writes. Use this to INSPECT/VERIFY only.
 //
 // NOTE: `--apply` is intentionally blocked by Firestore security rules
-// (exams = admin-only write); a terminal script is unauthenticated. To
-// actually perform the migration, click "จัดหมวดทั้งหมด" on
-// /admin/exams/audit while logged in as admin (same logic, runs as admin).
-// After running that button, this dry-run should report all UNCHANGED.
+// (exams = admin-only write); a terminal script is unauthenticated.
+// The in-app "จัดหมวดทั้งหมด" button was REMOVED on purpose (510e115, audit
+// 2026-09-30): the 3-section reset would move every ม.2-ม.6 set into ป.6 and
+// delete the other categories. Treat this script as inspect-only; manage
+// categories per exam on /admin/exams.
 //
 //   node scripts/retag-exams.mjs            # dry-run (safe, read-only)
 //   node scripts/retag-exams.mjs --apply    # perform the writes

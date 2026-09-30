@@ -8,6 +8,8 @@ interface ConfirmConfig {
     message: React.ReactNode;
     isDanger?: boolean;
     onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
 }
 
 export function useConfirmModal() {
@@ -22,9 +24,11 @@ export function useConfirmModal() {
         title: string,
         message: React.ReactNode,
         onConfirm: () => void,
-        isDanger: boolean = false
+        isDanger: boolean = false,
+        // ป้ายปุ่ม (ไม่ใส่ = "ยืนยัน"/"ยกเลิก" ตามเดิม) — ใช้กับกล่องแจ้งเตือนที่ไม่มีอะไรให้ยืนยัน
+        labels?: { confirmText?: string; cancelText?: string }
     ) => {
-        setConfig({ title, message, onConfirm, isDanger });
+        setConfig({ title, message, onConfirm, isDanger, ...labels });
         setIsOpen(true);
     }, []);
 
@@ -45,6 +49,8 @@ export function useConfirmModal() {
             onConfirm={handleConfirm}
             onCancel={handleCancel}
             isDanger={config.isDanger}
+            confirmText={config.confirmText}
+            cancelText={config.cancelText}
         />
     );
 
