@@ -56,3 +56,7 @@ export const HOME_COURSES_HREF = SHOW_DESK_HOME ? "/classic#courses" : "/#course
 
 /** ปลายทางปุ่มสมัครคลังข้อสอบทุกจุด (คนยังไม่ล็อกอินจะถูกส่งไป /login แล้วเด้งกลับมาเอง) */
 export const EXAM_BANK_BUY_HREF = "/payment?course=vip";
+
+/** ไลน์หลักของครูฮีม (ครูยืนยัน 30 ก.ย. 69) — ทุกปุ่ม/ลิงก์/ข้อความไลน์ในเว็บใช้ค่านี้ เปลี่ยนที่นี่ที่เดียว */
+export const LINE_ID = "@kruheem";
+export const LINE_URL = "https://line.me/R/ti/p/@kruheem";

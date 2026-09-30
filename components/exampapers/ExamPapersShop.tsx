@@ -9,8 +9,8 @@ import type { ExamCountdown } from "@/lib/examCountdown";
 import KruheemTrustStrip from "@/components/exampapers/KruheemTrustStrip";
 import PaperReviews from "@/components/exampapers/PaperReviews";
 import ExamDateStrip from "@/components/exampapers/ExamDateStrip";
+import { LINE_URL } from "@/lib/constants";
 
-const LINE_URL = "https://line.me/ti/p/~kruheemschool";
 
 // ชั้นวางจะโชว์ชิปกรองระดับชั้นก็ต่อเมื่อของเยอะพอที่จะต้องกรองจริง ๆ —
 // ร้านที่มีสินค้า 2 ชุดแต่มีตัวกรอง 2 แถวอ่านแล้วเหมือนร้านยังไม่เปิด

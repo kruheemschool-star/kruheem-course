@@ -1,6 +1,6 @@
 import { ShieldCheck, MessageCircle, Star, Users } from "lucide-react";
+import { LINE_URL } from "@/lib/constants";
 
-const LINE_URL = "https://line.me/ti/p/~kruheemschool";
 
 /**
  * แถบ "ซื้อจากใคร" ของร้านข้อสอบ PDF

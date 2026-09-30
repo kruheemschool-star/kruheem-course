@@ -14,6 +14,7 @@ import { Settings, ArrowLeft, Star, Copy, Gift, X, CheckCircle, BookOpen, BarCha
 import { useInAppBrowser } from "@/lib/inAppBrowser";
 import { withTimeout } from "@/lib/netGuard";
 import ReviewForm from "@/app/reviews/ReviewForm";
+import { LINE_URL } from "@/lib/constants";
 
 /* ============================================================
    "Dot Pop" design system (spec §2–§6 + Dark-Mode spec).
@@ -848,7 +849,7 @@ function MyPapersSection({ c, isDark }: { c: Pal; isDark: boolean }) {
                                             สลิปอาจไม่ชัดหรือข้อมูลไม่ครบ — ทักไลน์ครูฮีมได้เลย เดี๋ยวช่วยตรวจให้ครับ
                                         </p>
                                         <a
-                                            href="https://line.me/ti/p/~kruheemschool"
+                                            href={LINE_URL}
                                             target="_blank"
                                             rel="noreferrer"
                                             className="mt-1.5 inline-flex items-center gap-1.5 text-[13px] font-semibold underline underline-offset-2"

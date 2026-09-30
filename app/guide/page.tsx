@@ -17,6 +17,7 @@ import {
     Star, FileText, NotebookPen, Users, Palette, Lightbulb,
     Facebook, MessageCircle, Mail, Sparkles,
 } from "lucide-react";
+import { LINE_ID, LINE_URL } from "@/lib/constants";
 
 // ── building blocks ───────────────────────────────────────────────────
 function Step({ n, title, children }: { n: number; title: string; children?: React.ReactNode }) {
@@ -336,7 +337,7 @@ export default function GuideV2() {
                         <p className="gd-contact-h">มีคำถาม? ทักครูฮีมได้เลย 💬</p>
                         <div className="gd-contact-row">
                             <a href="https://www.facebook.com/kruheem.math/" target="_blank" rel="noopener noreferrer" className="gd-contact-b fb"><Facebook size={15} /> Facebook: ครูฮีม</a>
-                            <a href="https://line.me/ti/p/~kruheemschool" target="_blank" rel="noopener noreferrer" className="gd-contact-b ln"><MessageCircle size={15} /> LINE: @kruheemschool</a>
+                            <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="gd-contact-b ln"><MessageCircle size={15} /> LINE: {LINE_ID}</a>
                             <a href="mailto:kruheemschool@gmail.com" className="gd-contact-b ml"><Mail size={15} /> kruheemschool@gmail.com</a>
                         </div>
                     </div>

@@ -8,11 +8,10 @@ import Footer from "@/components/Footer";
 import Link from "next/link";
 import { Star, Quote, Clock, BookOpen, ThumbsUp, BadgeCheck, Search, EyeOff, Eye, Trash2, Rocket, MessageCircle } from "lucide-react";
 import { useUserAuth } from "@/context/AuthContext";
-import { HOME_COURSES_HREF } from "@/lib/constants";
+import { HOME_COURSES_HREF, LINE_URL } from "@/lib/constants";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
 
 // LINE consult link (matches Footer / guide page)
-const LINE_URL = "https://line.me/ti/p/~kruheemschool";
 
 interface Review {
     id: string;

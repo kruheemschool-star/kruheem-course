@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Plus, Minus, HelpCircle, MessageCircle, CheckCircle2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { HOME_COURSES_HREF } from "@/lib/constants";
+import { HOME_COURSES_HREF, LINE_URL } from "@/lib/constants";
 
 const faqs = [
     {
@@ -154,7 +154,7 @@ export default function FAQPage() {
                                     <CheckCircle2 size={20} />
                                     สมัครเรียนเลย
                                 </Link>
-                                <a href="https://line.me/ti/p/~@kruheem" target="_blank" rel="noreferrer" className="px-8 py-4 bg-indigo-500/30 border border-white/30 text-white rounded-xl font-bold text-lg backdrop-blur-sm hover:bg-indigo-500/50 transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                                <a href={LINE_URL} target="_blank" rel="noreferrer" className="px-8 py-4 bg-indigo-500/30 border border-white/30 text-white rounded-xl font-bold text-lg backdrop-blur-sm hover:bg-indigo-500/50 transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
                                     <MessageCircle size={20} />
                                     ทักแชทสอบถาม
                                 </a>

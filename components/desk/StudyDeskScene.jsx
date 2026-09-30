@@ -14,6 +14,7 @@ import { buildCat as buildCatArt } from "./catArt";
 import { buildArt as buildGameArt } from "../game/zombieRunArt";
 import { ZombieRunEngine } from "../game/zombieRunEngine";
 import { ZrAudio } from "../game/zombieRunAudio";
+import { LINE_ID, LINE_URL } from "@/lib/constants";
 
 const HOVER_CSS = ".khd-h0:hover{color:var(--chipInk) !important;transform:translateY(-1px) !important}\n.khd-h1:hover{transform:scale(1.06) !important}\n.khd-h2:hover{transform:rotate(-15deg) scale(1.06) !important}\n.khd-h3:hover{color:#b45309 !important}\n.khd-h4:hover{color:#fff !important}\n.khd-h5:hover{color:#0f172a !important}\n.khd-h6:hover{background:rgba(15,23,42,.9) !important}\n.khd-h7:hover{background:#e2e8f0 !important}\n.khd-h8:hover{border-color:#94a3b8 !important}\n.khd-h9:hover{color:#1e293b !important;transform:translateY(-3px) !important}\n.khd-h10:hover{color:#0f172a !important;transform:translateY(-3px) !important}\n.khd-h11:hover{transform:translateY(-3px) !important}\n.khd-h12:hover{color:#0d9488 !important}";
 
@@ -2384,9 +2385,9 @@ class StudyDeskScene extends React.Component {
                     <span style={css(`font-size:13px;color:#475569`)}>มีคำถามเรื่องคอร์สหรือการสมัคร ทักมาได้เลยครับ</span>
                   </div>
                 </div>
-                  <a href="https://line.me/ti/p/~kruheemschool" target="_blank" rel="noreferrer" style={css(`display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:20px;background:#fff;border:1px solid #f1f5f9;box-shadow:0 5px 0 #efe9da;color:#0f172a;transition:transform .25s`)} className="khd-h10">
+                  <a href={LINE_URL} target="_blank" rel="noreferrer" style={css(`display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:20px;background:#fff;border:1px solid #f1f5f9;box-shadow:0 5px 0 #efe9da;color:#0f172a;transition:transform .25s`)} className="khd-h10">
                     <span style={css(`flex:none;width:44px;height:44px;border-radius:14px;background:#06c755;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px`)}>LINE</span>
-                    <span style={css(`flex:1;min-width:0;display:flex;flex-direction:column;gap:1px`)}><span style={css(`font-size:16px;font-weight:700`)}>LINE</span><span style={css(`font-size:13px;color:#64748b`)}>~kruheemschool</span></span>
+                    <span style={css(`flex:1;min-width:0;display:flex;flex-direction:column;gap:1px`)}><span style={css(`font-size:16px;font-weight:700`)}>LINE</span><span style={css(`font-size:13px;color:#64748b`)}>{LINE_ID}</span></span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                   </a>
                   <a href="https://www.facebook.com/kruheem.math/" target="_blank" rel="noreferrer" style={css(`display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:20px;background:#fff;border:1px solid #f1f5f9;box-shadow:0 5px 0 #efe9da;color:#0f172a;transition:transform .25s`)} className="khd-h10">

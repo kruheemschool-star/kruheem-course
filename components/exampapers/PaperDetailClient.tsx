@@ -20,8 +20,8 @@ import KruheemTrustStrip from "@/components/exampapers/KruheemTrustStrip";
 import PaperReviews from "@/components/exampapers/PaperReviews";
 import type { TrustReview } from "@/lib/paperTrust";
 import PaymentTransferInfo from "@/components/payment/PaymentTransferInfo";
+import { LINE_URL } from "@/lib/constants";
 
-const LINE_URL = "https://line.me/ti/p/~kruheemschool";
 
 const PHONE_RE = /^[0-9]{9,10}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -480,7 +480,7 @@ export default function PaperDetailClient({
                                 <Link href="/my-courses" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[13px] font-bold px-3.5 py-2 transition">
                                     <Download size={15} /> ไปหน้าดาวน์โหลด
                                 </Link>
-                                <a href="https://line.me/ti/p/~kruheemschool" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200 text-[13px] font-bold px-3.5 py-2 transition hover:bg-amber-100 dark:hover:bg-slate-700">
+                                <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200 text-[13px] font-bold px-3.5 py-2 transition hover:bg-amber-100 dark:hover:bg-slate-700">
                                     ทัก LINE ครูฮีม
                                 </a>
                             </div>
@@ -588,7 +588,7 @@ export default function PaperDetailClient({
                     <div>
                         <div className="font-bold text-slate-800 dark:text-slate-100">ติดปัญหาติดต่อที่ไหน?</div>
                         <p className="text-slate-600 dark:text-slate-300 mt-1">
-                            ทัก <a href="https://line.me/ti/p/~kruheemschool" target="_blank" rel="noopener noreferrer" className="font-semibold text-teal-600 dark:text-teal-400 underline">LINE ครูฮีม</a> ได้เลยครับ ครูตอบเองทุกข้อความ
+                            ทัก <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-teal-600 dark:text-teal-400 underline">LINE ครูฮีม</a> ได้เลยครับ ครูตอบเองทุกข้อความ
                         </p>
                     </div>
                 </div>

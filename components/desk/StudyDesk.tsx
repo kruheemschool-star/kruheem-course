@@ -11,6 +11,7 @@ import { fetchLessonsIndex } from "@/lib/lessonsIndex";
 import { DEFAULT_COUNTDOWN } from "@/components/home/ExamCountdownHero";
 import type { DeskHomeData } from "@/lib/deskHomeData";
 import DeskLoader, { type DeskLoadStage } from "./DeskLoader";
+import { LINE_URL } from "@/lib/constants";
 
 // ตัวครอบหน้า "โต๊ะเรียน 3 มิติ" — ฉาก three.js โหลดฝั่งเครื่องผู้ใช้เท่านั้น (ssr:false)
 // จึงไม่ลากไลบรารี 3 มิติเข้าหน้าอื่น ส่วนนี้เตรียมข้อมูลจริงให้ฉาก:
@@ -161,7 +162,7 @@ function DeskSeo({ data }: { data: DeskHomeData }) {
           <li><a tabIndex={-1} href="/payment">แจ้งโอน</a></li>
           <li><a tabIndex={-1} href="/faq">คำถามที่พบบ่อย</a></li>
           <li><a tabIndex={-1} href="/game">เกมพักสมอง ครูฮีม หนีซอมบี้!</a></li>
-          <li><a tabIndex={-1} href="https://line.me/ti/p/~kruheemschool">ติดต่อครูฮีมทาง LINE</a></li>
+          <li><a tabIndex={-1} href={LINE_URL}>ติดต่อครูฮีมทาง LINE</a></li>
         </ul>
       </nav>
     </div>

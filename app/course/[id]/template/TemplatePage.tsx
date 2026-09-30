@@ -10,6 +10,7 @@ import KhThemeChrome from "./KhThemeChrome";
 import StickyCTA from "./boosters/StickyCTA";
 import SocialProofToast from "./boosters/SocialProofToast";
 import ExitIntentPopup from "./boosters/ExitIntentPopup";
+import { LINE_ID } from "@/lib/constants";
 
 interface Props {
     config: SalesPageConfig;
@@ -193,7 +194,7 @@ export default function TemplatePage({
                         <span className="text-xl shrink-0">🔜</span>
                         <p className="text-sm font-medium leading-snug">
                             คอร์สนี้กำลังจะเปิด <b>เร็ว ๆ นี้</b> — ยังไม่เปิดจำหน่าย<br />
-                            ติดตามได้ทาง LINE <b>@kruheemschool</b> ครับ
+                            ติดตามได้ทาง LINE <b>{LINE_ID}</b> ครับ
                         </p>
                     </div>
                 </div>
