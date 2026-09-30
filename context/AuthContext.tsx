@@ -260,7 +260,12 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
                 // If inactive > 30 mins -> Start New Session
                 if (lastActiveTime === 0 || diff > SESSION_TIMEOUT) {
                     updateData.sessionStart = serverTimestamp();
-                    updateData.displayName = user.displayName || '';
+                    // เติมชื่อจากบัญชี Google เฉพาะตอนโปรไฟล์ยังไม่มีชื่อ ห้ามเขียนทับ —
+                    // บัญชีอีเมลไม่มี displayName ใน Auth เดิมบรรทัดนี้เขียน '' ทับชื่อที่กรอก
+                    // ตอนแจ้งโอนหรือที่ครูตั้งให้ในหลังบ้าน ทุกครั้งที่กลับมาเข้าเว็บ
+                    if (!data?.displayName && user.displayName) {
+                        updateData.displayName = user.displayName;
+                    }
                 }
 
                 // Update once on initial load
