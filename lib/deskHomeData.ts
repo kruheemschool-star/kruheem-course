@@ -1,6 +1,8 @@
 import { listCollection, type FsDoc } from "@/lib/firestoreRest";
 import { getHomeCountdown } from "@/lib/homeCountdown";
 import type { CountdownConfig } from "@/components/home/ExamCountdownHero";
+import { listPublicExamPapers } from "@/lib/examPapers";
+import { SHOW_EXAM_PAPERS_SHOP } from "@/lib/constants";
 
 // ข้อมูลจริงของหน้า "โต๊ะเรียน 3 มิติ" (components/desk) — ต้นแบบจากครูฮีมใส่ข้อมูลสมมติ
 // (คอร์ส ราคา รีวิวชื่อสมมติ วันสอบ) ไว้ในโค้ด ที่นี่แทนด้วยของจริงทั้งหมด
@@ -11,15 +13,17 @@ import type { CountdownConfig } from "@/components/home/ExamCountdownHero";
 //   courses   ↔ app/api/home-courses   · reviews ↔ app/api/home-reviews
 //   exams     ↔ app/exam/page.tsx      · summaries ↔ app/summary/page.tsx
 //   posts     ↔ app/blog/page.tsx      · countdown ↔ lib/homeCountdown (settings)
+//   examPapers ↔ app/exam-papers/page.tsx (ผ่าน listPublicExamPapers ตัวเดียวกัน)
 
 export type DeskCourse = { id: string; title: string; desc: string; price: number; fullPrice: number; href: string };
 export type DeskReview = { id: string; q: string; t: string; n: string; nShort: string; c: string; stars: number };
-export type DeskFeatItem = { t: string; href: string };
+// p = ป้ายราคาท้ายแถว (ใช้แค่แผงข้อสอบ PDF)
+export type DeskFeatItem = { t: string; href: string; p?: string };
 export type DeskHomeData = {
   cats: string[];
   coursesByCat: Record<string, DeskCourse[]>;
   reviews: DeskReview[];
-  feat: { exams: DeskFeatItem[]; summary: DeskFeatItem[]; tips: DeskFeatItem[] };
+  feat: { exams: DeskFeatItem[]; summary: DeskFeatItem[]; tips: DeskFeatItem[]; papers: DeskFeatItem[] };
   countdown: Partial<CountdownConfig> | null;
 };
 
@@ -138,7 +142,7 @@ function pickReviews(docs: FsDoc[]): DeskReview[] {
 }
 
 export async function getDeskHomeData(): Promise<DeskHomeData> {
-  const [courseDocs, reviewDocs, examDocs, summaryDocs, postDocs, countdown] = await Promise.all([
+  const [courseDocs, reviewDocs, examDocs, summaryDocs, postDocs, countdown, paperDocs] = await Promise.all([
     safeList("courses", ["title", "desc", "category", "image", "price", "fullPrice", "keywords"], { revalidate: 900 }),
     safeList("reviews", ["userName", "userPhoto", "rating", "comment", "courseName", "isHidden", "createdAt"], { revalidate: 900 }),
     safeList("exams", [
@@ -152,6 +156,8 @@ export async function getDeskHomeData(): Promise<DeskHomeData> {
     ], { revalidate: 3600, tags: ["summaries-feed"] }),
     safeList("posts", ["title", "slug", "coverImage", "status", "createdAt"], { revalidate: 3600, tags: ["posts-feed"] }),
     getHomeCountdown(),
+    // ร้านข้อสอบ PDF ปิดอยู่ = ไม่อ่านเลย (สวิตช์เดียวกับเมนู/เครื่องปริ้นท์บนโต๊ะ)
+    SHOW_EXAM_PAPERS_SHOP ? listPublicExamPapers() : Promise.resolve([]),
   ]);
 
   // ----- คอร์ส (จัดกลุ่ม/เรียงแบบเดียวกับ HomeClient) -----
@@ -193,5 +199,15 @@ export async function getDeskHomeData(): Promise<DeskHomeData> {
     .slice(0, 3)
     .map((d) => ({ t: oneLine(d.title), href: `/blog/${d.slug}` }));
 
-  return { cats, coursesByCat, reviews: pickReviews(reviewDocs), feat: { exams, summary, tips }, countdown };
+  // ชุด PDF ตามลำดับหน้าร้าน — ชุด "เร็วๆ นี้" กดเข้าหน้าขายไม่ได้ จึงพาไปหน้าร้านแทน
+  const papers = paperDocs
+    .filter((d) => oneLine(d.title))
+    .slice(0, 4)
+    .map((d) => ({
+      t: oneLine(d.title),
+      href: d.comingSoon ? "/exam-papers" : `/exam-papers/${d.id}`,
+      p: d.comingSoon ? "เร็วๆ นี้" : d.price > 0 ? `฿${d.price.toLocaleString("en-US")}` : "ฟรี",
+    }));
+
+  return { cats, coursesByCat, reviews: pickReviews(reviewDocs), feat: { exams, summary, tips, papers }, countdown };
 }

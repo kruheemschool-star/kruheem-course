@@ -11,7 +11,7 @@ import { fetchLessonsIndex } from "@/lib/lessonsIndex";
 import { DEFAULT_COUNTDOWN } from "@/components/home/ExamCountdownHero";
 import type { DeskHomeData } from "@/lib/deskHomeData";
 import DeskLoader, { type DeskLoadStage } from "./DeskLoader";
-import { LINE_URL } from "@/lib/constants";
+import { LINE_URL, SHOW_EXAM_PAPERS_SHOP } from "@/lib/constants";
 
 // ตัวครอบหน้า "โต๊ะเรียน 3 มิติ" — ฉาก three.js โหลดฝั่งเครื่องผู้ใช้เท่านั้น (ssr:false)
 // จึงไม่ลากไลบรารี 3 มิติเข้าหน้าอื่น ส่วนนี้เตรียมข้อมูลจริงให้ฉาก:
@@ -136,6 +136,7 @@ function DeskSeo({ data }: { data: DeskHomeData }) {
     ["คลังข้อสอบ", "/exam", data.feat.exams],
     ["สรุปเนื้อหา", "/summary", data.feat.summary],
     ["เทคนิคการเรียน", "/blog", data.feat.tips],
+    ...(SHOW_EXAM_PAPERS_SHOP ? [["ข้อสอบ PDF", "/exam-papers", data.feat.papers] as [string, string, { t: string; href: string }[]]] : []),
   ];
   return (
     <div style={SR_ONLY}>

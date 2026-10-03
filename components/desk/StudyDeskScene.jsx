@@ -14,7 +14,7 @@ import { buildCat as buildCatArt } from "./catArt";
 import { buildArt as buildGameArt } from "../game/zombieRunArt";
 import { ZombieRunEngine } from "../game/zombieRunEngine";
 import { ZrAudio } from "../game/zombieRunAudio";
-import { LINE_ID, LINE_URL } from "@/lib/constants";
+import { LINE_ID, LINE_URL, SHOW_EXAM_PAPERS_SHOP } from "@/lib/constants";
 
 const HOVER_CSS = ".khd-h0:hover{color:var(--chipInk) !important;transform:translateY(-1px) !important}\n.khd-h1:hover{transform:scale(1.06) !important}\n.khd-h2:hover{transform:rotate(-15deg) scale(1.06) !important}\n.khd-h3:hover{color:#b45309 !important}\n.khd-h4:hover{color:#fff !important}\n.khd-h5:hover{color:#0f172a !important}\n.khd-h6:hover{background:rgba(15,23,42,.9) !important}\n.khd-h7:hover{background:#e2e8f0 !important}\n.khd-h8:hover{border-color:#94a3b8 !important}\n.khd-h9:hover{color:#1e293b !important;transform:translateY(-3px) !important}\n.khd-h10:hover{color:#0f172a !important;transform:translateY(-3px) !important}\n.khd-h11:hover{transform:translateY(-3px) !important}\n.khd-h12:hover{color:#0d9488 !important}";
 
@@ -26,6 +26,8 @@ class StudyDeskScene extends React.Component {
   MENU_ALL = [
     { k: 'courses', t: 'คอร์สเรียน', o: 'ตั้งหนังสือคอร์ส', d: 'เลือกคอร์สตามระดับชั้น เรียนได้ทุกที่' },
     { k: 'exams', t: 'คลังข้อสอบ', o: 'กองข้อสอบ', d: 'ฝึกทำข้อสอบจริง พร้อมเฉลย', href: '/exam', cta: 'เริ่มทำข้อสอบ' },
+    // [เพิ่ม] ร้านข้อสอบ PDF (/exam-papers) = เครื่องปริ้นท์ (buildPrinter) — ผูกสวิตช์ SHOW_EXAM_PAPERS_SHOP ทั้งเมนูและของบนโต๊ะ
+    { k: 'papers', t: 'ข้อสอบ PDF', o: 'เครื่องปริ้นท์', d: 'ชุดข้อสอบและเอกสารเป็นไฟล์ PDF ซื้อแล้วโหลดไปปริ้นท์ทำที่บ้านได้เลย', href: '/exam-papers', cta: 'ดูชุดข้อสอบ PDF' },
     { k: 'mycourse', t: 'คอร์สของฉัน', o: 'แล็ปท็อป', d: 'เข้าสู่บทเรียนที่ลงทะเบียนไว้ เรียนต่อจากจุดที่ค้างไว้ได้ทันที' },
     { k: 'summary', t: 'สรุปเนื้อหา', o: 'สมุดโน้ต', d: 'สรุปสั้น อ่านทวนก่อนสอบ', href: '/summary', cta: 'อ่านสรุป' },
     { k: 'tips', t: 'เทคนิคการเรียน', o: 'หนังสือเทคนิค', d: 'บทความเทคนิคการเรียนจากครูฮีม', href: '/blog', cta: 'อ่านบทความ' },
@@ -39,7 +41,7 @@ class StudyDeskScene extends React.Component {
     { k: 'game', t: 'เกมพักสมอง', o: 'ลิ้นชักขวามือ', d: 'เปิดลิ้นชักดูสิ มีของเล่นซ่อนอยู่' }
   ];
   // [พอร์ต] ปิดนับถอยหลังจากหลังบ้าน (/admin/countdown) → ไม่มีปฏิทินบนโต๊ะ และไม่มีเมนูนี้
-  get MENU() { return this.cdOn() ? this.MENU_ALL : this.MENU_ALL.filter(m => m.k !== 'countdown'); }
+  get MENU() { return this.MENU_ALL.filter(m => (m.k !== 'countdown' || this.cdOn()) && (m.k !== 'papers' || SHOW_EXAM_PAPERS_SHOP)); }
   cdOn() { return !this.props.countdown || this.props.countdown.enabled !== false; }
   LAMP = { k: 'lamp', t: 'เปิด/ปิดไฟ', o: 'โคมไฟ', d: 'สลับโหมดกลางวัน / กลางคืน' };
   // [พอร์ต] ต้นแบบใส่ข้อมูลสมมติไว้ตรงนี้ (QUOTES/FEAT/REVIEWS/CATS/COURSES) — แทนด้วยข้อมูลจริงจาก props
@@ -149,7 +151,7 @@ class StudyDeskScene extends React.Component {
     this.mats = {}; this.items = {}; this.hitList = []; this.order = [];
     this.tex = {}; this.makeTextures();
     this.buildRoom(); this.buildDesk(); this.buildLaptop(); if (this.cdOn()) this.buildCalendar(); this.buildLamp(); this.buildBooks();
-    this.buildNotebook(); this.buildTips(); this.buildPapers(); this.buildDeskNotes(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildGameDrawer(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable(); this.compact = undefined; this.applyLayout();
+    this.buildNotebook(); this.buildTips(); this.buildPapers(); if (SHOW_EXAM_PAPERS_SHOP) this.buildPrinter(); this.buildDeskNotes(); this.buildGlass(); this.steam = []; this.buildKru(); this.buildApply(); { const sm = new Set(this._stampMeshes || []); this.hitList = this.hitList.filter(m => !sm.has(m)); } this.buildDust(); this.buildPhone(); this.buildGameDrawer(); this.buildProps(); this.buildCat(); this.buildLeaves(); this.buildSideTable(); this.compact = undefined; this.applyLayout();
     this.ring = new T.Mesh(new T.RingGeometry(0.92, 1, 72), new T.MeshBasicMaterial({ color: 0x14b8a6, transparent: true, opacity: 0, depthWrite: false }));
     this.ring.rotation.x = -Math.PI / 2; this.ring.position.y = 0.012; S.add(this.ring); this.ringA = 0;
 
@@ -178,9 +180,11 @@ class StudyDeskScene extends React.Component {
   // (ครูฮีมขอ 2026-09-25) → ย้ายของเข้ามาชิดกลางโต๊ะ ซูมกล้องเฉพาะช่วงนี้ และซ่อนกระดาน/หน้าต่าง/นาฬิกา/โปสเตอร์ครู
   // ค่า: [x, z, rotY, ขนาด] — ของที่ไม่มีในนี้อยู่ที่เดิม
   COMPACT = {
-    reviewsDesk: [0.5, 0.45, 0, 1], courses: [-2.95, -1.75, 0.1, 0.9], mycourse: [0.45, -2.05, 0, 0.9], countdown: [3.2, -2.35, -0.24, 0.9], lamp: [3.6, -3.25, 0, 0.8],
+    reviewsDesk: [SHOW_EXAM_PAPERS_SHOP ? 0.15 : 0.5, 0.45, 0, 1], courses: [-2.95, -1.75, 0.1, 0.9], mycourse: [0.45, -2.05, 0, 0.9], countdown: [3.2, -2.35, -0.24, 0.9], lamp: [3.6, -3.25, 0, 0.8],
     contact: [-3.3, 0.95, 0.16, 0.9], story: [-1.75, 0.95, 0, 0.9], exams: [3.05, 0.9, 0.08, 0.85],
     tips: [-3.1, 2.55, 0.16, 0.9], apply: [-0.55, 2.45, -0.06, 0.9], summary: [2.35, 2.75, -0.06, 0.95],
+    // [เพิ่ม] เครื่องปริ้นท์ (ข้อสอบ PDF): ที่ว่างระหว่างปฏิทินกับกองข้อสอบโดนกองข้อสอบบังมิด → ใช้ที่ของโพสต์อิทใบที่ 3 แทน (buildDeskNotes)
+    papers: [1.5, 0.3, -0.1, 0.62],
   };
   COMPACT_X = 4.35; // ครึ่งความกว้างที่ต้องเห็นเต็มจอ (ต้นแบบ 7.9 = โต๊ะ + โต๊ะข้าง)
   COMPACT_DIR = [0, 14, 10]; // ทิศกล้องมือถือ (ต้นแบบ 0, 8.6, 15) — มองสูงกว่าให้ของไม่บังกันและเต็มจอแนวตั้ง
@@ -211,7 +215,7 @@ class StudyDeskScene extends React.Component {
   // [พอร์ต] มือถือ: กระดานดำถูกซ่อน → โพสต์อิทรีวิวที่ติดบนกระดานหายไปด้วย (ครูฮีมแจ้ง 2026-09-25)
   //   จึงวางโพสต์อิทรีวิว 3 ใบบนโต๊ะแทน ตรงกลางโต๊ะที่ว่างอยู่ แตะแล้วเปิดแผงผลตอบรับ · จอใหญ่ซ่อนชุดนี้ (มีบนกระดานแล้ว)
   buildDeskNotes() {
-    const T = this.T, n = Math.min(3, this.REVIEWS.length); if (!n) return;
+    const T = this.T, n = Math.min(SHOW_EXAM_PAPERS_SHOP ? 2 : 3, this.REVIEWS.length); if (!n) return; // ร้าน PDF เปิด = เหลือ 2 ใบ ให้ที่เครื่องปริ้นท์
     const g = new T.Group(), lay = [[-0.98, 0.1, 0.16], [0.08, -0.1, -0.07], [1.12, 0.12, 0.11]];
     for (let i = 0; i < n; i++) {
       const [x, z, r] = lay[i], note = new T.Group(); note.position.set(x, 0.012 + i * 0.006, z); note.rotation.y = r; g.add(note);
@@ -336,6 +340,29 @@ class StudyDeskScene extends React.Component {
         ['ก', 'ข', 'ค', 'ง'].forEach((c, i) => { const cx = 100 + i * 96, cy = y + 42; x.strokeStyle = '#cbd5e1'; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, 20, 0, 7); x.stroke(); if (i === (q * 3 + 1) % 4) { x.fillStyle = '#14b8a6'; x.beginPath(); x.arc(cx, cy, 20, 0, 7); x.fill(); } x.fillStyle = i === (q * 3 + 1) % 4 ? '#fff' : '#64748b'; x.font = `600 20px ${B}`; x.textAlign = 'center'; x.fillText(c, cx, cy + 7); x.textAlign = 'left'; });
       }
       x.strokeStyle = '#ef4444'; x.lineWidth = 8; x.lineCap = 'round'; x.beginPath(); x.moveTo(400, 60); x.lineTo(425, 90); x.lineTo(470, 30); x.stroke();
+    }));
+    // [เพิ่ม] เครื่องปริ้นท์ (ร้านข้อสอบ PDF): กระดาษที่กำลังพิมพ์ออกมา + จอเล็กบนเครื่อง
+    //   หัวกระดาษอยู่ฝั่งเครื่อง (ด้านบนของภาพ) ส่วนที่โผล่ให้เห็นคือครึ่งล่าง → วางตรา PDF ไว้ครึ่งล่าง
+    this.tx('pdfSheet', this.cv(512, 640, (x, w, h) => {
+      x.fillStyle = '#fff'; x.fillRect(0, 0, w, h);
+      x.fillStyle = '#0f766e'; x.fillRect(0, 0, w, 14);
+      x.fillStyle = '#0f172a'; x.font = `600 44px ${F}`; x.fillText('ข้อสอบ', 40, 84);
+      for (let q = 0; q < 3; q++) {
+        const y = 150 + q * 74; x.fillStyle = '#0f172a'; x.font = `600 26px ${B}`; x.fillText((q + 1) + '.', 40, y);
+        x.fillStyle = 'rgba(15,23,42,.16)'; rr(x, 84, y - 18, 360 - q * 40, 11, 5); x.fill();
+        x.fillStyle = 'rgba(15,23,42,.08)'; rr(x, 84, y + 6, 250 - q * 30, 9, 4); x.fill();
+      }
+      const bx = 40, by = 380; x.fillStyle = '#dc2626'; rr(x, bx, by, 200, 108, 22); x.fill();
+      x.fillStyle = '#fff'; x.font = `600 70px ${F}`; x.textAlign = 'center'; x.fillText('PDF', bx + 100, by + 80); x.textAlign = 'left';
+      x.fillStyle = '#0f766e'; x.font = `600 34px ${F}`; x.fillText('ปริ้นท์', 268, by + 46); x.fillText('ทำที่บ้าน', 268, by + 92);
+      for (let q = 0; q < 2; q++) { x.fillStyle = 'rgba(15,23,42,.14)'; rr(x, 40, 540 + q * 40, 420 - q * 90, 11, 5); x.fill(); }
+    }));
+    this.tx('pdfScreen', this.cv(256, 128, (x, w, h) => {
+      const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#0f766e'); g.addColorStop(1, '#134e4a'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      x.fillStyle = '#fff'; rr(x, 22, 22, 62, 84, 8); x.fill(); x.fillStyle = '#dc2626'; rr(x, 14, 58, 52, 26, 6); x.fill();
+      x.fillStyle = '#fff'; x.font = `600 18px ${F}`; x.textAlign = 'center'; x.fillText('PDF', 40, 78);
+      x.fillStyle = '#ccfbf1'; x.font = `600 34px ${F}`; x.textAlign = 'left'; x.fillText('ปริ้นท์', 104, 58);
+      x.fillStyle = 'rgba(255,255,255,.22)'; rr(x, 104, 78, 128, 14, 7); x.fill(); x.fillStyle = '#5eead4'; rr(x, 104, 78, 84, 14, 7); x.fill();
     }));
     this.tx('sticky', this.cv(512, 512, (x, w, h) => {
       x.clearRect(0, 0, w, h); x.textAlign = 'center';
@@ -879,6 +906,36 @@ class StudyDeskScene extends React.Component {
       pc.position.y = y + 0.17 + hv * 0.14;
     } });
   }
+  // [เพิ่ม 2026-10-03] ครูฮีมขอเมนูร้านข้อสอบ PDF บนโต๊ะ → เครื่องปริ้นท์ที่มีกระดาษข้อสอบกำลังพิมพ์ออกมา
+  //   สื่อว่า "ซื้อเป็นไฟล์ แล้วปริ้นท์ทำที่บ้าน" แยกจากกองข้อสอบ (= คลังข้อสอบทำออนไลน์) · ชี้ = กระดาษเลื่อนออก ไฟเขียวกะพริบ
+  //   เครื่องเตี้ย (ไม่บังปฏิทินข้างหลัง) และไม่มีถาดป้อนกระดาษด้านหลังด้วยเหตุผลเดียวกัน
+  buildPrinter() {
+    const T = this.T, g = new T.Group(), W = 1.85, H = 0.5, D = 1.15, fz = D / 2;
+    const shell = this.M(0xf8fafc, { r: .4 }), grey = this.M(0xe2e8f0, { r: .45 }), dark = this.M(0x334155, { r: .5 }), slot = this.M(0x0f172a, { r: .7 });
+    const body = this.rbox(W, H, D, 0.12, shell); body.position.y = H / 2; g.add(body);
+    const foot = this.rbox(W - 0.1, 0.05, D - 0.1, 0.02, dark); foot.position.y = 0.025; g.add(foot);
+    const lid = this.rbox(W - 0.08, 0.07, D - 0.34, 0.05, grey); lid.position.set(0, H + 0.03, -0.12); g.add(lid);
+    const seam = this.mesh(new T.BoxGeometry(W - 0.2, 0.012, 0.012), this.M(0xcbd5e1, { r: .5 }), true); seam.position.set(0, H + 0.002, fz - 0.24); g.add(seam);
+    // แผงควบคุมเอียงหาคนดู: จอเล็ก + ปุ่มไฟเขียว
+    const panel = new T.Group(); panel.position.set(W / 2 - 0.42, H + 0.02, fz - 0.12); panel.rotation.x = -0.35; g.add(panel);
+    panel.add(this.rbox(0.62, 0.05, 0.26, 0.04, dark));
+    const scr = new T.Mesh(new T.PlaneGeometry(0.36, 0.18), new T.MeshBasicMaterial({ map: this.tex.pdfScreen, toneMapped: false })); scr.rotation.x = -Math.PI / 2; scr.position.set(-0.08, 0.027, 0); panel.add(scr);
+    const ledM = new T.MeshBasicMaterial({ color: 0x22c55e, toneMapped: false }); const led = new T.Mesh(new T.CircleGeometry(0.035, 20), ledM); led.rotation.x = -Math.PI / 2; led.position.set(0.21, 0.027, 0); panel.add(led);
+    // แถบสีแบรนด์ + ช่องกระดาษออกด้านหน้า + ถาดรับกระดาษ
+    const stripe = this.mesh(new T.BoxGeometry(W - 0.5, 0.035, 0.012), this.M(0x0d9488, { r: .4 }), true); stripe.position.set(0, H - 0.09, fz + 0.002); g.add(stripe);
+    const mouth = this.mesh(new T.BoxGeometry(W - 0.5, 0.06, 0.02), slot, true); mouth.position.set(0, 0.2, fz - 0.004); g.add(mouth);
+    const tray = this.rbox(W - 0.6, 0.025, 0.62, 0.02, grey); tray.position.set(0, 0.13, fz + 0.28); g.add(tray);
+    // กระดาษข้อสอบที่กำลังพิมพ์ออกมา (ปลายในเครื่องซ่อนอยู่ในตัวเครื่อง) + แผ่นที่พิมพ์เสร็จแล้วรองข้างใต้
+    const done = this.rbox(1.08, 0.01, 1.32, 0.01, this.M(0xffffff, { r: .9 })); done.position.set(0.04, 0.152, fz + 0.32); done.rotation.y = 0.05; g.add(done);
+    const sheet = new T.Group(); g.add(sheet);
+    const pm = this.rbox(1.08, 0.01, 1.36, 0.01, this.M(0xffffff, { r: .9 })); sheet.add(pm);
+    this.decal(1.04, 1.3, 'pdfSheet', pm, 0.006);
+    const S0 = { y: 0.168, z: fz + 0.28 }; sheet.position.set(0, S0.y, S0.z); sheet.rotation.x = -0.05;
+    this.add('papers', g, 5.3, -0.66, -0.3, { bs: 1.12, ay: 1.0, fd: 0.95, rs: 1.35, anim: (hv, t) => {
+      sheet.position.z = S0.z + hv * 0.28; sheet.position.y = S0.y + hv * 0.02; sheet.rotation.x = -0.05 - hv * 0.06;
+      ledM.color.setHex(hv > 0.05 && Math.sin((t || 0) * 14) > 0 ? 0x86efac : 0x22c55e);
+    } });
+  }
   buildSticky() {
     const T = this.T, g = new T.Group(), sheets = [], cols = [0xfff1e0, 0xfdf6e3, 0xfffaf0];
     for (let i = 0; i < 3; i++) { const s = this.rbox(1.35, 0.02, 1.75, 0.02, this.M(cols[i], { r: .9 })); s.position.y = 0.012 + i * 0.022; s.rotation.y = (i - 1) * 0.14; g.add(s); sheets.push(s); }
@@ -1262,6 +1319,7 @@ class StudyDeskScene extends React.Component {
       case 'land': tone(190, 90, 0.09, 0.05 + 0.1 * p, 'sine'); noise(0.05, 0.1 + 0.25 * p, 700, 0.8, 0, 'lowpass'); break;
       case 'courses': thud(0, 0.22); flicks(0.16, 7, 0.28, 0.045); noise(0.3, 0.12, 1600, 0.6, 0.16, 'bandpass', (q) => Math.sin(Math.PI * q)); break;
       case 'mycourse': for (let i = 0; i < 7; i++) { const tt = i * rnd(0.06, 0.11); noise(0.014, 0.35, 3400, 1.5, tt, 'bandpass'); tone(260, 180, 0.03, 0.03, 'sine', tt); } [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(f, f, 0.55, 0.045, 'sine', 0.72 + i * 0.08)); tone(1046.5, 1046.5, 1, 0.022, 'triangle', 1.05); break;
+      case 'papers': thud(0, 0.06); for (let i = 0; i < 5; i++) { const tt = 0.08 + i * 0.17; noise(0.14, 0.18, 900 + (i % 2) * 300, 1.6, tt, 'bandpass', (q) => Math.sin(Math.PI * q) * (0.75 + 0.25 * Math.sin(q * 120)), 1700); tone(180, 150, 0.12, 0.025, 'square', tt); } noise(0.5, 0.2, 2600, 0.7, 0.95, 'bandpass', (q) => Math.sin(Math.PI * q), 3800); mallet(1568, 1.45, 0.03); break;
       case 'exams': noise(0.45, 0.22, 1400, 0.5, 0, 'bandpass', (q) => Math.sin(Math.PI * q) * (0.6 + 0.4 * Math.random())); flicks(0.05, 12, 0.34, 0.04); noise(0.22, 0.3, 2400, 0.8, 0.55, 'bandpass', (q) => Math.sin(Math.PI * q), 3800); thud(0.8, 0.08); break;
       case 'summary': scribble(0, 7, 0.26); tone(2400, 2400, 0.03, 0.02, 'triangle', 0.95); break;
       case 'tips': thud(0, 0.12); noise(0.38, 0.4, 1300, 0.9, 0.12, 'bandpass', (q) => Math.sin(Math.PI * q), 3600); noise(0.05, 0.3, 700, 1, 0.48, 'lowpass'); break;
@@ -1287,7 +1345,7 @@ class StudyDeskScene extends React.Component {
   }
   say(msg, ms) { this.setState({ kruMsg: msg }); this.kruShow = performance.now() / 1000 + (ms || 4.5) / 1000; }
   kruTap() {
-    const tips = ['สันหนังสือแต่ละเล่ม คือหมวดคอร์สครับ', 'เรียนต่อ แตะแล็ปท็อปได้เลย', 'กองกระดาษนั่นคือคลังข้อสอบนะ', 'โพสต์อิท คือเสียงจากน้องๆ และผู้ปกครอง', 'มีคำถาม แตะโทรศัพท์ทักครูได้เลย', 'ลองกดโคมไฟ ห้องจะเป็นกลางคืน'];
+    const tips = ['สันหนังสือแต่ละเล่ม คือหมวดคอร์สครับ', 'เรียนต่อ แตะแล็ปท็อปได้เลย', 'กองกระดาษนั่นคือคลังข้อสอบนะ', ...(SHOW_EXAM_PAPERS_SHOP ? ['อยากได้ข้อสอบไปปริ้นท์ทำที่บ้าน แตะเครื่องปริ้นท์เลย'] : []), 'โพสต์อิท คือเสียงจากน้องๆ และผู้ปกครอง', 'มีคำถาม แตะโทรศัพท์ทักครูได้เลย', 'ลองกดโคมไฟ ห้องจะเป็นกลางคืน'];
     this.say('ครูฮีมเองครับ', 3200); this.sfx('kru');
   }
   buildKru() {
@@ -2043,8 +2101,8 @@ class StudyDeskScene extends React.Component {
         open: () => this.openPanel(m.k), enter: () => { this.dockHover = m.k; }, leave: () => { this.dockHover = null; }
       })),
       pObj: pn ? (this.compact && pn.k === 'reviews' ? 'โพสต์อิทบนโต๊ะ' : pn.o) : '', reviewsWhere: this.compact ? 'บนโต๊ะ' : 'บนกระดาน', pTitle: pn ? pn.t : '', pDesc: pn ? pn.d : '', pHref: pn && pn.href ? pn.href : '/', pCta: pn && pn.cta ? pn.cta : '',
-      isCourses: p === 'courses', isList: p === 'exams' || p === 'summary' || p === 'tips', isCountdown: p === 'countdown', isReviews: p === 'reviews', isStory: p === 'story', isApply: p === 'apply', isContact: p === 'contact', isMy: p === 'mycourse',
-      listItems: (this.FEAT[p] || []).map((it, j) => ({ n: pad(j + 1), t: it.t, href: it.href })), hasList: (this.FEAT[p] || []).length > 0,
+      isCourses: p === 'courses', isList: p === 'exams' || p === 'papers' || p === 'summary' || p === 'tips', listHead: p === 'papers' ? 'ชุดที่เปิดขายอยู่' : 'อัปเดตล่าสุด', isCountdown: p === 'countdown', isReviews: p === 'reviews', isStory: p === 'story', isApply: p === 'apply', isContact: p === 'contact', isMy: p === 'mycourse',
+      listItems: (this.FEAT[p] || []).map((it, j) => ({ n: pad(j + 1), t: it.t, href: it.href, p: it.p || '' })), hasList: (this.FEAT[p] || []).length > 0,
       cats: this.CATS.map(c => ({ name: c, active: c === this.state.cat, inactive: c !== this.state.cat, pick: () => { this.sfx('tab'); this.setState({ cat: c }); } })),
       // [พอร์ต] คอร์สจริง: ราคา/ราคาเต็มตามข้อมูล (ไม่แต่งราคาขีดฆ่าเอง) ลิงก์ไปหน้าคอร์สแต่ละคอร์ส
       courses: (this.COURSES[this.state.cat] || []).map(c => ({ title: c.title, desc: c.desc, hasDesc: !!c.desc, price: c.price ? fmt(c.price) : 'ฟรี', full: c.fullPrice ? fmt(c.fullPrice) : '', href: c.href })),
@@ -2219,11 +2277,12 @@ class StudyDeskScene extends React.Component {
       
               {v.isList && (<>
                 <p style={css(`margin:0;font-size:15px;line-height:1.7;color:#475569`)}>{v.pDesc}</p>
-                {v.hasList && (<span style={css(`font-size:13px;font-weight:700;color:#64748b`)}>อัปเดตล่าสุด</span>)}
+                {v.hasList && (<span style={css(`font-size:13px;font-weight:700;color:#64748b`)}>{v.listHead}</span>)}
                 {v.listItems.map((it, it_i) => (<React.Fragment key={it_i}>
                   <a href={it.href} style={css(`display:flex;gap:14px;align-items:flex-start;padding:16px 18px;border-radius:20px;background:#fff;border:1px solid #f1f5f9;box-shadow:0 5px 0 #efe9da;color:#1e293b;transition:transform .25s`)} className="khd-h9">
                     <span style={css(`flex:none;font-family:'Mitr',sans-serif;font-weight:600;font-size:18px;color:#0d9488`)}>{it.n}</span>
-                    <span style={css(`font-size:15px;font-weight:600;line-height:1.55`)}>{it.t}</span>
+                    <span style={css(`flex:1;min-width:0;font-size:15px;font-weight:600;line-height:1.55`)}>{it.t}</span>
+                    {it.p && (<span style={css(`flex:none;align-self:center;padding:4px 10px;border-radius:999px;background:#ccfbf1;color:#0f766e;font-family:'Mitr',sans-serif;font-size:14px;font-weight:600;white-space:nowrap`)}>{it.p}</span>)}
                   </a>
                 </React.Fragment>))}
                 <a href={v.pHref} style={css(`margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px;padding:15px;border-radius:18px;background:#0f172a;color:#fff;font-weight:700;font-size:16px;box-shadow:0 5px 0 #334155`)} className="khd-h4">{v.pCta} <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></a>
