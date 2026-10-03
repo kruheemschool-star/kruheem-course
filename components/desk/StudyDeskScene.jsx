@@ -36,9 +36,11 @@ class StudyDeskScene extends React.Component {
     { k: 'story', t: 'เรื่องของครูฮีม', o: 'แก้วน้ำ', d: 'เหมือนเติมน้ำใส่แก้วที่รั่ว' },
     { k: 'apply', t: 'สมัครเรียน', o: 'ใบสมัครบนคลิปบอร์ด', d: 'วิธีสมัคร แจ้งโอน คำถามที่พบบ่อย' },
     { k: 'contact', t: 'ติดต่อครูฮีม', o: 'โทรศัพท์มือถือ', d: 'LINE · Facebook · Email' },
-    { k: 'window', t: 'พักสายตา', o: 'หน้าต่าง', d: 'ชมวิวภูเขา เมฆ นก และเสียงธรรมชาติ' },
+    // [แก้ 2026-10-03] ครูฮีมสั่งเอา "พักสายตา" กับ "เกมพักสมอง" ออกจากแถบเมนูล่าง (กดที่หน้าต่าง/ลิ้นชักบนโต๊ะได้อยู่แล้ว)
+    //   → noDock: ไม่ขึ้นในแถบล่าง แต่ยังอยู่ใน MENU เพื่อป้ายชื่อตอนชี้ เสียง และการเปิดจากของบนโต๊ะ
+    { k: 'window', t: 'พักสายตา', o: 'หน้าต่าง', d: 'ชมวิวภูเขา เมฆ นก และเสียงธรรมชาติ', noDock: true },
     // [พอร์ต] เกมพักสมอง "ครูฮีม หนีซอมบี้!" (/game) — ซ่อนในลิ้นชักขวาบนสุด (buildGameDrawer): แตะลิ้นชัก/เมนู = เปิดลิ้นชัก · แตะเครื่องเกมข้างใน = ไปหน้าเกม
-    { k: 'game', t: 'เกมพักสมอง', o: 'ลิ้นชักขวามือ', d: 'เปิดลิ้นชักดูสิ มีของเล่นซ่อนอยู่' }
+    { k: 'game', t: 'เกมพักสมอง', o: 'ลิ้นชักขวามือ', d: 'เปิดลิ้นชักดูสิ มีของเล่นซ่อนอยู่', noDock: true }
   ];
   // [พอร์ต] ปิดนับถอยหลังจากหลังบ้าน (/admin/countdown) → ไม่มีปฏิทินบนโต๊ะ และไม่มีเมนูนี้
   get MENU() { return this.MENU_ALL.filter(m => (m.k !== 'countdown' || this.cdOn()) && (m.k !== 'papers' || SHOW_EXAM_PAPERS_SHOP)); }
@@ -2096,7 +2098,7 @@ class StudyDeskScene extends React.Component {
       toggleMute: () => { const m = !this.state.muted; this.setState({ muted: m }); try { localStorage.setItem('kh_desk_muted', m ? '1' : '0'); } catch (e) {} if (m) this.stopMusic(); else if (this.state.music) { this.ensureAudio(); setTimeout(() => this.startMusic(), 50); } if (!m) { this.ensureAudio(); setTimeout(() => this.sfx('pop'), 30); } }, heroRef: this.heroRef, dockRef: this.dockRef,
       noPanel: !p && !this.state.winView, panelOpen: !!p && this.state.panelVis === p,
       tipObj: hv ? hv.o : '', tipTitle: hv ? hv.t : '', tipDesc: desc(hv),
-      dock: this.MENU.map((m, i) => ({
+      dock: this.MENU.filter(m => !m.noDock).map((m, i) => ({
         n: String(i + 1).padStart(2, '0'), t: m.t, on: this.state.hover === m.k, off: this.state.hover !== m.k,
         open: () => this.openPanel(m.k), enter: () => { this.dockHover = m.k; }, leave: () => { this.dockHover = null; }
       })),
