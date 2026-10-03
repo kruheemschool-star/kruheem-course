@@ -7,7 +7,7 @@ import type { ExamPaper } from "@/types";
 import type { TrustReview } from "@/lib/paperTrust";
 import KruheemTrustStrip from "@/components/exampapers/KruheemTrustStrip";
 import PaperReviews from "@/components/exampapers/PaperReviews";
-import { PaperCountdownLine } from "@/components/exampapers/PaperCountdown";
+import { PaperCountdownCover } from "@/components/exampapers/PaperCountdown";
 import { LINE_URL } from "@/lib/constants";
 
 
@@ -217,6 +217,8 @@ function PaperCard({ paper: p }: { paper: ExamPaper }) {
                     <Eye size={12} /> ดูตัวอย่างได้
                 </span>
             ) : null}
+            {/* นับถอยหลังวันสอบของสนามชุดนี้ บนปก (ครูฮีมขอให้เห็นวินาทีเดิน) — แต่ละชุดสอบคนละวัน */}
+            {!p.comingSoon && <PaperCountdownCover examDate={p.examDate} examName={p.examName} />}
         </div>
     );
 
@@ -233,8 +235,6 @@ function PaperCard({ paper: p }: { paper: ExamPaper }) {
             </div>
             <h3 className="font-bold text-slate-900 dark:text-white leading-snug line-clamp-2">{p.title}</h3>
             {p.description && <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{p.description}</p>}
-            {/* วันสอบของสนามชุดนี้ — แต่ละชุดสอบคนละวัน จึงนับรายการ์ด (แทนแถบวันสอบรวมเดิม) */}
-            {!p.comingSoon && <PaperCountdownLine examDate={p.examDate} examName={p.examName} />}
         </>
     );
 
