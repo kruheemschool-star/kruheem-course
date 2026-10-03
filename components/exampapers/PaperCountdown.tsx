@@ -47,28 +47,37 @@ function split(left: number) {
     };
 }
 
-/** แถบบางบรรทัดเดียวใต้รูปปกของการ์ดหน้าร้าน: ● ชื่อสนาม ........ 56 วัน 17:01:52
- *  ครูฮีมดูของจริงแล้วบอกว่าแถบทับปกไม่สวย (2026-10-03) → ต่อท้ายขอบล่างของปก ไม่ทับรูป
- *  ใส่ชื่อสนามเสมอ — บางชุดนับถึง Pre-Test ไม่ใช่สนามจริง ห้ามให้อ่านเป็น "วันสอบ" เฉยๆ */
+// "ก่อนสอบเข้า ม.1 …" / "ก่อน Pre-Test …" — ชื่อที่ขึ้นต้นด้วยคำไทยต่อติดกัน อย่างอื่นเว้นวรรค
+const beforeExam = (name?: string) => {
+    const n = (name || "").trim();
+    if (!n) return "ก่อนถึงวันสอบ";
+    return /^[\u0E00-\u0E7F]/.test(n) ? `ก่อน${n}` : `ก่อน ${n}`;
+};
+
+/** แถบบางใต้รูปปกของการ์ดหน้าร้าน (ไม่ทับปก — ครูฮีมดูของจริงแล้วไม่เอาแถบทับปก 2026-10-03)
+ *    เหลือเวลาอีก 35 วัน 17 ชม. 23 นาที 51 วิ
+ *    ก่อนสอบเข้า ม.1 จุฬาภรณฯ รอบแรก · อา. 8 พ.ย.
+ *  ต้องอ่านเป็นประโยคได้เสมอ ครูฮีมบอกว่าตัวเลขโผล่มาเฉยๆ คนไม่รู้ว่าคืออะไร
+ *  ชื่อสนามต้องอยู่ด้วย — บางชุดนับถึง Pre-Test ไม่ใช่สนามจริง */
 export function PaperCountdownStrip({ examDate, examName }: Props) {
     const now = useNow();
     const t = target(examDate);
     if (!Number.isFinite(t) || t <= now) return null;
     const { d, h, m, s } = split(t - now);
+    const num = "font-bold tabular-nums text-slate-900 dark:text-white";
     return (
-        <div
-            className="flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-4 py-2 text-[12px]"
-            title={`สอบ ${thaiDay(t, true)} เวลา ${thaiTime(t)} น.`}
-        >
-            <span className="flex min-w-0 items-center gap-1.5 text-slate-500 dark:text-slate-400">
+        <div className="border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-4 py-2" title={`สอบ ${thaiDay(t, true)} เวลา ${thaiTime(t)} น.`}>
+            <p suppressHydrationWarning className="flex items-center gap-1.5 text-[12.5px] text-slate-600 dark:text-slate-300 whitespace-nowrap">
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden />
-                <span className="truncate">{examName || "นับถอยหลังวันสอบ"}</span>
-            </span>
-            <span suppressHydrationWarning className="shrink-0 tabular-nums text-slate-600 dark:text-slate-300" aria-label={`เหลืออีก ${d} วัน ${h} ชั่วโมง ${m} นาที`}>
-                <span className="font-bold text-slate-900 dark:text-white">{d}</span> วัน{" "}
-                <span className="font-semibold">{pad(h)}:{pad(m)}:</span>
-                <span className="font-semibold text-rose-500 dark:text-rose-400">{pad(s)}</span>
-            </span>
+                <span>
+                    เหลือเวลาอีก <span className={num}>{d}</span> วัน <span className={num}>{pad(h)}</span> ชม.{" "}
+                    <span className={num}>{pad(m)}</span> นาที{" "}
+                    <span className="font-bold tabular-nums text-rose-500 dark:text-rose-400">{pad(s)}</span> วิ
+                </span>
+            </p>
+            <p className="mt-0.5 truncate pl-3 text-[11px] text-slate-400 dark:text-slate-500">
+                {beforeExam(examName)} · {thaiDay(t, false)}
+            </p>
         </div>
     );
 }
@@ -86,7 +95,7 @@ export default function PaperCountdown({ examDate, examName }: Props) {
         <div className="mt-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 px-4 py-3.5">
             <div className="flex items-center gap-2 text-[12px] font-semibold text-slate-500 dark:text-slate-400">
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden />
-                <span className="truncate">นับถอยหลัง{examName ? ` ${examName}` : "ถึงวันสอบ"}</span>
+                <span className="truncate">เหลือเวลาอีก</span>
             </div>
             <div className="mt-2.5 grid grid-cols-4 gap-2" aria-label={`เหลืออีก ${d} วัน ${h} ชั่วโมง ${m} นาที`}>
                 {cells.map(([n, unit, sec]) => (
@@ -104,7 +113,7 @@ export default function PaperCountdown({ examDate, examName }: Props) {
                 ))}
             </div>
             <div className="mt-2.5 text-[12px] text-slate-500 dark:text-slate-400">
-                สอบ {thaiDay(t, true)} เวลา {thaiTime(t)} น.
+                {beforeExam(examName)} · สอบ {thaiDay(t, true)} เวลา {thaiTime(t)} น.
             </div>
         </div>
     );
