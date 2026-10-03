@@ -32,7 +32,9 @@ export const SLIP_MAX_SOURCE_BYTES = 10 * 1024 * 1024;
 export const SLIP_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 const COMPRESSION_TIMEOUT = 10_000; // per attempt
-const COMPRESSION_THRESHOLD = 2 * 1024 * 1024; // only compress files above this
+// ย่อทุกสลิปที่ใหญ่กว่า 200KB (เดิมย่อเฉพาะ >2MB → สลิป 300KB–2MB ถูกเก็บขนาดเดิม กินพื้นที่ 60%)
+// ครูฮีมสั่ง 2026-10-03 · ทดสอบกับสลิปจริง: ด้านยาว 1600px JPEG q0.8 ≈ 100–160KB อ่านเลขอ้างอิง/ยอดเงินคมชัด
+const COMPRESSION_THRESHOLD = 200 * 1024;
 
 const EXT_TO_MIME: Record<string, string> = {
   jpg: "image/jpeg",
@@ -140,13 +142,15 @@ export async function prepareSlipImage(file: File): Promise<SlipPrepResult> {
   // HEIC is converted even when small — the admin reviews slips on desktop,
   // where HEIC doesn't render.
   if (file.size > COMPRESSION_THRESHOLD || isHeic) {
+    // ด้านยาว 1600px พอให้สลิปแคปหน้าจอแนวตั้ง (เช่น 1290×2796) ยังอ่านตัวเลขชัด
+    // แปลงเป็น JPEG เสมอ — สลิป PNG (แคปจอ) บีบเป็น PNG แทบไม่เล็กลง
     const options: Record<string, unknown> = {
-      maxSizeMB: 1,
-      maxWidthOrHeight: 1920,
+      maxSizeMB: 0.3,
+      maxWidthOrHeight: 1600,
       useWebWorker: true,
-      initialQuality: 0.85,
+      initialQuality: 0.8,
+      fileType: "image/jpeg",
     };
-    if (isHeic) options.fileType = "image/jpeg";
     try {
       out = await compressWithTimeout(file, options, COMPRESSION_TIMEOUT);
     } catch {
@@ -156,6 +160,8 @@ export async function prepareSlipImage(file: File): Promise<SlipPrepResult> {
         out = file; // compression totally failed — the original may still fit under 5MB
       }
     }
+    // บีบแล้วใหญ่กว่าเดิม (รูปเล็กที่บีบมาดีแล้ว) → ใช้ต้นฉบับ ยกเว้น HEIC ที่ต้องแปลงให้เปิดบนคอมได้
+    if (!isHeic && out.size >= file.size) out = file;
   }
 
   // storage.rules hard-denies >= 5MB; a clear message here beats a cryptic
