@@ -136,6 +136,10 @@ export interface ExamPaper {
     // ชุดที่ยังทำไม่เสร็จแต่อยากให้เห็นบนชั้นวาง: การ์ดจะกดเข้าหน้าขายไม่ได้
     // โชว์ "เร็วๆ นี้" + ปุ่มทักไลน์จองแทน (ใช้วัดความต้องการก่อนลงแรงผลิต)
     comingSoon?: boolean;
+    // นับถอยหลังวันสอบรายชุด (ครูฮีมขอ 2026-10-03) — วันเวลาสอบวิชาคณิตเป็นเวลาไทย
+    // รูปแบบ datetime-local "2026-11-08T09:00" + ชื่อสนามสั้นๆ; เลยวันสอบแล้วตัวนับหายเอง
+    examDate?: string;
+    examName?: string;
     hidden?: boolean;        // draft / hidden from the public shop
     order?: number;          // manual sort (lower first)
     createdAt?: Timestamp | Date;

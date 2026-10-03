@@ -16,6 +16,7 @@ import { FileText, Eye, EyeOff, ShoppingCart, Check, ShieldCheck, Download, Arro
 import ExamAnalysisSection from "@/components/exampapers/ExamAnalysisSection";
 import ExamAnalysisArticle from "@/components/exampapers/ExamAnalysisArticle";
 import SamplePages from "@/components/exampapers/SamplePages";
+import PaperCountdown from "@/components/exampapers/PaperCountdown";
 import KruheemTrustStrip from "@/components/exampapers/KruheemTrustStrip";
 import PaperReviews from "@/components/exampapers/PaperReviews";
 import type { TrustReview } from "@/lib/paperTrust";
@@ -468,6 +469,8 @@ export default function PaperDetailClient({
                         {paper.questionCount ? <span className="text-sm text-slate-400">· {paper.questionCount} ข้อ</span> : null}
                         {paper.pageCount ? <span className="text-sm text-slate-400">· {paper.pageCount} หน้า</span> : null}
                     </div>
+
+                    {!paper.comingSoon && <PaperCountdown examDate={paper.examDate} examName={paper.examName} />}
 
                     {dupNotice && (
                         <div className="mt-5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3.5">

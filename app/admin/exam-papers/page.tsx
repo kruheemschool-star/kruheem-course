@@ -51,6 +51,8 @@ const emptyForm = {
     pageCount: 0,
     questionCount: 0,
     badge: "",
+    examDate: "",
+    examName: "",
     comingSoon: false,
     hidden: false,
 };
@@ -139,6 +141,8 @@ export default function AdminExamPapersPage() {
             pageCount: Number(p.pageCount || 0),
             questionCount: Number(p.questionCount || 0),
             badge: p.badge || "",
+            examDate: p.examDate || "",
+            examName: p.examName || "",
             comingSoon: !!p.comingSoon,
             hidden: !!p.hidden,
         });
@@ -289,6 +293,9 @@ export default function AdminExamPapersPage() {
                 questionCount: Number(form.questionCount) || 0,
                 // ป้ายมุมการ์ด — ช่องว่าง = ไม่มีป้าย (ลบ field ทิ้ง ไม่เก็บสตริงว่าง)
                 badge: form.badge.trim() ? form.badge.trim() : deleteField(),
+                // นับถอยหลังวันสอบบนการ์ด/หน้าขาย — ว่าง = ไม่มีตัวนับ
+                examDate: form.examDate.trim() ? form.examDate.trim() : deleteField(),
+                examName: form.examName.trim() ? form.examName.trim() : deleteField(),
                 comingSoon: form.comingSoon,
                 hidden: form.hidden,
                 analysis: cleanAnalysis() ?? deleteField(),
@@ -554,6 +561,16 @@ export default function AdminExamPapersPage() {
                                     <label className="block text-sm font-medium kh-ink mb-1">ป้ายมุมการ์ด</label>
                                     <input className="kh-input w-full" placeholder="เช่น ใหม่ ปี 2570" value={form.badge} onChange={(e) => setForm({ ...form, badge: e.target.value })} />
                                     <p className="text-xs kh-ink3 mt-1">เว้นว่าง = ไม่มีป้าย</p>
+                                </div>
+                                {/* นับถอยหลังวันสอบ — เวลาที่กรอกคือเวลาไทย (lib/examCountdown ตรึง +07:00 ให้) */}
+                                <div>
+                                    <label className="block text-sm font-medium kh-ink mb-1">วันเวลาสอบ (วิชาคณิต)</label>
+                                    <input type="datetime-local" className="kh-input w-full" value={form.examDate} onChange={(e) => setForm({ ...form, examDate: e.target.value })} />
+                                    <p className="text-xs kh-ink3 mt-1">ขึ้นนับถอยหลังบนการ์ดและหน้าขาย เลยวันสอบแล้วหายเอง · เว้นว่าง = ไม่นับ</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium kh-ink mb-1">ชื่อสนามสอบ (ต่อท้าย “นับถอยหลัง…”)</label>
+                                    <input className="kh-input w-full" placeholder="เช่น สอบเข้า ม.1 จุฬาภรณฯ รอบแรก" value={form.examName} onChange={(e) => setForm({ ...form, examName: e.target.value })} />
                                 </div>
                             </div>
 

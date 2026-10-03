@@ -42,6 +42,8 @@ async function getPaper(id: string): Promise<PaperPageData | null> {
                     .map((s) => ({ url: String(s.url), caption: s.caption ? String(s.caption) : undefined })),
                 badge: (d.badge as string) || "",
                 comingSoon: !!d.comingSoon,
+                examDate: (d.examDate as string) || "",
+                examName: (d.examName as string) || "",
             },
             fileLabels,
         };

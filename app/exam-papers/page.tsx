@@ -3,7 +3,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { listPublicExamPapers } from "@/lib/examPapers";
 import { getPaperTrust } from "@/lib/paperTrust";
-import { getExamCountdown } from "@/lib/examCountdown";
 import ExamPapersShop from "@/components/exampapers/ExamPapersShop";
 import BlobBackground from "@/components/BlobBackground";
 
@@ -23,7 +22,7 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function ExamPapersPage() {
-    const [papers, trust, countdown] = await Promise.all([listPublicExamPapers(), getPaperTrust(3), getExamCountdown()]);
+    const [papers, trust] = await Promise.all([listPublicExamPapers(), getPaperTrust(3)]);
     return (
         <div className="min-h-screen bg-white dark:bg-slate-950 bg-dot-pattern font-sans flex flex-col transition-colors">
             {/* สีฟุ้งลอยอยู่หลังลายจุด — เนื้อหาต้องเป็น relative ถึงจะอยู่เหนือแผ่นสี
@@ -37,7 +36,6 @@ export default async function ExamPapersPage() {
                     reviews={trust.reviews}
                     reviewCount={trust.reviewCount}
                     avgRating={trust.avgRating}
-                    countdown={countdown}
                 />
             </div>
             <Footer />
