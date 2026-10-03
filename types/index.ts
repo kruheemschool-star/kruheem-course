@@ -110,6 +110,12 @@ export interface ExamPaperSample {
 
 // A single sellable PDF exam product. Bundles one or more ExamPaperFile. Cover +
 // preview are public; the master files are private (signed URLs only).
+export interface ExamScheduleItem {
+    name: string;   // "สาธิต มศว ประสานมิตร · Pre-Test ภาคปกติ"
+    date?: string;  // datetime-local เวลาไทย — ว่าง = ยังไม่ประกาศ
+    note?: string;  // เช่น "รอประกาศ · ปีที่แล้วสอบกลาง ม.ค."
+}
+
 export interface ExamPaper {
     id: string;
     title: string;
@@ -140,6 +146,9 @@ export interface ExamPaper {
     // รูปแบบ datetime-local "2026-11-08T09:00" + ชื่อสนามสั้นๆ; เลยวันสอบแล้วตัวนับหายเอง
     examDate?: string;
     examName?: string;
+    // ชุดที่ใช้ได้หลายสนาม (เช่น สาธิตหลายแห่ง) — ตัวนับนับถึงสนามที่ใกล้ที่สุดที่มีวันแล้ว
+    // และหน้าขายโชว์ตารางทุกสนาม (สนามที่ยังไม่ประกาศใส่ note แทน date) · มีค่านี้ = ใช้แทน examDate
+    examSchedule?: ExamScheduleItem[];
     hidden?: boolean;        // draft / hidden from the public shop
     order?: number;          // manual sort (lower first)
     createdAt?: Timestamp | Date;

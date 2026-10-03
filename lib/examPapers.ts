@@ -7,7 +7,7 @@ import type { ExamPaper } from "@/types";
 const FIELDS = [
     "title", "description", "price", "fullPrice", "level", "category", "tags",
     "coverUrl", "previewUrl", "pageCount", "questionCount", "badge", "comingSoon",
-    "hidden", "order", "createdAt", "examDate", "examName",
+    "hidden", "order", "createdAt", "examDate", "examName", "examSchedule",
 ];
 const REVALIDATE = 300;
 
@@ -37,6 +37,7 @@ export async function listPublicExamPapers(): Promise<ExamPaper[]> {
                 comingSoon: !!d.comingSoon,
                 examDate: (d.examDate as string) || "",
                 examName: (d.examName as string) || "",
+                examSchedule: Array.isArray(d.examSchedule) ? (d.examSchedule as ExamPaper["examSchedule"]) : undefined,
                 order: (d.order as number | undefined) ?? Number.MAX_SAFE_INTEGER,
             }))
             .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));

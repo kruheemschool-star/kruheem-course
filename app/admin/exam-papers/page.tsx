@@ -6,7 +6,7 @@ import { collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc,
 import { uploadPublicFile, uploadPrivateFile, deleteStorageFile } from "@/lib/pdfUpload";
 import { uploadImageToStorage } from "@/lib/upload";
 import { useConfirmModal } from "@/hooks/useConfirmModal";
-import type { ExamPaper, ExamPaperFile, ExamPaperAnalysis } from "@/types";
+import type { ExamPaper, ExamPaperFile, ExamPaperAnalysis, ExamScheduleItem } from "@/types";
 import toast, { Toaster } from "react-hot-toast";
 import { Plus, FileText, Trash2, Pencil, Eye, EyeOff, ImagePlus, UploadCloud, FileCheck2, X, Loader2, Lock, GripVertical, BarChart3 } from "lucide-react";
 import { postRevalidate } from "@/lib/bustContentCache";
@@ -53,9 +53,21 @@ const emptyForm = {
     badge: "",
     examDate: "",
     examName: "",
+    examSchedule: "",
     comingSoon: false,
     hidden: false,
 };
+
+// ตารางสนามสอบ ↔ ข้อความในช่องหลังบ้าน (บรรทัดละสนาม: ชื่อ | วันเวลา | หมายเหตุ)
+// วันเวลารับทั้ง "2026-11-29 08:30" และ "2026-11-29T08:30" (เก็บเป็นแบบ datetime-local)
+const scheduleToText = (s?: ExamScheduleItem[]) =>
+    (s || []).map((x) => [x.name, x.date || "", x.note || ""].join(" | ").replace(/( \| )+$/, "")).join("\n");
+const textToSchedule = (t: string): ExamScheduleItem[] =>
+    t.split("\n").map((line) => line.split("|").map((c) => c.trim())).filter((c) => c[0]).map(([name, date = "", note = ""]) => {
+        const d = date.replace(" ", "T");
+        // วันอย่างเดียวเก็บเป็นวันอย่างเดียว (หน้าเว็บจะไม่โชว์เวลา) — ไม่เติมเวลาเดาเอง
+        return { name, ...(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(d) ? { date: d } : {}), ...(note ? { note } : {}) };
+    });
 
 export default function AdminExamPapersPage() {
     const { confirm, ConfirmDialog } = useConfirmModal();
@@ -143,6 +155,7 @@ export default function AdminExamPapersPage() {
             badge: p.badge || "",
             examDate: p.examDate || "",
             examName: p.examName || "",
+            examSchedule: scheduleToText(p.examSchedule),
             comingSoon: !!p.comingSoon,
             hidden: !!p.hidden,
         });
@@ -296,6 +309,7 @@ export default function AdminExamPapersPage() {
                 // นับถอยหลังวันสอบบนการ์ด/หน้าขาย — ว่าง = ไม่มีตัวนับ
                 examDate: form.examDate.trim() ? form.examDate.trim() : deleteField(),
                 examName: form.examName.trim() ? form.examName.trim() : deleteField(),
+                examSchedule: textToSchedule(form.examSchedule).length ? textToSchedule(form.examSchedule) : deleteField(),
                 comingSoon: form.comingSoon,
                 hidden: form.hidden,
                 analysis: cleanAnalysis() ?? deleteField(),
@@ -569,8 +583,20 @@ export default function AdminExamPapersPage() {
                                     <p className="text-xs kh-ink3 mt-1">ขึ้นนับถอยหลังบนการ์ดและหน้าขาย เลยวันสอบแล้วหายเอง · เว้นว่าง = ไม่นับ</p>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium kh-ink mb-1">ชื่อสนามสอบ (ต่อท้าย “นับถอยหลัง…”)</label>
+                                    <label className="block text-sm font-medium kh-ink mb-1">ชื่อสนามสอบ (ต่อท้าย “ก่อน…”)</label>
                                     <input className="kh-input w-full" placeholder="เช่น สอบเข้า ม.1 จุฬาภรณฯ รอบแรก" value={form.examName} onChange={(e) => setForm({ ...form, examName: e.target.value })} />
+                                </div>
+                                {/* ชุดที่ใช้ได้หลายสนาม: ตัวนับนับถึงสนามที่ใกล้ที่สุด + หน้าขายโชว์ตารางทุกสนาม */}
+                                <div className="col-span-2 sm:col-span-3">
+                                    <label className="block text-sm font-medium kh-ink mb-1">กำหนดสอบหลายสนาม (ถ้าชุดนี้ใช้ได้หลายโรงเรียน)</label>
+                                    <textarea
+                                        className="kh-input w-full font-mono text-xs"
+                                        rows={5}
+                                        placeholder={"บรรทัดละ 1 สนาม:  ชื่อสนาม | วันเวลาสอบ | หมายเหตุ\nสาธิต มศว ประสานมิตร · Pre-Test ภาคปกติ | 2026-11-29 08:30\nสาธิต มศว ปทุมวัน | | รอประกาศ · ปีที่แล้วสอบกลาง ม.ค."}
+                                        value={form.examSchedule}
+                                        onChange={(e) => setForm({ ...form, examSchedule: e.target.value })}
+                                    />
+                                    <p className="text-xs kh-ink3 mt-1">กรอกช่องนี้แล้วจะใช้แทน “วันเวลาสอบ” ด้านบน · สนามที่ยังไม่ประกาศเว้นวันว่างไว้ · ไม่รู้เวลาใส่แค่วันได้ · เลยวันสอบแล้วสนามนั้นหายเอง</p>
                                 </div>
                             </div>
 

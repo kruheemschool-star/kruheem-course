@@ -470,7 +470,7 @@ export default function PaperDetailClient({
                         {paper.pageCount ? <span className="text-sm text-slate-400">· {paper.pageCount} หน้า</span> : null}
                     </div>
 
-                    {!paper.comingSoon && <PaperCountdown examDate={paper.examDate} examName={paper.examName} />}
+                    {!paper.comingSoon && <PaperCountdown examDate={paper.examDate} examName={paper.examName} examSchedule={paper.examSchedule} />}
 
                     {dupNotice && (
                         <div className="mt-5 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3.5">

@@ -264,7 +264,7 @@ function PaperCard({ paper: p }: { paper: ExamPaper }) {
         >
             {cover}
             {/* นับถอยหลังวันสอบของสนามชุดนี้ — แถบบางใต้ปก (แต่ละชุดสอบคนละวัน) */}
-            <PaperCountdownStrip examDate={p.examDate} examName={p.examName} />
+            <PaperCountdownStrip examDate={p.examDate} examName={p.examName} examSchedule={p.examSchedule} />
             <div className="p-4 flex flex-col flex-1">
                 {head}
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">

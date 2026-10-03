@@ -44,6 +44,7 @@ async function getPaper(id: string): Promise<PaperPageData | null> {
                 comingSoon: !!d.comingSoon,
                 examDate: (d.examDate as string) || "",
                 examName: (d.examName as string) || "",
+                examSchedule: Array.isArray(d.examSchedule) ? (d.examSchedule as ExamPaper["examSchedule"]) : undefined,
             },
             fileLabels,
         };
