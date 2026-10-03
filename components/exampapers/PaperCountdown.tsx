@@ -47,31 +47,28 @@ function split(left: number) {
     };
 }
 
-/** แถบเล็กบนรูปปกของการ์ดหน้าร้าน: ชื่อสนาม + วัน ชม. นาที วินาที
+/** แถบบางบรรทัดเดียวใต้รูปปกของการ์ดหน้าร้าน: ● ชื่อสนาม ........ 56 วัน 17:01:52
+ *  ครูฮีมดูของจริงแล้วบอกว่าแถบทับปกไม่สวย (2026-10-03) → ต่อท้ายขอบล่างของปก ไม่ทับรูป
  *  ใส่ชื่อสนามเสมอ — บางชุดนับถึง Pre-Test ไม่ใช่สนามจริง ห้ามให้อ่านเป็น "วันสอบ" เฉยๆ */
-export function PaperCountdownCover({ examDate, examName }: Props) {
+export function PaperCountdownStrip({ examDate, examName }: Props) {
     const now = useNow();
     const t = target(examDate);
     if (!Number.isFinite(t) || t <= now) return null;
     const { d, h, m, s } = split(t - now);
-    const cells: [string, string, boolean][] = [[String(d), "วัน", false], [pad(h), "ชม.", false], [pad(m), "นาที", false], [pad(s), "วิ", true]];
     return (
         <div
-            className="absolute inset-x-2.5 bottom-2.5 rounded-xl bg-slate-900/80 px-3 py-2 text-white shadow-[0_8px_20px_-10px_rgba(15,23,42,0.6)] backdrop-blur-sm"
+            className="flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 px-4 py-2 text-[12px]"
             title={`สอบ ${thaiDay(t, true)} เวลา ${thaiTime(t)} น.`}
         >
-            <div className="flex items-center gap-1.5 text-[10.5px] text-white/70">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-400" aria-hidden />
-                <span className="truncate">นับถอยหลัง {examName || "ถึงวันสอบ"}</span>
-            </div>
-            <div className="mt-0.5 flex items-baseline gap-2.5" aria-label={`เหลืออีก ${d} วัน ${h} ชั่วโมง ${m} นาที`}>
-                {cells.map(([n, unit, sec]) => (
-                    <span key={unit} className="flex items-baseline gap-0.5">
-                        <span suppressHydrationWarning className={`text-[17px] leading-tight font-black tabular-nums ${sec ? "text-rose-300" : ""}`}>{n}</span>
-                        <span className="text-[10px] text-white/55">{unit}</span>
-                    </span>
-                ))}
-            </div>
+            <span className="flex min-w-0 items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden />
+                <span className="truncate">{examName || "นับถอยหลังวันสอบ"}</span>
+            </span>
+            <span suppressHydrationWarning className="shrink-0 tabular-nums text-slate-600 dark:text-slate-300" aria-label={`เหลืออีก ${d} วัน ${h} ชั่วโมง ${m} นาที`}>
+                <span className="font-bold text-slate-900 dark:text-white">{d}</span> วัน{" "}
+                <span className="font-semibold">{pad(h)}:{pad(m)}:</span>
+                <span className="font-semibold text-rose-500 dark:text-rose-400">{pad(s)}</span>
+            </span>
         </div>
     );
 }
