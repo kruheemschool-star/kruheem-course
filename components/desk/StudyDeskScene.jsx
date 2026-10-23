@@ -2098,6 +2098,7 @@ class StudyDeskScene extends React.Component {
       toggleMute: () => { const m = !this.state.muted; this.setState({ muted: m }); try { localStorage.setItem('kh_desk_muted', m ? '1' : '0'); } catch (e) {} if (m) this.stopMusic(); else if (this.state.music) { this.ensureAudio(); setTimeout(() => this.startMusic(), 50); } if (!m) { this.ensureAudio(); setTimeout(() => this.sfx('pop'), 30); } }, heroRef: this.heroRef, dockRef: this.dockRef,
       noPanel: !p && !this.state.winView, panelOpen: !!p && this.state.panelVis === p,
       tipObj: hv ? hv.o : '', tipTitle: hv ? hv.t : '', tipDesc: desc(hv),
+      openCourses: () => this.openPanel('courses'),
       dock: this.MENU.filter(m => !m.noDock).map((m, i) => ({
         n: String(i + 1).padStart(2, '0'), t: m.t, on: this.state.hover === m.k, off: this.state.hover !== m.k,
         open: () => this.openPanel(m.k), enter: () => { this.dockHover = m.k; }, leave: () => { this.dockHover = null; }
@@ -2172,6 +2173,13 @@ class StudyDeskScene extends React.Component {
               <span>มีเด็กคนอื่นกำลัง</span>
               <span style={css(`padding-bottom:4px;background:var(--hl);-webkit-background-clip:text;background-clip:text;color:transparent`)}>ก้าวไปข้างหน้า</span>
             </h2>
+            {/* [แก้ 2026-10-23] คนเข้ามาครั้งแรกไม่รู้ว่าเว็บนี้ขายอะไร + ไม่มีปุ่มหลัก → บรรทัดบอกตัวตน + ปุ่ม "ดูคอร์สทั้งหมด" (เปิดแผงเดียวกับตั้งหนังสือ)
+                ข้อความหัวเรื่องยาวขึ้น → homePose วัดขอบล่างของกล่องนี้แล้วย่อ/เลื่อนโต๊ะลงให้เอง */}
+            <p style={css(`margin:0 0 14px;font-size:clamp(14px,1.15vw,17px);font-weight:600;line-height:1.6;color:var(--ink);text-wrap:balance`)}>คอร์สคณิตศาสตร์ออนไลน์ ป.4 – ม.6 โดยครูฮีม ประสบการณ์สอน 20 ปี</p>
+            <button type="button" onClick={v.openCourses} style={css(`pointer-events:auto;margin:0 0 14px;display:flex;align-items:center;gap:8px;padding:12px 24px;border:0;border-radius:999px;cursor:pointer;font-family:inherit;font-size:16px;font-weight:800;color:#0f172a;background:#fbbf24;box-shadow:0 4px 0 #d97706,0 14px 24px -12px rgba(15,23,42,.45)`)}>
+              ดูคอร์สทั้งหมด
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+            </button>
             <p style={css(`margin:0;display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;color:var(--muted)`)}>
               <span style={css(`width:8px;height:8px;border-radius:50%;background:#fbbf24;animation:khd-pulse 1.4s ease-in-out infinite`)}></span>แตะอุปกรณ์บนโต๊ะเพื่อเข้าสู่แต่ละเมนู
             </p>
