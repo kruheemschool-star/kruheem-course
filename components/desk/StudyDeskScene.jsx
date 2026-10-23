@@ -2075,7 +2075,7 @@ class StudyDeskScene extends React.Component {
       ...(() => {
         const w = this.state.vw || innerWidth, hh = this.state.vh || innerHeight, sheet = w < 640 || (w < 1024 && hh > w * 1.05), tiny = w < 400, small = w < 560;
         return {
-          isSheet: sheet, notTiny: !tiny, notSmall: !small,
+          isSheet: sheet, notTiny: !tiny, notSmall: !small, narrow: w < 360,
           hdTop: small ? '12px' : '18px', hdSide: small ? '12px' : '20px', dockBottom: small ? '10px' : '18px',
           asTop: sheet ? 'auto' : '84px', asRight: sheet ? '0px' : '16px', asBottom: sheet ? '0px' : '16px', asLeft: sheet ? '0px' : 'auto',
           asWidth: sheet ? 'auto' : 'min(460px,calc(100vw - 32px))', asRadius: sheet ? '28px 28px 0 0' : '30px',
@@ -2142,10 +2142,12 @@ class StudyDeskScene extends React.Component {
               <span style={css(`font-weight:700;font-size:10px;letter-spacing:.16em;color:var(--muted);margin-top:4px`)}>MATH SCHOOL</span>
             </div></>)}
           </a>
-          <div style={css(`pointer-events:auto;display:flex;align-items:center;gap:8px`)}>
-            <a href={v.classicUrl} onClick={v.goClassic} title="กลับไปใช้เว็บไซต์เวอร์ชันเดิม" style={css(`height:42px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 14px 0 12px;border-radius:999px;border:1px solid var(--chipline);background:var(--chip);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--chipInk);font-size:13px;font-weight:700;white-space:nowrap;transition:transform .2s`)} className="khd-h0">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
-              {v.notSmall && (<><span>เวอร์ชันคลาสสิก</span></>)}
+          {/* [แก้ 2026-10-23] มือถือ: ไอคอนสี่เหลี่ยมเดี่ยวๆ ดูเหมือนปุ่มเมนู กดแล้วหลุดไปเว็บเดิม → เขียนเป็นคำ "เว็บแบบเดิม" แทนไอคอน
+              (ยกเว้นบัญชีแอดมินบนจอเล็ก ที่ปุ่มแอดมินกินที่ — คงเป็นไอคอน) · และเอาปุ่มแจ้งโอนกลับมาบนมือถือ */}
+          <div style={css(`pointer-events:auto;display:flex;align-items:center;gap:${v.notSmall ? '8px' : '6px'}`)}>
+            <a href={v.classicUrl} onClick={v.goClassic} title="กลับไปใช้เว็บไซต์เวอร์ชันเดิม" aria-label="กลับไปใช้เว็บไซต์เวอร์ชันเดิม" style={css(`height:42px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:${v.notSmall ? '0 14px 0 12px' : (v.adminOn ? '0 12px' : (v.narrow ? '0 9px' : '0 11px'))};border-radius:999px;border:1px solid var(--chipline);background:var(--chip);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--chipInk);font-size:13px;font-weight:700;white-space:nowrap;transition:transform .2s`)} className="khd-h0">
+              {(v.notSmall || v.adminOn) && (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>)}
+              {v.notSmall ? (<span>เวอร์ชันคลาสสิก</span>) : (!v.adminOn && <span>{v.narrow ? 'เว็บเดิม' : 'เว็บแบบเดิม'}</span>)}
             </a>
             {/* [พอร์ต] ครูฮีมสั่งเอาปุ่มปิดเสียงกับปุ่มโหมดกลางคืน (ดวงจันทร์) ออกจากแถบบน ให้ดูสะอาด (2026-09-25)
                 — กลางคืนยังสลับได้ที่โคมไฟบนโต๊ะ · เพลงเปิด/ปิดที่วิทยุ */}
@@ -2155,8 +2157,8 @@ class StudyDeskScene extends React.Component {
               {v.adminPending && (<span style={css(`min-width:22px;height:22px;box-sizing:border-box;padding:0 6px;border-radius:999px;background:#dc2626;color:#fff;font-family:'Mitr',sans-serif;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(220,38,38,.45)`)}>{v.adminCount}</span>)}
               {v.adminPending && (<span aria-hidden="true" style={css(`position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:#ef4444;border:2px solid #fff`)}><span style={css(`position:absolute;inset:-2px;border-radius:50%;background:#ef4444;animation:khd-ping 1.6s cubic-bezier(0,0,.2,1) infinite`)}></span></span>)}
             </a>)}
-            {v.notSmall && (<><a href="/payment" style={css(`padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;color:var(--chipInk);background:var(--chip);border:1px solid var(--chipline);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)`)} className="khd-h3">แจ้งโอน</a></>)}
-            <a href={v.authHref} style={css(`visibility:${v.authVis};padding:11px 18px;border-radius:999px;font-size:14px;font-weight:700;color:#fff;background:#0f172a;box-shadow:0 4px 0 #334155`)} className="khd-h4">{v.authText}</a>
+            <a href="/payment" style={css(`padding:${v.notSmall ? '10px 16px' : (v.narrow ? '0 9px' : '0 11px') + ';height:42px;box-sizing:border-box;display:flex;align-items:center;white-space:nowrap'};border-radius:999px;font-size:${v.notSmall ? '14px' : '13px'};font-weight:${v.notSmall ? 600 : 700};color:var(--chipInk);background:var(--chip);border:1px solid var(--chipline);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)`)} className="khd-h3">แจ้งโอน</a>
+            <a href={v.authHref} style={css(`visibility:${v.authVis};padding:${v.notSmall ? '11px 18px' : (v.narrow ? '11px 12px' : '11px 14px')};white-space:nowrap;border-radius:999px;font-size:14px;font-weight:700;color:#fff;background:#0f172a;box-shadow:0 4px 0 #334155`)} className="khd-h4">{v.authText}</a>
           </div>
         </header>
         </>)}
