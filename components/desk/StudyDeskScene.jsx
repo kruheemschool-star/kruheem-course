@@ -96,7 +96,16 @@ class StudyDeskScene extends React.Component {
     removeEventListener('keydown', this.onKey); removeEventListener('resize', this.onResize);
     if (this.R) { this.R.dispose(); this.R.domElement.remove(); this.R = null; }
   }
+  // [แก้ 2026-10-23] แถบเมนูล่างยาวเกินจอ (มือถือเห็นแค่ 3 จาก 11) → บอกว่าปัดต่อได้: ขอบจาง + ปุ่มลูกศร
+  //   วัดใหม่ทุกครั้งที่หน้าวาดใหม่ (แถบถูกถอด/ใส่ตอนเปิดปิดแผง) · setState เฉพาะตอนค่าเปลี่ยน กันวนไม่จบ
+  dockScrollRef = React.createRef();
+  checkDock = () => {
+    const d = this.dockScrollRef.current; if (!d) return;
+    const more = d.scrollLeft + d.clientWidth < d.scrollWidth - 4, back = d.scrollLeft > 4;
+    if (more !== !!this.state.dockMore || back !== !!this.state.dockBack) this.setState({ dockMore: more, dockBack: back });
+  };
   componentDidUpdate(prev) {
+    this.checkDock();
     if (prev.deskTone !== this.props.deskTone && this.deskMat) [this.deskMat, this.deskMat2].forEach((m, i) => m.color.set(i ? this.mix(this.props.deskTone || '#74472a', '#000000', .18) : (this.props.deskTone || '#74472a')));
     if (prev.floorColor !== this.props.floorColor && this.floorMat) this.floorMat.color.set(this.props.floorColor || '#b9c3cf');
     if ((prev.showPromo !== this.props.showPromo || prev.promoText !== this.props.promoText) && this._lastHome) { this._roomKey = null; this.placeRoom(this._lastHome); }
@@ -2098,7 +2107,9 @@ class StudyDeskScene extends React.Component {
       toggleMute: () => { const m = !this.state.muted; this.setState({ muted: m }); try { localStorage.setItem('kh_desk_muted', m ? '1' : '0'); } catch (e) {} if (m) this.stopMusic(); else if (this.state.music) { this.ensureAudio(); setTimeout(() => this.startMusic(), 50); } if (!m) { this.ensureAudio(); setTimeout(() => this.sfx('pop'), 30); } }, heroRef: this.heroRef, dockRef: this.dockRef,
       noPanel: !p && !this.state.winView, panelOpen: !!p && this.state.panelVis === p,
       tipObj: hv ? hv.o : '', tipTitle: hv ? hv.t : '', tipDesc: desc(hv),
-      openCourses: () => this.openPanel('courses'),
+      dockScrollRef: this.dockScrollRef, onDockScroll: this.checkDock, dockMore: !!this.state.dockMore,
+      dockNext: () => { const d = this.dockScrollRef.current; if (d) d.scrollBy({ left: d.clientWidth * 0.7, behavior: this.reduced ? 'auto' : 'smooth' }); },
+      dockMask: (() => { const m = !!this.state.dockMore, b = !!this.state.dockBack; const g = m && b ? 'transparent,#000 36px,#000 calc(100% - 72px),transparent' : m ? '#000 calc(100% - 72px),transparent' : b ? 'transparent,#000 36px' : ''; return g ? `-webkit-mask-image:linear-gradient(to right,${g});mask-image:linear-gradient(to right,${g});` : ''; })(),
       dock: this.MENU.filter(m => !m.noDock).map((m, i) => ({
         n: String(i + 1).padStart(2, '0'), t: m.t, on: this.state.hover === m.k, off: this.state.hover !== m.k,
         open: () => this.openPanel(m.k), enter: () => { this.dockHover = m.k; }, leave: () => { this.dockHover = null; }
@@ -2201,7 +2212,8 @@ class StudyDeskScene extends React.Component {
       
         {v.noPanel && (<>
           <nav ref={v.dockRef} style={css(`position:absolute;left:clamp(8px,3vw,40px);right:clamp(8px,3vw,40px);bottom:${v.dockBottom};z-index:10;display:flex;justify-content:center;pointer-events:none;animation:khd-fade .9s .2s cubic-bezier(.2,.8,.2,1) both`)}>
-            <div className="khd-dock" style={css(`pointer-events:auto;display:flex;gap:4px;padding:6px;border-radius:999px;scrollbar-width:none;-webkit-overflow-scrolling:touch;background:var(--chip);border:1px solid var(--chipline);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 40px -20px rgba(15,23,42,.35);max-width:100%;overflow-x:auto`)}>
+            <div style={css(`position:relative;display:flex;max-width:100%;pointer-events:none`)}>
+            <div ref={v.dockScrollRef} onScroll={v.onDockScroll} className="khd-dock" style={css(`pointer-events:auto;display:flex;gap:4px;padding:6px;border-radius:999px;scrollbar-width:none;-webkit-overflow-scrolling:touch;background:var(--chip);border:1px solid var(--chipline);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 40px -20px rgba(15,23,42,.35);max-width:100%;overflow-x:auto;${v.dockMask}`)}>
               {v.dock.map((m, m_i) => (<React.Fragment key={m_i}>
                 {m.on && (<>
                   <button onClick={m.open} onMouseEnter={m.enter} onMouseLeave={m.leave} style={css(`flex:none;display:flex;align-items:center;gap:8px;padding:10px 16px;border:0;border-radius:999px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;color:#fff;background:#0f172a;white-space:nowrap`)}><span style={css(`font-size:11px;color:#5eead4`)}>{m.n}</span>{m.t}</button>
@@ -2210,6 +2222,10 @@ class StudyDeskScene extends React.Component {
                   <button onClick={m.open} onMouseEnter={m.enter} onMouseLeave={m.leave} style={css(`flex:none;display:flex;align-items:center;gap:8px;padding:10px 16px;border:0;border-radius:999px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;color:var(--chipInk);background:transparent;white-space:nowrap`)}><span style={css(`font-size:11px;color:var(--chipMuted)`)}>{m.n}</span>{m.t}</button>
                 </>)}
               </React.Fragment>))}
+            </div>
+            {v.dockMore && (<button type="button" onClick={v.dockNext} aria-label="ดูเมนูถัดไป" title="ปัดดูเมนูถัดไป" style={css(`pointer-events:auto;position:absolute;right:6px;top:50%;margin-top:-17px;width:34px;height:34px;padding:0;border:0;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;background:#0f172a;box-shadow:0 4px 12px -4px rgba(15,23,42,.5)`)}>
+              <svg className="khd-nudge" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="m9 6 6 6-6 6"></path></svg>
+            </button>)}
             </div>
           </nav>
         </>)}

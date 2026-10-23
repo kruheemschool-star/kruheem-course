@@ -50,5 +50,7 @@ html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;-webkit-
 @keyframes khd-bell{0%,100%{transform:rotate(0)}8%{transform:rotate(-18deg)}16%{transform:rotate(15deg)}24%{transform:rotate(-11deg)}32%{transform:rotate(7deg)}40%{transform:rotate(0)}}
 @keyframes khd-ping{0%{transform:scale(1);opacity:.75}100%{transform:scale(2.6);opacity:0}}
 .khd-bell{transform-origin:50% 12%;animation:khd-bell 3s ease-in-out infinite}
-@media (prefers-reduced-motion:reduce){.khd-bell{animation:none}}
+@keyframes khd-nudge{0%,100%{transform:none}50%{transform:translateX(3px)}}
+.khd-nudge{animation:khd-nudge 1.1s ease-in-out 1.2s 3}
+@media (prefers-reduced-motion:reduce){.khd-bell,.khd-nudge{animation:none}}
 `;
