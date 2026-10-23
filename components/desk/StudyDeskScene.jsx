@@ -96,6 +96,43 @@ class StudyDeskScene extends React.Component {
     removeEventListener('keydown', this.onKey); removeEventListener('resize', this.onResize);
     if (this.R) { this.R.dispose(); this.R.domElement.remove(); this.R = null; }
   }
+  // [แก้ 2026-10-23] มือถือไม่มีเมาส์ชี้ → ไม่เห็นป้ายชื่อว่าของชิ้นไหนพาไปเมนูอะไร (แก้วน้ำ = เรื่องของครูฮีม ฯลฯ)
+  //   เปิดหน้าครั้งแรกบนมือถือ: ป้ายชื่อทุกชิ้นที่มองเห็นโผล่ ~5 วิ แล้วจางหาย · ครั้งเดียวต่อเครื่อง (localStorage kh_desk_labels)
+  //   แตะของ/เปิดแผง/กล้องเริ่มเคลื่อน = ซ่อนทันที · ป้ายสร้างเป็น DOM เอง (ไม่ผ่าน setState) เพราะต้องย้ายตามกล้องทุกเฟรม
+  labelsRef = React.createRef();
+  stepLabels(t, active) {
+    const host = this.labelsRef.current; if (!host || this._lbl === null) return;
+    const T = this.T;
+    if (this._lbl === undefined) {
+      if (!this.compact || this.introOn || this.tw || t < 2.2 || active) return;
+      let seen = false; try { seen = localStorage.getItem('kh_desk_labels') === '1'; } catch (e) {}
+      if (seen) { this._lbl = null; return; }
+      try { localStorage.setItem('kh_desk_labels', '1'); } catch (e) {}
+      const vis = (g) => { let ok = false; g.traverse(n => { if (n.isMesh && (n.layers.mask & 1)) ok = true; }); return ok; };
+      const L = [];
+      for (const m of this.MENU) {
+        const it = this.items[this.fkey(m.k)]; if (!it || !it.g || !vis(it.g)) continue;
+        const el = document.createElement('div'); el.textContent = m.t;
+        el.style.cssText = 'position:absolute;left:0;top:0;padding:4px 10px;border-radius:999px;background:#0f172a;color:#fff;font-size:12px;font-weight:700;line-height:1.5;white-space:nowrap;box-shadow:0 6px 14px -6px rgba(15,23,42,.6);will-change:transform';
+        host.appendChild(el); L.push({ el, it, w: el.offsetWidth, h: el.offsetHeight });
+      }
+      this._lbl = { L, t0: t }; host.style.opacity = '1';
+    }
+    const S = this._lbl;
+    if (t - S.t0 > 5.5 || active || this.tw || this.state.drawer || this.state.gdrawer || this.winView) {
+      this._lbl = null; host.style.opacity = '0';
+      setTimeout(() => { S.L.forEach(o => o.el.remove()); }, 600);
+      return;
+    }
+    // วางป้ายเหนือของแต่ละชิ้น ถ้าชนป้ายที่วางไปแล้วให้เลื่อนลง (เรียงจากบนลงล่างก่อน ป้ายไม่กระโดดไปมา)
+    const W = innerWidth, P = S.L.map(o => { const v = new T.Vector3(o.it.x, (o.it.ay || 1) + 0.15, o.it.z).project(this.cam); return { o, x: Math.max(6, Math.min(W - o.w - 6, (v.x + 1) / 2 * W - o.w / 2)), y: (1 - v.y) / 2 * innerHeight - o.h - 4 }; });
+    P.sort((a, b) => a.y - b.y);
+    const done = [];
+    for (const p of P) {
+      for (let k = 0; k < 8; k++) { const hit = done.find(q => p.x < q.x + q.o.w + 3 && p.x + p.o.w + 3 > q.x && p.y < q.y + q.o.h + 3 && p.y + p.o.h + 3 > q.y); if (!hit) break; p.y = hit.y + hit.o.h + 3; }
+      done.push(p); p.o.el.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px)`;
+    }
+  }
   // [แก้ 2026-10-23] แถบเมนูล่างยาวเกินจอ (มือถือเห็นแค่ 3 จาก 11) → บอกว่าปัดต่อได้: ขอบจาง + ปุ่มลูกศร
   //   วัดใหม่ทุกครั้งที่หน้าวาดใหม่ (แถบถูกถอด/ใส่ตอนเปิดปิดแผง) · setState เฉพาะตอนค่าเปลี่ยน กันวนไม่จบ
   dockScrollRef = React.createRef();
@@ -2013,6 +2050,7 @@ class StudyDeskScene extends React.Component {
         tip.style.transform = `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) translate(-50%,${below ? '0' : '-100%'})`; tip.style.opacity = '1';
       } else tip.style.opacity = '0';
     }
+    this.stepLabels(t, active);
     const playing = active === 'mycourse';
     if (this.scrMat && playing !== this._playing) { this._playing = playing; this.vidT0 = t; this.scrMat.map = playing ? this.vidTex : (this.idleTex || this.tex.screen); this.scrMat.needsUpdate = true; this._if = 0; }
     if (!playing && this.idleX && (!this._if || (!this.reduced && t - this._if > 1 / 20))) { this._if = t || 1e-6; this.drawIdle(this.reduced ? 3 : t); this.idleTex.needsUpdate = true; } // [พอร์ต] จอตอนนิ่งเคลื่อนไหว
@@ -2107,7 +2145,7 @@ class StudyDeskScene extends React.Component {
       toggleMute: () => { const m = !this.state.muted; this.setState({ muted: m }); try { localStorage.setItem('kh_desk_muted', m ? '1' : '0'); } catch (e) {} if (m) this.stopMusic(); else if (this.state.music) { this.ensureAudio(); setTimeout(() => this.startMusic(), 50); } if (!m) { this.ensureAudio(); setTimeout(() => this.sfx('pop'), 30); } }, heroRef: this.heroRef, dockRef: this.dockRef,
       noPanel: !p && !this.state.winView, panelOpen: !!p && this.state.panelVis === p,
       tipObj: hv ? hv.o : '', tipTitle: hv ? hv.t : '', tipDesc: desc(hv),
-      dockScrollRef: this.dockScrollRef, onDockScroll: this.checkDock, dockMore: !!this.state.dockMore,
+      labelsRef: this.labelsRef, dockScrollRef: this.dockScrollRef, onDockScroll: this.checkDock, dockMore: !!this.state.dockMore,
       dockNext: () => { const d = this.dockScrollRef.current; if (d) d.scrollBy({ left: d.clientWidth * 0.7, behavior: this.reduced ? 'auto' : 'smooth' }); },
       dockMask: (() => { const m = !!this.state.dockMore, b = !!this.state.dockBack; const g = m && b ? 'transparent,#000 36px,#000 calc(100% - 72px),transparent' : m ? '#000 calc(100% - 72px),transparent' : b ? 'transparent,#000 36px' : ''; return g ? `-webkit-mask-image:linear-gradient(to right,${g});mask-image:linear-gradient(to right,${g});` : ''; })(),
       dock: this.MENU.filter(m => !m.noDock).map((m, i) => ({
@@ -2201,6 +2239,7 @@ class StudyDeskScene extends React.Component {
           <div style={css(`max-width:280px;white-space:nowrap;padding:9px 14px;border-radius:16px;background:#fff;color:#0f172a;font-size:14px;font-weight:600;line-height:1.5;box-shadow:0 14px 28px -12px rgba(15,23,42,.45);text-wrap:pretty`)}>{v.kruMsg}</div>
           <span style={css(`width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-right:9px solid #fff;margin-right:-1px`)}></span>
         </div>
+        <div ref={v.labelsRef} aria-hidden="true" style={css(`position:absolute;inset:0;z-index:14;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .5s`)}></div>
         <div ref={v.tipRef} style={css(`position:absolute;left:0;top:0;z-index:15;pointer-events:none;opacity:0;transition:opacity .25s;display:flex;flex-direction:column;align-items:center`)}>
           <div style={css(`display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 16px 11px;border-radius:16px;background:#0f172a;color:#fff;box-shadow:0 18px 36px -14px rgba(15,23,42,.6);white-space:nowrap`)}>
             <span style={css(`font-size:11px;font-weight:700;letter-spacing:.08em;color:#5eead4`)}>{v.tipObj}</span>
